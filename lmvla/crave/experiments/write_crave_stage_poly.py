@@ -22,8 +22,9 @@ REPO = Path(os.environ.get("REPO", "/vePFS/tim/workspace/deepdive_kai0"))
 SRC = REPO / "kai0/data/Task_A/kai0_base"
 OUT = REPO / "kai0/data/Task_A/self_built"
 MONO = "--mono" in sys.argv
-LAB = REPO / ("lmvla/crave/temp/crave_ae_labels/polyline_mono" if MONO else "lmvla/crave/temp/crave_ae_labels/polyline")
-DSNAME = "crave_stage_poly_mono" if MONO else "crave_stage_poly"
+LAB = Path(os.environ["LAB_DIR"]) if os.environ.get("LAB_DIR") else \
+    REPO / ("lmvla/crave/temp/crave_ae_labels/polyline_mono" if MONO else "lmvla/crave/temp/crave_ae_labels/polyline")
+DSNAME = os.environ.get("DSNAME") or ("crave_stage_poly_mono" if MONO else "crave_stage_poly")
 CSQ = 1000
 _STD = ["observation.state", "action", "timestamp", "frame_index", "episode_index", "index", "task_index"]
 
