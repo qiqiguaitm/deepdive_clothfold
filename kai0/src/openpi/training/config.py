@@ -551,6 +551,9 @@ class LeRobotLiberoLocalDataConfig(DataConfigFactory):
     # 且 lmwm_suite_order 与 domain_ids 顺序一致. A0 (无 hint) 留 None → 行为不变.
     lmwm_hint_path: str | None = None
     lmwm_suite_order: tuple = ("libero_10", "libero_goal", "libero_object", "libero_spatial")
+    # eval 用: 在线算的 hint 已在 obs["lmwm_hint"] 中(HintComputer), 只需 RepackTransform 保留它,
+    # 不做离线 (ep,frame) lookup. A1/A2 在线 eval config 设 True + lmwm_hint_path=None.
+    lmwm_hint_passthrough: bool = False
 
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
@@ -576,6 +579,9 @@ class LeRobotLiberoLocalDataConfig(DataConfigFactory):
                     hint_path=self.lmwm_hint_path, suite_order=self.lmwm_suite_order
                 )
             )
+        elif self.lmwm_hint_passthrough:
+            # 在线 eval: 保留外部注入的 obs["lmwm_hint"], 不做 lookup.
+            structure["lmwm_hint"] = "lmwm_hint"
         repack_inputs.append(_transforms.RepackTransform(structure))
         repack_transform = _transforms.Group(inputs=repack_inputs)
 
@@ -1304,6 +1310,37 @@ _CONFIGS = [
         num_workers=8, batch_size=128, fsdp_devices=8,
     ),
 
+    # ── A1/A2 在线 hint eval config (P3): model 同训练版, 但 lmwm_hint_passthrough=True + hint_path=None →
+    #   服务端不做离线 lookup, 保留 HintComputer 在线算并注入 obs["lmwm_hint"] 的 hint. 见 hint_online.py.
+    *[
+        TrainConfig(
+            name=_nm,
+            model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                       lmwm_hint_dim=_dim, lmwm_hint_len=1, lmwm_hint_target=_tgt),
+            data=LeRobotLiberoLocalDataConfig(
+                repo_id="libero_4suites",
+                datasets_yaml=_yaml,
+                base_config=DataConfig(prompt_from_task=True),
+                assets=AssetsConfig(asset_id="libero_4suites"),
+                lmwm_hint_path=None, lmwm_hint_passthrough=True,
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader(
+                "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+            ),
+            num_train_steps=30_000,
+        )
+        for _nm, _dim, _tgt, _yaml in [
+            ("pi05_libero_a1_prefix_eval", 768, "prefix", "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a1_suffix_eval", 768, "suffix", "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a2_prefix_eval", 1152, "prefix", "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a2_suffix_eval", 1152, "suffix", "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a1_prefix_eval_bj", 768, "prefix", "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+            ("pi05_libero_a1_suffix_eval_bj", 768, "suffix", "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+            ("pi05_libero_a2_prefix_eval_bj", 1152, "prefix", "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+            ("pi05_libero_a2_suffix_eval_bj", 1152, "suffix", "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+        ]
+    ],
+
     # AWBC Advantage Estimator (RECAP Stage 1, PyTorch) — registered so eval.py / eval_adv_est.py can
     # get_config() to rebuild the model arch for the trained ckpt
     # kai0/checkpoints/ADVANTAGE_TORCH_KAI0_FLATTEN_FOLD/adv_est_v1 (metadata: pi05 / gemma_2b /
@@ -1434,6 +1471,24 @@ _CONFIGS = [
         batch_size=144,
         num_workers=24,
     ),
+    # A线 A/B(2026-07-23): 与 CRAVE_POLY 唯一差别 = 标签来源(So400m-mean@30Hz v1读出, corr 0.909 vs polyline 0.948)
+    TrainConfig(
+        name="ADVANTAGE_TORCH_SO400M",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/so400m_stage",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
 
     # CRAVE-KAI-AE mono 消融变体 (crave_polyline_kai_ae_retrain_plan §3/§8.3): = ADVANTAGE_TORCH_CRAVE_POLY
     # 唯一改 repo_id → crave_stage_poly_mono (cummax 单调标签, 只进不退). 作 raw-vs-mono 对照:
@@ -1456,13 +1511,20 @@ _CONFIGS = [
         num_workers=24,
     ),
 
-    # ===== ⚠️ 已弃用: CRAVE polyline value-only configs (loss_action=0) — 2026-07-14 确诊 dead-value =====
-    # 根因: value-only (loss_action_weight=0.0) 让 Gemma-2B backbone 无视觉监督 → 输出常数 ≈0.
-    # 老 AE-C (ADVANTAGE_TORCH_KAI0_FLATTEN_FOLD) 是 JAX 多任务(action+value)训的, 所以能用(value-vs-GT corr=0.93).
-    # 见 config.py:1061 ADVANTAGE_TORCH_VIS_AWBC_MT (前人已诊断并预留了修法: loss_action_weight 0.0→1.0).
-    # 修法 = ADVANTAGE_TORCH_CRAVE_POLY_MT / _MONO_MT (下方), 唯一改动 loss_action_weight=1.0.
-    # 原 POLY / POLY_MONO 的 ckpt (mono 50k + raw 20k 在训) 已确认 dead, 不可用于 downstream.
-    # 详细诊断见 crave_polyline_kai_ae_retrain_plan.md §0a.
+    # ===== ❌❌ 以下诊断已被实验推翻 (2026-07-19), 保留仅作历史记录, 勿再据此改 config =====
+    # 【错误的旧结论】"根因: value-only (loss_action_weight=0.0) 让 Gemma-2B backbone 无视觉监督 → 输出常数 ≈0.
+    #   老 AE-C 是 JAX 多任务训的所以能用(corr=0.93). 修法 = loss_action_weight 0.0→1.0 (CRAVE_POLY_MT/_MONO_MT)."
+    #
+    # ⭐【实测真相 — 方向完全反了】同口径 eval (eval_value_quick.py seed42 同12ep):
+    #   ADVANTAGE_TORCH_KAI0_HUMAN_MT        (loss_action=1.0) → Spearman 0.019  ❌ dead(平线)
+    #   ADVANTAGE_TORCH_CRAVE_POLY_MT        (loss_action=1.0) → Spearman 0.031  ❌ dead(常数)
+    #   ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY (loss_action=0.0) → Spearman 0.800  ✅ 单调爬升
+    #   唯一变量 = loss_action_weight。**value head 必须 value-only 训 (loss_action=0.0)**; 加 action 多任务会训死它。
+    #   老 AE-C (adv_est_v1, corr 0.93) 其实也是 PyTorch **value-only** 训的(git d2d81ed 原始 FLATTEN_FOLD 配置),
+    #   不是 JAX 多任务 —— JAX 侧 pi0.py 根本没有 value head。
+    # → 因此 _MT 系列 (CRAVE_POLY_MT / CRAVE_POLY_MONO_MT / KAI0_HUMAN_MT) **全部作废, 勿用其 ckpt**;
+    #   用 CRAVE 标签重训 AE 请用 value-only (照 ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY 的 loss 配置)。
+    # 详见 memory project_pytorch_ae_deadvalue_not_code_regression + crave_polyline_kai_ae_retrain_plan.md §8.7.4.
 
     # ===== CRAVE polyline × multi-task AE (action+value) — dead-value 修法 (2026-07-14) =====
     # 克隆 ADVANTAGE_TORCH_CRAVE_POLY, 唯一改动: loss_action_weight 0.0→1.0 (加回 action flow-matching 辅助任务,
@@ -1486,6 +1548,76 @@ _CONFIGS = [
         save_interval=10_000,
         batch_size=144,
         num_workers=24,
+    ),
+
+    # ===== 人工标签 baseline 对照臂 (crave_value_dagger_validation / 严格受控对照, 2026-07-15) =====
+    # 目的: 证明 CRAVE polyline 标签 vs 人工标签的 value 细致度. 与 ADVANTAGE_TORCH_CRAVE_POLY_MT
+    # **逐字段完全相同** (同 AdvantageEstimatorConfig / loss_action=1.0 / loss_value=1.0 / pi05_base init /
+    # 50k / bs144), 唯一变量 = repo_id: kai0_advantage(人工 stage_progress_gt, 接近线性时间)
+    # vs crave_stage_poly(CRAVE polyline, 视觉驱动非线性). 两者 norm_stats 完全一致(同底座 kai0_base).
+    # ⭐ 锚点意义: 若此 baseline 能训出 value corr 高(复现 AE-C 0.93) → 证明 pipeline 正确, CRAVE 若差=标签问题;
+    #   若此 baseline 也 dead → 是这套 PyTorch config 的问题, 非 CRAVE 数据, 需先修 config.
+    TrainConfig(
+        name="ADVANTAGE_TORCH_KAI0_HUMAN_MT",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=1.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_advantage",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+
+    # ===== ⭐ 复现原始 adv_est_v1 配方: value-only 人工标签 (2026-07-17) =====
+    # 从训练记录(gf2_advantage_awbc_plan + git d2d81ed FLATTEN_FOLD)反查: 正常 adv_est_v1 (corr 0.93,
+    # 官方 absolute_value 列对比) 是 **value-only** 训的 —— loss_action_weight=0.0/loss_value_weight=1.0,
+    # discrete_state_input=False, 数据 data/Task_A/advantage(=kai0_advantage, 3055ep/3.36M), 100k, bs144。
+    # ⚠️ 推翻当前 lore(config.py:1174 称"value-only→dead, 多任务修"): 事实 value-only 能训 0.93, 多任务
+    # HUMAN_MT(1/1) 反而 dead。本 config = 唯一变量 vs ADVANTAGE_TORCH_KAI0_HUMAN_MT: loss_action 1.0→0.0
+    # (回到原始 value-only)。数据/init/step/bs 逐字段同 HUMAN_MT。50k(用户定, 部署够用)。
+    TrainConfig(
+        name="ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,   # ⭐ 原始 value-only (唯一变量 vs HUMAN_MT)
+            discrete_state_input=False,                      # 忠实复现原始 adv_est_v1 (PyTorch 无用, 存档一致)
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_advantage",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000, save_interval=10_000, batch_size=144, num_workers=24,
+    ),
+
+    # ===== ⭐ CRAVE value-only 对照臂 (2026-07-19) — 本 plan 的原始问题终于可答 =====
+    # 前提: §8.7.4 已证 value head 必须 value-only(loss_action=0.0) 才活 (人工基线 Spearman 0.800)。
+    # 本 config = 克隆 ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY, **唯一变量 = repo_id**:
+    #   kai0_advantage(人工 stage_progress_gt, 近线性时间) vs crave_stage_poly(CRAVE polyline, 视觉驱动非线性)。
+    # 两者 norm_stats 完全一致(同底座 kai0_base), loss/init/step/bs 逐字段同 → 严格单变量。
+    # 判据: CRAVE 的 Spearman/frame_discrimination 若 ≥ 人工 0.800/0.150 → CRAVE 标签带来同等或更细致的 value 信息。
+    TrainConfig(
+        name="ADVANTAGE_TORCH_CRAVE_POLY_VALUEONLY",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,   # value-only (同人工基线)
+            discrete_state_input=False,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/crave_stage_poly",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000, save_interval=10_000, batch_size=144, num_workers=24,
     ),
 
     # CRAVE polyline mono × multi-task AE — raw-vs-mono 对照 (MT 版)
@@ -2657,6 +2789,145 @@ _CONFIGS = [
         num_workers=16,
         batch_size=128,
         fsdp_devices=8,
+    ),
+
+    # CRAVE value 打标 × chunk-001 dagger 验证(crave_value_dagger_validation_plan §6.5).
+    # 新 chunk-001 dagger(拼接完整 ep, 不裁, CRAVE GRU stage_progress_gt→discretize top30%→task_index).
+    # vs launchtrim(已证不冻): 新格式 dagger 天然干净→不裁也天然不冻? 唯一变量=dagger 格式+标签来源.
+    # ⚠️ 此 config 用 cnsh 路径; 数据 build 在 gf3 完成后需 cp 到 cnsh vePFS 或直接在 cnsh 可访问位置 build.
+    TrainConfig(
+        name="pi05_v4_awbc_chunk001_dagger_crave",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_dagger_crave_labeled",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=256,
+        fsdp_devices=16,
+    ),
+
+    # marker 打标版: 以 pi05_v4_awbc_chunk001_dagger_crave(_labeled, 部署OK) 为基础, 唯一变量=repo_id→标签规则.
+    # 死循环根因: _dprog 的速度门控把抓取(臂静止+夹爪合拢)误标 negative(见 velocity_gate_kills_grasp 记忆).
+    # 本版不用臂速门控/不裁: 改动1 保留 intervention/dagger_frame_class 标记; 改动2 打标规则 positive⟺人在控制
+    # (base 全 positive=人遥操示范; dagger intervention=1 positive=人控纠错含抓取; intervention=0 negative=机器人自主失败).
+    # 人控帧不看臂速一律 positive → 抓取天然保住, 治死循环。其余(init pi05_base/bs256/fsdp16/50k)逐字段同 _labeled.
+    TrainConfig(
+        name="pi05_v4_awbc_chunk001_dagger_crave_human",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_dagger_crave_human",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=256,
+        fsdp_devices=16,
+    ),
+
+    # ⭐ 修复版: chunk-001 dagger 标签重现冻结的修复(dagger_launchpoint_trim_freeze_fix_plan §9).
+    # 原 `_chunk001_dagger_crave` 的 advantage≡progress(corr1.0)→top30%=高进度静止 settle 标 positive→冻结.
+    # 修: advantage=Δprogress(spg[t+50]-spg[t]) + 速度门控(臂动才可 positive)→static-positive=0% + launchtrim 裁 dagger 边界.
+    # 数据 build_chunk001_dagger_crave_dprog_launchtrim.py 产出; 逐字段同上, 唯一变量=repo_id(标签/裁剪).
+    TrainConfig(
+        name="pi05_v4_awbc_chunk001_dagger_crave_dprog",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_dagger_crave_dprog_launchtrim",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=256,
+        fsdp_devices=16,
+    ),
+
+    # ===== AWBC 三范式对比 (awbc_three_paradigm_comparison_plan) — North-E 路径, JAX 8卡 =====
+    # 共享: chunk-001(387base+387dagger), pi05_base init, 无DCT, bs128, fsdp8, 50k, cosine1.5e-5→1.5e-6, ema0.9999.
+    # 唯一变量 = 优势/class 信号以何种机制进训练。数据由 enrich_chunk001_three_paradigm.py 产 (North-E 原生构建后)。
+    # A1 COND: 条件化 — task_index=intervention(pos={base,intv}人控 / neg={robot,preintv}机器人), prompt_from_task。
+    TrainConfig(
+        name="pi05_v4_awbc_3para_cond",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_3para_human",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999, num_train_steps=50_000, keep_period=10_000, save_interval=10_000,
+        num_workers=16, batch_size=128, fsdp_devices=8,
+    ),
+
+    # A2 WEIGHT: ②损失加权 — per-frame loss × sample_weight{base1,robot1,intv2,preintv0}; 中性 prompt。
+    #   唯一变量 vs A1 = 优势进"梯度"而非"prompt"; class2(preintv) 梯度=0, class1(抓取) 双权。
+    TrainConfig(
+        name="pi05_v4_awbc_3para_weight",
+        model=pi0_config.Pi0Config(pi05=True, awbc_loss_weight=True),   # ⭐ 开 loss 加权 (读 sample_weight 列)
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_3para_cls",
+            default_prompt="Flatten and fold the cloth.",   # 中性 (无 advantage)
+            base_config=DataConfig(prompt_from_task=False),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999, num_train_steps=50_000, keep_period=10_000, save_interval=10_000,
+        num_workers=16, batch_size=128, fsdp_devices=8,
+    ),
+
+    # A3 RESAMPLE: ③采样加权 — 帧级加权采样 domain_sample_weights{robot0:1,intv1:2,preintv2:0,base3:1};
+    #   task_index=重映射class 走现成 _DomainWeightedJAXSampler(零新代码); class2 采样率0=等效丢弃; 中性 prompt。
+    #   唯一变量 vs A2 = 优势进"采样频率"而非"梯度"(H2: 期望与 A2 等价)。
+    TrainConfig(
+        name="pi05_v4_awbc_3para_resample",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_3para_cls",
+            default_prompt="Flatten and fold the cloth.",
+            base_config=DataConfig(prompt_from_task=False, domain_sample_weights={0: 1, 1: 2, 2: 0, 3: 1}),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999, num_train_steps=50_000, keep_period=10_000, save_interval=10_000,
+        num_workers=16, batch_size=128, fsdp_devices=8,
     ),
 
     # VLANeXt #12 频域 DCT loss (vlanext_dct_then_soft_connection_plan.md Step 1): 与 pi05_v4_awbc 逐字段一致,
