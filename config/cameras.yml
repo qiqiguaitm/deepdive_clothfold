@@ -15,6 +15,23 @@ cameras:
     ros2_topic_color: /camera_f/camera_f/color/image_raw
     ros2_topic_depth: /camera_f/camera_f/depth/image_rect_raw
 
+  # 第二路头部相机, 走 camera_m namespace, 只录 RGB → observation.images.mid_head/.
+  # 2026-07-10 起由 WHEELTEC C100 (UVC, Microdia 0c45:636b) 替换原 D435I:
+  #   - 不再走 realsense2_camera; 由 start_scripts/kai/uvc_camera_node.py 读 UVC 发布,
+  #     发布 topic / 编码(rgb8) 与原 D435I 完全一致 → ros_bridge/recorder 无感 (drop-in)。
+  #   - 设备走稳定符号链接 /dev/cam_mid_head (config/99-wheeltec-cam.rules), 免疫换口/换号。
+  #   - UVC 无 depth; mid_head depth 本就关 (camera_depth_flags.py: mid_head=False)。
+  #   - 回退原 D435I: 起 launch 时设 MID_HEAD_UVC=0。
+  mid_head:
+    model: WHEELTEC C100 (UVC)
+    usb_vid_pid: "0c45:636b"
+    device: /dev/cam_mid_head
+    role: 中部/第二路头部相机
+    resolution: 640x480
+    fps: 30
+    ros2_topic_color: /camera_m/camera_m/color/image_raw
+    ros2_topic_depth: /camera_m/camera_m/depth/image_rect_raw   # UVC 无 depth, 仅占位 (未订阅)
+
   # 此文件描述硬件 *能力* — 是否真的使用 depth 流由 config/camera_depth_flags.py
   # 里的宏定义 (ENABLE_DEPTH_*) 控制. 想停用某相机的 depth 处理, 改宏即可,
   # 不必删 topic.

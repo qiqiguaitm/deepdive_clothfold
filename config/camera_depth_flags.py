@@ -31,12 +31,14 @@ Why D405 wrist depth is currently off:
 
 # ── Macros: edit these to enable/disable each camera's depth path ──────
 ENABLE_DEPTH_TOP_HEAD: bool = True   # D435 (top/俯视全局)
+ENABLE_DEPTH_MID_HEAD: bool = False  # D435I (第二路头部) — 只录 RGB, 省带宽/存储
 ENABLE_DEPTH_HAND_LEFT: bool = False  # D405 (左手腕)
 ENABLE_DEPTH_HAND_RIGHT: bool = False  # D405 (右手腕)
 
 # ── Derived helpers (do not edit; computed from the macros above) ──────
 CAMERA_DEPTH_ENABLED: dict[str, bool] = {
     "top_head": ENABLE_DEPTH_TOP_HEAD,
+    "mid_head": ENABLE_DEPTH_MID_HEAD,
     "hand_left": ENABLE_DEPTH_HAND_LEFT,
     "hand_right": ENABLE_DEPTH_HAND_RIGHT,
 }

@@ -25,14 +25,22 @@ set -uo pipefail   # 注意: 故意不开 -e, rename 单步失败要继续诊断
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-YAML="$PROJECT_ROOT/config/dongle_serials.yml"
+PROFILE_SH="$PROJECT_ROOT/config/device_profile.sh"
+if [[ -f "$PROFILE_SH" ]]; then
+    # shellcheck disable=SC1090
+    source "$PROFILE_SH"
+    load_kai0_device_profile "$PROJECT_ROOT"
+fi
+YAML="${KAI0_DEVICE_PROFILE_PATH:-$PROJECT_ROOT/config/dongle_serials.yml}"
 BITRATE=1000000
 DRY_RUN=false
+SLAVE_ONLY=false
 
 while (( $# )); do
     case "$1" in
         --bitrate) shift; BITRATE="$1" ;;
         --dry-run) DRY_RUN=true ;;
+        --slave-only) SLAVE_ONLY=true ;;
         -h|--help) sed -n '1,21p' "$0"; exit 0 ;;
         *) echo "[FAIL] 未知参数: $1"; exit 1 ;;
     esac
@@ -52,8 +60,15 @@ while IFS= read -r line; do
     val="${line#*:}"
     key="${key// }"
     val="$(echo "$val" | sed -E "s/^[[:space:]]*'?//; s/'?[[:space:]]*$//")"
-    [[ -n "$key" && -n "$val" ]] && WANT_SERIAL["$key"]="$val"
+    [[ "$key" =~ ^can_(left|right)_(slave|mas)$ ]] \
+        && [[ -n "$val" ]] && WANT_SERIAL["$key"]="$val"
 done < "$YAML"
+
+if $SLAVE_ONLY; then
+    for key in "${!WANT_SERIAL[@]}"; do
+        [[ "$key" == *_slave ]] || unset 'WANT_SERIAL[$key]'
+    done
+fi
 
 if [[ "${#WANT_SERIAL[@]}" -lt 1 ]]; then
     echo "[FAIL] $YAML 里没有任何角色条目 — 先跑 setup_can_v2.sh"

@@ -49,17 +49,20 @@ export const api = {
     Object.entries(q).forEach(([k, v]) => v != null && v !== "" && usp.set(k, v));
     return req<EpisodeMeta[]>(`/api/episodes?${usp}`);
   },
-  delEpisode: (task: string, subset: string, ep: number) =>
-    req<{ deleted: boolean }>(`/api/episodes/${task}/${subset}/${ep}`, { method: "DELETE" }),
-  videoUrl: (task: string, subset: string, ep: number, cam: string) =>
-    `/api/episodes/${task}/${subset}/${ep}/video/${cam}`,
+  delEpisode: (task: string, subset: string, ep: number, chunk = "chunk-000") =>
+    req<{ deleted: boolean }>(
+      `/api/episodes/${task}/${subset}/${ep}?chunk=${encodeURIComponent(chunk)}`,
+      { method: "DELETE" },
+    ),
+  videoUrl: (task: string, subset: string, ep: number, cam: string, chunk = "chunk-000") =>
+    `/api/episodes/${task}/${subset}/${ep}/video/${cam}?chunk=${encodeURIComponent(chunk)}`,
   // 深度: 一帧一张 PNG (后端 JET 上色), 前端按视频时间戳 → frame_index 拉
   depthFrameUrl: (task: string, subset: string, ep: number, cam: string,
-                  frame: number, minMm = 200, maxMm = 2000) =>
-    `/api/episodes/${task}/${subset}/${ep}/depth/${cam}/frame/${frame}?min_mm=${minMm}&max_mm=${maxMm}`,
-  depthInfo: (task: string, subset: string, ep: number, cam: string) =>
+                  frame: number, minMm = 200, maxMm = 2000, chunk = "chunk-000") =>
+    `/api/episodes/${task}/${subset}/${ep}/depth/${cam}/frame/${frame}?min_mm=${minMm}&max_mm=${maxMm}&chunk=${encodeURIComponent(chunk)}`,
+  depthInfo: (task: string, subset: string, ep: number, cam: string, chunk = "chunk-000") =>
     req<{ frames: number; height: number; width: number }>(
-      `/api/episodes/${task}/${subset}/${ep}/depth/${cam}/info`),
+      `/api/episodes/${task}/${subset}/${ep}/depth/${cam}/info?chunk=${encodeURIComponent(chunk)}`),
 
   joints: () => req<JointState>(`/api/joints`),
 };

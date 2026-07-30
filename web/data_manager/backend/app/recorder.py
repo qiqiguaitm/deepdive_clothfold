@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from .config import DATA_ROOT
+from .config import DATA_ROOT, DATASET_CHUNK, DATASET_CHUNK_DIR
 from .dataset_writer import (
     CAMERAS,
     DEPTH_CAMERAS,
@@ -114,13 +114,16 @@ class Recorder:
             # 必须传 *已带日期* 的目录名 (与磁盘上 _task_subset_root 一致),
             # 否则 next_episode_id 在 DB / 目录里都查不到匹配, 永远返回 0,
             # 每次保存都用 episode_000000.* 覆盖前一条 (这就是历史 bug 的来源).
-            self.episode_id = stats.next_episode_id(dated_task_name(tpl.task_id), tpl.subset)
+            self.episode_id = stats.next_episode_id(
+                dated_task_name(tpl.task_id), tpl.subset, DATASET_CHUNK
+            )
             self.started_at = time.time()
             self.error = None
             try:
                 self._writer = _EpisodeWriter(
                     task=tpl.task_id, subset=tpl.subset, ep=self.episode_id,
                     prompt=tpl.prompt, template_id=tpl.id, operator=req.operator,
+                    chunk=DATASET_CHUNK,
                 )
             except Exception as e:
                 self._reset()
@@ -173,12 +176,12 @@ class Recorder:
         if task and subset and ep_id is not None:
             # task 只是裸名 ('Task_A'); 新 episode 刚写到 new_task_subset_root 下面,
             # upsert_one 需要真实 parquet 路径。
-            pq_path = new_task_subset_root(task, subset) / "data" / "chunk-000" / f"episode_{ep_id:06d}.parquet"
+            pq_path = new_task_subset_root(task, subset) / "data" / DATASET_CHUNK_DIR / f"episode_{ep_id:06d}.parquet"
             stats.upsert_one(pq_path)
             # post-save 异步单 episode 推送: 只 rsync 该 ep 的 parquet/mp4/zarr + meta,
             # 用 --files-from 跳过全树 stat, 即使 subset 已有 10k+ 文件也几秒完成.
             today = datetime.date.today().strftime("%Y-%m-%d")
-            sync_episode_files(task, today, subset, ep_id)
+            sync_episode_files(task, today, subset, ep_id, chunk=DATASET_CHUNK)
         return {"saved_episode_id": ep_id, "task_id": task, "subset": subset}
 
     def toggle(self, snapshot_fn) -> dict:

@@ -1,0 +1,22 @@
+# Device-local hardware role mapping.
+# Selected automatically when `hostname -s` is ipc01.  Copy this file to
+# <other-hostname>.yml and replace only the physical IDs for another station.
+machine_id: ipc01
+dataset_chunk: 0
+
+# gs_usb adapter iSerial -> canonical arm role (same semantics as
+# dongle_serials.yml; missing master entries are valid for slave-only stations).
+can_left_slave: "004100484148570C20343133"
+can_right_slave: "002E003B4148571320343133"
+
+# RealSense devices are selected by immutable serial, never /dev/videoN order.
+camera_top_head_serial: "254622070889"
+camera_hand_left_serial: "409122273074"
+camera_hand_right_serial: "409122271568"
+
+# Optional auxiliary head camera. type=uvc uses the stable udev symlink;
+# type=realsense uses camera_mid_head_serial instead; enabled=0 disables it.
+camera_mid_head_enabled: 1
+camera_mid_head_type: uvc
+camera_mid_head_device: /dev/cam_mid_head
+camera_mid_head_serial: "254522074228"

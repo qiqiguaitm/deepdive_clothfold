@@ -115,7 +115,11 @@ def _load_depth_flags() -> tuple[str, ...]:
     return cams
 
 
-CAMERAS = ("top_head", "mid_head", "hand_left", "hand_right")
+CAMERAS = (
+    ("top_head", "mid_head", "hand_left", "hand_right")
+    if os.environ.get("KAI0_ENABLE_MID_HEAD", "1") == "1"
+    else ("top_head", "hand_left", "hand_right")
+)
 DEPTH_CAMERAS = _load_depth_flags()
 FPS = 30
 WIDTH = 640
@@ -873,9 +877,22 @@ def write_episode_meta(writer: EpisodeWriter, duration: float,
     meta_dir = writer.root / "meta"
     meta_dir.mkdir(parents=True, exist_ok=True)
     if eef_recording_enabled():
-        write_modality_json(writer.root)
+        modality_path = write_modality_json(writer.root)
+        # eef_kinematics also serves older callers and describes the superset of
+        # camera modalities.  For a no-mid run, make this episode root's schema
+        # match the videos actually produced instead of advertising a missing
+        # observation.images.mid_head stream.
+        if "mid_head" not in CAMERAS:
+            modality = json.loads(modality_path.read_text(encoding="utf-8"))
+            modality.get("video", {}).pop("mid_head", None)
+            modality_path.write_text(
+                json.dumps(modality, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
     rec = {
         "episode_id": writer.ep,
+        "episode_chunk": writer.chunk,
+        "chunk": f"chunk-{writer.chunk:03d}",
         "length": writer.frame_count,
         "duration_s": round(duration, 3),
         "operator": writer.operator,
@@ -938,7 +955,7 @@ def update_info_json(task: str | None, subset: str | None) -> None:
         "total_frames": total_frames,
         "total_tasks": 1,
         "total_videos": total_ep * len(CAMERAS),
-        "total_chunks": 1,
+        "total_chunks": len(list((root / "data").glob("chunk-*"))) if (root / "data").exists() else 1,
         "chunks_size": 1000,
         "fps": FPS,
         "splits": {"train": f"0:{total_ep}"},

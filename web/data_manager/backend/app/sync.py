@@ -111,7 +111,12 @@ def _current_bwlimit_kbps() -> int:
 BWLIMIT_KBPS: int = _current_bwlimit_kbps()
 # CAMERAS 和 recorder.py 对齐; 单 episode 同步用它构造文件列表。
 # mid_head (第二路头部 D435I, 2026-07-08) 必须在此, 否则新相机视频不会被 rsync 上传。
-_CAMERAS = ("top_head", "mid_head", "hand_left", "hand_right")
+_CAMERAS = (
+    ("top_head", "mid_head", "hand_left", "hand_right")
+    if os.environ.get("KAI0_ENABLE_MID_HEAD", "1") == "1"
+    else ("top_head", "hand_left", "hand_right")
+)
+_DATASET_CHUNK = int(os.environ.get("KAI0_DATASET_CHUNK", "0"))
 
 
 def _load_depth_cameras() -> tuple[str, ...]:
@@ -211,25 +216,26 @@ def _rsync_cmd(src: Path, remote: Remote, task: str, subset: str) -> list[str]:
     return cmd
 
 
-def _episode_rel_paths(episode_id: int) -> list[str]:
+def _episode_rel_paths(episode_id: int, chunk: int | None = None) -> list[str]:
     """列出单条 episode 相对 subset_root 的所有文件 / 目录路径。
     目录路径末尾带 /, rsync 会递归进去 (zarr chunks)。"""
     eid = f"episode_{episode_id:06d}"
+    cdir = f"chunk-{_DATASET_CHUNK if chunk is None else int(chunk):03d}"
     paths = [
-        f"data/chunk-000/{eid}.parquet",
+        f"data/{cdir}/{eid}.parquet",
         # meta 整组小文件, 直接列整条
         "meta/episodes.jsonl",
         "meta/info.json",
         "meta/tasks.jsonl",
     ]
     for cam in _CAMERAS:
-        paths.append(f"videos/chunk-000/{cam}/{eid}.mp4")
+        paths.append(f"videos/{cdir}/observation.images.{cam}/{eid}.mp4")
     for cam in _DEPTH_CAMERAS:
         # New format = single `.zarr.zip` file; legacy = `.zarr/` dir (trailing /
         # → rsync recurses). List both; rsync skips whichever is absent (the
         # already-handled "vanished" exit-24 case).
-        paths.append(f"videos/chunk-000/{cam}_depth/{eid}.zarr.zip")
-        paths.append(f"videos/chunk-000/{cam}_depth/{eid}.zarr/")
+        paths.append(f"videos/{cdir}/observation.depth.{cam}/{eid}.zarr.zip")
+        paths.append(f"videos/{cdir}/observation.depth.{cam}/{eid}.zarr/")
     return paths
 
 
@@ -659,13 +665,19 @@ def _worker_episode(src_date: Path, task: str, date: str, subset: str,
 
 
 # ----------------------------- public API ---------------------------------
-def sync_episode_files(task: str, date: str, subset: str, episode_id: int) -> None:
+def sync_episode_files(task: str, date: str, subset: str, episode_id: int,
+                       chunk: int | None = None) -> None:
     """recorder.save() 应当调这个 (单 episode, O(1) 开销).
 
     只推这一条 episode 相关的 ~10 个文件/目录 (parquet + 3 mp4 + 3 zarr + meta),
     用 rsync --files-from= 跳过全树 stat。对 10k+ 文件的 subset 关键: 每次 save 仅
     几秒就完成, 不再因为扫描慢触发 timeout.
     """
+    if chunk is not None and int(chunk) != _DATASET_CHUNK:
+        _sync_log.warning(
+            "requested chunk-%03d differs from backend chunk-%03d; using requested value",
+            int(chunk), _DATASET_CHUNK,
+        )
     if not ENABLED:
         return
     if not REMOTES:

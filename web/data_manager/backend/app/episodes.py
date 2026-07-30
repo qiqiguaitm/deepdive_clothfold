@@ -34,26 +34,34 @@ def _subset_join(task_id: str, subset: str, *tail: str) -> Path:
     return full
 
 
-def _camera_video_path(base: Path, cam: str, ep: int) -> Path:
+def _chunk_name(chunk: str) -> str:
+    if not re.fullmatch(r"chunk-\d{3,}", chunk):
+        raise HTTPException(status_code=400, detail="invalid chunk")
+    return chunk
+
+
+def _camera_video_path(base: Path, cam: str, ep: int, chunk: str = "chunk-000") -> Path:
     """Resolve video for a camera, trying both `observation.images.<cam>` (v4+
     compliant layout) and bare `<cam>` (v3 legacy). Returns the first hit."""
     name = f"episode_{ep:06d}.mp4"
-    p = base / "videos" / "chunk-000" / f"observation.images.{cam}" / name
+    cdir = _chunk_name(chunk)
+    p = base / "videos" / cdir / f"observation.images.{cam}" / name
     if p.exists():
         return p
-    return base / "videos" / "chunk-000" / cam / name
+    return base / "videos" / cdir / cam / name
 
 
-def _camera_depth_path(base: Path, cam: str, ep: int) -> Path:
+def _camera_depth_path(base: Path, cam: str, ep: int, chunk: str = "chunk-000") -> Path:
     """Resolve depth zarr, trying `observation.depth.<cam>` then `<cam>_depth`."""
     name_zarr = f"episode_{ep:06d}.zarr"
     name_zip = name_zarr + ".zip"
     name_mkv = f"episode_{ep:06d}.mkv"
     # zarr directory
-    p = base / "videos" / "chunk-000" / f"observation.depth.{cam}" / name_zarr
+    cdir = _chunk_name(chunk)
+    p = base / "videos" / cdir / f"observation.depth.{cam}" / name_zarr
     if p.exists():
         return p
-    q = base / "videos" / "chunk-000" / f"{cam}_depth" / name_zarr
+    q = base / "videos" / cdir / f"{cam}_depth" / name_zarr
     if q.exists():
         return q
     # zarr.zip (packed)
@@ -73,24 +81,27 @@ def _camera_depth_path(base: Path, cam: str, ep: int) -> Path:
     return q  # fallback (caller 404s)
 
 
-def episode_video_path(task_id: str, subset: str, episode_id: int, camera: str) -> Path:
+def episode_video_path(task_id: str, subset: str, episode_id: int, camera: str,
+                       chunk: str = "chunk-000") -> Path:
     if camera not in ("top_head", "mid_head", "hand_left", "hand_right"):
         raise HTTPException(status_code=400, detail="unknown camera")
     base = compound_to_subset_root(task_id, subset)
-    return _camera_video_path(base, camera, episode_id)
+    return _camera_video_path(base, camera, episode_id, chunk)
 
 
-def episode_depth_zarr_path(task_id: str, subset: str, episode_id: int, camera: str) -> Path:
+def episode_depth_zarr_path(task_id: str, subset: str, episode_id: int, camera: str,
+                            chunk: str = "chunk-000") -> Path:
     # 新录制只为 D435 头顶相机生成 depth zarr (见 recorder.DEPTH_CAMERAS);
     # hand_left / hand_right 仅为兼容历史数据保留可达路径, 新数据下这两个 cam
     # 走到 main.py 的 file_exists 检查即返回 404, 不会泄露其他目录.
     if camera not in ("top_head", "mid_head", "hand_left", "hand_right"):
         raise HTTPException(status_code=400, detail="unknown camera")
     base = compound_to_subset_root(task_id, subset)
-    return _camera_depth_path(base, camera, episode_id)
+    return _camera_depth_path(base, camera, episode_id, chunk)
 
 
-def episode_meta(task_id: str, subset: str, episode_id: int) -> dict:
+def episode_meta(task_id: str, subset: str, episode_id: int,
+                 chunk: str = "chunk-000") -> dict:
     fp = _subset_join(task_id, subset, "meta", "episodes.jsonl")
     if not fp.exists():
         raise HTTPException(status_code=404, detail="meta not found")
@@ -99,22 +110,25 @@ def episode_meta(task_id: str, subset: str, episode_id: int) -> dict:
             d = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if int(d.get("episode_id", -1)) == episode_id:
+        if (int(d.get("episode_id", -1)) == episode_id
+                and str(d.get("chunk", "chunk-000")) == _chunk_name(chunk)):
             return d
     raise HTTPException(status_code=404, detail="episode not found")
 
 
-def delete_episode(task_id: str, subset: str, episode_id: int) -> None:
+def delete_episode(task_id: str, subset: str, episode_id: int,
+                   chunk: str = "chunk-000") -> None:
     import shutil
     base = compound_to_subset_root(task_id, subset)
-    pq = base / "data" / "chunk-000" / f"episode_{episode_id:06d}.parquet"
+    cdir = _chunk_name(chunk)
+    pq = base / "data" / cdir / f"episode_{episode_id:06d}.parquet"
     if pq.exists():
         pq.unlink()
     for cam in ("top_head", "mid_head", "hand_left", "hand_right"):
-        for v in _candidate_video_paths(base, cam, episode_id):
+        for v in _candidate_video_paths(base, cam, episode_id, cdir):
             if v.exists():
                 v.unlink()
-        for zd in _candidate_depth_paths(base, cam, episode_id):
+        for zd in _candidate_depth_paths(base, cam, episode_id, cdir):
             if zd.exists():
                 if zd.suffix == ".zarr" and zd.is_dir():
                     shutil.rmtree(zd, ignore_errors=True)
@@ -127,7 +141,8 @@ def delete_episode(task_id: str, subset: str, episode_id: int) -> None:
         for line in meta_fp.read_text(encoding="utf-8").splitlines():
             try:
                 d = json.loads(line)
-                if int(d.get("episode_id", -1)) == episode_id:
+                if (int(d.get("episode_id", -1)) == episode_id
+                        and str(d.get("chunk", "chunk-000")) == cdir):
                     continue
             except json.JSONDecodeError:
                 pass
@@ -136,23 +151,25 @@ def delete_episode(task_id: str, subset: str, episode_id: int) -> None:
     stats.remove_by_path(pq)
 
 
-def _candidate_video_paths(base: Path, cam: str, ep: int) -> list[Path]:
+def _candidate_video_paths(base: Path, cam: str, ep: int,
+                           chunk: str = "chunk-000") -> list[Path]:
     name = f"episode_{ep:06d}.mp4"
     return [
-        base / "videos" / "chunk-000" / f"observation.images.{cam}" / name,
-        base / "videos" / "chunk-000" / cam / name,
+        base / "videos" / chunk / f"observation.images.{cam}" / name,
+        base / "videos" / chunk / cam / name,
     ]
 
 
-def _candidate_depth_paths(base: Path, cam: str, ep: int) -> list[Path]:
+def _candidate_depth_paths(base: Path, cam: str, ep: int,
+                           chunk: str = "chunk-000") -> list[Path]:
     stem, zarr_n = f"episode_{ep:06d}", f"episode_{ep:06d}.zarr"
     return [
-        base / "videos" / "chunk-000" / f"observation.depth.{cam}" / zarr_n,
-        base / "videos" / "chunk-000" / f"observation.depth.{cam}" / (stem + ".zarr.zip"),
-        base / "videos" / "chunk-000" / f"observation.depth.{cam}" / (stem + ".mkv"),
-        base / "videos" / "chunk-000" / f"{cam}_depth" / zarr_n,
-        base / "videos" / "chunk-000" / f"{cam}_depth" / (stem + ".zarr.zip"),
-        base / "videos" / "chunk-000" / f"{cam}_depth" / (stem + ".mkv"),
+        base / "videos" / chunk / f"observation.depth.{cam}" / zarr_n,
+        base / "videos" / chunk / f"observation.depth.{cam}" / (stem + ".zarr.zip"),
+        base / "videos" / chunk / f"observation.depth.{cam}" / (stem + ".mkv"),
+        base / "videos" / chunk / f"{cam}_depth" / zarr_n,
+        base / "videos" / chunk / f"{cam}_depth" / (stem + ".zarr.zip"),
+        base / "videos" / chunk / f"{cam}_depth" / (stem + ".mkv"),
     ]
     # 同步从 meta 中删除该条
     meta_fp = _subset_join(task_id, subset, "meta", "episodes.jsonl")

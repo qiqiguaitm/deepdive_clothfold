@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import threading
@@ -19,7 +20,11 @@ from .config import DATA_ROOT, STATS_DB_PATH
 from .layout import compound_to_subset_root, glob_all_episodes, path_to_compound
 from .models import EpisodeMeta, StatsBucket, StatsResponse
 
-CAMERAS = ("top_head", "mid_head", "hand_left", "hand_right")
+CAMERAS = (
+    ("top_head", "mid_head", "hand_left", "hand_right")
+    if os.environ.get("KAI0_ENABLE_MID_HEAD", "1") == "1"
+    else ("top_head", "hand_left", "hand_right")
+)
 EPISODE_RE = re.compile(r"episode_(\d+)\.parquet$")
 
 
@@ -61,10 +66,10 @@ def _expected_depths(task_id: str, subset: str, chunk: str, ep_id: int) -> dict[
     return {cam: base / f"observation.depth.{cam}" / f"episode_{ep_id:06d}.zarr" for cam in CAMERAS}
 
 
-def _read_meta_lookup(task_id: str, subset: str) -> dict[int, dict]:
-    """读 meta/episodes.jsonl，返回 episode_id -> meta dict。"""
+def _read_meta_lookup(task_id: str, subset: str) -> dict[tuple[str, int], dict]:
+    """Read metadata keyed by (chunk, episode_id), with chunk-000 fallback."""
     fp = compound_to_subset_root(task_id, subset) / "meta" / "episodes.jsonl"
-    out: dict[int, dict] = {}
+    out: dict[tuple[str, int], dict] = {}
     if not fp.exists():
         return out
     try:
@@ -77,7 +82,8 @@ def _read_meta_lookup(task_id: str, subset: str) -> dict[int, dict]:
             except json.JSONDecodeError:
                 continue
             if "episode_id" in d:
-                out[int(d["episode_id"])] = d
+                chunk = str(d.get("chunk", "chunk-000"))
+                out[(chunk, int(d["episode_id"]))] = d
     except OSError:
         pass
     return out
@@ -118,7 +124,7 @@ class StatsService:
     def full_rescan(self) -> int:
         DATA_ROOT.mkdir(parents=True, exist_ok=True)
         rows: list[tuple] = []
-        meta_cache: dict[tuple[str, str], dict[int, dict]] = {}
+        meta_cache: dict[tuple[str, str], dict[tuple[str, int], dict]] = {}
         # glob_all_episodes 同时覆盖老扁平 (TASK_DATE/SUB/...) 和新层级 (TASK/DATE/SUB/...)
         for parquet in glob_all_episodes():
             info = _parse_episode_path(parquet)
@@ -136,7 +142,7 @@ class StatsService:
                 (info["task_id"], info["subset"]),
                 _read_meta_lookup(info["task_id"], info["subset"]),
             )
-            m = mc.get(info["episode_id"], {})
+            m = mc.get((info["chunk"], info["episode_id"]), {})
             rows.append(
                 (
                     key,
@@ -177,7 +183,9 @@ class StatsService:
             created = parquet.stat().st_mtime
         except OSError:
             return False
-        m = _read_meta_lookup(info["task_id"], info["subset"]).get(info["episode_id"], {})
+        m = _read_meta_lookup(info["task_id"], info["subset"]).get(
+            (info["chunk"], info["episode_id"]), {}
+        )
         with self._lock:
             self._db.execute(
                 "INSERT OR REPLACE INTO episodes VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -270,7 +278,8 @@ class StatsService:
         for r in rows:
             (key, task, sub, ep, pq, size, dur, op, prompt, ok, created, inc, inc_r, vjson) = r
             out.append(EpisodeMeta(
-                episode_id=ep, task_id=task, subset=sub, prompt=prompt or "",
+                episode_id=ep, chunk=Path(pq).parent.name,
+                task_id=task, subset=sub, prompt=prompt or "",
                 operator=op or "", success=bool(ok), note="",
                 duration_s=float(dur), size_bytes=int(size), created_at=float(created),
                 parquet_path=pq, video_paths=json.loads(vjson),
@@ -278,12 +287,16 @@ class StatsService:
             ))
         return out
 
-    def next_episode_id(self, task_dir: str, subset: str) -> int:
+    def next_episode_id(self, task_dir: str, subset: str, chunk: int = 0) -> int:
         """直接扫盘目录下已存在的 episode_NNNNNN.parquet, 返回 max+1。
 
         task_dir 必须是 compound (带日期) 形式, e.g. 'Task_A_2026-04-16';
         走 layout.compound_to_subset_root 解析到真实磁盘路径 (新层级或老扁平都可)."""
-        parquet_dir = compound_to_subset_root(task_dir, subset) / "data" / "chunk-000"
+        parquet_dir = (
+            compound_to_subset_root(task_dir, subset)
+            / "data"
+            / f"chunk-{int(chunk):03d}"
+        )
         max_id = -1
         if parquet_dir.is_dir():
             for p in parquet_dir.glob("episode_*.parquet"):

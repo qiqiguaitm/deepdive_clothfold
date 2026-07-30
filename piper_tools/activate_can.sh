@@ -23,6 +23,12 @@ if [[ -f "$PROFILE_SH" ]]; then
     # shellcheck disable=SC1090
     source "$PROFILE_SH"
 fi
+DEVICE_PROFILE_SH="$PROJECT_ROOT/config/device_profile.sh"
+if [[ -f "$DEVICE_PROFILE_SH" ]]; then
+    # shellcheck disable=SC1090
+    source "$DEVICE_PROFILE_SH"
+    load_kai0_device_profile "$PROJECT_ROOT"
+fi
 
 if [[ $(id -u) -eq 0 ]]; then
     SUDO=""
@@ -115,12 +121,14 @@ fi
 # 按 dongle 序列号激活, 对 USB 物理口顺序/机器差异免疫。bus-info 静态表 (下方) 易因换
 # USB 口或换机器而失配 (例: visrobot01 的 1-x ≠ 本机 ipc01 的 3-2.2.x → 全 SKIP→DOWN)。
 # --two-can (visrobot02 左右共享 CAN) 不是 4-dongle 拓扑, 不委托, 仍走下方 bus-info。
-DONGLE_YAML="$PROJECT_ROOT/config/dongle_serials.yml"
+DONGLE_YAML="${KAI0_DEVICE_PROFILE_PATH:-$PROJECT_ROOT/config/dongle_serials.yml}"
 if ! $TWO_CAN && [[ -f "$DONGLE_YAML" ]] \
    && [[ "$(grep -cE '^[[:space:]]*can_[a-z_]+:' "$DONGLE_YAML")" -ge 1 ]] \
    && [[ -x "$SCRIPT_DIR/activate_can_v2.sh" ]]; then
     echo "[activate_can] 检测到序列号校准 ($DONGLE_YAML) → 委托 activate_can_v2.sh (USB 口免疫)"
-    exec bash "$SCRIPT_DIR/activate_can_v2.sh"
+    V2_ARGS=()
+    $SLAVE_ONLY && V2_ARGS+=(--slave-only)
+    exec bash "$SCRIPT_DIR/activate_can_v2.sh" "${V2_ARGS[@]}"
 fi
 
 echo "=============================="

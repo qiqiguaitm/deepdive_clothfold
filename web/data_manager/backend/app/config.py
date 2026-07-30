@@ -18,3 +18,11 @@ TEMPLATES_PATH = Path(
 STATS_DB_PATH = Path(os.environ.get("KAI0_STATS_DB", BACKEND_DIR / "stats.sqlite3")).resolve()
 
 STATUS_BROADCAST_HZ = 2.0
+
+try:
+    DATASET_CHUNK = int(os.environ.get("KAI0_DATASET_CHUNK", "0"))
+except ValueError as exc:
+    raise RuntimeError("KAI0_DATASET_CHUNK must be a non-negative integer") from exc
+if DATASET_CHUNK < 0:
+    raise RuntimeError("KAI0_DATASET_CHUNK must be a non-negative integer")
+DATASET_CHUNK_DIR = f"chunk-{DATASET_CHUNK:03d}"

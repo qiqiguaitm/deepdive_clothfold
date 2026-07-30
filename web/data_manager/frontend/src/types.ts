@@ -35,6 +35,8 @@ export interface StatusPayload {
   cameras: Record<string, CameraHealth>;
   recorder: RecorderSnap;
   next_episode_id: number | null;
+  machine_id: string;
+  dataset_chunk: string;
   stats_total: number;
   stats_today: number;
   disk_free_gb: number;
@@ -71,6 +73,7 @@ export interface StatsResponse {
 
 export interface EpisodeMeta {
   episode_id: number;
+  chunk: string;
   task_id: string;
   subset: string;
   prompt: string;

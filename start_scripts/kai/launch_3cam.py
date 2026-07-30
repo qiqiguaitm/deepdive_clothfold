@@ -1,9 +1,13 @@
 """
-Launch 3 RealSense cameras via ROS2 realsense2_camera nodes.
+Launch 4 RealSense cameras via ROS2 realsense2_camera nodes.
 
-  D435 (top)    → namespace: camera_f  | RGB 640x480   + Depth 640x480  @ 15fps
+  D435  (top)   → namespace: camera_f  | RGB 640x480   + Depth 640x480  @ 15fps
+  D435I (mid)   → namespace: camera_m  | RGB 640x480   (+Depth gated by macro, off)
   D405-A (left) → namespace: camera_l  | RGB 640x480   (+Depth gated by macro)
   D405-B (right)→ namespace: camera_r  | RGB 640x480   (+Depth gated by macro)
+
+  (Filename kept as launch_3cam.py for the run.sh/CLAUDE.md reference; it now
+   brings up 4 nodes — camera_m is the second head cam added 2026-07-08.)
 
   Per-camera depth on/off comes from config/camera_depth_flags.py
   (ENABLE_DEPTH_TOP_HEAD / _HAND_LEFT / _HAND_RIGHT). Wrist depth is
@@ -23,9 +27,35 @@ import os
 from pathlib import Path
 
 from launch import LaunchDescription
+from launch.actions import ExecuteProcess
 from launch_ros.actions import Node
 
 _DEFAULT_FPS = int(os.environ.get('CAM_FPS', '30'))
+
+# mid_head 相机来源: '1' (默认) = WHEELTEC C100 UVC 摄像头 (uvc_camera_node.py,
+# 走稳定 /dev/cam_mid_head); '0' = 回退原 D435I RealSense。发布 topic 一致, 下游无感。
+_MID_HEAD_UVC = os.environ.get('MID_HEAD_UVC', '1') == '1'
+# start_data_collect.sh auto-detects this.  It may also be set explicitly for
+# direct ros2 launch use.  Disabled means no camera_m process is spawned.
+_ENABLE_MID_HEAD = os.environ.get('KAI0_ENABLE_MID_HEAD', '1') == '1'
+_MID_HEAD_DEVICE = os.environ.get('KAI0_CAMERA_MID_HEAD_DEVICE', '/dev/cam_mid_head')
+_SERIAL_TOP = os.environ.get('KAI0_CAMERA_TOP_HEAD_SERIAL', '254622070889')
+_SERIAL_LEFT = os.environ.get('KAI0_CAMERA_HAND_LEFT_SERIAL', '409122273074')
+_SERIAL_RIGHT = os.environ.get('KAI0_CAMERA_HAND_RIGHT_SERIAL', '409122271568')
+_SERIAL_MID = os.environ.get('KAI0_CAMERA_MID_HEAD_SERIAL', '254522074228')
+
+
+def make_uvc_mid_head_node(width=640, height=480, fps=_DEFAULT_FPS):
+    """把 WHEELTEC UVC 相机作为 mid_head 发布到 /camera_m/color/image_raw,
+    drop-in 替换 D435I。device 默认稳定符号链接 /dev/cam_mid_head。"""
+    script = str(Path(__file__).resolve().parent / 'uvc_camera_node.py')
+    return ExecuteProcess(
+        cmd=['python3', script, '--ros-args',
+             '-p', f'device:={_MID_HEAD_DEVICE}',
+             '-p', 'ns:=/camera_m',
+             '-p', f'width:={width}', '-p', f'height:={height}', '-p', f'fps:={fps}'],
+        output='screen',
+    )
 
 
 def _load_depth_enabled_map() -> dict:
@@ -91,22 +121,37 @@ def make_camera_node(name, namespace, serial,
 def generate_launch_description():
     cam_f = make_camera_node(
         name='camera_f', namespace='',
-        serial='254622070889',
+        serial=_SERIAL_TOP,
         rgb_w=640, rgb_h=480, depth_w=640, depth_h=480,
         enable_depth=_DEPTH_ENABLED_MAP.get('top_head', False),
     )
+    cam_m = None
+    if _ENABLE_MID_HEAD and _MID_HEAD_UVC:
+        # WHEELTEC C100 UVC 摄像头替换 D435I 作为 mid_head (2026-07-10)
+        cam_m = make_uvc_mid_head_node(width=640, height=480)
+    elif _ENABLE_MID_HEAD:
+        cam_m = make_camera_node(
+            name='camera_m', namespace='',
+            serial=_SERIAL_MID,
+            rgb_w=640, rgb_h=480, depth_w=640, depth_h=480,
+            # D435I: dedicated RGB module like D435 (is_d405=False → color on image_raw)
+            enable_depth=_DEPTH_ENABLED_MAP.get('mid_head', False),
+        )
     cam_l = make_camera_node(
         name='camera_l', namespace='',
-        serial='409122273074',
+        serial=_SERIAL_LEFT,
         rgb_w=640, rgb_h=480, depth_w=640, depth_h=480,
         is_d405=True,
         enable_depth=_DEPTH_ENABLED_MAP.get('hand_left', False),
     )
     cam_r = make_camera_node(
         name='camera_r', namespace='',
-        serial='409122271568',
+        serial=_SERIAL_RIGHT,
         rgb_w=640, rgb_h=480, depth_w=640, depth_h=480,
         is_d405=True,
         enable_depth=_DEPTH_ENABLED_MAP.get('hand_right', False),
     )
-    return LaunchDescription([cam_f, cam_l, cam_r])
+    nodes = [cam_f, cam_l, cam_r]
+    if cam_m is not None:
+        nodes.insert(1, cam_m)
+    return LaunchDescription(nodes)

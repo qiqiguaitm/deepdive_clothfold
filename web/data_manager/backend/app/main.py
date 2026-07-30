@@ -203,14 +203,16 @@ def list_episodes(
 
 
 @app.get("/api/episodes/{task_id}/{subset}/{episode_id}/meta")
-def get_episode_meta(task_id: str, subset: str, episode_id: int):
-    return episode_meta(task_id, subset, episode_id)
+def get_episode_meta(task_id: str, subset: str, episode_id: int,
+                     chunk: str = Query("chunk-000")):
+    return episode_meta(task_id, subset, episode_id, chunk)
 
 
 @app.get("/api/episodes/{task_id}/{subset}/{episode_id}/video/{camera}")
 def get_episode_video(task_id: str, subset: str, episode_id: int, camera: str,
-                      raw: bool = Query(False, description="1=返回原始 AV1 mp4；默认转码为 H.264 以便浏览器直接播放")):
-    p = episode_video_path(task_id, subset, episode_id, camera)
+                      raw: bool = Query(False, description="1=返回原始 AV1 mp4；默认转码为 H.264 以便浏览器直接播放"),
+                      chunk: str = Query("chunk-000")):
+    p = episode_video_path(task_id, subset, episode_id, camera, chunk)
     if not p.exists():
         raise HTTPException(status_code=404, detail="video missing")
     if raw:
@@ -298,11 +300,12 @@ _DEPTH_CACHE_MAX = 4
 _DEPTH_CACHE_LOCK = _threading.Lock()
 
 
-def _open_depth_cached(task_id: str, subset: str, episode_id: int, camera: str):
+def _open_depth_cached(task_id: str, subset: str, episode_id: int, camera: str,
+                       chunk: str = "chunk-000"):
     """Return a read-only zarr array for the episode's depth, or None if absent.
     Handles both new `.zarr.zip` and legacy `.zarr/` dir; caches the opened
     (extracted) array across requests."""
-    base = episode_depth_zarr_path(task_id, subset, episode_id, camera)
+    base = episode_depth_zarr_path(task_id, subset, episode_id, camera, chunk)
     art = resolve_depth_artifact(base)
     if art is None:
         return None
@@ -333,9 +336,10 @@ def _cleanup_depth_cache():
 
 
 @app.get("/api/episodes/{task_id}/{subset}/{episode_id}/depth/{camera}/info")
-def get_episode_depth_info(task_id: str, subset: str, episode_id: int, camera: str):
+def get_episode_depth_info(task_id: str, subset: str, episode_id: int, camera: str,
+                           chunk: str = Query("chunk-000")):
     """返回 depth zarr 的形状, 供前端按 frame_index 拖动。"""
-    z = _open_depth_cached(task_id, subset, episode_id, camera)
+    z = _open_depth_cached(task_id, subset, episode_id, camera, chunk)
     if z is None:
         raise HTTPException(status_code=404, detail="depth zarr missing")
     return {"frames": int(z.shape[0]), "height": int(z.shape[1]), "width": int(z.shape[2])}
@@ -346,11 +350,12 @@ def get_episode_depth_frame(
     task_id: str, subset: str, episode_id: int, camera: str, frame_index: int,
     min_mm: int = Query(200, description="depth 下限 mm, 此值映射到 LUT 索引 0"),
     max_mm: int = Query(2000, description="depth 上限 mm, 此值映射到 LUT 索引 255"),
+    chunk: str = Query("chunk-000"),
 ):
     """读 depth zarr 的第 N 帧, JET 上色, 返回 PNG。
     min_mm/max_mm 让前端可调节窗位 (常见 0.2m – 2m 桌面工作距离)."""
     global _JET_LUT
-    z = _open_depth_cached(task_id, subset, episode_id, camera)
+    z = _open_depth_cached(task_id, subset, episode_id, camera, chunk)
     if z is None:
         raise HTTPException(status_code=404, detail="depth zarr missing")
     n = int(z.shape[0])
@@ -377,8 +382,10 @@ def get_episode_depth_frame(
 
 
 @app.delete("/api/episodes/{task_id}/{subset}/{episode_id}")
-def del_episode(task_id: str, subset: str, episode_id: int, _: Role = Depends(require_admin)):
-    delete_episode(task_id, subset, episode_id)
+def del_episode(task_id: str, subset: str, episode_id: int,
+                chunk: str = Query("chunk-000"),
+                _: Role = Depends(require_admin)):
+    delete_episode(task_id, subset, episode_id, chunk)
     return {"deleted": True}
 
 

@@ -17,7 +17,8 @@ export function collectFailures(status: StatusPayload): string[] {
   if (!status.health.can_right) f.push("CAN-R");
   if (!status.health.teleop) f.push("Teleop");
   const cams = status.cameras || {};
-  const expected = ["top_head", "mid_head", "hand_left", "hand_right"] as const;
+  // mid_head is optional; loss of it must not block start/toggle recording.
+  const expected = ["top_head", "hand_left", "hand_right"] as const;
   const camLabel: Record<string, string> = { top_head: "俯视相机", mid_head: "中部相机", hand_left: "左手相机", hand_right: "右手相机" };
   for (const c of expected) {
     const s = cams[c];
@@ -76,7 +77,9 @@ export function StatusBar({ status, role, operator, connected }: Props) {
     );
   }
   const r = status.recorder;
-  const camCount = Object.keys(status.cameras).length;
+  const requiredCams = ["top_head", "hand_left", "hand_right"];
+  const requiredCamCount = requiredCams.filter(c => (status.cameras[c]?.fps ?? 0) > 0).length;
+  const midLive = (status.cameras.mid_head?.fps ?? 0) > 0;
   const recLight =
     r.state === "RECORDING" ? <span className="seg light rec"><span className="dot rec"></span>● REC {r.elapsed_s.toFixed(1)}s</span>
     : r.state === "SAVING" ? <span className="seg light ok"><span className="dot ok"></span>SAVING…</span>
@@ -93,6 +96,7 @@ export function StatusBar({ status, role, operator, connected }: Props) {
         {recLight}
         <span className="seg">任务: <b>{r.task_id || "—"}/{r.subset || "—"}</b></span>
         <span className="seg">Episode #: <b>{status.next_episode_id ?? r.episode_id ?? "—"}</b></span>
+        <span className="seg">设备: <b>{status.machine_id}/{status.dataset_chunk}</b></span>
       </div>
     );
   }
@@ -104,12 +108,14 @@ export function StatusBar({ status, role, operator, connected }: Props) {
       <Light ok={status.health.ros2} label="ROS2" />
       <Light ok={status.health.can_left} label="CAN-L" />
       <Light ok={status.health.can_right} label="CAN-R" />
-      <Light ok={camCount === 4} label={`相机 ${camCount}/4`} />
+      <Light ok={requiredCamCount === 3} label={`必需相机 ${requiredCamCount}/3`} />
+      <span className="seg">mid: <b>{midLive ? "在线" : "可选/缺失"}</b></span>
       <Light ok={status.health.teleop} label="Teleop" />
       <span className="seg divider">|</span>
       {recLight}
       <span className="seg">任务: <b>{r.task_id || "—"}/{r.subset || "—"}</b></span>
       <span className="seg">Episode #: <b>{status.next_episode_id ?? r.episode_id ?? "—"}</b></span>
+      <span className="seg">设备: <b>{status.machine_id}/{status.dataset_chunk}</b></span>
       <span className="seg">磁盘: <b>{status.disk_free_gb} GB</b></span>
       <span className="seg">写入: <b>{status.write_mbps} MB/s</b></span>
       <span className="spacer" style={{ flex: 1 }}></span>

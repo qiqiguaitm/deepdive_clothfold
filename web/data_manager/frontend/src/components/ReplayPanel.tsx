@@ -44,7 +44,7 @@ export function ReplayPanel({ ep, role, onCloned, onDeleted }: Props) {
     lastFrameRef.current = { hand_left: -1, top_head: -1, hand_right: -1 };
     Promise.all(CAMS.map(async cam => {
       try {
-        const info = await api.depthInfo(ep.task_id, ep.subset, ep.episode_id, cam);
+        const info = await api.depthInfo(ep.task_id, ep.subset, ep.episode_id, cam, ep.chunk);
         return [cam, info] as const;
       } catch {
         return [cam, null] as const;
@@ -69,7 +69,7 @@ export function ReplayPanel({ ep, role, onCloned, onDeleted }: Props) {
     const idx = Math.min(info.frames - 1, Math.max(0, Math.floor((v.currentTime / total) * info.frames)));
     if (idx === lastFrameRef.current[cam]) return;
     lastFrameRef.current[cam] = idx;
-    img.src = api.depthFrameUrl(ep.task_id, ep.subset, ep.episode_id, cam, idx, minMm, maxMm);
+    img.src = api.depthFrameUrl(ep.task_id, ep.subset, ep.episode_id, cam, idx, minMm, maxMm, ep.chunk);
   };
 
   useEffect(() => {
@@ -87,13 +87,13 @@ export function ReplayPanel({ ep, role, onCloned, onDeleted }: Props) {
 
   return (
     <div className="panel area-replay">
-      <h3>回放: {ep.task_id}/{ep.subset} #{ep.episode_id} · {ep.duration_s.toFixed(1)}s · {ep.success ? "成功" : "失败"}</h3>
+      <h3>回放: {ep.task_id}/{ep.subset}/{ep.chunk} #{ep.episode_id} · {ep.duration_s.toFixed(1)}s · {ep.success ? "成功" : "失败"}</h3>
       <div style={{ marginBottom: 6, color: "var(--muted)" }}>prompt: <b>{ep.prompt || "—"}</b></div>
 
       <div className="replay-vids">
         {CAMS.map(cam => (
           <video key={cam} ref={el => (videoRefs.current[cam] = el)}
-                 src={api.videoUrl(ep.task_id, ep.subset, ep.episode_id, cam)}
+                 src={api.videoUrl(ep.task_id, ep.subset, ep.episode_id, cam, ep.chunk)}
                  onTimeUpdate={() => syncDepthFrame(cam)}
                  onSeeked={() => syncDepthFrame(cam)}
                  onLoadedMetadata={() => { syncDepthFrame(cam); applyRate(); }}
@@ -145,7 +145,7 @@ export function ReplayPanel({ ep, role, onCloned, onDeleted }: Props) {
           <button className="btn-discard"
             onClick={async () => {
               if (!confirm(`删除 ${ep.task_id}/${ep.subset} #${ep.episode_id}? 不可恢复。`)) return;
-              await api.delEpisode(ep.task_id, ep.subset, ep.episode_id);
+              await api.delEpisode(ep.task_id, ep.subset, ep.episode_id, ep.chunk);
               onDeleted();
             }}>删除</button>
         )}

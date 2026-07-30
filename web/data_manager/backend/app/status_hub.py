@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 import time
 from typing import Set
@@ -11,6 +12,7 @@ from typing import Set
 from fastapi import WebSocket
 
 from .config import DATA_ROOT, STATUS_BROADCAST_HZ
+from .config import DATASET_CHUNK
 from .recorder import dated_task_name, recorder
 from .ros_bridge import bridge
 from .stats_service import service as stats
@@ -43,7 +45,9 @@ class StatusHub:
         # 同样要传带日期的目录名, 否则 next_ep 永远是 0 (历史 bug, 见
         # stats_service.next_episode_id 注释)
         next_ep = (
-            stats.next_episode_id(dated_task_name(rec["task_id"]), rec["subset"])
+            stats.next_episode_id(
+                dated_task_name(rec["task_id"]), rec["subset"], DATASET_CHUNK
+            )
             if rec["task_id"] and rec["subset"]
             else None
         )
@@ -59,6 +63,8 @@ class StatusHub:
             "cameras": cam_health,
             "recorder": rec,
             "next_episode_id": next_ep,
+            "machine_id": os.environ.get("KAI0_MACHINE_ID", "unknown"),
+            "dataset_chunk": f"chunk-{DATASET_CHUNK:03d}",
             "stats_total": st.total,
             "stats_today": st.today,
             "disk_free_gb": free_gb,

@@ -27,6 +27,7 @@ class SaveRecordingReq(BaseModel):
 
 class EpisodeMeta(BaseModel):
     episode_id: int
+    chunk: str = "chunk-000"
     task_id: str
     subset: str
     prompt: str

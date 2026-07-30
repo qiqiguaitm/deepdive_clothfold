@@ -33,6 +33,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROS2_WS="$PROJECT_ROOT/ros2_ws"
 RUN_SH="$PROJECT_ROOT/web/data_manager/run.sh"
+DEVICE_PROFILE_SH="$PROJECT_ROOT/config/device_profile.sh"
+
+if [[ -f "$DEVICE_PROFILE_SH" ]]; then
+    # shellcheck disable=SC1090
+    source "$DEVICE_PROFILE_SH"
+    load_kai0_device_profile "$PROJECT_ROOT"
+fi
+export KAI0_DATASET_CHUNK="${KAI0_DATASET_CHUNK:-0}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -52,6 +60,8 @@ if [[ "$ACTION" == "start" || "$ACTION" == "restart" ]]; then
     echo "============================================================"
     echo " kai0 Data Collection"
     echo " $(date '+%Y-%m-%d %H:%M:%S')"
+    echo " Device profile: ${KAI0_DEVICE_PROFILE_PATH:-legacy defaults}"
+    echo " Dataset chunk: chunk-$(printf '%03d' "$KAI0_DATASET_CHUNK")"
     echo "============================================================"
     echo ""
 
@@ -111,11 +121,37 @@ EOF
     trap - EXIT
     sleep 3
 
+    # 3 required cameras: top_head(D435) + hand_left/right(D405).
+    # mid_head is optional.  Export one run-wide flag so launch, preflight and
+    # dataset schema all agree; otherwise a missing mid camera used to block
+    # recording and still create an all-black observation.images.mid_head video.
+    # mid_head 落到 observation.images.mid_head/ (config/cameras.yml + camera_depth_flags.py
+    # + backend dataset_writer.CAMERAS). 上面 USB reset 按 hub 口 (含 2-1) 已覆盖新相机。
+    # 2026-07-10 起 mid_head 由 WHEELTEC C100 (UVC, 走 /dev/cam_mid_head) 替换原 D435I
+    # (launch_3cam.py MID_HEAD_UVC 默认 1) → RealSense 只剩 3 台, 第 4 路是 UVC 符号链接,
+    # 不能再按 "4 台 RealSense" 计数 (否则每次必误报 only 3 cameras)。
+    # 回退原 D435I: MID_HEAD_UVC=0 → 4 台全是 RealSense。
     CAM_COUNT=$(lsusb | grep -c "Intel.*RealSense" 2>/dev/null || echo 0)
-    if [ "$CAM_COUNT" -ge 3 ]; then
-        ok "3 RealSense cameras detected"
-    elif [ "$CAM_COUNT" -ge 2 ]; then
-        warn "only $CAM_COUNT cameras (need 3)"
+    MID_DEVICE="${KAI0_CAMERA_MID_HEAD_DEVICE:-/dev/cam_mid_head}"
+    MID_TYPE="${KAI0_MID_HEAD_TYPE:-uvc}"
+    if [ "$MID_TYPE" = "uvc" ]; then
+        export MID_HEAD_UVC=1
+        if [ "$CAM_COUNT" -ge 3 ] && [ "${KAI0_ENABLE_MID_HEAD:-1}" = "1" ] && [ -e "$MID_DEVICE" ]; then
+            export KAI0_ENABLE_MID_HEAD=1
+            ok "4 cameras detected (3 RealSense + mid_head UVC)"
+        elif [ "$CAM_COUNT" -ge 3 ]; then
+            export KAI0_ENABLE_MID_HEAD=0
+            warn "mid_head UVC 未启用或缺失 ($MID_DEVICE) — 继续以 3 个必需相机运行"
+        else
+            fail "only $CAM_COUNT RealSense cameras (need 3: top head + 2 wrist), check USB"
+        fi
+    elif [ "$CAM_COUNT" -ge 4 ] && [ "${KAI0_ENABLE_MID_HEAD:-1}" = "1" ]; then
+        export MID_HEAD_UVC=0
+        export KAI0_ENABLE_MID_HEAD=1
+        ok "4 RealSense cameras detected (MID_HEAD_UVC=0, mid_head 回退 D435I)"
+    elif [ "$CAM_COUNT" -ge 3 ]; then
+        export KAI0_ENABLE_MID_HEAD=0
+        warn "mid_head RealSense 缺失 — 继续以 3 个必需相机运行"
     else
         fail "only $CAM_COUNT cameras, check USB"
     fi
@@ -145,6 +181,24 @@ EOF
 fi
 
 # ── Delegate to run.sh ──
+# Full teleop needs two masters + two slaves. State/model collection only needs
+# the two slaves, so infer the capability from the serial-role calibration.
+CAN_ROLE_FILE="${KAI0_DEVICE_PROFILE_PATH:-$PROJECT_ROOT/config/dongle_serials.yml}"
+if [[ -z "${KAI0_ENABLE_MASTER+x}" ]]; then
+    if [[ -f "$CAN_ROLE_FILE" ]] \
+       && grep -qE '^[[:space:]]*can_left_mas:' "$CAN_ROLE_FILE" \
+       && grep -qE '^[[:space:]]*can_right_mas:' "$CAN_ROLE_FILE"; then
+        export KAI0_ENABLE_MASTER=1
+    else
+        export KAI0_ENABLE_MASTER=0
+    fi
+fi
+if [[ "$KAI0_ENABLE_MASTER" == "0" \
+      && ( "$ACTION" == "start" || "$ACTION" == "restart" ) ]]; then
+    warn "未配置完整主臂：进入 slave-only 采集模式（关闭主臂节点和主臂健康监控）"
+    info "state/action/gripper 均使用两个从臂反馈；仍要求两个从臂在线"
+fi
+
 # SETUP_CAN=1: let run.sh activate CAN (start_teleop.sh handles it too,
 #              but run.sh's activate_can path is the explicit toggle)
 export SETUP_CAN=1
@@ -174,7 +228,11 @@ export KAI0_ACTION_EQ_STATE="${KAI0_ACTION_EQ_STATE:-1}"
 # Set either to 0 to opt back out (e.g. legacy V2 capture).
 export KAI0_FRONT_TRIM="${KAI0_FRONT_TRIM:-1}"
 export KAI0_TAIL_TRIM="${KAI0_TAIL_TRIM:-$KAI0_FRONT_TRIM}"
-export KAI0_GRIPPER_FROM_MASTER="${KAI0_GRIPPER_FROM_MASTER:-1}"
+if [[ "$KAI0_ENABLE_MASTER" == "0" ]]; then
+    export KAI0_GRIPPER_FROM_MASTER=0
+else
+    export KAI0_GRIPPER_FROM_MASTER="${KAI0_GRIPPER_FROM_MASTER:-1}"
+fi
 # Per-episode alignment self-check at finalize: assert first-pts==0,
 # video-frames==parquet-rows, and the first frame decodes (catches a black/
 # keyframe-broken video). Cheap now (demux + 1-frame decode, ~0.2s); default ON
@@ -220,7 +278,11 @@ export KAI0_VIDEO_CODEC="${KAI0_VIDEO_CODEC:-nvenc}"
 export KAI0_NVENC_GPU="${KAI0_NVENC_GPU:-0}"
 if [[ "${ACTION:-start}" == "start" || "${ACTION:-start}" == "restart" ]]; then
     if [[ "$KAI0_ACTION_EQ_STATE" == "1" ]]; then
-        info "data convention: action == state (KAI0 official); gripper-from-master=$KAI0_GRIPPER_FROM_MASTER (dims 6,13 ← teleop leader)"
+        if [[ "$KAI0_GRIPPER_FROM_MASTER" == "1" ]]; then
+            info "data convention: action == state; gripper dims 6,13 ← teleop leader"
+        else
+            info "data convention: action == state (including gripper; slave feedback only)"
+        fi
     else
         info "data convention: action = master (legacy bilateral; falls back to state if master topic missing)"
     fi
@@ -230,6 +292,7 @@ if [[ "${ACTION:-start}" == "start" || "${ACTION:-start}" == "restart" ]]; then
     info "dataset version: $KAI0_DATASET_VERSION → auto folder <task>/<subset>/$KAI0_DATASET_VERSION/$(date +%Y-%m-%d)$KAI0_DATE_SUFFIX/"
     info "video codec: $KAI0_VIDEO_CODEC$([ "$KAI0_VIDEO_CODEC" = "nvenc" ] && echo " (GPU h264_nvenc @ GPU $KAI0_NVENC_GPU; auto-falls back to libx264 if unavailable)")"
     info "depth fmt: packed 1 file/episode (.zarr.zip) — EpisodeWriter.finalize auto-packs the per-frame zarr dir"
+    info "device/chunk: ${KAI0_MACHINE_ID:-$(hostname -s)} → chunk-$(printf '%03d' "$KAI0_DATASET_CHUNK")"
 fi
 
 exec bash "$RUN_SH" "$ACTION" "${@:2}"

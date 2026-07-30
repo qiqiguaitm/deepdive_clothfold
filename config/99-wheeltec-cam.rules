@@ -1,0 +1,16 @@
+# WHEELTEC C100/C70 UVC 摄像头 (Microdia 0c45:636b) — 用作 mid_head 相机。
+#
+# 作用: 无论插到哪个 USB 口 / 枚举成 /dev/video几 (24->25->6 会漂移),
+#       都固定生成稳定符号链接 /dev/cam_mid_head。代码只认这个名字, 不用每次检索。
+#
+# 关键点:
+#   ATTRS{idVendor}/idProduct  = 按“设备身份”匹配 (不是物理口) → 免疫换口/换号
+#   ATTR{index}=="0"           = 只选“视频采集”节点 (index=1 是 metadata 节点, 不能读图)
+#
+# 安装:
+#   sudo cp config/99-wheeltec-cam.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#   ls -l /dev/cam_mid_head        # 应指向当前的 /dev/videoN
+#
+# 只加 SYMLINK, 不改 GROUP/MODE → 保留原有 uaccess ACL (当前会话用户可读)。
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0c45", ATTRS{idProduct}=="636b", ATTR{index}=="0", SYMLINK+="cam_mid_head"
