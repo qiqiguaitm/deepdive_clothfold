@@ -38,6 +38,12 @@ except ImportError:
     _HAS_NUMCODECS = False
 
 from .depth_archive import pack_zarr_dir, zip_path_for
+from .eef_kinematics import (
+    STATE_DIM as EEF_STATE_DIM,
+    append_absolute_eef,
+    apply_relative_eef_actions,
+    write_modality_json,
+)
 from .layout import compound_to_subset_root, new_task_subset_root, today_compound
 
 
@@ -109,11 +115,16 @@ def _load_depth_flags() -> tuple[str, ...]:
     return cams
 
 
-CAMERAS = ("top_head", "hand_left", "hand_right")
+CAMERAS = ("top_head", "mid_head", "hand_left", "hand_right")
 DEPTH_CAMERAS = _load_depth_flags()
 FPS = 30
 WIDTH = 640
 HEIGHT = 480
+
+
+def eef_recording_enabled() -> bool:
+    """EEF schema is opt-in so existing v2/v3/v4 and DAgger writers stay 14-D."""
+    return os.environ.get("KAI0_RECORD_EEF", "0") == "1"
 
 # ── V3 online front-trim (leading-idle trim at record time) ──
 # Same semantics/constants as train_scripts/kai/data/build_no_release.py
@@ -134,7 +145,34 @@ TRIM_GRIP_DIMS = [6, 13]   # L/R gripper action dims (excluded from TRIM_ARM_DIM
 TRIM_GRIP_THR = 0.02       # |Δgrip| above this => gripper acting (grasp/release)
 TAIL_CAP = 15              # keep this many trailing-idle frames as terminal settle (~0.5s @30Hz)
 
+# ── 人接管段 (dagger segment) 的裁剪口径 ──
+# episode 级的 TRIM_MARGIN / TAIL_CAP 是"留一段 lead-in / terminal settle"的采集约定,
+# 对【段内】的遥操静止伪影不适用: 离线 stitch_dagger_episodes.classify_segment 对 dag 段
+# 是全裁的 (hes_end 无 margin, stat_start 无 cap) —— 人握上主臂还没动 / 松手前不动的那些帧
+# 既不是策略行为也不是纠错行为, 一帧都不该留。常量与离线脚本同名同值。
+#
+# 关键: 起手判定必须【带夹爪】—— 人的第一个动作常常是先合爪抓住布料, 手臂几乎不动。
+# 只看 12 个臂关节会把"抓取瞬间"当静止裁掉。离线同口径 (arm_slow AND grip_slow 才算迟疑)。
+HESITATION_THR = 5e-3        # rad/frame — arm 低于此 = 迟疑/慢速起手
+GRIP_HESITATION_THR = 0.01   # |Δgrip| 低于此 = 夹爪没在抓/放
+HESITATION_WIN = 3           # 连续这么多帧超阈值 = 真正起手
+
+# ── chunk-001 (直接采集拼接段) 的 dagger_frame_class 回溯打标窗 ──
+# Sirius 人反应时间 0.75s (原文 ℓ=15 帧 @20Hz) → 30fps 需 22 帧。每个 0→1
+# (policy→human) 边界之前这么多帧的 intervention==0 帧标 preintv(2) = 失败先兆。
+# 语义/权重见 docs/training/analysis/chunk001_schema.md。
+#
+# ⚠️ 这里【没有】离线 stitch 的 COAST_TRIM: 那 15 帧滑行伪影是离线脚本假设
+# "_do_takeover 期间 writer 仍在写" 才要裁的, 而 dagger_recorder_node 在发
+# execute=false 之前就已切 ALIGNING → _on_record_tick 静默, 滑行帧从未落盘。
+# 在线路径直接从最后一帧真实策略行为往前数 PREINTV_MARGIN 即可。
+PREINTV_MARGIN = round(0.75 * FPS)   # =22 @30fps
+
 log = logging.getLogger(__name__)
+
+# Queue sentinel for segment-boundary control ops (see EpisodeWriter.segment_control).
+# A real tick's item[0] is the cam_arrs dict, so an `is` check can never collide.
+_CTL = object()
 
 
 def task_subset_root(task: str, subset: str) -> Path:
@@ -188,27 +226,39 @@ class EpisodeWriter:
     def __init__(self, task: str, subset: str, ep: int, prompt: str,
                  template_id: str, operator: str,
                  front_trim: bool | None = None,
-                 tail_trim: bool | None = None) -> None:
+                 tail_trim: bool | None = None,
+                 chunk: int = 0,
+                 frame_class: bool = False,
+                 record_depth: bool = True) -> None:
         self.task = task
         self.subset = subset
         self.ep = ep
         self.prompt = prompt
         self.template_id = template_id
         self.operator = operator
+        # chunk-000 = 单段 episode (teleop / autonomy / 旧 Form-C 分段采集)。
+        # chunk-001 = 一个 rollout 内 INF+DAG 连录的拼接段 (直接采集模式, 见
+        # dagger_recorder_node 的 KAI0_DIRECT_CHUNK001)。离线 stitch 产的也是 001,
+        # 两条路径的 on-disk 布局必须一致。
+        self.chunk = int(chunk)
+        self._frame_class = bool(frame_class)
+        _cdir = f"chunk-{self.chunk:03d}"
 
         self.root = task_subset_root(task, subset)
-        self.pq_path = self.root / "data" / "chunk-000" / f"episode_{ep:06d}.parquet"
+        self.pq_path = self.root / "data" / _cdir / f"episode_{ep:06d}.parquet"
         # Video/depth dirs are named by the LeRobot feature key (full name) so they match
         # info.json's {video_key} path templates. Using the short cam name here produced
         # top_head/ dirs that the loader (expecting observation.images.top_head/) silently
         # failed to find — the full-vs-short-name loader bug.
         self.video_paths = {
-            cam: self.root / "videos" / "chunk-000" / f"observation.images.{cam}" / f"episode_{ep:06d}.mp4"
+            cam: self.root / "videos" / _cdir / f"observation.images.{cam}" / f"episode_{ep:06d}.mp4"
             for cam in CAMERAS
         }
+        # record_depth=False 完全不开 depth zarr (chunk-001 下游一帧不用, 而 depth
+        # 是 dagger 采集磁盘占用的大头 — 实测 30G/9.8G RGB)。
         self.depth_paths = {
-            cam: self.root / "videos" / "chunk-000" / f"observation.depth.{cam}" / f"episode_{ep:06d}.zarr"
-            for cam in DEPTH_CAMERAS
+            cam: self.root / "videos" / _cdir / f"observation.depth.{cam}" / f"episode_{ep:06d}.zarr"
+            for cam in (DEPTH_CAMERAS if record_depth else ())
         }
         for p in [self.pq_path.parent, *(v.parent for v in self.video_paths.values()),
                   *(d.parent for d in self.depth_paths.values())]:
@@ -278,8 +328,29 @@ class EpisodeWriter:
             tail_trim = os.environ.get(
                 "KAI0_TAIL_TRIM", "1" if self._front_trim else "0") == "1"
         self._tail_trim = bool(tail_trim)
-        self._tail_buf: list[tuple] = []           # consecutive trailing-idle ticks held back
+        # Keep this buffer strictly bounded.  The old implementation retained
+        # every raw RGB/depth frame until finalize() so it could distinguish a
+        # long interior pause from terminal idle.  An accidentally-left-running
+        # recording therefore grew by several GB/minute and eventually made the
+        # backend unresponsive.  Collection episodes treat a sustained all-static
+        # interval as trim-able idle, so retaining the terminal settle window is
+        # sufficient and gives a hard, tiny memory bound.
+        self._tail_buf: list[tuple] = []           # at most _tail_cap idle ticks
         self._tail_prev_action: np.ndarray | None = None  # prev STAGED action (Δ for active test)
+
+        # ── Trim profile ──
+        # Defaults = the episode-level V3 convention (keep a TRIM_MARGIN lead-in and a
+        # TAIL_CAP terminal settle). A multi-segment chunk-001 episode temporarily swaps
+        # in the stricter per-segment profile at human-takeover boundaries, where a
+        # lead-in/settle would just be teleop artifact — see segment_control().
+        # Nothing but segment_control() ever changes these, so single-writer captures
+        # (teleop / autonomy / 旧 Form C) behave byte-identically to before.
+        self._front_margin = TRIM_MARGIN
+        self._front_win = TRIM_WIN
+        self._front_thr_arm = TRIM_THR
+        self._front_thr_grip: float | None = None  # None = arm-only (legacy)
+        self._front_keep: int | None = None        # None = flush whole buffer (legacy)
+        self._tail_cap = TAIL_CAP
 
         # Optional async writer (KAI0_ASYNC_WRITER=1): the capture thread preps +
         # enqueues at 30Hz; this background thread drains the queue and does the
@@ -313,6 +384,8 @@ class EpisodeWriter:
             depth_arrs = {}
         s = [float(x) for x in (list(state)[:14] + [0.0] * max(0, 14 - len(state)))]
         a = [float(x) for x in (list(action)[:14] + [0.0] * max(0, 14 - len(action)))]
+        if eef_recording_enabled():
+            s = append_absolute_eef(s)
         iv = max(-1, min(1, int(intervention)))  # clamp to int8 (clawvla format)
         item = (cam_arrs, depth_arrs, s, a, ts, iv)
 
@@ -348,22 +421,112 @@ class EpisodeWriter:
         a_np = np.asarray(a, dtype=np.float64)
         if self._prev_action is not None:
             da = float(np.abs(a_np[TRIM_ARM_DIMS] - self._prev_action[TRIM_ARM_DIMS]).mean())
-            self._run = self._run + 1 if da > TRIM_THR else 0
+            moving = da > self._front_thr_arm
+            if self._front_thr_grip is not None and not moving:
+                # 人接管段: 第一个动作常是"手臂几乎不动, 先合爪抓住布料" → 夹爪在动就算起手,
+                # 否则会把抓取瞬间当迟疑裁掉。episode 级 profile 不看夹爪 (thr_grip=None)。
+                dg = float(np.abs(a_np[TRIM_GRIP_DIMS]
+                                  - self._prev_action[TRIM_GRIP_DIMS]).max())
+                moving = dg > self._front_thr_grip
+            self._run = self._run + 1 if moving else 0
         self._prev_action = a_np
 
-        if self._run >= TRIM_WIN:
+        if self._run >= self._front_win:
             # onset reached; the rolling buffer holds exactly [onset-MARGIN : now]
             # (proof: cap=MARGIN+WIN ⇒ buf_start = max(0, onset-MARGIN) = cut).
+            # _front_keep tightens that to the last N entries — the human-segment
+            # profile sets it to HESITATION_WIN so ONLY the motion burst survives
+            # (zero lead-in), matching the offline classify_segment's hes_end.
             self._onset_found = True
-            for tk in self._buf:
+            pending = (self._buf if self._front_keep is None
+                       else self._buf[-self._front_keep:])
+            for tk in pending:
                 self._stage_tick(*tk)
             self._buf = []
             return
 
         # Cap the rolling window. Dropped frames are provably earlier than any
         # future cut (cut = future_onset - MARGIN > dropped index), so safe.
-        if len(self._buf) > TRIM_MARGIN + TRIM_WIN:
+        if len(self._buf) > self._front_margin + self._front_win:
             self._buf.pop(0)
+
+    def segment_control(self, op: str) -> None:
+        """Segment-boundary control for a multi-segment episode (chunk-001 直接采集).
+
+        MUST stay FIFO-ordered with the ticks around it, so in async mode this is
+        queued rather than applied on the caller's thread — otherwise a takeover
+        thread could re-arm the front-trim while the writer thread is still
+        draining the previous segment's frames, and the trim would eat the wrong
+        ones.
+
+        Ops:
+          'human_seg_begin' — 人接管段开始 (踩踏板)。重新武装 front-trim 并切到人接管
+                              profile: 零 lead-in、判定带夹爪 → 起手迟疑一帧不留
+                              (离线 class 3 全裁)。
+          'human_seg_end'   — 人接管段结束 (松踏板/交还)。尾部静止段一帧不留
+                              (离线 class 4 全裁), 然后切回 episode 级 profile,
+                              让整集最后仍保留 TAIL_CAP 帧 terminal settle。
+          'flush_keep'      — 冲掉所有 pending 缓冲, 【不】做任何裁剪。用在策略段被接管
+                              打断处: 那段静止尾巴是"模型卡死"的失败先兆 (preintv 负样本),
+                              是最该留的帧。
+        """
+        if self._async and self._worker is not None:
+            if self._worker_exc is not None:
+                raise self._worker_exc
+            self._q.put((_CTL, op))
+        else:
+            self._apply_control(op)
+
+    def _apply_control(self, op: str) -> None:
+        """Runs on whichever thread owns the trim state (capture in sync mode,
+        writer thread in async mode) — same invariant as _ingest."""
+        if op == "human_seg_begin":
+            if self._front_trim:
+                self._onset_found = False
+                self._prev_action = None
+                self._run = 0
+            # 人接管段 profile: margin=0 + keep=HESITATION_WIN → 起手静止全裁,
+            # 只留真正动起来的那几帧; 判定带夹爪, 免得把"先合爪"当迟疑。
+            self._front_margin = 0
+            self._front_win = HESITATION_WIN
+            self._front_thr_arm = HESITATION_THR
+            self._front_thr_grip = GRIP_HESITATION_THR
+            self._front_keep = HESITATION_WIN
+            self._tail_cap = 0          # 段尾静止一帧不留
+            return
+        if op not in ("flush_keep", "human_seg_end"):
+            log.warning("unknown segment_control op %r, ignored", op)
+            return
+        human_end = (op == "human_seg_end")
+        # Un-resolved front-trim buffer: the segment ended before motion onset.
+        #   flush_keep     → 策略段整段没动 = 模型冻结, 那正是要留的负样本 → 全留。
+        #   human_seg_end  → 人接管段整段没动 = 纯迟疑伪影, 无一帧有效纠错 → 全丢
+        #                    (离线 find_keep_indices 同样返回空区间)。
+        if self._buf:
+            if human_end:
+                self._buf = []
+            else:
+                for tk in self._buf:
+                    self._stage_tick(*tk)
+                self._buf = []
+            self._onset_found = True
+        if self._tail_buf:
+            keep = self._tail_buf[:self._tail_cap] if human_end else self._tail_buf
+            for tk in keep:
+                self._emit_tick(*tk)
+            self._tail_buf = []
+        # Next segment's first staged frame becomes the tail-trim anchor again
+        # (matches the offline per-segment active[0]=True).
+        self._tail_prev_action = None
+        if human_end:
+            # 切回 episode 级 profile: 后续策略段不做起手裁剪 (策略是在任务中途接着跑,
+            # 低速属真实行为), 整集最末仍保留 TAIL_CAP 帧 terminal settle。
+            self._front_margin = TRIM_MARGIN
+            self._front_win = TRIM_WIN
+            self._front_thr_arm = TRIM_THR
+            self._front_thr_grip = None
+            self._front_keep = None
+            self._tail_cap = TAIL_CAP
 
     def _writer_loop(self) -> None:
         """Async writer thread: drain queued ticks → full front-trim + encode +
@@ -375,6 +538,9 @@ class EpisodeWriter:
             try:
                 if item is None or self._stop.is_set():
                     return
+                if item[0] is _CTL:
+                    self._apply_control(item[1])
+                    continue
                 self._ingest(*item)
             except BaseException as e:  # noqa: BLE001
                 self._worker_exc = e
@@ -410,8 +576,12 @@ class EpisodeWriter:
             self._tail_buf = []
             self._emit_tick(cam_arrs, depth_arrs, s, a, ts, iv)
         else:
-            # might be the trailing post-task hold — hold back until we know
-            self._tail_buf.append((cam_arrs, depth_arrs, s, a, ts, iv))
+            # Might be the trailing post-task hold.  Retain only the settle
+            # window and discard further identical/static ticks immediately.
+            # This prevents an unattended recording from retaining raw camera
+            # frames without bound.
+            if len(self._tail_buf) < self._tail_cap:
+                self._tail_buf.append((cam_arrs, depth_arrs, s, a, ts, iv))
 
     def _warmup_encoders(self) -> None:
         """Pay the nvenc per-session init (the ~0.3-0.6s/stream first-encode stall)
@@ -510,8 +680,10 @@ class EpisodeWriter:
                 raise self._worker_exc
         # Front-trim with no motion onset (degenerate/never-moved episode): keep
         # only the last MARGIN frames — matches build_no_release (cut=len-MARGIN).
+        # (_front_margin is TRIM_MARGIN for a normal episode; 0 only when the capture
+        # died mid-human-segment, where a lead-in of pure hesitation is worth nothing.)
         if self._front_trim and not self._onset_found and self._buf:
-            for tk in self._buf[-TRIM_MARGIN:]:
+            for tk in (self._buf[-self._front_margin:] if self._front_margin > 0 else []):
                 self._stage_tick(*tk)
             self._buf = []
             self._onset_found = True
@@ -519,7 +691,7 @@ class EpisodeWriter:
         # the first TAIL_CAP terminal-settle frames, drop the rest. Matches
         # build_no_release.tail_cap_keep_indices (keep arange(0, T-(tail-TAIL_CAP))).
         if self._tail_trim and self._tail_buf:
-            for tk in self._tail_buf[:TAIL_CAP]:
+            for tk in self._tail_buf[:self._tail_cap]:
                 self._emit_tick(*tk)
             self._tail_buf = []
         for cam, stream in self._streams.items():
@@ -623,9 +795,14 @@ class EpisodeWriter:
 
     def _write_parquet(self) -> None:
         n = len(self._rows_state)
+        actions = (
+            apply_relative_eef_actions(self._rows_state, self._rows_action)
+            if eef_recording_enabled()
+            else self._rows_action
+        )
         cols = {
             "observation.state": pa.array(self._rows_state, type=pa.list_(pa.float32())),
-            "action": pa.array(self._rows_action, type=pa.list_(pa.float32())),
+            "action": pa.array(actions, type=pa.list_(pa.float32())),
             # lerobot-standard timestamp = frame_index / fps (0-based, contiguous) —
             # matches build_no_release. NOT wall-clock: each emitted tick is exactly
             # one video frame (pts = frame_index, first kept frame pts = 0), so
@@ -644,8 +821,34 @@ class EpisodeWriter:
         # captures). For DAgger episodes intervention rows are 0 (policy) or 1 (human).
         if self._rows_intervention and any(v != -1 for v in self._rows_intervention):
             cols["intervention"] = pa.array(self._rows_intervention, type=pa.int8())
+            if self._frame_class:
+                cols["dagger_frame_class"] = pa.array(
+                    self._derive_frame_class(), type=pa.int8())
         table = pa.table(cols)
         pq.write_table(table, self.pq_path)
+
+    def _derive_frame_class(self) -> np.ndarray:
+        """dagger_frame_class {0=robot, 1=intv_core, 2=preintv} from the intervention
+        column, at finalize (the label is retroactive — you only know a frame was
+        "pre-intervention" once the takeover happens).
+
+        Classes 3 (hesitation) / 4 (stationary_tail) never appear: segment_control
+        physically trims those at the segment boundaries, so the on-disk column is a
+        true 3-way split. Same rule as train_scripts/kai/data/relabel_chunk001_preintv.py
+        → online and offline chunk-001 stay label-identical.
+        """
+        iv = np.asarray(self._rows_intervention, dtype=np.int8)
+        cls = np.zeros(len(iv), dtype=np.int8)
+        cls[iv == 1] = 1
+        # every policy→human boundary: the PREINTV_MARGIN policy frames before it
+        # are the failure precursor. Guard on iv==0 so a neighbouring human segment
+        # doesn't get demoted from intv_core.
+        (bounds,) = np.nonzero((iv[1:] == 1) & (iv[:-1] == 0))
+        for i in bounds + 1:
+            lo = max(0, int(i) - PREINTV_MARGIN)
+            seg = np.arange(lo, i)
+            cls[seg[iv[lo:i] == 0]] = 2
+        return cls
 
     @property
     def frame_count(self) -> int:
@@ -655,14 +858,22 @@ class EpisodeWriter:
 def write_episode_meta(writer: EpisodeWriter, duration: float,
                        success: bool = True, note: str = "",
                        scene_tags: list[str] | None = None,
-                       extra: dict | None = None) -> None:
-    """Append one record to meta/episodes.jsonl + ensure meta/tasks.jsonl has prompt.
+                       extra: dict | None = None,
+                       filename: str = "episodes.jsonl") -> None:
+    """Append one record to meta/<filename> + ensure meta/tasks.jsonl has prompt.
 
     `extra` merges additional keys into the record (e.g. terminal-cause labels
     like {"terminal": "intervention", "intervention_frame_index": N} that the
-    dagger recorder attaches to policy-rollout episodes)."""
+    dagger recorder attaches to policy-rollout episodes).
+
+    `filename` selects the log: chunk-000 episodes go to episodes.jsonl, chunk-001
+    stitched rollouts to episodes_stitched.jsonl — the same split the offline
+    stitch_dagger_episodes.py produces, so finalize_dagger_dataset.py and the rest
+    of the chunk-001 chain read online and offline output identically."""
     meta_dir = writer.root / "meta"
     meta_dir.mkdir(parents=True, exist_ok=True)
+    if eef_recording_enabled():
+        write_modality_json(writer.root)
     rec = {
         "episode_id": writer.ep,
         "length": writer.frame_count,
@@ -677,7 +888,7 @@ def write_episode_meta(writer: EpisodeWriter, duration: float,
     }
     if extra:
         rec.update(extra)
-    with (meta_dir / "episodes.jsonl").open("a", encoding="utf-8") as f:
+    with (meta_dir / filename).open("a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     tasks_path = meta_dir / "tasks.jsonl"
@@ -773,8 +984,16 @@ def features_block() -> dict:
     return {
         **{f"observation.images.{cam}": img_feat for cam in CAMERAS},
         **{f"observation.depth.{cam}": depth_feat for cam in DEPTH_CAMERAS},
-        "observation.state": {"dtype": "float32", "shape": [14], "names": None},
-        "action": {"dtype": "float32", "shape": [14], "names": None},
+        "observation.state": {
+            "dtype": "float32",
+            "shape": [EEF_STATE_DIM if eef_recording_enabled() else 14],
+            "names": None,
+        },
+        "action": {
+            "dtype": "float32",
+            "shape": [EEF_STATE_DIM if eef_recording_enabled() else 14],
+            "names": None,
+        },
         "timestamp": {"dtype": "float32", "shape": [1], "names": None},
         "frame_index": {"dtype": "int64", "shape": [1], "names": None},
         "episode_index": {"dtype": "int64", "shape": [1], "names": None},
@@ -783,13 +1002,13 @@ def features_block() -> dict:
     }
 
 
-def next_episode_id(task: str, subset: str) -> int:
-    """Scan data/chunk-000/episode_*.parquet under task_subset_root and return
-    max+1 (or 0 if empty). Used by autonomy recorder to auto-pick episode_id
-    without needing a UI/state-machine.
+def next_episode_id(task: str, subset: str, chunk: int = 0) -> int:
+    """Scan data/chunk-{chunk:03d}/episode_*.parquet under task_subset_root and
+    return max+1 (or 0 if empty). Used by autonomy recorder to auto-pick
+    episode_id without needing a UI/state-machine.
     """
     root = task_subset_root(task, subset)
-    chunk_dir = root / "data" / "chunk-000"
+    chunk_dir = root / "data" / f"chunk-{int(chunk):03d}"
     if not chunk_dir.exists():
         return 0
     eps = []

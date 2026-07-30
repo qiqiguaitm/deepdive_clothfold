@@ -9,6 +9,7 @@
 #
 # 环境变量（可选）：
 #   SETUP_CAN=1        启动时激活 CAN（默认跳过；假设已经手动激活过）
+#   KAI0_ENABLE_MASTER=0  slave-only：不启动/监控主臂
 #   SKIP_ARMS=1        跳过机械臂节点
 #   SKIP_CAMERAS=1     跳过相机节点
 #   SKIP_PEDAL=1       跳过 USB 踏板监听
@@ -58,7 +59,14 @@ mkdir -p "$LOG_DIR" "$PID_DIR"
 ROS_SETUP="/opt/ros/jazzy/setup.bash"
 ROS2_WS_SETUP="$REPO_ROOT/ros2_ws/install/setup.bash"
 ACTIVATE_CAN="$REPO_ROOT/piper_tools/activate_can.sh"   # 机器感知入口; 序列号已校准时它会自动委托 activate_can_v2.sh (USB 口免疫)
+# v0 teleop mode: use official MasterSlaveConfig(0xFA/0xFC) firmware framework.
+# Set by start_data_collect_v0.sh via KAI0_TELEOP_MODE=v0. Default (unset/other)
+# keeps the v2 arm_master_servo path.
+START_TELEOP_V0="$REPO_ROOT/start_scripts/kai/start_teleop_v0.sh"
 START_TELEOP="$REPO_ROOT/start_scripts/kai/start_teleop.sh"
+if [[ "${KAI0_TELEOP_MODE:-}" == "v0" ]]; then
+    START_TELEOP="$START_TELEOP_V0"
+fi
 LAUNCH_3CAM="$REPO_ROOT/start_scripts/kai/launch_3cam.py"
 
 SERVICES=(arms cameras backend frontend pedal can_diag)
@@ -175,7 +183,9 @@ do_start() {
     if [[ "${SETUP_CAN:-0}" == "1" ]]; then
         if [[ -x "$ACTIVATE_CAN" ]]; then
             log "activate CAN ..."
-            bash "$ACTIVATE_CAN" || warn "activate_can.sh returned non-zero (continuing)"
+            CAN_ARGS=()
+            [[ "${KAI0_ENABLE_MASTER:-1}" == "0" ]] && CAN_ARGS+=(--slave-only)
+            bash "$ACTIVATE_CAN" "${CAN_ARGS[@]}" || warn "activate_can.sh returned non-zero (continuing)"
         else
             warn "activate_can.sh not executable: $ACTIVATE_CAN"
         fi
@@ -206,7 +216,9 @@ do_start() {
             warn "backend venv missing at $BACKEND_DIR/.venv — create it with: python -m venv $BACKEND_DIR/.venv && $BACKEND_DIR/.venv/bin/pip install -r $BACKEND_DIR/requirements.txt"
         fi
     fi
-    start_svc backend "source '$ROS_SETUP' && source '$ROS2_WS_SETUP' && cd '$BACKEND_DIR' && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8787"
+    # exec keeps the pidfile attached to the real uvicorn process.  Bound graceful
+    # shutdown as camera MJPEG/WebSocket clients may remain connected forever.
+    start_svc backend "source '$ROS_SETUP' && source '$ROS2_WS_SETUP' && cd '$BACKEND_DIR' && exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8787 --timeout-graceful-shutdown 5"
 
     # 5) 前端
     start_svc frontend "cd '$FRONTEND_DIR' && npm run dev -- --host"

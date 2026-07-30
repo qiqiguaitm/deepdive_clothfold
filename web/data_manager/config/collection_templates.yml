@@ -66,3 +66,21 @@ templates:
   prompt: Flatten and fold the cloth. Horizontally Fold v1.
   enabled: true
   note: Task A base demo — prompt must match training config pi05_flatten_fold_normal
+- id: task_a1_base
+  task_id: Task_A1
+  subset: base
+  prompt: Flatten and fold the cloth.
+  enabled: true
+  note: Task A1 base demo — prompt must match training config pi05_flatten_fold_normal
+- id: task_demo_eef
+  task_id: Task_Demo
+  subset: base
+  prompt: demo
+  enabled: true
+  note: Task for demo
+- id: task_n_base
+  task_id: Task_N
+  subset: base
+  prompt: nail painting
+  enabled: true
+  note: 美甲任务base

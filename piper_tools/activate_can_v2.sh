@@ -55,9 +55,12 @@ while IFS= read -r line; do
     [[ -n "$key" && -n "$val" ]] && WANT_SERIAL["$key"]="$val"
 done < "$YAML"
 
-if [[ "${#WANT_SERIAL[@]}" -ne 4 ]]; then
-    echo "[FAIL] expected 4 entries in $YAML, got ${#WANT_SERIAL[@]}"
+if [[ "${#WANT_SERIAL[@]}" -lt 1 ]]; then
+    echo "[FAIL] $YAML 里没有任何角色条目 — 先跑 setup_can_v2.sh"
     exit 1
+fi
+if [[ "${#WANT_SERIAL[@]}" -lt 4 ]]; then
+    echo "[WARN] $YAML 只有 ${#WANT_SERIAL[@]}/4 个角色 (部分臂不在位) — 只激活这些"
 fi
 
 # ── sysfs walk: 给定 iface, 返回 USB iSerial ─────────────────────────────
@@ -116,8 +119,11 @@ done
 echo ""
 
 if (( missing > 0 )); then
-    echo "[WARN] $missing dongle(s) missing — check power / USB connections"
-    exit 1
+    echo "[WARN] $missing 个 dongle 不在位 — 只激活在位的, 缺失的跳过 (check power / USB)"
+    if (( ${#PLAN_TO[@]} == 0 )); then
+        echo "[FAIL] 没有任何 dongle 在位, 无法激活"
+        exit 1
+    fi
 fi
 
 if $DRY_RUN; then
@@ -153,8 +159,8 @@ for want_iface in "${!WANT_SERIAL[@]}"; do
     want_sn="${WANT_SERIAL[$want_iface]}"
     tmp="${TMP_OF_SERIAL[$want_sn]:-}"
     if [[ -z "$tmp" ]]; then
-        echo "  [FAIL] no tmp iface for serial=$want_sn (want=$want_iface)"
-        exit 3
+        echo "  [SKIP] $want_iface 缺失 (serial=$want_sn 不在位), 跳过"
+        continue
     fi
     if ! $SUDO ip link set "$tmp" name "$want_iface"; then
         echo "  [FAIL] rename $tmp → $want_iface"

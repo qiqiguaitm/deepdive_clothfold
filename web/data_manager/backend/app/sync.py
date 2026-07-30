@@ -110,7 +110,8 @@ def _current_bwlimit_kbps() -> int:
 # 旧全局 (兼容其它可能引用). 首次 import 时的快照, 实际每次 rsync 调用会动态取。
 BWLIMIT_KBPS: int = _current_bwlimit_kbps()
 # CAMERAS 和 recorder.py 对齐; 单 episode 同步用它构造文件列表。
-_CAMERAS = ("top_head", "hand_left", "hand_right")
+# mid_head (第二路头部 D435I, 2026-07-08) 必须在此, 否则新相机视频不会被 rsync 上传。
+_CAMERAS = ("top_head", "mid_head", "hand_left", "hand_right")
 
 
 def _load_depth_cameras() -> tuple[str, ...]:

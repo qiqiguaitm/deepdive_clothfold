@@ -126,9 +126,13 @@ def main():
         print(f"  {i:22s} serial={sn or '<unreadable>'}")
     print()
 
-    if len(ifaces) < 4:
-        print(f"[FAIL] 需要 4 个 CAN iface, 只检测到 {len(ifaces)}")
+    if len(ifaces) < 1:
+        print("[FAIL] 没有检测到任何 CAN iface (dongle 未插/未上电?)")
         sys.exit(1)
+    if len(ifaces) < 4:
+        print(f"[WARN] 只检测到 {len(ifaces)} 个 CAN iface (满配 4). "
+              f"不在位的角色可在下面逐个跳过, 只校准在位的臂。")
+        print()
     if any(not s for s in serial_map.values()):
         print("[FAIL] 部分 iface 读不到 USB iSerial (非 gs_usb dongle?)")
         sys.exit(1)
@@ -137,7 +141,7 @@ def main():
         sys.exit(1)
 
     # ── 1. 确保所有 iface UP (HITL 检测需要 candump + SDK 都通) ──────────
-    print("=== 确保 4 个 iface UP + bitrate ===")
+    print(f"=== 确保 {len(ifaces)} 个 iface UP + bitrate ===")
     for i in ifaces:
         ok = ensure_up(i)
         flag = "✓" if ok else "✗"
@@ -153,6 +157,14 @@ def main():
     role_to_serial = {}
     for role_iface, role_desc in ROLE_ASSIGN_SEQ:
         print(f"━━━ 角色: {role_iface}  ({role_desc}) ━━━")
+        if not remaining:
+            print(f"  [SKIP] 没有剩余 iface, 自动跳过 {role_iface}\n")
+            continue
+        # 允许跳过不在位的角色 (臂拆修/未接) — 只校准在位的臂
+        resp = input(f"  该角色臂在位并可晃动? [Enter=开始识别 / s=跳过(不在位)]: ").strip().lower()
+        if resp == "s":
+            print(f"  [SKIP] {role_iface} 跳过 (臂不在位)\n")
+            continue
         # _identify_shaken_arm 的第 2 个参数被用于显示 ("bus: X"),
         # 传 serial_map 让它打 "bus: <serial>" — 更直观
         identified = _identify_shaken_arm(remaining, serial_map, target_desc=role_desc)
@@ -169,9 +181,15 @@ def main():
     print("  校准结果汇总")
     print("=" * 60)
     for role, _ in ROLE_ASSIGN_SEQ:
-        sn = role_to_serial[role]
-        print(f"  {role:22s} → {sn}")
+        sn = role_to_serial.get(role)
+        print(f"  {role:22s} → {sn if sn else '(跳过/不在位)'}")
     print()
+    if not role_to_serial:
+        print("[FAIL] 没有校准任何角色, 退出 (未写 YAML)。")
+        sys.exit(1)
+    if len(role_to_serial) < 4:
+        print(f"[提示] 只校准了 {len(role_to_serial)}/4 个角色, YAML 只含在位的; "
+              f"缺的角色 activate 时会告警跳过。")
     confirm = input(f"写入 {CONFIG_PATH}? [Y/n] ").strip().lower()
     if confirm not in ("", "y", "yes"):
         print("未保存, 退出.")

@@ -74,7 +74,7 @@ def _camera_depth_path(base: Path, cam: str, ep: int) -> Path:
 
 
 def episode_video_path(task_id: str, subset: str, episode_id: int, camera: str) -> Path:
-    if camera not in ("top_head", "hand_left", "hand_right"):
+    if camera not in ("top_head", "mid_head", "hand_left", "hand_right"):
         raise HTTPException(status_code=400, detail="unknown camera")
     base = compound_to_subset_root(task_id, subset)
     return _camera_video_path(base, camera, episode_id)
@@ -84,7 +84,7 @@ def episode_depth_zarr_path(task_id: str, subset: str, episode_id: int, camera: 
     # 新录制只为 D435 头顶相机生成 depth zarr (见 recorder.DEPTH_CAMERAS);
     # hand_left / hand_right 仅为兼容历史数据保留可达路径, 新数据下这两个 cam
     # 走到 main.py 的 file_exists 检查即返回 404, 不会泄露其他目录.
-    if camera not in ("top_head", "hand_left", "hand_right"):
+    if camera not in ("top_head", "mid_head", "hand_left", "hand_right"):
         raise HTTPException(status_code=400, detail="unknown camera")
     base = compound_to_subset_root(task_id, subset)
     return _camera_depth_path(base, camera, episode_id)
@@ -110,7 +110,7 @@ def delete_episode(task_id: str, subset: str, episode_id: int) -> None:
     pq = base / "data" / "chunk-000" / f"episode_{episode_id:06d}.parquet"
     if pq.exists():
         pq.unlink()
-    for cam in ("top_head", "hand_left", "hand_right"):
+    for cam in ("top_head", "mid_head", "hand_left", "hand_right"):
         for v in _candidate_video_paths(base, cam, episode_id):
             if v.exists():
                 v.unlink()

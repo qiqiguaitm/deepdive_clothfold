@@ -52,6 +52,13 @@ def dated_task_name(task: str) -> str:
 
 class Recorder:
     def __init__(self) -> None:
+        # The interactive data-manager recorder is the v5/GR00T capture path.
+        # Other EpisodeWriter users (DAgger/autonomy nodes) do not import this
+        # module and therefore remain opt-in, preserving their existing schemas.
+        os.environ.setdefault("KAI0_RECORD_EEF", "1")
+        if os.environ["KAI0_RECORD_EEF"] == "1":
+            os.environ["KAI0_DATASET_VERSION"] = "v5"
+            os.environ["KAI0_DATE_SUFFIX"] = "-v5"
         self._lock = threading.RLock()
         self.state: RecState = "IDLE"
         self.task_id: Optional[str] = None

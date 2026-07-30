@@ -17,8 +17,8 @@ export function collectFailures(status: StatusPayload): string[] {
   if (!status.health.can_right) f.push("CAN-R");
   if (!status.health.teleop) f.push("Teleop");
   const cams = status.cameras || {};
-  const expected = ["top_head", "hand_left", "hand_right"] as const;
-  const camLabel: Record<string, string> = { top_head: "俯视相机", hand_left: "左手相机", hand_right: "右手相机" };
+  const expected = ["top_head", "mid_head", "hand_left", "hand_right"] as const;
+  const camLabel: Record<string, string> = { top_head: "俯视相机", mid_head: "中部相机", hand_left: "左手相机", hand_right: "右手相机" };
   for (const c of expected) {
     const s = cams[c];
     if (!s) f.push(`${camLabel[c]}(缺失)`);
@@ -104,7 +104,7 @@ export function StatusBar({ status, role, operator, connected }: Props) {
       <Light ok={status.health.ros2} label="ROS2" />
       <Light ok={status.health.can_left} label="CAN-L" />
       <Light ok={status.health.can_right} label="CAN-R" />
-      <Light ok={camCount === 3} label={`相机 ${camCount}/3`} />
+      <Light ok={camCount === 4} label={`相机 ${camCount}/4`} />
       <Light ok={status.health.teleop} label="Teleop" />
       <span className="seg divider">|</span>
       {recLight}

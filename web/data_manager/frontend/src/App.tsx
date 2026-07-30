@@ -36,13 +36,29 @@ export function App() {
 
   // status WS
   useEffect(() => {
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${location.host}/ws/status`);
-    wsRef.current = ws;
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-    ws.onmessage = ev => { try { setStatus(JSON.parse(ev.data)); } catch {} };
-    return () => ws.close();
+    let disposed = false;
+    let retryTimer: number | undefined;
+
+    const connect = () => {
+      if (disposed) return;
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const ws = new WebSocket(`${proto}://${location.host}/ws/status`);
+      wsRef.current = ws;
+      ws.onopen = () => setConnected(true);
+      ws.onmessage = ev => { try { setStatus(JSON.parse(ev.data)); } catch {} };
+      ws.onclose = () => {
+        setConnected(false);
+        if (!disposed) retryTimer = window.setTimeout(connect, 1000);
+      };
+      ws.onerror = () => ws.close();
+    };
+
+    connect();
+    return () => {
+      disposed = true;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      wsRef.current?.close();
+    };
   }, []);
 
   // when recorder transitions to IDLE after save, bump refresh so list/stats refresh

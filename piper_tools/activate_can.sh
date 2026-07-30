@@ -117,7 +117,7 @@ fi
 # --two-can (visrobot02 左右共享 CAN) 不是 4-dongle 拓扑, 不委托, 仍走下方 bus-info。
 DONGLE_YAML="$PROJECT_ROOT/config/dongle_serials.yml"
 if ! $TWO_CAN && [[ -f "$DONGLE_YAML" ]] \
-   && [[ "$(grep -cE '^[[:space:]]*can_[a-z_]+:' "$DONGLE_YAML")" -ge 4 ]] \
+   && [[ "$(grep -cE '^[[:space:]]*can_[a-z_]+:' "$DONGLE_YAML")" -ge 1 ]] \
    && [[ -x "$SCRIPT_DIR/activate_can_v2.sh" ]]; then
     echo "[activate_can] 检测到序列号校准 ($DONGLE_YAML) → 委托 activate_can_v2.sh (USB 口免疫)"
     exec bash "$SCRIPT_DIR/activate_can_v2.sh"

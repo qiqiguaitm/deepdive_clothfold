@@ -5,8 +5,8 @@
 """
 from __future__ import annotations
 
-EXPECTED_CAMERAS = ("top_head", "hand_left", "hand_right")
-_CAM_LABEL = {"top_head": "俯视相机", "hand_left": "左手相机", "hand_right": "右手相机"}
+EXPECTED_CAMERAS = ("top_head", "mid_head", "hand_left", "hand_right")
+_CAM_LABEL = {"top_head": "俯视相机", "mid_head": "中部相机", "hand_left": "左手相机", "hand_right": "右手相机"}
 _CAM_FPS_SLACK = 3  # 与前端一致: 允许实际 fps 比 target 低 3
 
 

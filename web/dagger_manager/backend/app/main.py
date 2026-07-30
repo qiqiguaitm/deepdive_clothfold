@@ -241,18 +241,19 @@ def episodes_list(task: str = "Task_A") -> list[dict]:
 
 @app.delete("/api/dagger/episodes/{subset}/{date}/{episode_id}")
 def episodes_delete(subset: str, date: str, episode_id: int,
-                    task: str = "Task_A") -> dict:
-    ep_delete(task, subset, date, episode_id)
-    return {"deleted": True, "subset": subset, "date": date, "episode_id": episode_id}
+                    task: str = "Task_A", chunk: int = 0) -> dict:
+    ep_delete(task, subset, date, episode_id, chunk)
+    return {"deleted": True, "subset": subset, "date": date,
+            "chunk": chunk, "episode_id": episode_id}
 
 
 @app.get("/api/dagger/episodes/{subset}/{date}/{episode_id}/video/{camera}")
 def episodes_video(subset: str, date: str, episode_id: int, camera: str,
-                   task: str = "Task_A", raw: bool = False):
+                   task: str = "Task_A", raw: bool = False, chunk: int = 0):
     """Stream the episode mp4. Dagger videos are AV1, which Chrome plays but
     Safari/older browsers don't — transcode to H.264 on the fly unless raw=1
     or ffmpeg is unavailable (then serve as-is)."""
-    p = ep_video_path(task, subset, date, episode_id, camera)
+    p = ep_video_path(task, subset, date, episode_id, camera, chunk)
     if not p.exists():
         raise HTTPException(404, "video missing")
     if raw:

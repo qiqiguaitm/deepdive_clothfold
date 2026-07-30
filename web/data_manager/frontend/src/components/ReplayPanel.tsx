@@ -19,6 +19,16 @@ export function ReplayPanel({ ep, role, onCloned, onDeleted }: Props) {
   const videoRefs = useRef<Record<Cam, HTMLVideoElement | null>>({} as any);
   const depthRefs = useRef<Record<Cam, HTMLImageElement | null>>({} as any);
 
+  // ── 播放倍速 ──
+  // 逐条看回放 1× 太慢。用原生 playbackRate 提速, 服务端不用重新转码。
+  // 注意: <video> 换 src (换 episode) 会把 playbackRate 重置回 1, 所以倍速
+  // 变化和 loadedmetadata 两处都要重新下发, 只在 onChange 里设会在换条后失效。
+  const [rate, setRate] = useState(1);
+  const applyRate = () => {
+    for (const v of Object.values(videoRefs.current)) if (v) v.playbackRate = rate;
+  };
+  useEffect(applyRate, [rate, ep?.task_id, ep?.subset, ep?.episode_id]);
+
   // ── Depth viewer state ──
   const [depthInfo, setDepthInfo] = useState<Record<Cam, { frames: number } | null>>(
     { hand_left: null, top_head: null, hand_right: null });
@@ -86,7 +96,7 @@ export function ReplayPanel({ ep, role, onCloned, onDeleted }: Props) {
                  src={api.videoUrl(ep.task_id, ep.subset, ep.episode_id, cam)}
                  onTimeUpdate={() => syncDepthFrame(cam)}
                  onSeeked={() => syncDepthFrame(cam)}
-                 onLoadedMetadata={() => syncDepthFrame(cam)}
+                 onLoadedMetadata={() => { syncDepthFrame(cam); applyRate(); }}
                  controls={false} muted preload="metadata" />
         ))}
       </div>
@@ -120,6 +130,16 @@ export function ReplayPanel({ ep, role, onCloned, onDeleted }: Props) {
       <div className="controls" style={{ flexWrap: "wrap" }}>
         <button onClick={playAll}>▶ 播放</button>
         <button onClick={pauseAll}>⏸ 暂停</button>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ color: "var(--muted)", fontSize: 12 }}>倍速</span>
+          {[1, 2, 5].map(r => (
+            <button key={r} onClick={() => setRate(r)}
+                    style={{ padding: "8px 10px",
+                             background: rate === r ? "#1c2a40" : undefined }}>
+              {r}×
+            </button>
+          ))}
+        </span>
         <button onClick={() => onCloned(`${ep.task_id}/${ep.subset}`)}>以此配置新建采集</button>
         {role === "admin" && (
           <button className="btn-discard"

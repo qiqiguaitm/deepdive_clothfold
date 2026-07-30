@@ -75,7 +75,7 @@ class MockBridge:
     def get_camera_health(self) -> dict[str, dict]:
         return {
             cam: {"fps": round(29.0 + random.random(), 1), "target_fps": 30, "dropped": 0, "latency_ms": 35}
-            for cam in ("top_head", "hand_left", "hand_right")
+            for cam in ("top_head", "mid_head", "hand_left", "hand_right")
         }
 
     def get_joint_state(self) -> dict:
@@ -395,10 +395,16 @@ class RclpyBridge:
             "ros2": True,
             "can_left": bool(ls and now - ls["ts"] < FRESH_JOINT_S),
             "can_right": bool(rs and now - rs["ts"] < FRESH_JOINT_S),
-            "teleop": bool(
-                lm and rm
-                and now - lm["ts"] < FRESH_JOINT_S
-                and now - rm["ts"] < FRESH_JOINT_S
+            # slave-only mode intentionally has no master topics. In that mode
+            # fresh feedback from both slaves is the arm readiness condition.
+            "teleop": (
+                bool(ls and rs
+                     and now - ls["ts"] < FRESH_JOINT_S
+                     and now - rs["ts"] < FRESH_JOINT_S)
+                if os.environ.get("KAI0_ENABLE_MASTER", "1") == "0"
+                else bool(lm and rm
+                          and now - lm["ts"] < FRESH_JOINT_S
+                          and now - rm["ts"] < FRESH_JOINT_S)
             ),
         }
 

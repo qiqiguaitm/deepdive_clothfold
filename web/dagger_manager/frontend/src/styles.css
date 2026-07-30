@@ -47,11 +47,13 @@ html, body, #root { margin: 0; padding: 0; height: 100%; background: #0d1117; co
 .ep-row .meta { color: #8b949e; font-size: 12px; }
 .ep-stats { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8b949e; }
 .ep-tag {
-  display: inline-block; width: 18px; height: 18px; line-height: 18px;
+  display: inline-block; min-width: 18px; height: 18px; line-height: 18px;
+  padding: 0 3px; box-sizing: border-box;
   text-align: center; border-radius: 3px; font-size: 11px; font-weight: 700;
 }
 .ep-tag.ep-dagger { background: #d2992244; color: #f0c674; }
 .ep-tag.ep-inference { background: #1f6feb44; color: #79c0ff; }
+.ep-tag.ep-stitched { background: #2ea04344; color: #7ee787; }  /* 拼接段 chunk-001 */
 .ep-del {
   background: #21262d; border: 1px solid #30363d; color: #8b949e; cursor: pointer;
   padding: 1px 7px; font-size: 12px; border-radius: 4px; line-height: 1.4;

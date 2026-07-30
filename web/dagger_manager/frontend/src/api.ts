@@ -38,16 +38,18 @@ export const api = {
   tasks: () => json<{ task: string; has_data: boolean }[]>("/api/dagger/tasks"),
   episodes: (task = "Task_A") =>
     json<EpisodeEntry[]>(`/api/dagger/episodes?task=${encodeURIComponent(task)}`),
-  delEpisode: (subset: string, date: string, ep: number, task = "Task_A") =>
-    json(`/api/dagger/episodes/${subset}/${date}/${ep}?task=${encodeURIComponent(task)}`,
+  delEpisode: (subset: string, date: string, ep: number, task = "Task_A", chunk = 0) =>
+    json(`/api/dagger/episodes/${subset}/${date}/${ep}`
+         + `?task=${encodeURIComponent(task)}&chunk=${chunk}`,
          { method: "DELETE" }),
   // Video URL (not fetched as JSON — used as <video src>). Vite proxies /api.
   // `bust` (episode created_at) cache-busts: re-recording an episode at the same
-  // subset/date/id reuses the URL, so without this the browser replays the stale
-  // cached video (the endpoint sends no Cache-Control).
+  // subset/date/chunk/id reuses the URL, so without this the browser replays the
+  // stale cached video (the endpoint sends no Cache-Control).
   episodeVideoUrl: (subset: string, date: string, ep: number, camera: string,
-                    task = "Task_A", bust?: number | null) =>
-    `/api/dagger/episodes/${subset}/${date}/${ep}/video/${camera}?task=${encodeURIComponent(task)}`
+                    task = "Task_A", bust?: number | null, chunk = 0) =>
+    `/api/dagger/episodes/${subset}/${date}/${ep}/video/${camera}`
+    + `?task=${encodeURIComponent(task)}&chunk=${chunk}`
     + (bust != null ? `&t=${bust}` : ""),
 };
 

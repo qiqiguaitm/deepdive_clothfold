@@ -15,12 +15,13 @@ from scipy.spatial.transform import Rotation
 
 # Locate piper_sdk: env var > ~/workspace/piper_sdk > hardcoded fallback
 _PIPER_SDK_DIR = os.environ.get('PIPER_SDK_DIR', '')
-if not _PIPER_SDK_DIR or not os.path.isdir(_PIPER_SDK_DIR):
+if not _PIPER_SDK_DIR or not os.path.isfile(os.path.join(_PIPER_SDK_DIR, 'piper_sdk', 'kinematics', 'piper_fk.py')):
     for candidate in [
         os.path.join(os.path.expanduser('~'), 'workspace', 'piper_sdk'),
         '/home/tim/workspace/piper_sdk',
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'kai0', '.venv', 'lib', f'python{sys.version_info.major}.{sys.version_info.minor}', 'site-packages'),
     ]:
-        if os.path.isdir(os.path.join(candidate, 'piper_sdk', 'kinematics')):
+        if os.path.isfile(os.path.join(candidate, 'piper_sdk', 'kinematics', 'piper_fk.py')):
             _PIPER_SDK_DIR = candidate
             break
 if _PIPER_SDK_DIR and _PIPER_SDK_DIR not in sys.path:

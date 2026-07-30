@@ -61,6 +61,9 @@ export interface CkptEntry {
 export interface EpisodeEntry {
   subset: "dagger" | "inference";
   date: string;
+  // chunk-000 = 单段 (Form C); chunk-001 = 拼接段 (直采 / 离线 stitch)。
+  // episode_id 在每个 chunk 内各自从 0 排, 故唯一键必须含 chunk。缺省视为 0 (旧后端兼容)。
+  chunk: number;
   episode_id: number;
   length: number;
   duration_s: number;
@@ -70,6 +73,9 @@ export interface EpisodeEntry {
   note: string;
   created_at: number | null;
   has_video: boolean;
+  // 拼接段特有 (chunk-001): 人接管次数 + 人控帧数; chunk-000 为 null
+  n_takeovers?: number | null;
+  human_frames?: number | null;
   // 油门加速标识: 本段 rollout 是否踩过油门 + 峰值倍率
   used_throttle?: boolean;
   speed_factor?: number;

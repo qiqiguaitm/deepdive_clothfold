@@ -19,7 +19,7 @@ from .config import DATA_ROOT, STATS_DB_PATH
 from .layout import compound_to_subset_root, glob_all_episodes, path_to_compound
 from .models import EpisodeMeta, StatsBucket, StatsResponse
 
-CAMERAS = ("top_head", "hand_left", "hand_right")
+CAMERAS = ("top_head", "mid_head", "hand_left", "hand_right")
 EPISODE_RE = re.compile(r"episode_(\d+)\.parquet$")
 
 
@@ -48,14 +48,17 @@ def _parse_episode_path(p: Path) -> Optional[dict]:
 
 
 def _expected_videos(task_id: str, subset: str, chunk: str, ep_id: int) -> dict[str, Path]:
+    # 目录名必须带 observation.images. 前缀 — EpisodeWriter 就是这么落盘的
+    # (dataset_writer.py: videos/<chunk>/observation.images.<cam>/), 也是 LeRobot
+    # loader 认的名字。少了前缀会让每个 episode 都被判成 missing_videos → UI 全红。
     base = compound_to_subset_root(task_id, subset) / "videos" / chunk
-    return {cam: base / cam / f"episode_{ep_id:06d}.mp4" for cam in CAMERAS}
+    return {cam: base / f"observation.images.{cam}" / f"episode_{ep_id:06d}.mp4" for cam in CAMERAS}
 
 
 def _expected_depths(task_id: str, subset: str, chunk: str, ep_id: int) -> dict[str, Path]:
-    """depth zarr 目录路径, 同 video 平行, key 加 _depth 后缀."""
+    """depth zarr 目录路径, 同 video 平行, 目录名 observation.depth.<cam>."""
     base = compound_to_subset_root(task_id, subset) / "videos" / chunk
-    return {cam: base / f"{cam}_depth" / f"episode_{ep_id:06d}.zarr" for cam in CAMERAS}
+    return {cam: base / f"observation.depth.{cam}" / f"episode_{ep_id:06d}.zarr" for cam in CAMERAS}
 
 
 def _read_meta_lookup(task_id: str, subset: str) -> dict[int, dict]:
@@ -99,6 +102,19 @@ class StatsService:
         self._observer: Optional[Observer] = None
 
     # ---------- scanning ----------
+    @staticmethod
+    def _episode_key(info: dict) -> str:
+        """episodes.key — MUST include the chunk.
+
+        A task/subset can hold the same episode_id in more than one chunk (the
+        stitched dagger episodes land in chunk-001 alongside the originals in
+        chunk-000). Keying on task/subset/episode_id alone collides across
+        chunks, and since key is the PRIMARY KEY the whole full_rescan()
+        executemany aborts with 'UNIQUE constraint failed: episodes.key' —
+        which kills backend startup (lifespan) and takes the web UI down.
+        """
+        return f"{info['task_id']}/{info['subset']}/{info['chunk']}/{info['episode_id']}"
+
     def full_rescan(self) -> int:
         DATA_ROOT.mkdir(parents=True, exist_ok=True)
         rows: list[tuple] = []
@@ -108,7 +124,7 @@ class StatsService:
             info = _parse_episode_path(parquet)
             if info is None:
                 continue
-            key = f"{info['task_id']}/{info['subset']}/{info['episode_id']}"
+            key = self._episode_key(info)
             videos = _expected_videos(info["task_id"], info["subset"], info["chunk"], info["episode_id"])
             missing = [c for c, v in videos.items() if not v.exists()]
             try:
@@ -153,7 +169,7 @@ class StatsService:
         info = _parse_episode_path(parquet)
         if info is None or not parquet.exists():
             return False
-        key = f"{info['task_id']}/{info['subset']}/{info['episode_id']}"
+        key = self._episode_key(info)
         videos = _expected_videos(info["task_id"], info["subset"], info["chunk"], info["episode_id"])
         missing = [c for c, v in videos.items() if not v.exists()]
         try:
@@ -182,7 +198,7 @@ class StatsService:
         info = _parse_episode_path(parquet)
         if info is None:
             return
-        key = f"{info['task_id']}/{info['subset']}/{info['episode_id']}"
+        key = self._episode_key(info)
         with self._lock:
             self._db.execute("DELETE FROM episodes WHERE key=?", (key,))
             self._db.commit()
