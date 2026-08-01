@@ -24,6 +24,8 @@ from .models import (
     Template,
 )
 from .recorder import recorder
+from .config import DATA_ROOT
+from .dataset_writer import recover_pending_depth_jobs
 from .ros_bridge import bridge
 from .stats_service import service as stats
 from .status_hub import hub
@@ -39,9 +41,13 @@ def require_admin(x_role: Role = Header(default="collector")) -> Role:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     n = stats.full_rescan()
+    resumed_depth = recover_pending_depth_jobs(DATA_ROOT)
     stats.start_watcher()
     hub.start()
-    print(f"[startup] rescanned {n} episodes; watcher + status hub running")
+    print(
+        f"[startup] rescanned {n} episodes; resumed_depth={resumed_depth}; "
+        "watcher + status hub running"
+    )
     yield
     stats.stop_watcher()
 
@@ -285,10 +291,9 @@ def _build_jet_lut() -> "np.ndarray":  # type: ignore[name-defined]
 
 _JET_LUT = None  # lazy: 等到第一次有 depth 请求时再算 + 装 numpy/PIL
 
-# Depth is now stored as one `.zarr.zip` per episode (was a ~1.7k-file `.zarr/`
-# dir). Reading unzips to a temp dir; cache the opened array per episode so
-# slider-scrubbing many frames doesn't re-unzip on every request. Small LRU
-# (a few episodes) — evicting cleans up the temp dir.
+# v5 depth is one lossless FFV1/gray16le `.mkv` per episode. Legacy `.zarr.zip`
+# and `.zarr/` remain readable. Cache the opened representation so repeated
+# slider scrubbing does not decode/extract it on every request.
 import atexit as _atexit
 import collections as _collections
 import threading as _threading
@@ -302,9 +307,8 @@ _DEPTH_CACHE_LOCK = _threading.Lock()
 
 def _open_depth_cached(task_id: str, subset: str, episode_id: int, camera: str,
                        chunk: str = "chunk-000"):
-    """Return a read-only zarr array for the episode's depth, or None if absent.
-    Handles both new `.zarr.zip` and legacy `.zarr/` dir; caches the opened
-    (extracted) array across requests."""
+    """Return a read-only depth array, or None if absent.
+    Handles FFV1 MKV plus legacy `.zarr.zip`/`.zarr`; caches the opened array."""
     base = episode_depth_zarr_path(task_id, subset, episode_id, camera, chunk)
     art = resolve_depth_artifact(base)
     if art is None:

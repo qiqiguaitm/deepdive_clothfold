@@ -14,8 +14,10 @@ import logging
 import os
 import queue
 import shutil
+import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import av
@@ -37,7 +39,13 @@ try:
 except ImportError:
     _HAS_NUMCODECS = False
 
-from .depth_archive import pack_zarr_dir, zip_path_for
+from .depth_archive import (
+    convert_zarr_dir_to_ffv1,
+    ffv1_path_for,
+    pack_zarr_dir,
+    pending_path_for,
+    zip_path_for,
+)
 from .eef_kinematics import (
     STATE_DIM as EEF_STATE_DIM,
     append_absolute_eef,
@@ -130,6 +138,11 @@ def eef_recording_enabled() -> bool:
     """EEF schema is opt-in so existing v2/v3/v4 and DAgger writers stay 14-D."""
     return os.environ.get("KAI0_RECORD_EEF", "0") == "1"
 
+
+def depth_ffv1_enabled() -> bool:
+    """Online FFV1 is explicit so autonomy/DAgger legacy schemas stay unchanged."""
+    return os.environ.get("KAI0_DEPTH_FFV1", "0") == "1"
+
 # ── V3 online front-trim (leading-idle trim at record time) ──
 # Same semantics/constants as train_scripts/kai/data/build_no_release.py
 # (motion_onset + cut = max(0, onset - MARGIN)). Lets the collection pipeline
@@ -148,6 +161,31 @@ TRIM_MARGIN = 15  # keep this many frames before onset (lead-in; NOT a full dele
 TRIM_GRIP_DIMS = [6, 13]   # L/R gripper action dims (excluded from TRIM_ARM_DIMS)
 TRIM_GRIP_THR = 0.02       # |Δgrip| above this => gripper acting (grasp/release)
 TAIL_CAP = 15              # keep this many trailing-idle frames as terminal settle (~0.5s @30Hz)
+
+
+def _tail_keep_count(action: list[list[float]], tail_cap: int = TAIL_CAP) -> int:
+    """Return the contiguous prefix length after terminal-idle capping.
+
+    This is intentionally equivalent to
+    build_no_release.tail_cap_keep_indices(), but returns only keep_end so the
+    live writer can trim video/depth/parquet to one shared length.
+    """
+    total = len(action)
+    if total <= 1:
+        return total
+    arr = np.asarray(action, dtype=np.float64)
+    d_arm = np.abs(np.diff(arr[:, TRIM_ARM_DIMS], axis=0)).mean(axis=1)
+    d_grip = np.abs(np.diff(arr[:, TRIM_GRIP_DIMS], axis=0)).max(axis=1)
+    active = np.concatenate([
+        np.asarray([True]),
+        (d_arm > TRIM_THR) | (d_grip > TRIM_GRIP_THR),
+    ])
+    tail = 0
+    for idx in range(total - 1, -1, -1):
+        if active[idx]:
+            break
+        tail += 1
+    return total if tail <= tail_cap else total - (tail - tail_cap)
 
 # ── 人接管段 (dagger segment) 的裁剪口径 ──
 # episode 级的 TRIM_MARGIN / TAIL_CAP 是"留一段 lead-in / terminal settle"的采集约定,
@@ -173,6 +211,114 @@ HESITATION_WIN = 3           # 连续这么多帧超阈值 = 真正起手
 PREINTV_MARGIN = round(0.75 * FPS)   # =22 @30fps
 
 log = logging.getLogger(__name__)
+
+# One low-priority depth-finalizer for the whole backend.  New captures become
+# lossless FFV1/gray16le MKV.  Serializing jobs prevents post-save work
+# from competing with the live writer and recreating the old 10-20s drain stall.
+_DEPTH_FINALIZE_QUEUE: queue.Queue[tuple[tuple[Path, ...], bool]] = queue.Queue()
+_DEPTH_FINALIZE_THREAD: threading.Thread | None = None
+_DEPTH_FINALIZE_THREAD_LOCK = threading.Lock()
+_DEPTH_ENQUEUED: set[Path] = set()
+_DEPTH_ENQUEUED_LOCK = threading.Lock()
+
+
+def _finalize_depth_dirs(dirs: tuple[Path, ...] | list[Path], *, ffv1: bool) -> None:
+    for dpath in dirs:
+        dpath = Path(dpath)
+        marker = pending_path_for(dpath)
+        try:
+            if not ffv1:
+                pack_zarr_dir(dpath, remove_dir=True)
+                continue
+            before = sum(f.stat().st_size for f in dpath.rglob("*") if f.is_file())
+            dst = convert_zarr_dir_to_ffv1(
+                dpath,
+                remove_dir=True,
+                verify_pixels=os.environ.get("KAI0_DEPTH_VERIFY_PIXELS", "1") == "1",
+                fps=FPS,
+            )
+            log.info(
+                "[depth-ffv1] %s -> %s %.1fMB -> %.1fMB",
+                dpath.name, dst.name, before / 1e6, dst.stat().st_size / 1e6,
+            )
+            marker.unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001
+            if ffv1:
+                # Keep both source and marker. Startup recovery retries, while
+                # TOS waits instead of mixing depth formats inside v5.
+                log.error("depth FFV1 failed for %s; keeping pending job",
+                          dpath, exc_info=True)
+            else:
+                log.error("depth zarr.zip pack failed for %s; keeping zarr dir",
+                          dpath, exc_info=True)
+        finally:
+            with _DEPTH_ENQUEUED_LOCK:
+                _DEPTH_ENQUEUED.discard(dpath)
+
+
+def _depth_finalize_worker() -> None:
+    # CPU and IO priority are per-thread on Linux when addressed by native TID.
+    # Best effort: unsupported systems still benefit from serialization.
+    try:
+        os.setpriority(os.PRIO_PROCESS, threading.get_native_id(), 19)
+    except (AttributeError, OSError):
+        pass
+    ionice = shutil.which("ionice")
+    if ionice:
+        try:
+            subprocess.run(
+                [ionice, "-c", "3", "-p", str(threading.get_native_id())],
+                check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            pass
+    while True:
+        dirs, ffv1 = _DEPTH_FINALIZE_QUEUE.get()
+        try:
+            _finalize_depth_dirs(dirs, ffv1=ffv1)
+        finally:
+            _DEPTH_FINALIZE_QUEUE.task_done()
+
+
+def _enqueue_depth_finalize(dirs: list[Path], *, ffv1: bool,
+                            create_marker: bool | None = None) -> int:
+    """Queue unique depth dirs and return the number of newly queued jobs."""
+    global _DEPTH_FINALIZE_THREAD
+    if create_marker is None:
+        create_marker = ffv1
+    queued: list[Path] = []
+    with _DEPTH_ENQUEUED_LOCK:
+        for raw in dirs:
+            dpath = Path(raw)
+            if not dpath.is_dir() or dpath in _DEPTH_ENQUEUED:
+                continue
+            if create_marker:
+                marker = pending_path_for(dpath)
+                marker.write_text(f"{time.time()}\n", encoding="utf-8")
+            _DEPTH_ENQUEUED.add(dpath)
+            queued.append(dpath)
+    if not queued:
+        return 0
+    with _DEPTH_FINALIZE_THREAD_LOCK:
+        if _DEPTH_FINALIZE_THREAD is None or not _DEPTH_FINALIZE_THREAD.is_alive():
+            _DEPTH_FINALIZE_THREAD = threading.Thread(
+                target=_depth_finalize_worker, name="depth-finalize-worker", daemon=True,
+            )
+            _DEPTH_FINALIZE_THREAD.start()
+    _DEPTH_FINALIZE_QUEUE.put((tuple(queued), ffv1))
+    return len(queued)
+
+
+def recover_pending_depth_jobs(data_root: Path) -> int:
+    """Resume only explicitly marked online jobs after a backend restart."""
+    dirs: list[Path] = []
+    for marker in data_root.glob("*/*/v*/*/videos/chunk-*/observation.depth.*/episode_*.zarr.ffv1.pending"):
+        zarr_dir = Path(str(marker)[:-len(".ffv1.pending")])
+        if zarr_dir.is_dir():
+            dirs.append(zarr_dir)
+        elif ffv1_path_for(zarr_dir).is_file() or zip_path_for(zarr_dir).is_file():
+            marker.unlink(missing_ok=True)
+    return _enqueue_depth_finalize(dirs, ffv1=True, create_marker=False)
 
 # Queue sentinel for segment-boundary control ops (see EpisodeWriter.segment_control).
 # A real tick's item[0] is the cam_arrs dict, so an `is` check can never collide.
@@ -246,6 +392,7 @@ class EpisodeWriter:
         # 两条路径的 on-disk 布局必须一致。
         self.chunk = int(chunk)
         self._frame_class = bool(frame_class)
+        self._depth_ffv1 = depth_ffv1_enabled()
         _cdir = f"chunk-{self.chunk:03d}"
 
         self.root = task_subset_root(task, subset)
@@ -323,24 +470,30 @@ class EpisodeWriter:
         self._prev_action: np.ndarray | None = None
         self._run = 0                              # consecutive-moving frame counter
 
-        # V3 online tail-trim: hold the trailing idle run (arm AND gripper static)
-        # and cap it to TAIL_CAP terminal frames at finalize. Frames that turn out
-        # interior (motion resumes) are flushed un-touched. Default follows
-        # front_trim (i.e. on for V3 collection) unless KAI0_TAIL_TRIM is set
-        # explicitly. Independent of the onset detection above.
+        # Episode tail trim is applied at finalize to a contiguous on-disk prefix.
+        # Streaming every frame here is essential: an online bounded buffer cannot
+        # know whether a long idle interval is terminal or an interior pause, and
+        # dropping it early creates visible time jumps if motion later resumes.
         if tail_trim is None:
             tail_trim = os.environ.get(
                 "KAI0_TAIL_TRIM", "1" if self._front_trim else "0") == "1"
         self._tail_trim = bool(tail_trim)
-        # Keep this buffer strictly bounded.  The old implementation retained
-        # every raw RGB/depth frame until finalize() so it could distinguish a
-        # long interior pause from terminal idle.  An accidentally-left-running
-        # recording therefore grew by several GB/minute and eventually made the
-        # backend unresponsive.  Collection episodes treat a sustained all-static
-        # interval as trim-able idle, so retaining the terminal settle window is
-        # sufficient and gives a hard, tiny memory bound.
-        self._tail_buf: list[tuple] = []           # at most _tail_cap idle ticks
-        self._tail_prev_action: np.ndarray | None = None  # prev STAGED action (Δ for active test)
+        # DAgger human segments use their strict online buffer. Normal episodes
+        # use a separate exact bounded tail candidate buffer below, with on-disk
+        # trimming only as a fallback for unusually long terminal idles.
+        self._segment_tail_trim = False
+        self._tail_buf: list[tuple] = []
+        self._tail_prev_action: np.ndarray | None = None  # DAgger segment anchor
+        self._normal_tail_buf: list[tuple] = []
+        self._normal_tail_prev_action: np.ndarray | None = None
+        self._normal_tail_spilled = False
+        # Raw RGB+depth is large, so cap the exact in-memory candidate tail. Five
+        # seconds covers normal pedal reaction/settle; longer unattended idles
+        # spill to disk and use the slower but lossless packet-copy fallback.
+        self._normal_tail_limit = max(
+            TAIL_CAP,
+            int(os.environ.get("KAI0_TAIL_BUFFER_FRAMES", str(5 * FPS))),
+        )
 
         # ── Trim profile ──
         # Defaults = the episode-level V3 convention (keep a TRIM_MARGIN lead-in and a
@@ -367,6 +520,7 @@ class EpisodeWriter:
         self._stop = threading.Event()
         self._worker_exc: BaseException | None = None
         self._dropped = 0
+        self._queue_peak = 0
         if self._async:
             self._q = queue.Queue(maxsize=512)   # ~17s @30Hz headroom for transient stalls
             self._worker = threading.Thread(target=self._writer_loop,
@@ -401,6 +555,7 @@ class EpisodeWriter:
                 raise self._worker_exc
             try:
                 self._q.put_nowait(item)
+                self._queue_peak = max(self._queue_peak, self._q.qsize())
             except queue.Full:
                 self._dropped += 1
                 if self._dropped == 1 or self._dropped % 30 == 0:
@@ -485,6 +640,14 @@ class EpisodeWriter:
         """Runs on whichever thread owns the trim state (capture in sync mode,
         writer thread in async mode) — same invariant as _ingest."""
         if op == "human_seg_begin":
+            # Human takeover proves any normal policy idle immediately before it
+            # was interior/failure context, so preserve the complete buffered run.
+            for tk in self._normal_tail_buf:
+                self._emit_tick(*tk)
+            self._normal_tail_buf = []
+            self._normal_tail_spilled = False
+            self._normal_tail_prev_action = None
+            self._segment_tail_trim = True
             if self._front_trim:
                 self._onset_found = False
                 self._prev_action = None
@@ -531,6 +694,8 @@ class EpisodeWriter:
             self._front_thr_grip = None
             self._front_keep = None
             self._tail_cap = TAIL_CAP
+            self._segment_tail_trim = False
+            self._normal_tail_prev_action = None
 
     def _writer_loop(self) -> None:
         """Async writer thread: drain queued ticks → full front-trim + encode +
@@ -555,37 +720,75 @@ class EpisodeWriter:
 
     def _stage_tick(self, cam_arrs: dict, depth_arrs: dict,
                     s: list[float], a: list[float], ts: float, iv: int) -> None:
-        """Tail-trim stage between front-trim and encode. Holds a run of trailing
-        idle ticks (arm AND gripper static vs the previous staged action); when
-        motion resumes the held run is provably interior → flushed un-touched, when
-        the episode ends the held run is the post-task hold → capped to TAIL_CAP in
-        finalize(). Passthrough (emit immediately) when tail_trim is off."""
+        """Stage one tick without ever deleting an interior pause.
+
+        Normal episodes retain the current idle run exactly in a bounded raw
+        buffer. Motion resuming flushes the whole run, proving it was interior.
+        Saving emits only the first TAIL_CAP frames. If an idle exceeds the
+        configured memory limit, it is streamed to disk and finalize falls back
+        to contiguous packet-copy trimming.
+
+        DAgger human segments keep their stricter segment-specific behavior.
+        """
+        if self._segment_tail_trim:
+            a_np = np.asarray(a, dtype=np.float64)
+            if self._tail_prev_action is None:
+                active = True
+            else:
+                d_arm = float(np.abs(a_np[TRIM_ARM_DIMS]
+                                     - self._tail_prev_action[TRIM_ARM_DIMS]).mean())
+                d_grip = float(np.abs(a_np[TRIM_GRIP_DIMS]
+                                      - self._tail_prev_action[TRIM_GRIP_DIMS]).max())
+                active = (d_arm > TRIM_THR) or (d_grip > TRIM_GRIP_THR)
+            self._tail_prev_action = a_np
+            if active:
+                for tk in self._tail_buf:
+                    self._emit_tick(*tk)
+                self._tail_buf = []
+                self._emit_tick(cam_arrs, depth_arrs, s, a, ts, iv)
+            elif len(self._tail_buf) < self._tail_cap:
+                self._tail_buf.append((cam_arrs, depth_arrs, s, a, ts, iv))
+            return
+
         if not self._tail_trim:
             self._emit_tick(cam_arrs, depth_arrs, s, a, ts, iv)
             return
+
+        item = (cam_arrs, depth_arrs, s, a, ts, iv)
         a_np = np.asarray(a, dtype=np.float64)
-        if self._tail_prev_action is None:
-            active = True   # first staged frame = anchor (matches offline active[0]=True)
+        if self._normal_tail_prev_action is None:
+            active = True
         else:
-            d_arm = float(np.abs(a_np[TRIM_ARM_DIMS]
-                                 - self._tail_prev_action[TRIM_ARM_DIMS]).mean())
-            d_grip = float(np.abs(a_np[TRIM_GRIP_DIMS]
-                                  - self._tail_prev_action[TRIM_GRIP_DIMS]).max())
+            d_arm = float(np.abs(
+                a_np[TRIM_ARM_DIMS]
+                - self._normal_tail_prev_action[TRIM_ARM_DIMS]).mean())
+            d_grip = float(np.abs(
+                a_np[TRIM_GRIP_DIMS]
+                - self._normal_tail_prev_action[TRIM_GRIP_DIMS]).max())
             active = (d_arm > TRIM_THR) or (d_grip > TRIM_GRIP_THR)
-        self._tail_prev_action = a_np
+        self._normal_tail_prev_action = a_np
+
         if active:
-            # motion resumed → the whole held run was interior idle, keep it all
-            for tk in self._tail_buf:
+            # Motion resumed: the complete candidate run was interior, so keep it.
+            for tk in self._normal_tail_buf:
                 self._emit_tick(*tk)
-            self._tail_buf = []
-            self._emit_tick(cam_arrs, depth_arrs, s, a, ts, iv)
-        else:
-            # Might be the trailing post-task hold.  Retain only the settle
-            # window and discard further identical/static ticks immediately.
-            # This prevents an unattended recording from retaining raw camera
-            # frames without bound.
-            if len(self._tail_buf) < self._tail_cap:
-                self._tail_buf.append((cam_arrs, depth_arrs, s, a, ts, iv))
+            self._normal_tail_buf = []
+            self._normal_tail_spilled = False
+            self._emit_tick(*item)
+            return
+
+        if self._normal_tail_spilled:
+            self._emit_tick(*item)
+            return
+
+        self._normal_tail_buf.append(item)
+        if len(self._normal_tail_buf) > self._normal_tail_limit:
+            # Unusually long idle: bound RAM, preserve every frame, and remember
+            # that final trimming must happen on disk if this remains terminal.
+            for tk in self._normal_tail_buf:
+                self._emit_tick(*tk)
+            self._normal_tail_buf = []
+            self._normal_tail_spilled = True
 
     def _warmup_encoders(self) -> None:
         """Pay the nvenc per-session init (the ~0.3-0.6s/stream first-encode stall)
@@ -627,11 +830,11 @@ class EpisodeWriter:
             frame = av.VideoFrame.from_ndarray(arr, format="rgb24")
             frame.pts = self._frame_idx
             if self._force_idr.get(cam, 0) > 0:
-                frame.pict_type = av.video.frame.PictureType.I  # first real frame = keyframe
+                frame.pict_type = av.video.frame.PictureType.I
                 self._force_idr[cam] -= 1
             for packet in self._streams[cam].encode(frame):
                 if self._skip_packets.get(cam, 0) > 0:
-                    self._skip_packets[cam] -= 1   # drop the warmup frame's delayed packet
+                    self._skip_packets[cam] -= 1
                     continue
                 self._containers[cam].mux(packet)
 
@@ -668,6 +871,8 @@ class EpisodeWriter:
         return np.asarray(img, dtype=np.uint8)
 
     def finalize(self) -> None:
+        save_t0 = time.perf_counter()
+        queued_at_stop = self._q.qsize() if self._q is not None else 0
         # Async: drain all queued ticks (process them) then stop the writer thread
         # BEFORE we touch encoders/buffers on this thread. The recorder already
         # joined its capture thread (no more enqueues arrive), so this is race-free.
@@ -682,6 +887,7 @@ class EpisodeWriter:
                             self.ep, self._dropped)
             if self._worker_exc is not None:
                 raise self._worker_exc
+        drain_done = time.perf_counter()
         # Front-trim with no motion onset (degenerate/never-moved episode): keep
         # only the last MARGIN frames — matches build_no_release (cut=len-MARGIN).
         # (_front_margin is TRIM_MARGIN for a normal episode; 0 only when the capture
@@ -691,47 +897,141 @@ class EpisodeWriter:
                 self._stage_tick(*tk)
             self._buf = []
             self._onset_found = True
-        # Tail-trim: the still-held run is the trailing post-task idle; keep only
-        # the first TAIL_CAP terminal-settle frames, drop the rest. Matches
-        # build_no_release.tail_cap_keep_indices (keep arange(0, T-(tail-TAIL_CAP))).
-        if self._tail_trim and self._tail_buf:
+        # A capture ending mid-human-segment may still have a bounded DAgger
+        # segment tail. Normal episodes emit only the first terminal-settle
+        # window; the rest was never encoded and needs no MP4 rewrite.
+        if self._segment_tail_trim and self._tail_buf:
             for tk in self._tail_buf[:self._tail_cap]:
                 self._emit_tick(*tk)
             self._tail_buf = []
+        elif self._tail_trim and self._normal_tail_buf:
+            for tk in self._normal_tail_buf[:self._tail_cap]:
+                self._emit_tick(*tk)
+            self._normal_tail_buf = []
+        disk_tail_trim = self._tail_trim and self._normal_tail_spilled
         for cam, stream in self._streams.items():
             for packet in stream.encode():
                 self._containers[cam].mux(packet)
             self._containers[cam].close()
         self._containers.clear()
         self._streams.clear()
+        close_done = time.perf_counter()
+        if disk_tail_trim:
+            self._trim_terminal_idle()
+        trim_done = time.perf_counter()
         self._write_parquet()
-        # Video alignment self-check (fast, mp4-only) — BEFORE backgrounding the
-        # depth pack so a bad video still raises synchronously on save.
-        if os.environ.get("KAI0_VALIDATE_TRIM", "0") == "1":
-            self._validate_alignment()
-        # Pack each depth `.zarr/` dir (~3000 tiny files) into one `.zarr.zip`.
-        # This is ~1-2s for an ~800MB episode and dominated the save latency, so it
-        # runs in a BACKGROUND daemon thread — the save response (pedal/UI) returns
-        # immediately. The `.zarr/` dir is itself a valid depth representation
-        # (readers handle both forms), so if the process exits before the pack
-        # finishes nothing is lost; it just stays unpacked. KAI0_DEPTH_PACK_SYNC=1
-        # forces the old inline behavior (e.g. when an immediate TOS push needs the
-        # single-file form).
+        parquet_done = time.perf_counter()
+        # Structural validation now runs asynchronously immediately before TOS
+        # upload.  Keeping it out of save() lets the operator start the next
+        # episode without waiting for four full packet scans.
+        validate_done = time.perf_counter()
+        # Convert depth `.zarr/` to one lossless FFV1/gray16le MKV.  A persistent
+        # marker makes TOS wait and lets startup recovery resume an interrupted
+        # job.  One low-priority process-wide worker serializes conversions; save
+        # returns immediately. KAI0_DEPTH_PACK_SYNC=1 remains a compatibility
+        # switch for callers that explicitly require synchronous finalization.
         dirs = [d for d in self.depth_paths.values() if d.is_dir()]
         if dirs:
             if os.environ.get("KAI0_DEPTH_PACK_SYNC", "0") == "1":
-                self._pack_depth(dirs)
+                if self._depth_ffv1:
+                    for dpath in dirs:
+                        pending_path_for(dpath).write_text(f"{time.time()}\n", encoding="utf-8")
+                _finalize_depth_dirs(dirs, ffv1=self._depth_ffv1)
             else:
-                threading.Thread(target=self._pack_depth, args=(dirs,),
-                                 name=f"depthpack-{self.task}-{self.ep}", daemon=True).start()
+                _enqueue_depth_finalize(dirs, ffv1=self._depth_ffv1)
+        log.info(
+            "[save-profile] ep=%d queued=%d peak=%d drain=%.3fs close=%.3fs "
+            "tail=%.3fs parquet=%.3fs validate=%.3fs total=%.3fs",
+            self.ep, queued_at_stop, self._queue_peak,
+            drain_done - save_t0, close_done - drain_done,
+            trim_done - close_done, parquet_done - trim_done,
+            validate_done - parquet_done, time.perf_counter() - save_t0,
+        )
 
-    @staticmethod
-    def _pack_depth(dirs: list) -> None:
-        for dpath in dirs:
-            try:
-                pack_zarr_dir(dpath, remove_dir=True)
-            except Exception:  # noqa: BLE001
-                log.warning("depth pack failed for %s, keeping .zarr dir", dpath, exc_info=True)
+    def _trim_terminal_idle(self) -> None:
+        """Trim only the final static run, keeping every interior frame.
+
+        Video is already encoded, so ffmpeg packet-copy creates a temporary
+        contiguous prefix without quality loss. All four temporary videos are
+        validated before any original is replaced. Depth and tabular rows are
+        then shortened to exactly the same keep count.
+        """
+        keep = _tail_keep_count(self._rows_action, self._tail_cap)
+        total = self._frame_idx
+        if keep >= total:
+            return
+        ffmpeg = shutil.which("ffmpeg")
+        if not ffmpeg:
+            log.warning("[tail-trim] ffmpeg unavailable; keeping full ep=%d", self.ep)
+            return
+
+        staged: dict[str, Path] = {}
+        tmp_paths: list[Path] = []
+        try:
+            def stage_video(cam: str, path: Path) -> tuple[str, Path]:
+                tmp = path.with_name(f".{path.stem}.tailtrim.tmp.mp4")
+                tmp.unlink(missing_ok=True)
+                subprocess.run(
+                    [
+                        ffmpeg, "-v", "error", "-y", "-i", str(path),
+                        "-map", "0:v:0", "-c", "copy", "-copyinkf",
+                        "-frames:v", str(keep), "-movflags", "+faststart",
+                        str(tmp),
+                    ],
+                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                )
+                with av.open(str(tmp)) as container:
+                    packets = sum(
+                        1 for packet in container.demux(container.streams.video[0])
+                        if packet.pts is not None
+                    )
+                if packets != keep:
+                    raise RuntimeError(
+                        f"{cam}: staged packet count {packets} != keep {keep}"
+                    )
+                return cam, tmp
+
+            tmp_paths = [
+                path.with_name(f".{path.stem}.tailtrim.tmp.mp4")
+                for path in self.video_paths.values()
+            ]
+            with ThreadPoolExecutor(
+                max_workers=len(self.video_paths),
+                thread_name_prefix=f"tailtrim-{self.ep}",
+            ) as pool:
+                futures = [
+                    pool.submit(stage_video, cam, path)
+                    for cam, path in self.video_paths.items()
+                ]
+                for future in futures:
+                    cam, tmp = future.result()
+                    staged[cam] = tmp
+        except Exception:
+            log.exception("[tail-trim] ep=%d failed; keeping full episode", self.ep)
+            for tmp in tmp_paths:
+                tmp.unlink(missing_ok=True)
+            return
+
+        # Commit only after every staged video passed validation. Any failure in
+        # this phase propagates to recorder.save(), whose abort path removes the
+        # incomplete episode instead of publishing mismatched modalities.
+        try:
+            for z in self._depth_arrays.values():
+                if int(z.shape[0]) > keep:
+                    z.resize((keep, z.shape[1], z.shape[2]))
+            for cam, tmp in staged.items():
+                os.replace(tmp, self.video_paths[cam])
+            self._rows_state = self._rows_state[:keep]
+            self._rows_action = self._rows_action[:keep]
+            self._rows_intervention = self._rows_intervention[:keep]
+            self._frame_idx = keep
+            log.info(
+                "[tail-trim] ep=%d contiguous prefix %d→%d (trimmed %d terminal idle)",
+                self.ep, total, keep, total - keep,
+            )
+        finally:
+            for tmp in tmp_paths:
+                tmp.unlink(missing_ok=True)
 
     def _validate_alignment(self) -> None:
         """docs/deployment/training_ops/dataset_trimming_and_pts.md §4 checklist:
@@ -779,8 +1079,9 @@ class EpisodeWriter:
             except queue.Full:
                 pass
             self._worker.join(timeout=2.0)
-        self._buf = []       # drop any un-flushed front-trim buffer
-        self._tail_buf = []  # drop any held trailing-idle buffer
+        self._buf = []              # drop any un-flushed front-trim buffer
+        self._tail_buf = []         # drop any held DAgger segment buffer
+        self._normal_tail_buf = []  # drop normal terminal candidate buffer
         for container in self._containers.values():
             try:
                 container.close()
@@ -795,6 +1096,8 @@ class EpisodeWriter:
             if d.exists():
                 shutil.rmtree(d, ignore_errors=True)
             zip_path_for(d).unlink(missing_ok=True)  # in case a prior pack ran
+            ffv1_path_for(d).unlink(missing_ok=True)
+            pending_path_for(d).unlink(missing_ok=True)
         self.pq_path.unlink(missing_ok=True)
 
     def _write_parquet(self) -> None:
@@ -961,7 +1264,11 @@ def update_info_json(task: str | None, subset: str | None) -> None:
         "splits": {"train": f"0:{total_ep}"},
         "data_path": "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet",
         "video_path": "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4",
-        "depth_path": "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.zarr.zip",
+        "depth_path": (
+            "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mkv"
+            if depth_ffv1_enabled()
+            else "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.zarr.zip"
+        ),
         "features": features_block(),
     }
     info_path.write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -984,20 +1291,36 @@ def features_block() -> dict:
             "has_audio": False,
         },
     }
-    depth_feat = {
-        "dtype": "uint16_zarr",
-        "shape": [HEIGHT, WIDTH],
-        "names": ["height", "width"],
-        "info": {
-            "store": "zarr.DirectoryStore",
-            "container": "zip",  # packed as one episode_NNNNNN.zarr.zip (ZIP_STORED); unzip to read
-            "compressor": "blosc.zstd:level3:bitshuffle",
-            "unit": "millimeter",
-            "depth.height": HEIGHT,
-            "depth.width": WIDTH,
-            "depth.fps": FPS,
-        },
-    }
+    if depth_ffv1_enabled():
+        depth_feat = {
+            "dtype": "uint16_ffv1",
+            "shape": [HEIGHT, WIDTH],
+            "names": ["height", "width"],
+            "info": {
+                "container": "matroska",
+                "codec": "ffv1",
+                "pix_fmt": "gray16le",
+                "unit": "millimeter",
+                "depth.height": HEIGHT,
+                "depth.width": WIDTH,
+                "depth.fps": FPS,
+            },
+        }
+    else:
+        depth_feat = {
+            "dtype": "uint16_zarr",
+            "shape": [HEIGHT, WIDTH],
+            "names": ["height", "width"],
+            "info": {
+                "store": "zarr.DirectoryStore",
+                "container": "zip",
+                "compressor": "blosc.zstd:level3:bitshuffle",
+                "unit": "millimeter",
+                "depth.height": HEIGHT,
+                "depth.width": WIDTH,
+                "depth.fps": FPS,
+            },
+        }
     return {
         **{f"observation.images.{cam}": img_feat for cam in CAMERAS},
         **{f"observation.depth.{cam}": depth_feat for cam in DEPTH_CAMERAS},

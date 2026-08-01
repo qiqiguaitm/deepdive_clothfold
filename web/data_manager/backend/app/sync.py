@@ -19,10 +19,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 import threading
 import time
+import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -117,6 +119,12 @@ _CAMERAS = (
     else ("top_head", "hand_left", "hand_right")
 )
 _DATASET_CHUNK = int(os.environ.get("KAI0_DATASET_CHUNK", "0"))
+_MACHINE_ID = os.environ.get("KAI0_MACHINE_ID", os.uname().nodename.split(".")[0])
+_TOS_METADATA_MODE = os.environ.get("KAI0_TOS_METADATA_MODE", "canonical").strip().lower()
+if _TOS_METADATA_MODE not in {"canonical", "by_station", "both"}:
+    raise RuntimeError(
+        "KAI0_TOS_METADATA_MODE must be canonical, by_station, or both"
+    )
 
 
 def _load_depth_cameras() -> tuple[str, ...]:
@@ -223,19 +231,18 @@ def _episode_rel_paths(episode_id: int, chunk: int | None = None) -> list[str]:
     cdir = f"chunk-{_DATASET_CHUNK if chunk is None else int(chunk):03d}"
     paths = [
         f"data/{cdir}/{eid}.parquet",
-        # meta 整组小文件, 直接列整条
-        "meta/episodes.jsonl",
-        "meta/info.json",
-        "meta/tasks.jsonl",
     ]
     for cam in _CAMERAS:
         paths.append(f"videos/{cdir}/observation.images.{cam}/{eid}.mp4")
     for cam in _DEPTH_CAMERAS:
-        # New format = single `.zarr.zip` file; legacy = `.zarr/` dir (trailing /
-        # → rsync recurses). List both; rsync skips whichever is absent (the
-        # already-handled "vanished" exit-24 case).
+        # v5 online format = lossless FFV1/gray16le MKV. Keep zarr.zip/zarr in
+        # the whitelist for legacy episodes and the conversion fallback.
+        paths.append(f"videos/{cdir}/observation.depth.{cam}/{eid}.mkv")
         paths.append(f"videos/{cdir}/observation.depth.{cam}/{eid}.zarr.zip")
         paths.append(f"videos/{cdir}/observation.depth.{cam}/{eid}.zarr/")
+    # Publish metadata last so an index never advertises an episode whose payload
+    # has not yet reached the destination.
+    paths += ["meta/episodes.jsonl", "meta/info.json", "meta/tasks.jsonl"]
     return paths
 
 
@@ -495,6 +502,18 @@ def _push_episode_via_tos_only(src_date: Path, task: str, date: str, subset: str
     # 列出本 ep 所有要上传的 (local_path, tos_key) 对
     rel_paths = _episode_rel_paths(episode_id)
     upload_pairs: list[tuple[Path, str]] = []
+    def keys_for(rel_path: str) -> list[str]:
+        canonical = f"{prefix}/{rel_subset}/{rel_path}"
+        if not rel_path.startswith("meta/"):
+            return [canonical]
+        basename = Path(rel_path).name
+        station = f"{prefix}/{rel_subset}/meta/by_station/{_MACHINE_ID}/{basename}"
+        if _TOS_METADATA_MODE == "by_station":
+            return [station]
+        if _TOS_METADATA_MODE == "both":
+            return [canonical, station]
+        return [canonical]
+
     for rp in rel_paths:
         local = src_date / rp.rstrip("/")
         if local.is_dir():
@@ -502,11 +521,11 @@ def _push_episode_via_tos_only(src_date: Path, task: str, date: str, subset: str
             for f in local.rglob("*"):
                 if f.is_file():
                     rel_in_subset = f.relative_to(src_date)
-                    key = f"{prefix}/{rel_subset}/{rel_in_subset}"
-                    upload_pairs.append((f, key))
+                    for key in keys_for(rel_in_subset.as_posix()):
+                        upload_pairs.append((f, key))
         elif local.is_file():
-            key = f"{prefix}/{rel_subset}/{rp}"
-            upload_pairs.append((local, key))
+            for key in keys_for(rp):
+                upload_pairs.append((local, key))
         # else: 文件不存在, skip (e.g. 部分相机无 depth)
 
     if not upload_pairs:
@@ -517,27 +536,40 @@ def _push_episode_via_tos_only(src_date: Path, task: str, date: str, subset: str
     t0 = time.time()
     total_bytes = 0
     n_done = 0
-    n_err = 0
     last_err = None
-    for local, key in upload_pairs:
-        try:
-            cli.put_object_from_file(bucket, key, str(local))
-            n_done += 1
+    pending = list(upload_pairs)
+    for attempt in range(1, RETRIES + 1):
+        failed: list[tuple[Path, str]] = []
+        for local, key in pending:
             try:
-                total_bytes += local.stat().st_size
-            except OSError:
-                pass
-        except Exception as e:  # noqa: BLE001
-            n_err += 1
-            last_err = e
-            if n_err <= 3:
-                _sync_log.error("%s tos_only upload %s FAILED: %s", tag, key, e)
+                cli.put_object_from_file(bucket, key, str(local))
+                n_done += 1
+                try:
+                    total_bytes += local.stat().st_size
+                except OSError:
+                    pass
+            except Exception as e:  # noqa: BLE001
+                failed.append((local, key))
+                last_err = e
+                if len(failed) <= 3:
+                    _sync_log.error(
+                        "%s tos_only upload %s FAILED attempt=%d/%d: %s",
+                        tag, key, attempt, RETRIES, e,
+                    )
+        pending = failed
+        if not pending:
+            break
+        if attempt < RETRIES:
+            time.sleep(BACKOFF_BASE_S * (2 ** (attempt - 1)))
 
     up_ms = int((time.time() - t0) * 1000)
+    n_err = len(pending)
 
-    if n_err > 0 and n_done == 0:
-        # 全失败 → TOS 电路 breaker
-        if _on_tos_failure(remote.name, last_err):
+    if n_err > 0:
+        # Partial upload is not success: leave the episode pending for the batch
+        # reconciler and never publish a misleading "ok" status.
+        failure = last_err or RuntimeError(f"{n_err} TOS objects failed")
+        if _on_tos_failure(remote.name, failure):
             _sync_log.error(
                 "%s TOS CIRCUIT OPENED after %d consecutive failures",
                 tag, TOS_FAILURE_THRESHOLD,
@@ -546,9 +578,13 @@ def _push_episode_via_tos_only(src_date: Path, task: str, date: str, subset: str
                 "kai0 sync: TOS DOWN",
                 f"{remote.name} tos_only upload 连续失败 {TOS_FAILURE_THRESHOLD} 次"
             )
+        _sync_log.error(
+            "%s tos_only INCOMPLETE files=%d/%d elapsed=%dms failed=%d",
+            tag, n_done, len(upload_pairs), up_ms, n_err,
+        )
         return
 
-    # 部分/全成功 — reset streak
+    # Every object succeeded — only now reset the circuit streak.
     if _on_tos_success(remote.name):
         _sync_log.warning("%s TOS CIRCUIT CLOSED — TOS path restored", tag)
 
@@ -648,8 +684,119 @@ def _push_episode_via_tos(src_date: Path, task: str, date: str, subset: str,
                    tag, tar_ms + up_ms + ext_ms, tar_ms, up_ms, ext_ms, tar_size / 1e6)
 
 
+def _wait_for_depth_finalization(src_date: Path, episode_id: int,
+                                 timeout_s: int = TIMEOUT_S) -> bool:
+    """Wait outside save() until the FFV1 worker removes persistent markers."""
+    eid = f"episode_{episode_id:06d}"
+    cdir = f"chunk-{_DATASET_CHUNK:03d}"
+    markers = [
+        src_date / "videos" / cdir / f"observation.depth.{cam}"
+        / f"{eid}.zarr.ffv1.pending"
+        for cam in _DEPTH_CAMERAS
+    ]
+    deadline = time.monotonic() + timeout_s
+    while any(p.exists() for p in markers):
+        if time.monotonic() >= deadline:
+            _sync_log.error(
+                "depth finalization timeout: %s ep%06d pending=%s",
+                src_date, episode_id, [str(p) for p in markers if p.exists()],
+            )
+            return False
+        time.sleep(0.5)
+    return True
+
+
+def _validate_episode_before_sync(src_date: Path, episode_id: int) -> tuple[bool, str]:
+    """Cheap structural gate executed in the sync worker, never in save().
+
+    This intentionally does not judge action continuity or repeated images.  It
+    only prevents incomplete/corrupt artifacts from being published to TOS.
+    """
+    import av
+    import pyarrow.parquet as pq
+
+    eid = f"episode_{episode_id:06d}"
+    cdir = f"chunk-{_DATASET_CHUNK:03d}"
+    parquet = src_date / "data" / cdir / f"{eid}.parquet"
+    if not parquet.is_file():
+        return False, f"missing parquet: {parquet}"
+    try:
+        rows = int(pq.read_metadata(parquet).num_rows)
+    except Exception as exc:  # noqa: BLE001
+        return False, f"parquet unreadable: {exc}"
+    if rows <= 0:
+        return False, "parquet has no rows"
+
+    for cam in _CAMERAS:
+        path = src_date / "videos" / cdir / f"observation.images.{cam}" / f"{eid}.mp4"
+        if not path.is_file():
+            return False, f"missing RGB video: {path}"
+        try:
+            with av.open(str(path)) as container:
+                stream = container.streams.video[0]
+                pts = [p.pts for p in container.demux(stream) if p.pts is not None]
+            if len(pts) != rows or (min(pts) if pts else None) != 0:
+                return False, f"{path.name}/{cam}: packets={len(pts)} pts0={min(pts) if pts else None} rows={rows}"
+            with av.open(str(path)) as container:
+                if next(container.decode(video=0), None) is None:
+                    return False, f"{path.name}/{cam}: no decodable frame"
+        except Exception as exc:  # noqa: BLE001
+            return False, f"RGB validation failed {cam}: {exc}"
+
+    for cam in _DEPTH_CAMERAS:
+        base = src_date / "videos" / cdir / f"observation.depth.{cam}" / eid
+        mkv = Path(str(base) + ".mkv")
+        zp = Path(str(base) + ".zarr.zip")
+        zd = Path(str(base) + ".zarr")
+        try:
+            if src_date.parent.name == "v5" and not mkv.is_file():
+                return False, f"v5 requires FFV1 depth MKV: {mkv}"
+            if mkv.is_file():
+                with av.open(str(mkv)) as container:
+                    stream = container.streams.video[0]
+                    fields = {
+                        "codec_name": stream.codec_context.name,
+                        "width": str(stream.width),
+                        "height": str(stream.height),
+                        "nb_read_packets": str(sum(
+                            1 for packet in container.demux(stream) if packet.pts is not None
+                        )),
+                    }
+                with av.open(str(mkv)) as container:
+                    first_depth = next(container.decode(video=0), None)
+                fields["pix_fmt"] = first_depth.format.name if first_depth is not None else ""
+                expected = {
+                    "codec_name": "ffv1", "pix_fmt": "gray16le",
+                    "width": "640", "height": "480", "nb_read_packets": str(rows),
+                }
+                if any(fields.get(k) != v for k, v in expected.items()):
+                    return False, f"depth MKV invalid {cam}: got={fields} expected={expected}"
+            elif zp.is_file():
+                with zipfile.ZipFile(zp) as archive:
+                    shape = json.loads(archive.read(".zarray"))["shape"]
+                if int(shape[0]) != rows:
+                    return False, f"depth zip rows {shape[0]} != parquet {rows} ({cam})"
+            elif zd.is_dir():
+                shape = json.loads((zd / ".zarray").read_text(encoding="utf-8"))["shape"]
+                if int(shape[0]) != rows:
+                    return False, f"depth zarr rows {shape[0]} != parquet {rows} ({cam})"
+            else:
+                return False, f"missing depth artifact: {base}.[mkv|zarr.zip|zarr]"
+        except Exception as exc:  # noqa: BLE001
+            return False, f"depth validation failed {cam}: {exc}"
+    return True, f"rows={rows} rgb={len(_CAMERAS)} depth={len(_DEPTH_CAMERAS)}"
+
+
 def _worker_episode(src_date: Path, task: str, date: str, subset: str,
                     episode_id: int, remotes: list[Remote]) -> None:
+    if not _wait_for_depth_finalization(src_date, episode_id):
+        return
+    valid, detail = _validate_episode_before_sync(src_date, episode_id)
+    tag = f"{task}/{subset}/{date}/ep{episode_id:06d}"
+    if not valid:
+        _sync_log.error("[pre-tos] %s BLOCKED: %s", tag, detail)
+        return
+    _sync_log.info("[pre-tos] %s OK: %s", tag, detail)
     threads = []
     for r in remotes:
         t = threading.Thread(
@@ -666,7 +813,7 @@ def _worker_episode(src_date: Path, task: str, date: str, subset: str,
 
 # ----------------------------- public API ---------------------------------
 def sync_episode_files(task: str, date: str, subset: str, episode_id: int,
-                       chunk: int | None = None) -> None:
+                       chunk: int | None = None, src_date: Path | None = None) -> None:
     """recorder.save() 应当调这个 (单 episode, O(1) 开销).
 
     只推这一条 episode 相关的 ~10 个文件/目录 (parquet + 3 mp4 + 3 zarr + meta),
@@ -684,7 +831,9 @@ def sync_episode_files(task: str, date: str, subset: str, episode_id: int,
         _sync_log.warning("no remotes configured; skipping sync of %s/%s/%s/ep%06d",
                           task, subset, date, episode_id)
         return
-    src = _resolve_src(task, subset, date)
+    src = Path(src_date).resolve() if src_date is not None else _resolve_src(task, subset, date)
+    if src is not None and not src.is_dir():
+        src = None
     if src is None:
         _sync_log.error("sync source missing: task=%s subset=%s date=%s", task, subset, date)
         return
@@ -716,7 +865,19 @@ def sync_episode_subset(task: str, date: str, subset: str) -> None:
 
 
 def _resolve_src(task: str, subset: str, date: str) -> Path | None:
-    """v2 → v1 → v0 三段式回退 (与 layout.compound_to_subset_root 同优先级)."""
+    """Resolve legacy and version-nested dataset leaves.
+
+    Current captures live at ``task/subset/vN/date-vN``.  The old resolver only
+    checked ``task/subset/date`` which made every v3+ post-save sync fail with
+    ``sync source missing`` even though the episode had just been written.
+    Prefer the version encoded in the date suffix, then retain all legacy
+    fallbacks for older datasets.
+    """
+    m = re.search(r"-(v\d+)$", date)
+    if m:
+        nested = DATA_ROOT / task / subset / m.group(1) / date
+        if nested.is_dir():
+            return nested
     v2 = DATA_ROOT / task / subset / date
     if v2.is_dir():
         return v2

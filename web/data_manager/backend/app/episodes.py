@@ -52,7 +52,7 @@ def _camera_video_path(base: Path, cam: str, ep: int, chunk: str = "chunk-000") 
 
 
 def _camera_depth_path(base: Path, cam: str, ep: int, chunk: str = "chunk-000") -> Path:
-    """Resolve depth zarr, trying `observation.depth.<cam>` then `<cam>_depth`."""
+    """Resolve depth artifact, including FFV1 MKV and legacy Zarr forms."""
     name_zarr = f"episode_{ep:06d}.zarr"
     name_zip = name_zarr + ".zip"
     name_mkv = f"episode_{ep:06d}.mkv"

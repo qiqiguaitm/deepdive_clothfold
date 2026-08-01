@@ -21,7 +21,7 @@
 #   CAN_DIAG_INTERVAL=N (默认 30) — can_diag 快照间隔秒数
 #   KAI0_DATA_ROOT=... 采集落盘根目录 (默认 /data1/DATA_IMP/KAI0)
 #                      磁盘布局: $KAI0_DATA_ROOT/<Task>/<subset>/<vN>/<YYYY-MM-DD>-vN/{data,meta,videos}/
-#                      (subset=base|dagger|...; <vN>=内容版本, 当前 v4; 同一 subset+版本的多日数据聚在
+#                      (subset=base|dagger|...; <vN>=内容版本, 当前 v5; 同一 subset+版本的多日数据聚在
 #                       一棵子树, 方便整 subset 做训练/同步; 路径生成在 web/data_manager/backend/app/layout.py)
 #   PEDAL_VID/PEDAL_PID/PEDAL_KEY/PEDAL_EDGE/PEDAL_DEBOUNCE_MS
 #                      踏板硬件参数覆盖, 详见 web/data_manager/backend/tools/pedal_listener.py
@@ -212,32 +212,31 @@ export CAM_FPS=30
 # web/data_manager/backend/app/ros_bridge.py::get_state_action.
 export KAI0_ACTION_EQ_STATE="${KAI0_ACTION_EQ_STATE:-1}"
 # Online capture features (2026-06-15): generate trimmed datasets at record time.
-# With the arms now on the official 0–70mm gripper calibration these land as v4
-# (see the version block below).
+# The interactive recorder keeps the v5 GR00T schema and stores depth as lossless FFV1.
 #   KAI0_FRONT_TRIM=1         online leading-idle trim (EpisodeWriter rolling
 #                             buffer; same semantics as build_no_release, keeps
 #                             MARGIN=15 lead-in — NOT a full delete).
-#   KAI0_TAIL_TRIM=1          online trailing-idle cap (EpisodeWriter holds the
-#                             post-task idle run, keeps TAIL_CAP=15 terminal settle
-#                             frames; same semantics as build_no_release tail-cap —
-#                             arm AND gripper must be static, so a final gripper
-#                             release/place is never dropped). Defaults to follow
-#                             KAI0_FRONT_TRIM.
+#   KAI0_TAIL_TRIM=1          finalize-time trailing-idle cap: the live writer keeps
+#                             every frame, then packet-copies one contiguous prefix
+#                             and retains TAIL_CAP=15 terminal-settle frames. This
+#                             never removes an interior pause.
 #   KAI0_GRIPPER_FROM_MASTER=1 action gripper dims (6,13) follow the master
 #                             (teleop leader) grasp command; 12 arm dims stay = state.
 # Set either to 0 to opt back out (e.g. legacy V2 capture).
 export KAI0_FRONT_TRIM="${KAI0_FRONT_TRIM:-1}"
 export KAI0_TAIL_TRIM="${KAI0_TAIL_TRIM:-$KAI0_FRONT_TRIM}"
+# Exact in-memory terminal-idle candidate window. Normal pedal reaction is below
+# 5s, so save only emits its first 15 settle frames and avoids rewriting 4 MP4s.
+# Longer idles spill losslessly to disk and use the slower packet-copy fallback.
+export KAI0_TAIL_BUFFER_FRAMES="${KAI0_TAIL_BUFFER_FRAMES:-150}"
 if [[ "$KAI0_ENABLE_MASTER" == "0" ]]; then
     export KAI0_GRIPPER_FROM_MASTER=0
 else
     export KAI0_GRIPPER_FROM_MASTER="${KAI0_GRIPPER_FROM_MASTER:-1}"
 fi
-# Per-episode alignment self-check at finalize: assert first-pts==0,
-# video-frames==parquet-rows, and the first frame decodes (catches a black/
-# keyframe-broken video). Cheap now (demux + 1-frame decode, ~0.2s); default ON
-# so bad data raises on save instead of shipping silently. KAI0_VALIDATE_TRIM=0
-# to disable.
+# Per-episode structural self-check runs asynchronously immediately before TOS
+# upload, so collection save does not wait for four full video packet scans.
+# Failures remain local and are logged as [pre-tos] BLOCKED.
 export KAI0_VALIDATE_TRIM="${KAI0_VALIDATE_TRIM:-1}"
 # Async writer (2026-06-22): capture thread preps+enqueues, bg thread encodes.
 # DEFAULT ON — this is what keeps the 30Hz loop fed (no startup stall, ~29fps)
@@ -251,6 +250,7 @@ export KAI0_ASYNC_WRITER="${KAI0_ASYNC_WRITER:-1}"
 # Layout: KAI0/<Task>/<subset>/<vN>/<date>-<vN>/  (e.g. Task_A/base/v4/2026-06-29-v4).
 # The recorder mkdir's the full path, so the version folder is created on the fly
 # and each episode lands under its version's subtree (train each version separately).
+#   v5 = 32-D GR00T state/action + lossless FFV1/gray16le depth MKV.
 #   v4 = online front/tail-trim + gripper-action-from-master + gripper dims (6,13)
 #        in the canonical 0–70mm frame. The arms are now officially calibrated to
 #        0–70mm (command 0 = 机械全闭, set_zero 掉电不丢; see gripper_calibration.md),
@@ -260,7 +260,11 @@ export KAI0_ASYNC_WRITER="${KAI0_ASYNC_WRITER:-1}"
 #   v3 = pre-recalibration era (trimmed but old 100mm / encoder-offset gripper frame).
 #   v2 = legacy (no online trim).
 #   Override the version explicitly with KAI0_DATASET_VERSION=vN.
-if [[ "$KAI0_FRONT_TRIM" == "1" && "$KAI0_GRIPPER_FROM_MASTER" != "0" ]]; then
+export KAI0_RECORD_EEF="${KAI0_RECORD_EEF:-1}"
+if [[ "$KAI0_RECORD_EEF" == "1" ]]; then
+    export KAI0_DEPTH_FFV1=1
+    export KAI0_DATASET_VERSION=v5
+elif [[ "$KAI0_FRONT_TRIM" == "1" && "$KAI0_GRIPPER_FROM_MASTER" != "0" ]]; then
     export KAI0_DATASET_VERSION="${KAI0_DATASET_VERSION:-v4}"
 else
     export KAI0_DATASET_VERSION="${KAI0_DATASET_VERSION:-v2}"
@@ -287,11 +291,11 @@ if [[ "${ACTION:-start}" == "start" || "${ACTION:-start}" == "restart" ]]; then
         info "data convention: action = master (legacy bilateral; falls back to state if master topic missing)"
     fi
     info "front-trim: $([ "$KAI0_FRONT_TRIM" = "1" ] && echo 'ON (leading-idle trimmed at record time, keep 15-frame lead-in)' || echo 'OFF (raw V2 capture)')"
-    info "tail-trim:  $([ "$KAI0_TAIL_TRIM" = "1" ] && echo 'ON (trailing post-task idle capped to 15-frame settle; arm+gripper static)' || echo 'OFF')"
+    info "tail-trim:  $([ "$KAI0_TAIL_TRIM" = "1" ] && echo "ON (15-frame settle; exact ${KAI0_TAIL_BUFFER_FRAMES}-frame fast buffer, long-tail disk fallback)" || echo 'OFF')"
     info "async writer:  $([ "$KAI0_ASYNC_WRITER" = "1" ] && echo 'ON (capture thread enqueues; bg thread encodes → no record-time frame drops)' || echo 'OFF (inline encode)')"
     info "dataset version: $KAI0_DATASET_VERSION → auto folder <task>/<subset>/$KAI0_DATASET_VERSION/$(date +%Y-%m-%d)$KAI0_DATE_SUFFIX/"
     info "video codec: $KAI0_VIDEO_CODEC$([ "$KAI0_VIDEO_CODEC" = "nvenc" ] && echo " (GPU h264_nvenc @ GPU $KAI0_NVENC_GPU; auto-falls back to libx264 if unavailable)")"
-    info "depth fmt: packed 1 file/episode (.zarr.zip) — EpisodeWriter.finalize auto-packs the per-frame zarr dir"
+    info "depth fmt: lossless FFV1 gray16le (.mkv) — single background worker; TOS waits for completion"
     info "device/chunk: ${KAI0_MACHINE_ID:-$(hostname -s)} → chunk-$(printf '%03d' "$KAI0_DATASET_CHUNK")"
 fi
 

@@ -5,7 +5,6 @@
 """
 from __future__ import annotations
 
-import datetime
 import json
 import logging
 import os
@@ -53,10 +52,13 @@ def dated_task_name(task: str) -> str:
 class Recorder:
     def __init__(self) -> None:
         # The interactive data-manager recorder is the v5/GR00T capture path.
+        # Keep the established v5 32-D state/action schema while storing depth
+        # as lossless FFV1/gray16le MKV instead of zarr.zip.
         # Other EpisodeWriter users (DAgger/autonomy nodes) do not import this
         # module and therefore remain opt-in, preserving their existing schemas.
         os.environ.setdefault("KAI0_RECORD_EEF", "1")
         if os.environ["KAI0_RECORD_EEF"] == "1":
+            os.environ["KAI0_DEPTH_FFV1"] = "1"
             os.environ["KAI0_DATASET_VERSION"] = "v5"
             os.environ["KAI0_DATE_SUFFIX"] = "-v5"
         self._lock = threading.RLock()
@@ -79,6 +81,10 @@ class Recorder:
         self._writer: Optional[_EpisodeWriter] = None
         self._worker: Optional[threading.Thread] = None
         self._stop_evt = threading.Event()
+        self._capture_ticks = 0
+        self._capture_repeat = {cam: 0 for cam in CAMERAS}
+        self._capture_last_ts = {cam: 0.0 for cam in CAMERAS}
+        self._capture_late_ticks = 0
 
     def snapshot(self) -> dict:
         with self._lock:
@@ -93,6 +99,11 @@ class Recorder:
                 "episode_id": self.episode_id,
                 "elapsed_s": round(elapsed, 2),
                 "error": self.error,
+                "capture": {
+                    "ticks": self._capture_ticks,
+                    "late_ticks": self._capture_late_ticks,
+                    "repeated_frames": dict(self._capture_repeat),
+                },
             }
 
     # ---------- 公共 API ----------
@@ -129,6 +140,10 @@ class Recorder:
                 self._reset()
                 raise RuntimeError(f"writer init failed: {e}") from e
             self._stop_evt.clear()
+            self._capture_ticks = 0
+            self._capture_repeat = {cam: 0 for cam in CAMERAS}
+            self._capture_last_ts = {cam: 0.0 for cam in CAMERAS}
+            self._capture_late_ticks = 0
             self._worker = threading.Thread(
                 target=self._capture_loop, daemon=True, name="rec-capture"
             )
@@ -149,6 +164,8 @@ class Recorder:
             return self.snapshot()
 
     def save(self, req: SaveRecordingReq) -> dict:
+        src_date: Path | None = None
+        date_leaf: str | None = None
         with self._lock:
             if self.state != "RECORDING":
                 raise RuntimeError(f"cannot save in state={self.state}")
@@ -161,6 +178,8 @@ class Recorder:
             try:
                 assert writer is not None
                 writer.finalize()
+                src_date = writer.root.resolve()
+                date_leaf = writer.root.name
                 self._write_meta(writer, duration, req)
                 self._update_info_json(task, subset)
             except Exception as e:
@@ -173,15 +192,17 @@ class Recorder:
                     pass
                 raise
             self._reset()
-        if task and subset and ep_id is not None:
+        if task and subset and ep_id is not None and src_date is not None and date_leaf is not None:
             # task 只是裸名 ('Task_A'); 新 episode 刚写到 new_task_subset_root 下面,
             # upsert_one 需要真实 parquet 路径。
             pq_path = new_task_subset_root(task, subset) / "data" / DATASET_CHUNK_DIR / f"episode_{ep_id:06d}.parquet"
             stats.upsert_one(pq_path)
             # post-save 异步单 episode 推送: 只 rsync 该 ep 的 parquet/mp4/zarr + meta,
             # 用 --files-from 跳过全树 stat, 即使 subset 已有 10k+ 文件也几秒完成.
-            today = datetime.date.today().strftime("%Y-%m-%d")
-            sync_episode_files(task, today, subset, ep_id, chunk=DATASET_CHUNK)
+            sync_episode_files(
+                task, date_leaf, subset, ep_id,
+                chunk=DATASET_CHUNK, src_date=src_date,
+            )
         return {"saved_episode_id": ep_id, "task_id": task, "subset": subset}
 
     def toggle(self, snapshot_fn) -> dict:
@@ -249,9 +270,20 @@ class Recorder:
             next_tick += period
             # 若已掉后多帧则直接追到当前时间，避免越追越远
             if now - next_tick > 5 * period:
+                self._capture_late_ticks += 1
                 next_tick = now + period
 
-            frames = {cam: bridge.get_frame_rgb(cam) for cam in CAMERAS}
+            frames = {}
+            for cam in CAMERAS:
+                if hasattr(bridge, "get_frame_rgb_sample"):
+                    frame, frame_ts = bridge.get_frame_rgb_sample(cam)
+                else:
+                    frame, frame_ts = bridge.get_frame_rgb(cam), now
+                frames[cam] = frame
+                if self._capture_last_ts[cam] == frame_ts:
+                    self._capture_repeat[cam] += 1
+                self._capture_last_ts[cam] = frame_ts
+            self._capture_ticks += 1
             depth_frames = {
                 cam: bridge.get_frame_depth(cam) if hasattr(bridge, "get_frame_depth") else None
                 for cam in DEPTH_CAMERAS
