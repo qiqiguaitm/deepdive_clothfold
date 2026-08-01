@@ -7,6 +7,7 @@
 ```
 xvla/
 ├── README.md                       ← 本文档
+├── README_implementation.md        #   官方 X-VLA vs KAI0/LeRobot 实现与 A1 改造说明
 │
 ├── start_xvla_from_ckpt.sh         # 部署入口: 从 ckpt 一键起 server+client
 ├── start_xvla_stack.sh             # stack 启动器: server 后台 + client 前台
@@ -61,6 +62,7 @@ xvla/
 | 你想做什么 | 入口 |
 |---|---|
 | 真机部署 X-VLA | `./xvla/start_xvla_from_ckpt.sh <ckpt_name> --execute` |
+| 理解实际模型来源与 A1 改造 | [`README_implementation.md`](README_implementation.md) |
 | 本地训练 TaskP | `BS=6 ./xvla/xvla_taskp_local_5090.sh full` |
 | 转换数据 (joint→EE6D) | `python xvla/data/joint_to_ee6d.py --in_dir <raw> --out_dir <out> [--continuous]` |
 | 离线 eval MAE | `python xvla/eval/eval_xvla_ee6d.py --ckpt <path>` |
@@ -86,4 +88,5 @@ xvla/
 
 - **`X-VLA/` 是 git submodule** → `github.com/2toinf/X-VLA`
 - 当前 pin: commit `ccd1992`
-- **永远不要直接编辑 `X-VLA/` 内容** — 我们的扩展通过 `xvla/launch/`, `xvla/serve/` 等 wrapper 实现
+- 新改动不要直接落在 `X-VLA/`；扩展应通过 `xvla/launch/`, `xvla/data/`, `xvla/serve/` 或可重复 patch 实现
+- ⚠️ 当前 submodule 并非 pristine：`models/action_hub.py` 已有本地连续夹爪改动；清理前先阅读 [`README_implementation.md`](README_implementation.md#1-官方-submodule-当前存在本地修改)
