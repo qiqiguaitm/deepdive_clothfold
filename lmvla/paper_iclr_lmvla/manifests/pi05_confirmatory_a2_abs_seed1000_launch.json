@@ -1,0 +1,51 @@
+{
+  "capture_source": "resource_aware_scheduler state backfill",
+  "captured_at": "2026-08-01T23:59:45Z",
+  "config_name": "pi05_robotwin_a2_abs_confirmatory",
+  "experiment_name": "pi05_robotwin_a2_abs_seed1000",
+  "job_id": "t-20260802064924-wqczk",
+  "job_name": "pi05-a2-abs-confirmatory-s1000-east4g",
+  "protocol": {
+    "action_horizon": 50,
+    "actions": "absolute",
+    "arm": "a2_abs",
+    "asset_id": "robotwin2.0_absolute_meanstd",
+    "batch_size": 16,
+    "evaluation_cells": 24,
+    "evaluation_seeds": 4,
+    "image_augmentation": "none",
+    "lmwm_spatial_condition": "none",
+    "normalization": "mean_std",
+    "num_train_steps": 50000,
+    "training_seed": 1000
+  },
+  "resource": {
+    "accelerator": "GPU-H3c",
+    "backend": "platform",
+    "gpus": 4,
+    "name": "Robot-East-H20",
+    "preemptible": false,
+    "queue_id": "q-20260516104437-2ml4v"
+  },
+  "runtime_env": {
+    "PI05_CONFIRM_ARM": "a2_abs",
+    "PI05_CONFIRM_CONFIG": "pi05_robotwin_a2_abs_confirmatory",
+    "PI05_CONFIRM_EXP": "pi05_robotwin_a2_abs_seed1000",
+    "PI05_CONFIRM_HINT": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/robotwin_so400m/hint.npz",
+    "PI05_CONFIRM_REQUIRE_GATE": "0",
+    "PI05_CONFIRM_SEED": "1000"
+  },
+  "sha256": {
+    "conditioning_artifacts": {
+      "hint.npz": "0d7a03f77532b40e584d079ce9628cad11995e3358c58c36344ef37c04aa8f02"
+    },
+    "dataset_manifest_raw": "53c48ffc359b36536e73a42a660a250fd9db95ce577f720d0155231ed85cafa3",
+    "dataset_manifest_semantic": "5d6f61377ca6f1a469d949f7b687c9ab0a99aadf5e88117978cc6758c5d100cf",
+    "execution_sources": {
+      "config.py": "81a149b061e7e6b9cd914ff301d62fb79fe26812c34aaad2964147ecb32a60aa",
+      "pi0.py": "b44e5e5c562d406fa0c5c868446634ce9c84f5e0cc5f3c09497a6bff2bcedf74",
+      "train_pi05_robotwin_confirmatory.py": "13c795f8d402c77aa6ce41927d68ef2db864b7d746ee9845d371820e6b2cf2a5"
+    },
+    "submitted_yaml": "f9b912ef4875e9130abe6ae8a1e8a5d36eb0c04698b48f92152ed3bdd5a5d46f"
+  }
+}

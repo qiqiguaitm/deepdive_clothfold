@@ -42,6 +42,7 @@ _action_hub.EE6DActionSpace.preprocess = _ee6d_preprocess_safe
 DATA_ROOT = "/data/shared/ubuntu/workspace/dataset_ee6d"  # legacy (buggy pipeline) — superseded by SB
 SB = os.environ.get("XVLA_SB", "/data/shared/ubuntu/workspace/deepdive_kai0/xvla/data/self_built")  # X-VLA self-built EE6D (fixed pipeline); override via XVLA_SB env for local run
 CKPT_INIT = os.environ.get("XVLA_CKPT_INIT", "/data/shared/ubuntu/workspace/xvla_ckpts")  # base init model; override via XVLA_CKPT_INIT env
+FOLD_INIT = os.environ.get("XVLA_FOLD_INIT", "")  # optional task-specific state_dict warm-start
 BART_TOK = os.environ.get("XVLA_BART_TOK", "facebook/bart-large")  # text-encoder tokenizer; point to a local dir on offline (HF_HUB_OFFLINE) nodes
 PROMPT = "Flatten and fold the cloth."
 # Exp-O (§0.NEW.7): official Soft-Fold hdf5 root + ee6d action cache (override via env on each cluster)
@@ -394,6 +395,134 @@ CONFIGS = {
         param_groups="4group_official",
         lr_schedule="constant",
     ),
+    # ===== TaskP_local_continuous_v2 (2026-07-01): 连续夹爪 v2 — 修复 sigmoid 兼容。
+    # TaskP_local_continuous 根因: agibot_ee6d 不做 sigmoid → pretrained logit 权重输出 ~0.5
+    # → 被当成物理米 → 夹爪不动。v2 修复:
+    #   ① 数据: (0.08-gripper)/0.04 → alpha ∈ [0,1], 0=open 1=close
+    #   ② action_mode: ee6d_continuous (MSE(sigmoid(pred), target), GRIPPER_SCALE=100)
+    #   ③ postprocess: sigmoid → [0,1] alpha, 与 pretrained BCE+sigmoid 兼容
+    # 其他配方不变。
+    "TaskP_local_continuous_v2": dict(
+        datasets=[
+            dict(root=f"{SB}/TaskP_ee6d_continuous_v2/2026-04-21", domain_id=24,
+                 prompt="pick and place in box", weight=1.0),
+        ],
+        action_mode="ee6d_continuous",  # ⭐ sigmoid + MSE, GRIPPER_SCALE=100
+        steps=20_000,
+        lr=1e-4,
+        warmup_steps=2000,
+        freeze_steps=1000,
+        weight_decay=0.0,
+        batch_size_per_gpu=8,
+        vlm_lr_scale=0.1,
+        image_aug=True,
+        action_qdur=2.0,
+        static_skip=True,
+        bf16=True,
+        param_groups="4group_official",
+        lr_schedule="constant",
+    ),
+
+    # ===== TaskP_local_continuous_v3 (2026-07-04): 连续夹爪 v3 — 正确配方。
+    # v2 (ee6d_continuous) 真机根因: sigmoid 塞进 loss → 模型输出在 logit 空间, 但 flow-matching
+    # 的 action_noisy=noise*t+action*(1-t) 在 alpha∈[0,1] 空间插值 → 空间不自洽 → 夹爪被冲淡到
+    # 均值 (右臂 max alpha 仅 0.54, 从不闭合)。
+    # v3 修复 (对齐上游 agibot 纯 MSE 范式, 三者同空间: 模型输出=目标=噪声插值 全在 alpha∈[0,1]):
+    #   ① 数据: 复用 v2 的 TaskP_ee6d_continuous_v2 (dim9/19 已是 alpha=(0.08-g)/0.04 ∈[0,1])
+    #   ② action_mode: ee6d_alpha (纯 MSE(pred, alpha), 无 sigmoid; postprocess clamp[0,1])
+    #   ③ reinit_gripper_head: 重初始化 action_decoder 夹爪输出通道 (9,19), 抹掉预训练 BCE-logit
+    #      头的偏置 (bias→alpha 均值 ~0.3, weight→小随机), 从中值起步回归, 不背 logit 包袱
+    # 其余配方同 v2。steps 30k (夹爪细信号需更久收敛)。domain_id=25。
+    "TaskP_local_continuous_v3": dict(
+        datasets=[
+            dict(root=f"{SB}/TaskP_ee6d_continuous_v2/2026-04-21", domain_id=25,
+                 prompt="pick and place in box", weight=1.0),
+        ],
+        action_mode="ee6d_alpha",       # ⭐ 纯 MSE on alpha, 无 sigmoid, 空间自洽
+        reinit_gripper_head=True,       # ⭐ 重初始化夹爪输出头 (抹掉 BCE-logit 偏置)
+        reinit_gripper_bias=0.3,        # 夹爪 bias 初值 = alpha 数据均值 (从中值起步)
+        steps=30_000,
+        lr=1e-4,
+        warmup_steps=2000,
+        freeze_steps=1000,
+        weight_decay=0.0,
+        batch_size_per_gpu=6,
+        vlm_lr_scale=0.1,
+        image_aug=True,
+        action_qdur=2.0,
+        static_skip=True,
+        bf16=True,
+        param_groups="4group_official",
+        lr_schedule="constant",
+    ),
+
+    # ===== TaskP_local_continuous_v4 (2026-07-04): 数据驱动满行程夹爪归一化。
+    # v3 真机根因 (非 bug, 是表示问题): 夹爪 alpha 归一化用手挑窄带 (0.08,0.04) → 抓取区
+    # [0,0.04] 全饱和到 alpha=1 (丢挤压力度分辨率) + 部署把 alpha=1 映回 0.04 (物宽, 位置控制
+    # 零力→脱手→闭环重开→开合抖)。且中段占多数 + MSE → 左臂塌成均值 0.53。
+    # v4 修复 (唯一变量 = 归一化边界, 其余配方同 v3 以隔离):
+    #   ① 数据: TaskP_ee6d_continuous_v4 — alpha 边界改数据驱动满行程 (open=0.08=state p99.9
+    #      物理开度上限, close=0.0=state p0 物理全闭)。抓取区 [0,0.04] 展到 alpha[0.5,1.0] 有
+    #      分辨率, 挤压 (g→0) → alpha→1; 无 (有意义的) 饱和。
+    #   ② 部署忠实逆映射 g=0.08*(1-alpha): alpha=1→0m 力闭合, alpha=0.5→0.04m 物宽 →
+    #      train==deploy 无偏移, 且模型"用力挤"的意图能在真机出夹持力。sidecar g_close=0.0。
+    # domain_id=26 (与 v3 区分)。见 2026-07-04 Task_P 夹爪分位数分析 + joint_to_ee6d gripper_alpha_bounds。
+    "TaskP_local_continuous_v4": dict(
+        datasets=[
+            dict(root=f"{SB}/TaskP_ee6d_continuous_v4/2026-04-21", domain_id=26,
+                 prompt="pick and place in box", weight=1.0),
+        ],
+        action_mode="ee6d_alpha",       # 同 v3: 纯 MSE on alpha, 无 sigmoid, 空间自洽
+        reinit_gripper_head=True,       # 同 v3: 重初始化夹爪输出头 (no-sigmoid 头需从 [0,1] 起步)
+        reinit_gripper_bias=0.2,        # v4 alpha 数据均值 ~0.16-0.18 (满行程后更偏开) → bias 0.2
+        steps=30_000,
+        lr=1e-4,
+        warmup_steps=2000,
+        freeze_steps=1000,
+        weight_decay=0.0,
+        batch_size_per_gpu=6,
+        vlm_lr_scale=0.1,
+        image_aug=True,
+        action_qdur=2.0,
+        static_skip=True,
+        bf16=True,
+        param_groups="4group_official",
+        lr_schedule="constant",
+    ),
+    # ===== A1_local_awbc (2026-07-31): Task_A1 细长夹爪叠衣，本地 gf0 2×A100。
+    # 原始 14D joint 数据先转 20D EE6D；夹爪保持连续位置语义：
+    #   alpha=clip((0.07m-g)/(0.07m-0m),0,1), 0=open, 1=force-close。
+    # A1 是细长夹爪，action=leader 命令、state=follower 实测，本来就不应二值化或强制相等。
+    # 从已学会叠衣且修过相机读取的 E0-fixedcam 50k warm-start，只重置连续夹爪输出列。
+    "A1_local_awbc": dict(
+        datasets=[
+            # Same dual-Piper cloth-folding semantics as E0: keep domain 20 so the warm-started
+            # folding soft prompt/action head is actually reused. Hardware adaptation is carried
+            # by continuous proprio/action gripper values, not by throwing away the trained domain.
+            dict(root=f"{SB}/A1_base_dagger_awbc_enc_ee6d_alpha", domain_id=20,
+                 prompt="Flatten and fold the cloth. Advantage: positive", weight=1.0,
+                 prompt_from_task=True),
+        ],
+        action_mode="ee6d_alpha",
+        init_state_dict=FOLD_INIT,
+        reinit_gripper_head=True,
+        reinit_gripper_bias=0.75,
+        gripper_alpha_bounds=dict(open_m=0.07, close_m=0.0),
+        deploy_binarize_gripper=False,
+        steps=50_000,
+        lr=1e-4,
+        warmup_steps=2000,
+        freeze_steps=1000,
+        weight_decay=0.0,
+        batch_size_per_gpu=16,
+        vlm_lr_scale=0.1,
+        image_aug=True,
+        action_qdur=2.0,
+        static_skip=True,
+        bf16=True,
+        param_groups="4group_official",
+        lr_schedule="constant",
+    ),
 }
 
 # ==================== TRAIN ====================
@@ -428,7 +557,8 @@ def build_dataset(cfg):
             ds = LeRobotEE6DDataset(d["root"], domain_id=d["domain_id"], task_prompt=d["prompt"],
                                     image_aug=cfg.get("image_aug", False),
                                     action_qdur=cfg.get("action_qdur", None),
-                                    static_skip=cfg.get("static_skip", False))
+                                    static_skip=cfg.get("static_skip", False),
+                                    prompt_from_task=d.get("prompt_from_task", False))
         datasets.append(ds)
         weights.append(d["weight"])
     multi = MultiDomainDataset(datasets)
@@ -476,15 +606,17 @@ def main(args):
     # Tokenizer
     tok = AutoTokenizer.from_pretrained(BART_TOK)
 
-    fixed_prompt = "Flatten and fold the cloth."
-    cached_tokens = tok([fixed_prompt], padding="max_length", max_length=50, truncation=True, return_tensors="pt")["input_ids"][0]
     def collate(batch):
         out = {}
         for k in batch[0].keys():
             if isinstance(batch[0][k], torch.Tensor):
                 out[k] = torch.stack([s[k] for s in batch])
-        # Add language tokens (same prompt for all samples - cheap broadcast)
-        out["observation.language.tokens"] = cached_tokens.unsqueeze(0).expand(len(batch), -1).contiguous()
+        # Tokenize the actual per-sample task. This preserves AWBC positive/negative prompts
+        # and prevents train/deploy mismatch for non-folding single-task configs.
+        prompts = [str(s["task"]) for s in batch]
+        out["observation.language.tokens"] = tok(
+            prompts, padding="max_length", max_length=50, truncation=True, return_tensors="pt"
+        )["input_ids"]
         return out
 
     loader = DataLoader(
@@ -531,6 +663,32 @@ def main(args):
             w = torch.cat([w[:, :da, :], w[:, da + dp:, :]], dim=1)       # drop proprio rows
             sd[key] = w.reshape(nd, (da + dt) * out).contiguous()
         missing, unexpected = model.load_state_dict(sd, strict=False)
+        _warm_path = cfg.get("init_state_dict")
+        _warm_step = None
+        if _warm_path:
+            if not os.path.isfile(_warm_path):
+                raise FileNotFoundError(f"task warm-start state_dict missing: {_warm_path}")
+            _warm_obj = torch.load(_warm_path, map_location="cpu", weights_only=False)
+            _warm_sd = _warm_obj.get("model_state", _warm_obj)
+            model.load_state_dict(_warm_sd, strict=True)
+            _warm_step = _warm_obj.get("step") if isinstance(_warm_obj, dict) else None
+            del _warm_obj, _warm_sd
+        # 重初始化夹爪输出头 (v3): action_decoder = DomainAwareLinear(hidden, dim_action=20)。
+        # fc.weight [num_domains, hidden*20] 按 forward 语义 view 成 [hidden, 20], 输出通道 9/19 = 夹爪。
+        # 预训练该头是 BCE-logit 校准 (输出 ~[-4,4] logit), 但 ee6d_alpha 要直接回归 alpha∈[0,1] →
+        # 抹掉旧偏置: 夹爪列 weight→小随机 (破对称+初始输出≈bias), bias→alpha 数据均值 (从中值起步回归)。
+        _reinit_grip = False
+        if cfg.get("reinit_gripper_head", False):
+            _dec = model.model.transformer.action_decoder
+            _gidx = model.model.action_space.gripper_idx  # (9, 19)
+            _bval = float(cfg.get("reinit_gripper_bias", 0.3))
+            with torch.no_grad():
+                # .data view 改写: 避免"no_grad 建 view + grad 模式 in-place"的 autograd 版本计数报错
+                _wv = _dec.fc.weight.data.view(_dec.fc.weight.shape[0], _dec.input_size, _dec.output_size)
+                for _o in _gidx:
+                    _wv[:, :, _o].normal_(0.0, 0.02)          # 夹爪输出列: 小随机
+                    _dec.bias.weight.data[:, _o].fill_(_bval)  # 夹爪 bias: alpha 均值
+            _reinit_grip = True
         model.model._apply_dtype()
         model = model.to(device)
         if is_main(rank):
@@ -539,6 +697,11 @@ def main(args):
                 flags.append(f"proprio_dim→0, sliced action_encoder.fc {da+dp+dt}→{da+dt} cols/domain")
             if _action_override:
                 flags.append(f"action_mode={_action_override}")
+            if _warm_path:
+                flags.append(f"warm-start={_warm_path} (step={_warm_step})")
+            if _reinit_grip:
+                flags.append(f"reinit gripper head (cols {model.model.action_space.gripper_idx}, "
+                             f"bias={cfg.get('reinit_gripper_bias', 0.3)})")
             print(f"⭐ config override: {'; '.join(flags)} "
                   f"(load missing={len(missing)} unexpected={len(unexpected)})")
     else:

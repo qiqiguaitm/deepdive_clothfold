@@ -1,0 +1,72 @@
+TaskName: "pi05-a0-native-vs-bridge-east4g"
+Description: "A0 native RoboTwin pi05 evaluator cross-check on hammer and stack-two"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  RT=/vePFS/HuanQian/RoboTwin
+  CKPT=$REPO/kai0/checkpoints/pi05_robotwin_a0_official_bj/pi05_robotwin_a0_official/19999
+  LINK=$RT/policy/pi05/checkpoints/pi05_aloha_full_base/kai0_a0_official/19999
+  CFG=$REPO/train_scripts/kai/eval/pi05_robotwin_a0_official_deploy.yml
+  PY=$RT/policy/pi05/.venv/bin/python
+  LOG_DIR=$REPO/lmvla/lawam/logs/official_native_eval
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$(dirname "$LINK")" "$LOG_DIR"
+  ln -sfn "$CKPT" "$LINK"
+  test -d "$LINK/params"
+  test -x "$PY"
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.35
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  cd "$RT"
+
+  run_task() {
+    local task=$1
+    local gpu=$2
+    CUDA_VISIBLE_DEVICES=$gpu "$PY" script/eval_policy.py \
+      --config "$CFG" \
+      --overrides \
+      --task_name "$task" \
+      --task_config demo_clean \
+      --train_config_name pi05_aloha_full_base \
+      --model_name kai0_a0_official \
+      --ckpt_setting a0-official-native \
+      --seed 0 \
+      --policy_name pi05 \
+      > "$LOG_DIR/${task}_${STAMP}.log" 2>&1
+  }
+
+  run_task beat_block_hammer 0 &
+  p0=$!
+  run_task stack_blocks_two 1 &
+  p1=$!
+  wait "$p0"
+  wait "$p1"

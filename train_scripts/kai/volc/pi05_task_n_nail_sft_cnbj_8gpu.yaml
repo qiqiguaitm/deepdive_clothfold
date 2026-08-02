@@ -1,0 +1,94 @@
+# Task_N 美甲 纯 base SFT 基线 — 华北北京 8 H20 (1-host)
+#   plan:   docs/training/future_plans/plans/pi05_task_n_nail_painting_base_sft_plan.md §3
+#   Config: pi05_task_n_nail_sft (config.py; North-E 路径; init=pi05_base 冷启动; 40k/bs128/fsdp8)
+#   Data:   nail_painting_normal_train(400ep) + val nail_painting_normal_val(97ep); norm 已算; prompt "nail painting"
+#   ⚠️ 对齐快配方 bs128/fsdp8(~2.4s/it, ~27h); 非脚手架 pi05_nail_painting_normal 的 bs256/100k(慢5×)
+#   队列:   Robot-North-H20 (常规, 非闲时)
+# Submit (VOLC_REGION=cn-beijing 必须!): source ~/.volc_creds && VOLC_REGION=cn-beijing \
+#   kai0/.venv/bin/python train_scripts/kai/volc/submit_yaml.py train_scripts/kai/volc/pi05_task_n_nail_sft_cnbj_8gpu.yaml
+
+TaskName: "pi05-task-n-nail-sft-cnbj-8gpu"
+Description: "Task_N 美甲 base SFT: init pi05_base, 400ep, JAX 1-host 8 H20, bs128 40k, 复用400/97划分"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"   # 8× H20-SXM5-96GB (单机)
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: NCCL_DEBUG
+    Value: "WARN"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+  - Name: XLA_PYTHON_CLIENT_MEM_FRACTION
+    Value: "0.85"
+  - Name: JAX_COMPILATION_CACHE_MIN_ENTRY_SIZE_BYTES
+    Value: "-1"
+  - Name: JAX_COMPILATION_CACHE_MIN_COMPILE_TIME_SECS
+    Value: "1"
+  - Name: JAX_ENABLE_EMPTY_ARRAYS
+    Value: "true"
+
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  NODE=${MLP_ROLE_INDEX:-0}
+  ls -ld /vePFS-North-E/vis_robot 2>&1 || echo "MOUNT-MISSING"
+  LOG_DIR=/vePFS-North-E/vis_robot/logs
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/pi05_task_n_nail_sft_cnbj_${STAMP}_node${NODE}.log"
+  exec >> "$LOG" 2>&1
+  echo "=== nail SFT cnbj start $(date) node=$NODE (1-host 8 H20) ==="
+  set -ex
+  nvidia-smi -L
+
+  cd /vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0
+  source .venv/bin/activate
+  python -c "import jax; print(f'jax {jax.__version__} devs={len(jax.devices())}')"
+
+  TRAIN=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_painting_normal_train
+  VAL=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_painting_normal_val
+  INIT=/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params
+  [ -f "$TRAIN/meta/episodes.jsonl" ] || { echo "FATAL: train data missing $TRAIN" >&2; exit 13; }
+  [ -f "$TRAIN/norm_stats.json" ]     || { echo "FATAL: norm_stats missing (compute_norm_states_fast)" >&2; exit 13; }
+  grep -q "nail painting" "$TRAIN/meta/tasks.jsonl" || { echo "FATAL: tasks.jsonl 缺 nail painting prompt" >&2; exit 13; }
+  V=$(find -L "$TRAIN/videos/chunk-000/observation.images.top_head" -name '*.mp4' -print -quit 2>/dev/null)
+  [ -n "$V" ] && [ -e "$V" ] || { echo "FATAL: 视频软链断" >&2; exit 13; }
+  [ -f "$VAL/meta/episodes.jsonl" ] || { echo "FATAL: val 集缺 $VAL" >&2; exit 13; }
+  [ -f "$INIT/_METADATA" ]            || { echo "FATAL: init pi05_base 缺 $INIT" >&2; exit 13; }
+  echo "[$(date)] preflight OK (nail train + norm + prompt + video + val + pi05_base init)"
+
+  EXP=nail_sft
+  CKPT_DIR=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/checkpoints/pi05_task_n_nail_sft/$EXP
+  if ls -d "$CKPT_DIR"/[0-9]*/ >/dev/null 2>&1; then RESUME_FLAG="--resume"; else RESUME_FLAG="--overwrite"; fi
+
+  exec python -u scripts/train.py pi05_task_n_nail_sft \
+    --exp-name $EXP --no-wandb-enabled $RESUME_FLAG
+
+RetryOptions:
+    EnableRetry: true
+    MaxRetryTimes: 1
+
+AccessType: "Public"

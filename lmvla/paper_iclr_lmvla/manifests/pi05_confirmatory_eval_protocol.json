@@ -1,0 +1,71 @@
+{
+  "captured_at": "2026-08-02T00:53:00Z",
+  "protocol": {
+    "action_ensemble": false,
+    "evaluation_seeds": [0, 1, 2, 3],
+    "fixed_scene_seed_manifest": {
+      "episodes": 1200,
+      "max_initialization_attempts_per_episode": 500,
+      "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+      "source": "public SidneyXie/pi05_robotwin same-bridge 4-seed evaluation",
+      "source_result": "pi05_public_samebridge_4seed_v3"
+    },
+    "instruction_type": "unseen",
+    "replan_steps": 50,
+    "robotwin_num_slots": 1,
+    "tasks": [
+      "beat_block_hammer",
+      "blocks_ranking_size",
+      "blocks_ranking_rgb",
+      "handover_block",
+      "stack_blocks_two",
+      "stack_blocks_three"
+    ],
+    "trials_per_task_seed": 50
+  },
+  "arms": {
+    "a0": {
+      "asset_id": "robotwin2.0_absolute_meanstd",
+      "external_hint": false
+    },
+    "a2_abs": {
+      "asset_id": "robotwin2.0_absolute_meanstd",
+      "config_name": "pi05_robotwin_a2_prefix_official_eval_bj",
+      "hint_device": "server GPU",
+      "hint_dim": 1152,
+      "hint_encoder": "so400m",
+      "hint_intervention": "correct",
+      "hint_pipeline": "current cam_high -> So400m grid -> LMWM predictor/generator -> predicted absolute g_next",
+      "residual": false,
+      "server_side_hint": true
+    },
+    "a3_live": {
+      "asset_id": "robotwin2.0_absolute_meanstd",
+      "config_name": "pi05_robotwin_a3_live_residual_prefix_official_eval",
+      "external_hint": false,
+      "hint_pipeline": "checkpoint current-encoder residual predictor"
+    }
+  },
+  "cross_environment_equivalence": {
+    "shared_and_north_match": true,
+    "sha256": {
+      "hint_online_robotwin.py": "dc2805376e0daa95c38b4e7dda097840cca76d437f549fde82490a3e49ea4e2f",
+      "serve_policy.py": "d4a3281afbaef8db2c117566c1ca6ee3231a51fda14377de60917af24789c53e",
+      "lmwm_robotwin_so400m/lmwm.pt": "4e558ae4579bd3bfea37716f2b02d5ad2fdaac87e2216d6af93ffefdaafec407",
+      "hf_so400m/config.json": "28c6981582dbd0dc6e1c2eeae21a240e6952019bca3cdffbc22b9da2c747cb6b",
+      "hf_so400m/preprocessor_config.json": "bec6ca696ddd6c2050ce0ea9fcb7581b052d267059a3341b6c1456cab54b1d07",
+      "hf_so400m/model.safetensors": "30a00c26a045c84a0bd14adc94278d7f1cc941c8bd67e5fa50f7bed34c34e60d"
+    }
+  },
+  "launch_artifacts": {
+    "sha256": {
+      "local_robotwin_a3_official_2gpu.sh": "e82898141bdec1136708a9d741f9a988e06c24ca3f0d8165dca992b3c65079d9",
+      "pi05_robotwin_eval_hint_official_x4_bj.yaml": "4078d9d67c18304fa4524efee746c5a2bd94531ef5464d882adbb948876675bf",
+      "pi05_robotwin_eval_a0_official_x4_bj.yaml": "639dbd3eff6f969a3514afc95a26218c69f102648f4411e29a0d354c34d55b8f",
+      "pi05_robotwin_eval_a0_exact_cnsh_4a100.yaml": "6d80bfc313a1ee978d986a21d83655950b43fc06e9e2ed39c67cfaf6ba794a01",
+      "pi05_robotwin_eval_confirmatory_east_4h20.yaml": "7c8e2c896fc9ba6a44e73642b98e56fcd1de8283ed57e352b9aefdcbe95fb624",
+      "pi05_a2_abs_confirmatory_eval.json": "086992532eb781205fcfae8e9346fbecc8a166d4cafa9ed46f1eccc4b658aefd",
+      "pi05_a3_live_confirmatory_eval.json": "8c18bea0a87b5fdb00bd3af1b58186e430e0945d70ebeadfecc17d465f0ff2a3"
+    }
+  }
+}

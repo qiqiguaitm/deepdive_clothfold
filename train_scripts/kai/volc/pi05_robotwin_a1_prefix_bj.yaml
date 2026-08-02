@@ -1,0 +1,92 @@
+# ★ pi05 × LMWM RoboTwin A1 (task #39, 声明baseline上的核心正信号) — 北京 North-H20 8×H20, 30k
+#   入口折入 hint 抽取: layout适配(robotwin_dinov3base_grid→feat-root/robotwin) → export_pi05_hint
+#   (lmwm_robotwin_rvalley din768) → hint.npz → 训 pi05_robotwin_a1_prefix_bj (prefix hint 注入).
+#   norm 复用 a0_bj (asset_id=robotwin2.0). 纯 openpi pi05, JAX 训练.
+TaskName: "pi05-robotwin-a1-prefix-bj"
+Description: "pi05 RoboTwin A1 prefix hint: JAX 8H20, warm-start pi05_base, 30k, non-preemptible resume"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+ActiveDeadlineSeconds: 1209600
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+  - Name: XLA_PYTHON_CLIENT_MEM_FRACTION
+    Value: "0.85"
+  - Name: JAX_COMPILATION_CACHE_MIN_ENTRY_SIZE_BYTES
+    Value: "-1"
+  - Name: JAX_COMPILATION_CACHE_MIN_COMPILE_TIME_SECS
+    Value: "1"
+  - Name: JAX_ENABLE_EMPTY_ARRAYS
+    Value: "true"
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=/vePFS-North-E/vis_robot/logs; mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/pi05_robotwin_a1_prefix_bj_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  echo "=== pi05 robotwin a1 entrypoint start $(date) ==="
+  set -x
+  nvidia-smi -L
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  cd "$REPO/kai0"; source .venv/bin/activate
+  apt-get update 2>&1|tail -1 && apt-get install -y ffmpeg 2>&1|tail -2 || echo ffmpeg-be
+
+  # ---- Stage A: hint 抽取(幂等, hint.npz 存在则跳)----
+  HINT=$REPO/lmvla/lmwm/data/pi05_hint/robotwin_dino/hint.npz
+  LMWM_CKPT=$REPO/lmvla/lmwm/checkpoints/lmwm_robotwin_rvalley/lmwm.pt
+  GRID=$REPO/lmvla/lmwm/data/robotwin_dinov3base_grid
+  if [ ! -f "$HINT" ]; then
+    echo "[hint] 抽取 pi05 robotwin hint $(date)"
+    [ -f "$LMWM_CKPT" ] || { echo "FATAL: LMWM ckpt 缺 $LMWM_CKPT" >&2; exit 13; }
+    NG=$(find $GRID -maxdepth 1 -name 'ep*.npz' 2>/dev/null | wc -l); echo "[hint] grid ep 数=$NG"
+    [ "$NG" -ge 27000 ] || { echo "FATAL: grid 覆盖不足($NG<27000), 7lv4s 未跑完" >&2; exit 14; }
+    # layout 适配: feat-root/robotwin/ -> grid (export 按 <root>/<suite>/ep*.npz)
+    FEATROOT=$REPO/lmvla/lmwm/data/robotwin_feat_pi05; mkdir -p "$FEATROOT"
+    ln -sfn "$GRID" "$FEATROOT/robotwin"
+    python $REPO/lmvla/lmwm/scripts/export_pi05_hint.py \
+      --ckpt "$LMWM_CKPT" --feat-root "$FEATROOT" --out $REPO/lmvla/lmwm/data/pi05_hint/robotwin_dino --K 1
+    [ -f "$HINT" ] || { echo "FATAL: hint 抽取失败, 无 $HINT" >&2; exit 15; }
+    python -c "import numpy as np;z=np.load('$HINT',allow_pickle=True);print('[hint] N=',len(z['hint']),'suite唯一=',set(z['suite'].astype(str)),'shape=',z['hint'].shape)"
+  else
+    echo "[hint] 已存在, 跳过抽取"
+  fi
+
+  # ---- Stage B: norm 复用 a0_bj (asset_id=robotwin2.0) ----
+  A0NORM=$REPO/kai0/assets/pi05_robotwin_a0_bj/robotwin2.0/norm_stats.json
+  A1NORM_DIR=$REPO/kai0/assets/pi05_robotwin_a1_prefix_bj/robotwin2.0
+  [ -f "$A0NORM" ] || { echo "FATAL: a0_bj norm 缺 $A0NORM" >&2; exit 16; }
+  mkdir -p "$A1NORM_DIR"; cp -n "$A0NORM" "$A1NORM_DIR/norm_stats.json"
+  INIT=/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params
+  [ -f "$INIT/_METADATA" ] || { echo "FATAL: pi05_base init 缺" >&2; exit 17; }
+  echo "[$(date)] preflight OK (hint + norm + init)"
+
+  # ---- Stage C: 训练(自动 resume)----
+  EXP=pi05_robotwin_a1_prefix
+  CKPT_DIR=$REPO/kai0/checkpoints/pi05_robotwin_a1_prefix_bj/$EXP
+  if ls -d "$CKPT_DIR"/[0-9]*/ >/dev/null 2>&1; then RESUME_FLAG="--resume"; else RESUME_FLAG="--overwrite"; fi
+  exec python -u scripts/train.py pi05_robotwin_a1_prefix_bj \
+    --exp-name "$EXP" --no-wandb-enabled --save-interval 1000 $RESUME_FLAG
+RetryOptions:
+    EnableRetry: true
+    MaxRetryTimes: 10
+AccessType: "Public"

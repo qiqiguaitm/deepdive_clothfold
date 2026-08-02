@@ -1,0 +1,149 @@
+TaskName: "robotwin-all6-v2-residual-s2026-eval-bj"
+Description: "RoboTwin all6 v2 causal intervention, four H20, four eval seeds"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: ALL6_EVAL_VARIANT
+    Value: "residual"
+  - Name: ALL6_EVAL_RUN_BASENAME
+    Value: "20260730_164555+robotwin_all6_v2_residual_seed2026"
+  - Name: ALL6_EVAL_RESULT_VARIANT
+    Value: "residual"
+  - Name: ALL6_TRAIN_SEED
+    Value: "2026"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  LAWAM=$REPO/lmvla/lawam
+  if [ "$ALL6_EVAL_RUN_BASENAME" = latest ]; then
+    ALL6_EVAL_RUN_BASENAME=$(find "$LAWAM/results/Checkpoints/robotwin" -maxdepth 1 -type d \
+      -name "*+robotwin_all6_v2_${ALL6_EVAL_VARIANT}_seed${ALL6_TRAIN_SEED}" \
+      -printf '%f\n' | sort | tail -n 1)
+    test -n "$ALL6_EVAL_RUN_BASENAME"
+  fi
+  RUN=$LAWAM/results/Checkpoints/robotwin/$ALL6_EVAL_RUN_BASENAME
+  CKPT=$RUN/final_model/pytorch_model.pt
+  MS=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_v2
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$LAWAM/logs/volc_rteval
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/all6_v2_${ALL6_EVAL_VARIANT}_seed${ALL6_TRAIN_SEED}_eval_${STAMP}.log" 2>&1
+  set -x
+
+  test -f "$CKPT"
+  test -f "$RUN/config.yaml"
+  test -f "$RUN/dataset_statistics.json"
+  test -f "$MS/lmwm.pt"
+
+  export STAR_VLA_PYTHON=$REPO/kai0/.venv/bin/python
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$LAWAM/robotwin_python_wrapper_northe.sh
+  export ROBOTWIN_TASKS="${ALL6_EVAL_TASKS:-beat_block_hammer blocks_ranking_size blocks_ranking_rgb handover_block stack_blocks_two stack_blocks_three}"
+  export TASK_CONFIG=demo_clean
+  export ROBOTWIN_TEST_NUM=50
+  export ROBOTWIN_NUM_SLOTS=1
+  export NUM_WORKERS=1
+  export ROBOTWIN_SAVE_VIDEO=0
+  export ROBOTWIN_INSTRUCTION_TYPE=unseen
+  export PORT_SEARCH_LIMIT=30
+  export TORCH_CUDA_ARCH_LIST=9.0
+
+  export LMWM_CKPT=$MS/lmwm.pt
+  export LMWM_ADAPTER_DIR=$REPO/lmvla/lmwam/adapter
+  export LMWM_SWAP_TEACHER=1
+  export LMWM_FEAT_STRIDE=1
+  export LMWM_HINT_DROPOUT=0.15
+  export LMWM_DUAL=1
+  export LMWM_DUAL_2Q=1
+  unset LMWM_MS_RESIDUAL
+  unset LMWM_MS_DETACH_BACKBONE
+  case "$ALL6_EVAL_VARIANT" in
+    residual)
+      export LMWM_MS_RESIDUAL=1
+      ;;
+    isolation)
+      export LMWM_MS_DETACH_BACKBONE=1
+      ;;
+    combo)
+      export LMWM_MS_RESIDUAL=1
+      export LMWM_MS_DETACH_BACKBONE=1
+      ;;
+    absolute)
+      ;;
+    local|nowm)
+      unset LMWM_CKPT LMWM_ADAPTER_DIR LMWM_SWAP_TEACHER LMWM_FEAT_STRIDE
+      unset LMWM_HINT_DROPOUT LMWM_DUAL LMWM_DUAL_2Q LMWM_MS_TSCHED
+      unset LMWM_MS_RESIDUAL LMWM_MS_RESID_SCALE LMWM_MS_ABS_SCALE
+      unset LMWM_MS_GATE LMWM_MS_DETACH_BACKBONE LMWM_LOCAL_DETACH_BACKBONE
+      ;;
+    *)
+      echo "Unsupported ALL6_EVAL_VARIANT=$ALL6_EVAL_VARIANT" >&2
+      exit 2
+      ;;
+  esac
+
+  "$ROBOTWIN_PYTHON" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+
+  cd "$LAWAM"
+  nvidia-smi -L
+  pids=""
+  for seed in 0 1 2 3; do
+    (
+      export CUDA_VISIBLE_DEVICES=$seed
+      export GPU_IDS=$seed
+      export SEED=$seed
+      export PORT_BASE=$((11000 + seed * 100))
+      export ROBOTWIN_CKPT_ALIAS=robotwin_all6_v2_${ALL6_EVAL_VARIANT}_seed${ALL6_TRAIN_SEED}
+      RESULT_NAME="${ALL6_EVAL_RESULT_NAME:-rt_all6_v2_${ALL6_EVAL_RESULT_VARIANT}_seed${ALL6_TRAIN_SEED}_unseen}"
+      export ROBOTWIN_EVAL_ROOT=$LAWAM/results/eval_runs/robotwin/$RESULT_NAME/seed$seed
+      mkdir -p "$ROBOTWIN_EVAL_ROOT"
+      bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
+        "$CKPT" "$TASK_CONFIG" "eval-seed$seed"
+    ) > "$LOG_DIR/all6_v2_${ALL6_EVAL_VARIANT}_seed${ALL6_TRAIN_SEED}_eval_${STAMP}_seed${seed}.log" 2>&1 &
+    pids="$pids $!"
+    sleep 20
+  done
+
+  status=0
+  for pid in $pids; do
+    wait "$pid" || status=1
+  done
+  echo "all6 v2 $ALL6_EVAL_VARIANT seed${ALL6_TRAIN_SEED} eval finished status=$status $(date -u)"
+  exit "$status"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

@@ -1,0 +1,88 @@
+# full milestone DINOv3 特征提取(全量 27500)— 北京 Robot-North-H20 4卡自包含 job
+#   Stage1 帧缓存(CPU 32分片, 从 North-E fastwam 视频建) → Stage2 pooled(4GPU) → Stage3 grid(4GPU)
+#   RT_REPO=North-E; robotwin2.0 软链→fastwam; 帧缓存/特征落 North-E。供 full LMWM 训练。
+#   Submit: submit_yaml.py robotwin_full_milestone_extract_4gpu_bj.yaml
+TaskName: "robotwin-full-milestone-extract-4gpu"
+Description: "全量27500 DINOv3 pooled+grid 提取(帧缓存+4GPU并行), 北京North-H20 4卡, 供full LMWM"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.22xlarge"
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: OMP_NUM_THREADS
+    Value: "4"
+Entrypoint: |
+  set -uo pipefail
+  export RT_REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  export CRAVE_REPO=$RT_REPO  # crave DINOv3 编码器认 CRAVE_REPO/temp/dinov3_vitb16, 否则回落 gf0 硬编码路径致 Stage2/3 崩(2026-07-27 全量抽取空跑根因)
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG=$RT_REPO/lmvla/lmwm/logs; mkdir -p "$LOG"
+  exec >> "$LOG/full_extract_${STAMP}.log" 2>&1
+  set -x
+  echo "=== full milestone 提取 start $(date -u) (北京4卡) ==="
+  nvidia-smi -L | head
+  PY=$RT_REPO/kai0/.venv/bin/python
+  EPS=$RT_REPO/lmvla/lmwm/data/full_alleps.txt
+  SC=$RT_REPO/lmvla/lmwm/scripts
+  # 前检: 软链数据 + 脚本 + eps + crave 编码器源
+  [ -d "$RT_REPO/lmvla/lawam/dataset/robotwin2.0/videos" ] || { echo "FATAL: robotwin2.0 软链无 videos" >&2; exit 13; }
+  [ -f "$EPS" ] || { echo "FATAL: eps 列表缺" >&2; exit 13; }
+  $PY -c "import torch;print('torch',torch.__version__,'cuda',torch.cuda.is_available(),'ndev',torch.cuda.device_count())"
+
+  echo "=== Stage1 帧缓存(32 CPU 分片) $(date -u) ==="
+  pids=""
+  for s in $(seq 0 31); do
+    $PY $SC/robotwin_frame_cache_build.py --eps-file $EPS --shard $s --nshard 32 > "$LOG/fc_full_bj_s${s}_${STAMP}.log" 2>&1 &
+    pids="$pids $!"
+  done
+  for p in $pids; do wait $p; done
+  echo "=== Stage1 完 $(date -u); 帧缓存数: $(ls $RT_REPO/lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256/chunk-*/observation.images.cam_high/*.npz 2>/dev/null | wc -l) ==="
+
+  echo "=== Stage2 pooled(4 GPU 分片) $(date -u) ==="
+  pids=""
+  for g in 0 1 2 3; do
+    CUDA_VISIBLE_DEVICES=$g $PY $SC/robotwin_dinov3base_extract.py --shard $g --nshard 4 > "$LOG/feat_pooled_full_g${g}_${STAMP}.log" 2>&1 &
+    pids="$pids $!"
+  done
+  for p in $pids; do wait $p; done
+  echo "=== Stage2 pooled 完 $(date -u) ==="
+
+  echo "=== Stage3 grid(4 GPU 分片) $(date -u) ==="
+  pids=""
+  for g in 0 1 2 3; do
+    CUDA_VISIBLE_DEVICES=$g $PY $SC/robotwin_dinov3base_grid_extract.py --eps-file $EPS --shard $g --nshard 4 > "$LOG/feat_grid_full_g${g}_${STAMP}.log" 2>&1 &
+    pids="$pids $!"
+  done
+  for p in $pids; do wait $p; done
+  echo "=== Stage3 grid 完 $(date -u) ==="
+  $PY - <<'PYEOF'
+  import glob,re
+  R="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data"
+  for d in ["robotwin_dinov3base","robotwin_dinov3base_grid"]:
+      n=len(glob.glob(f"{R}/{d}/ep*.npz")); print(f"{d}: {n} ep")
+  print("FULL_EXTRACT_DONE")
+  PYEOF
+  echo "=== ALL DONE $(date -u) ==="
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+AccessType: "Public"

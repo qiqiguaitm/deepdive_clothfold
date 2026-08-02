@@ -95,10 +95,19 @@ class LeRobotEE6DDataset(Dataset):
         image_aug: bool = False,
         action_qdur: Optional[float] = None,
         static_skip: bool = False,
+        prompt_from_task: bool = False,
     ):
         self.root = Path(root)
         self.domain_id = int(domain_id)
         self.task_prompt = task_prompt
+        self.prompt_from_task = bool(prompt_from_task)
+        self.task_prompts: dict[int, str] = {}
+        tasks_path = self.root / "meta" / "tasks.jsonl"
+        if self.prompt_from_task and tasks_path.exists():
+            with open(tasks_path) as f:
+                for line in f:
+                    item = json.loads(line)
+                    self.task_prompts[int(item["task_index"])] = str(item["task"])
         self.action_chunk = action_chunk
         # D5 fix (2026-06-07): intention-abstraction action representation.
         # None  → legacy: 30 consecutive frames (dense, ~1s @30Hz) — 与 xvla-base 预训练表示不符。
@@ -256,11 +265,17 @@ class LeRobotEE6DDataset(Dataset):
                 size = self.image_size_main if i < 2 else self.image_size_wrist
                 img_dict["observation.images.image" + (str(i+1) if i > 0 else "")] = torch.zeros((3, size, size), dtype=torch.float32)
 
+        task_prompt = self.task_prompt
+        if self.prompt_from_task and "task_index" in df.columns:
+            task_idx = int(df["task_index"].iloc[f_idx])
+            task_prompt = self.task_prompts.get(task_idx, task_prompt)
+
         return {
             **img_dict,
             "observation.state": torch.from_numpy(state),
             "action": torch.from_numpy(action_chunk),
             "domain_id": torch.tensor(self.domain_id, dtype=torch.long),
+            "task": task_prompt,
         }
 
 
@@ -403,4 +418,5 @@ class XVLAHdf5Dataset(Dataset):
             "observation.state": torch.from_numpy(state),
             "action": torch.from_numpy(action_chunk),
             "domain_id": torch.tensor(self.domain_id, dtype=torch.long),
+            "task": self.task_prompt,
         }

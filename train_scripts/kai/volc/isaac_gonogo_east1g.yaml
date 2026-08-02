@@ -1,0 +1,74 @@
+# Isaac Sim 5.1 go/no-go — East-H20 单卡. 装 isaacsim==5.1.0 + 最小 headless 渲染, 测 driver 535 兼容.
+#   装到 /vePFS/tim/workspace/isaac_test/venv(cnsh, 可复用). 纯测渲染器 init, 不依赖 nucleus 资产.
+TaskName: "isaac-gonogo-east"
+Description: "Isaac Sim 5.1 install + headless render test on driver 535 (H20)"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+ActiveDeadlineSeconds: 10800
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: ACCEPT_EULA
+    Value: "Y"
+  - Name: OMNI_KIT_ACCEPT_EULA
+    Value: "YES"
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  BASE=/vePFS/tim/workspace/isaac_test
+  LOG=$BASE/gonogo_${STAMP}.log; mkdir -p "$BASE"
+  exec > "$LOG" 2>&1
+  set -x
+  echo "===== ISAAC GO/NOGO start $(date -u) ====="
+  nvidia-smi | head -12
+  VENV=$BASE/venv
+  KAIPY=/vePFS/tim/workspace/deepdive_kai0/kai0/.venv/bin/python
+  echo "### 建 py312 venv"
+  [ -x "$VENV/bin/python" ] || $KAIPY -m venv "$VENV"
+  PIP="$VENV/bin/python -m pip"
+  $PIP install -q -U pip 2>&1 | tail -1
+  echo "### 装 isaacsim[all,extscache]==5.1.0 (extra-index pypi.nvidia.com, 主 aliyun)"
+  env -u http_proxy -u https_proxy -u ALL_PROXY -u all_proxy \
+    $PIP install "isaacsim[all,extscache]==5.1.0" \
+    --index-url https://mirrors.aliyun.com/pypi/simple/ \
+    --extra-index-url https://pypi.nvidia.com 2>&1 | tail -25
+  echo "### isaacsim 装成? 列版本"
+  $VENV/bin/python -m pip show isaacsim 2>&1 | grep -E 'Name|Version' | head
+  echo "### 最小 headless 渲染测试(纯测 driver535 RTX/Vulkan init)"
+  cat > $BASE/hello_isaac.py <<'PY'
+  import os
+  os.environ.setdefault("ACCEPT_EULA","Y"); os.environ.setdefault("OMNI_KIT_ACCEPT_EULA","YES")
+  from isaacsim import SimulationApp
+  app = SimulationApp({"headless": True, "renderer": "RayTracedLighting"})
+  print("SIMAPP_INIT_OK", flush=True)
+  import omni.usd
+  from pxr import UsdGeom
+  stage = omni.usd.get_context().get_stage()
+  UsdGeom.Cube.Define(stage, "/World/Cube")
+  for i in range(8):
+      app.update()
+  print("ISAAC_RENDER_OK frames=8", flush=True)
+  app.close()
+  print("ISAAC_DONE", flush=True)
+  PY
+  export ACCEPT_EULA=Y OMNI_KIT_ACCEPT_EULA=YES
+  timeout 900 $VENV/bin/python $BASE/hello_isaac.py 2>&1 | tail -40
+  echo "===== ISAAC GO/NOGO END rc=$? $(date -u) ====="
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+AccessType: "Public"

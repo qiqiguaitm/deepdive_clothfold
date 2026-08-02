@@ -6,7 +6,7 @@
 |---|---|
 | [architecture_overview.md](architecture_overview.md) | **全景架构** — CRAVE→LMWM→VLA 三段如何拼、每段的输入/输出/接口、注入机制（SigLIP prefix + KI）、诚实局限 |
 | [roadmap.md](roadmap.md) | **阶段路线** — E0→E3 + 每步 kill criteria + 当前进度；细节下钻 lmwm MASTER_PLAN |
-| [glossary.md](glossary.md) | **术语锁** — milestone / Greedy / Max-product / KI / LMWAM / hybrid fallback 等，全项目统一命名 |
+| [glossary.md](glossary.md) | **术语锁** — milestone / Greedy / Max-product / KI / LMVLA / hybrid fallback 等，全项目统一命名 |
 
 ## 子项目单一事实源
 

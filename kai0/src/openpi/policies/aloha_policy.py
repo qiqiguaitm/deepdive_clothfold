@@ -84,6 +84,16 @@ class AlohaInputs(transforms.DataTransformFn):
         if "prompt" in data:
             inputs["prompt"] = data["prompt"]
 
+        # pi05 × LMWM: 透传离线查表/在线注入的 lmwm_hint (与 LiberoInputs 同; A0 无该字段不受影响).
+        if "lmwm_hint" in data:
+            inputs["lmwm_hint"] = data["lmwm_hint"]
+        # A3 live-target LMWM: target representative frame is encoded inside the
+        # model, not treated as an observed policy camera.
+        if "lmwm_target_image" in data:
+            inputs["lmwm_target_image"] = data["lmwm_target_image"]
+        if "lmwm_target_mask" in data:
+            inputs["lmwm_target_mask"] = data["lmwm_target_mask"]
+
         return inputs
 
 

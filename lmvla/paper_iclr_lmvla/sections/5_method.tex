@@ -1,0 +1,94 @@
+\section{Experimental Design}\label{sec:design}
+
+\subsection{Benchmark, evaluator, and evidence tiers}
+RoboTwin 2.0 is the primary benchmark.  We evaluate hammering, ranking by
+color, ranking by size, handover, stacking two blocks, and stacking three
+blocks.  Each completed pilot cell contains four simulator seed groups and 50
+accepted expert-feasible episodes per group (200 episodes per task and 1,200
+per method).  Policies predict 50 actions and replan after executing 36.
+Accepted scene identifiers must be intersected across conditions for paired
+tests.  LIBERO is reported only as an auxiliary saturation and negative-transfer
+diagnostic.
+
+We separate three evidence tiers.  The \emph{external calibration} is the
+published $\pi_{0.5}$ checkpoint evaluated through our bridge.  The
+\emph{legacy pilot} starts every arm from \texttt{pi05\_base} but uses
+joint-delta actions, quantile normalization, batch 64, and 20k updates.  The
+\emph{confirmatory matrix} will use absolute actions, mean/std normalization,
+batch 16, 50k updates, and the published optimizer schedule for every arm.
+Only the confirmatory matrix can support the final Q1 claim.
+
+\subsection{Q1: matched control performance}
+The claim-bearing comparison is A0 (no hint), A2-Abs (offline absolute
+milestone), and A3/MINT-VLA (current-encoder residual predictor), trained from
+the same initialization and data under the confirmatory recipe.  A0 has no
+hint field, milestone loss, or milestone-specific parameters.  We will report
+each training seed, the seed mean and interval, and all task-level results.
+
+\exptodo{T0--T2}{Finish corrected A0; after its 70\% operational gate, train
+matched A2-Abs and six-task-coverage A3 for three independent seeds.}
+
+\subsection{Q2: effect of the predicted token content}
+For each trained A2-Abs and A3 checkpoint, we hold weights fixed and replace the
+correct prediction with (i) the current-state feature, (ii) zeros, (iii) a
+within-task shuffled future, and (iv) a cross-task future.  A completed
+feature-dimension permutation is reported separately because it tests feature
+structure, not instance relevance.  Conditions use the
+same accepted scene identifiers.  Correct-versus-current tests temporal content;
+correct-versus-shuffled tests instance relevance while preserving a plausible
+feature distribution; zero tests removal of the token; cross-task tests semantic
+misdirection.  We report paired success differences and exact McNemar tests
+with Holm correction across planned contrasts.
+\exptodo{E1}{Complete A3 zero, instance-shuffled, and cross-task conditions;
+run the missing A2 instance shuffle; freeze scene intersections and report
+discordant counts with Holm-adjusted exact McNemar tests.}
+
+\subsection{Q3: factorized interface mechanism}
+The A2-to-A3 pilot changes how target features are computed, predictor capacity, auxiliary
+loss, and the injected value at once.  The confirmatory ablation
+therefore holds predictor architecture, loss, injected value, and parameter
+count fixed while varying one factor:
+\begin{center}
+\small
+\begin{tabular}{p{0.31\linewidth}p{0.55\linewidth}}
+\toprule
+Factor & Controlled comparison \\
+\midrule
+target computation & saved target feature vs. frame re-encoded by the current encoder \\
+predictor form & direct absolute predictor vs. residual-parameterized predictor, both injecting absolute \\
+forward guidance & auxiliary-only/no-prefix vs. predicted prefix \\
+backward shaping & prefix-only/no-aux and detached-current auxiliary branch \\
+milestone selection & fixed horizon, random future, terminal frame, and oracle milestone \\
+\bottomrule
+\end{tabular}
+\end{center}
+\exptodo{T3}{Train the one-factor target-computation, predictor-form, forward/backward
+route, capacity, and instruction-aware controls.}
+
+\subsection{Q4: robustness, scope, and efficiency}
+Training seed is the top-level uncertainty unit.  We will use a hierarchical
+bootstrap over training seed, task, and paired scene, while retaining task-level
+values to expose heterogeneous effects.  Transfer is tested by matched
+fine-tuning from a mature initialization, not by comparing against an unrelated
+public checkpoint.  The task-scope hypothesis is predeclared on block and bowl
+stacking, with reactive/contact and fine-grained geometric tasks as controls.
+We will also report added parameters, training FLOPs, peak memory, inference
+latency, and throughput relative to A0.
+
+Training-seed, mature-initialization, and predeclared task-group experiments
+remain confirmatory gates.  We report static deployment cost now and reserve
+measured memory and latency claims for a paired benchmark.
+\exptodo{T4--T5,E2}{Train the predeclared task panel and mature-initialization
+matrix; measure paired peak memory, inference latency, and server throughput.}
+
+\subsection{Q5: instantiation on a second VLA architecture}
+The milestone target and predictor are defined independently of the
+$\pi_{0.5}$ prefix.  To test use with another architecture, we will retain the
+milestone selection, native-space objective, data, and evaluation protocol;
+size the predictor to the second VLA's visual feature width; and connect it
+through that VLA's native conditioning input.  The identifying comparison is
+MINT-VLA versus a matched no-milestone baseline within the second architecture,
+not raw success differences between two VLA families.
+\exptodo{T6}{Report matched no-milestone and MINT-VLA results for at least one
+additional VLA; do not claim multi-architecture evidence from the $\pi_{0.5}$
+experiment alone.}

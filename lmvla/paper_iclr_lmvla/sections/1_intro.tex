@@ -1,0 +1,78 @@
+\section{Introduction}\label{sec:intro}
+World models represent environment dynamics by predicting future observations
+or latent states from the current state and, in many formulations, an action.
+Recent vision--language--action (VLA) systems use predicted images, latent
+observation features, or visual subgoals to inform action generation
+\citep{vpp2024,susie2024,ahead2026,futurevla2026}.  Prediction quality alone,
+however, does not establish an improvement in control.  WorldArena reports a
+correlation of only $r{=}0.360$ between world-model quality and planning performance
+\citep{worldarena2026}, while VLA prediction systems use specialized attention,
+alignment, or gating before future supervision reaches the controller
+\citep{dreamvla2025,futurevla2026,deltavla2026}.  The unresolved problem is
+therefore not only how to predict a future state, but how to integrate the
+prediction into a pretrained action policy.
+
+This integration problem is especially important when the VLA visual encoder remains trainable.
+An independent visual world model preserves its own representation but repeats
+perception or generation at deployment.  A precomputed latent is cheaper, yet
+an external encoder can organize the scene differently from the policy.  Even
+a feature computed by the policy encoder becomes outdated as fine-tuning
+changes that encoder.
+Finally, an auxiliary future loss can alter shared current features whether or
+not the policy uses the predicted content.  Encoder mismatch, target drift,
+forward conditioning, and backward representation shaping are different
+causes; a method-versus-baseline comparison cannot identify them.
+
+Here we present \textbf{MINT-VLA} (\textbf{M}ilestone \textbf{I}ntegration with
+\textbf{N}ative-Space \textbf{T}argets for
+\textbf{V}ision--\textbf{L}anguage--\textbf{A}ction models), a compact adapter
+that defines milestone targets in the policy's current visual space
+(Fig.~\ref{fig:hero}).  MINT-VLA first finds stage states that recur across
+successful demonstrations and stores the corresponding frames.  During policy
+training, the current encoder represents both the observation and a
+stop-gradient milestone target.  A two-layer predictor estimates their
+displacement and reconstructs an absolute milestone feature.  An
+architecture-specific projection passes this feature through the VLA's native
+conditioning input; our $\pi_{0.5}$ implementation appends one prefix token.
+At deployment, the predictor operates
+on the current observation; it requires no retrieval, target encoder, or image
+decoder.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.96\linewidth]{figures/fig1_tension.pdf}
+  \caption{$\pi_{0.5}$ instantiation of MINT-VLA. Recurrence mining selects a
+  later milestone frame from successful demonstrations. During training, the
+  current policy encoder defines a stop-gradient target and a
+  residual-parameterized predictor produces an absolute milestone feature. The
+  $\pi_{0.5}$ adapter maps that feature to one prefix token.}
+  \label{fig:hero}
+\end{figure}
+
+The completed experiments separate the effect of adding the token from the
+effect of its predicted milestone content.
+In a legacy matched RoboTwin pilot, offline absolute conditioning improved a
+weak no-hint $\pi_{0.5}$ by 13.25 percentage points and MINT-VLA improved it by
+14.08 points.  Their 0.83-point difference came from one training seed and
+varied in sign across tasks.  More importantly, a fixed A2 checkpoint achieved
+70.67\% with its predicted token and 67.17\% with a zero token, but current,
+feature-permuted, and cross-task tokens reached 71.00\%, 71.50\%, and 71.67\%.
+Visual conditioning therefore helped relative to removing the token, but the
+current evidence does not establish that the predicted future state improves
+action selection.  A public $\pi_{0.5}$ reached
+78.42\% through the same evaluator, which further makes corrected matched
+training necessary.
+\exptodo{T0--T2,E1}{Replace this legacy evidence paragraph with corrected
+multi-seed task effects and Holm-adjusted matched-scene interventions.}
+
+This paper makes three contributions:
+\begin{itemize}
+  \item We introduce a milestone target recomputed by the current policy encoder
+  and an adapter that uses each VLA's native conditioning input; the evaluated
+  $\pi_{0.5}$ implementation adds one token and 0.25\% parameters.
+  \item We define controlled comparisons for target recomputation, predictor
+  parameterization, policy conditioning, and auxiliary-gradient routing.
+  \item We report task-level pilots and fixed-checkpoint interventions that
+  show when an extra visual token is useful without attributing that gain
+  prematurely to predicted future content.
+\end{itemize}

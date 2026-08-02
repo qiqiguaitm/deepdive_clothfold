@@ -114,7 +114,11 @@ class Observation(Generic[ArrayT]):
     frame_index: at.Int[ArrayT, "*b"] | None = None
     
     progress: at.Float[ArrayT, "*b"] | None = None
-    
+
+    # AWBC loss-weighting (awbc_three_paradigm §A2): per-frame loss weight from dagger_frame_class.
+    # None when awbc_loss_weight disabled → identical to upstream.
+    sample_weight: at.Float[ArrayT, "*b"] | None = None
+
     episode_length: Union[at.Int[ArrayT, "*b"], at.Float[ArrayT, "*b"]] | None = None
 
     image_original: dict[str, at.Float[ArrayT, "*b H W C"]] | None = None
@@ -128,6 +132,12 @@ class Observation(Generic[ArrayT]):
     # lmwm_hint_dim=0 (default) → model behaves identically to upstream pi05.
     # NB: axis names hl/hd must not collide with image h/w/c above.
     lmwm_hint: at.Float[ArrayT, "*b hl hd"] | None = None
+    # A3 live-target LMWM: representative target frame image in current pi05
+    # visual-encoder space. Stored separately from policy cameras so it does not
+    # become an observed camera token. Shape [*b, H, W, C], same value range as
+    # images after from_dict conversion. Mask is 1 when a mined target exists.
+    lmwm_target_image: at.Float[ArrayT, "*b h w c"] | None = None
+    lmwm_target_mask: at.Bool[ArrayT, "*b"] | None = None
 
     @classmethod
     def from_dict(cls, data: at.PyTree[ArrayT]) -> "Observation[ArrayT]":
@@ -149,6 +159,12 @@ class Observation(Generic[ArrayT]):
                     data["image_original"][key] = data["image_original"][key].astype(np.float32) / 255.0 * 2.0 - 1.0
                 elif hasattr(data["image_original"][key], "dtype") and data["image_original"][key].dtype == torch.uint8:
                     data["image_original"][key] = data["image_original"][key].to(torch.float32).permute(0, 3, 1, 2) / 255.0 * 2.0 - 1.0
+
+        if data.get("lmwm_target_image", None) is not None:
+            if data["lmwm_target_image"].dtype == np.uint8:
+                data["lmwm_target_image"] = data["lmwm_target_image"].astype(np.float32) / 255.0 * 2.0 - 1.0
+            elif hasattr(data["lmwm_target_image"], "dtype") and data["lmwm_target_image"].dtype == torch.uint8:
+                data["lmwm_target_image"] = data["lmwm_target_image"].to(torch.float32) / 255.0 * 2.0 - 1.0
         
         return cls(
             images=data["image"],
@@ -162,10 +178,13 @@ class Observation(Generic[ArrayT]):
             frame_index=data.get("frame_index", None),
             episode_length=data.get("episode_length", None), 
             progress=data.get("progress", None),
+            sample_weight=data.get("sample_weight", None),
             image_original=data.get("image_original", None),
             episode_index=data.get("episode_index", None),
             dataset_id=data.get("dataset_id", None),
             lmwm_hint=data.get("lmwm_hint", None),
+            lmwm_target_image=data.get("lmwm_target_image", None),
+            lmwm_target_mask=data.get("lmwm_target_mask", None),
         )
 
     def to_dict(self) -> at.PyTree[ArrayT]:
@@ -194,6 +213,7 @@ def preprocess_observation(
     filling in a default image mask (if necessary).
 
     augment_level:
+        "none":       disable training-time image augmentation.
         "mild":       default. RandomCrop(0.95) + Rotate(±5°) on non-wrist only; ColorJitter(0.3,0.4,0.5) on all.
         "aggressive": for deploy-robustness (D435→D405, pose/arm spacing variation).
                       Non-wrist: RandomCrop(0.85) + Rotate(±10°). Wrist: Rotate(±8°) + RandomCrop(0.90).
@@ -213,6 +233,9 @@ def preprocess_observation(
             image = image_tools.resize_with_pad(image, *image_resolution)
 
         if train:
+            if augment_level == "none":
+                out_images[key] = image
+                continue
             # Convert from [-1, 1] to [0, 1] for augmax.
             image = image / 2.0 + 0.5
 
@@ -278,6 +301,8 @@ def preprocess_observation(
         episode_index=observation.episode_index,
         dataset_id=observation.dataset_id,
         lmwm_hint=observation.lmwm_hint,
+        lmwm_target_image=None if observation.lmwm_target_image is None else jnp.asarray(observation.lmwm_target_image),
+        lmwm_target_mask=None if observation.lmwm_target_mask is None else jnp.asarray(observation.lmwm_target_mask),
     )
 
 

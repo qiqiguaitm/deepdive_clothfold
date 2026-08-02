@@ -1,0 +1,121 @@
+# 【提速验证】LIBERO-10 单路 osmesa+num_workers=25 测速 — 北京 单卡 H20
+#
+# 动机(2026-07-24): 现有 eval yaml 用 MUJOCO_GL=egl → harness 强制 num_workers 25→1(egl多进程离屏渲染不安全),
+#   每路彻底串行 ~22min/task ×10 = ~3.7h/路。本任务验证 osmesa(CPU渲染, 对多worker安全)能否让 25 并行落地 → 单卡内 ~15× 提速。
+#   同时用残差 ckpt 跑 → 顺带核对 osmesa vs egl 的 SR 口径是否一致。
+#
+# 关键改动 vs libero_eval_resid_x8_seeds.yaml: MUJOCO_GL=osmesa; NREP=1(单卡); 单卡 flavor; RUN_GROUP=osmesa_speedtest。
+
+TaskName: "lmwm-eval-osmesa-speedtest"
+Description: "osmesa+num_workers=25 单路测速(单卡H20), 验证并行eval提速 + SR口径核对"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Preemptible: false
+Framework: "PyTorch"
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"   # 单卡 H20(20vCPU/200GiB/1GPU), 只测 1 路, 免抢 8 卡整节点 + 调度更快
+
+ActiveDeadlineSeconds: 14400   # 4h 余量(若 osmesa 提速成立, 1 路 10 task ~30min 内完)
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -uo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_eval
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/evalosmesa_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  set -x
+  echo "=== osmesa 提速测速 start $(date -u) ==="
+
+  CKPT=$(ls -t $REPO/lmvla/lawam/results/Checkpoints/libero/*resid_cnbj*/checkpoints/steps_12500_pytorch_model.pt 2>/dev/null | head -1)
+  export RUN_GROUP=osmesa_speedtest
+  NREP=1
+
+  export PYTHON=$REPO/kai0/.venv/bin/python
+  export PATH=$REPO/kai0/.venv/bin:$PATH
+  export STAR_VLA_PYTHON=$PYTHON
+  export LIBERO_PYTHON=$PYTHON
+  cd $REPO/lmvla/lawam
+
+  nvidia-smi -L | head -8
+  [ -f "$CKPT" ] || { echo "FATAL: ckpt 不存在 $CKPT" >&2; exit 13; }
+
+  env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u all_proxy \
+    $PYTHON -m pip install -q -i https://mirrors.aliyun.com/pypi/simple/ \
+    'robosuite==1.4.1' mujoco opencv-python-headless tyro websockets json-numpy 2>&1 | tail -2
+  LH=$REPO/lmvla/LIBERO
+  mkdir -p "$LH/libero"
+  {
+    echo "benchmark_root: $LH/libero/libero"
+    echo "bddl_files: $LH/libero/libero/bddl_files"
+    echo "init_states: $LH/libero/libero/init_files"
+    echo "datasets: $LH/libero/libero/../datasets"
+    echo "assets: $LH/libero/libero/assets"
+  } > "$LH/libero/config.yaml"
+  rm -f /root/.libero/config.yaml 2>/dev/null || true
+  $PYTHON -c "from starVLA.model.framework.vlas.lawam import LatentWorldPolicyBackend; print('Backend OK')"
+
+  # LMWM 注入(与残差 ckpt 架构一致)
+  export LMWM_CKPT=$REPO/lmvla/lmwm/checkpoints/lmwm_libero_rvalley/lmwm.pt
+  export LMWM_ADAPTER_DIR=$REPO/lmvla/lmwam/adapter
+  export LMWM_SWAP_TEACHER=1
+  export LMWM_DUAL=1
+  export LMWM_DUAL_2Q=1
+  unset LMWM_MILESTONE_TARGET LMWM_TARGET_COMPACT LMWM_MS_TSCHED LMWM_HINT_DROPOUT
+  [ -f "$LMWM_CKPT" ] || { echo "FATAL: LMWM ckpt 不存在 $LMWM_CKPT" >&2; exit 13; }
+
+  export SUITES=libero_10
+  export NUM_TRIALS_PER_TASK=50
+  export NUM_WORKERS=25              # ★ 关键: 期望 osmesa 下不被降到 1
+  export MUJOCO_GL=osmesa            # ★ 关键改动: CPU 渲染, 对多 worker 安全
+  export SERVER_STARTUP_TIMEOUT_SEC=1200
+  export OUTPUT_ROOT=$REPO/lmvla/lawam/results/eval_runs/libero
+
+  echo "[$(date)] preflight OK; ckpt=$CKPT group=$RUN_GROUP MUJOCO_GL=$MUJOCO_GL NUM_WORKERS=$NUM_WORKERS"
+
+  # ---- 单路测速 ----
+  i=0
+  export GPU_IDS=$i
+  export EVAL_GPU_IDS=$i
+  export PORT_BASE=$((5694 + i*20))
+  export EVAL_SEED=0
+  export LIBERO_RUN_GROUP=$RUN_GROUP
+  export RUN_TAG=seed$i
+  echo "[seed$i] osmesa 单路启动 $(date -u)"
+  T0=$(date +%s)
+  bash examples/LIBERO/eval_files/auto_eval_scripts/run_libero_benchmark.sh "$CKPT"
+  T1=$(date +%s)
+  echo "[seed$i] 结束 rc=$? 总耗时 $((T1-T0))s = $(( (T1-T0)/60 ))min $(date -u)"
+
+  echo "=== osmesa 提速测速 DONE $(date -u) — 对比 egl 基准 22min/task ==="
+
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+
+AccessType: "Public"

@@ -5,7 +5,7 @@
 > **本轮范围**: 只到"训出 CRAVE-KAI-AE + 离线对照",**暂不接 AWBC/真机**(那是 [`crave_ae_distill_plan.md`](crave_ae_distill_plan.md) 的 Phase 3 / AB_plan Tier3)。
 > **前身**: [`crave_ae_distill_plan.md`](crave_ae_distill_plan.md) 的 **Phase 1(AE-A/AE-B)**。⚠️ 那两套 `crave_stage_{A,B}` 数据集(7/3 落地)用的是**已淘汰的 DINOv3-H + norm01 + anchor-linear/时间先验 Viterbi 标签**(见 `lmvla/crave/docs/HISTORY.md` §2 A1/C1/F3),**效果不理想且不可复用**。本 plan = 把标签换成 **CRAVE 收口后的 DINOv3-base img⊕proprio → 双锚 Viterbi → polyline** 再重训一次。
 > ⚠️ **铁律**: 判据用 **P/N 干净度 / 单调 / advantage 信噪比 / 跨-ep 方差 / 完成态 value≈1**,**不用 circular MAE**(AE 各自拟合自己目标)。
-> **状态**: ⚠️ **v1 (value-only, loss_action=0.0) 已确认为 dead-value 塌缩** —— mono 50k + raw 20k 两个 ckpt 均输出常数 ≈0 (std<0.05, Spearman=0.19). **根因已确诊, v2 修法已落地** (§0a). ✅ **v2 MT 版 (multi-task, loss_action=1.0) config+数据就绪, 待提交** (2026-07-14). 新 config: `ADVANTAGE_TORCH_CRAVE_POLY_MT`(raw) / `ADVANTAGE_TORCH_CRAVE_POLY_MONO_MT`(mono). 提交信息见 §8.
+> **状态**: ❌ **实验结束 —— 两版均 dead-value, 此路不通** (2026-07-15). v1 (value-only, loss_action=0.0) dead; v2 MT (multi-task, loss_action=1.0) **仍 dead** (Spearman 0.10, value 塌在 ~0.02, 末层权重范数极小, §8.6). §0a 的 "加 action 辅助任务救 value" 假设**被证伪**. **pi0-AE torch value_head 在 CRAVE polyline 监督下学不出来.** 要用 CRAVE 进度信号请走**在线 GRU value 模型** (corr 0.975, 见 [`crave_value_dagger_validation_plan.md`](crave_value_dagger_validation_plan.md)).
 
 ---
 
@@ -86,8 +86,123 @@ cd /vePFS/tim/workspace/deepdive_kai0/kai0
 |---|---|---|---|
 | v1 raw | `ADVANTAGE_TORCH_CRAVE_POLY` (loss_action=0.0) | t-20260712084931-2b57p (8×A100, raw 20k 仍在训) | ⚠️ 预期 dead |
 | v1 mono | `ADVANTAGE_TORCH_CRAVE_POLY_MONO` (loss_action=0.0) | t-20260713111452-b8qzl (16×A100, 50k done) | ❌ dead-value 确诊 |
-| **v2 raw** | **`ADVANTAGE_TORCH_CRAVE_POLY_MT`** (loss_action=1.0) | 🔲 待提交 | — |
-| **v2 mono** | **`ADVANTAGE_TORCH_CRAVE_POLY_MONO_MT`** (loss_action=1.0) | 🔲 待提交 | — |
+| **v2 raw** | **`ADVANTAGE_TORCH_CRAVE_POLY_MT`** (loss_action=1.0) | t-20260714165216-72v8l (16×A100, 50k done) | ❌ **dead-value 依旧** (§8.6) |
+| **v2 mono** | **`ADVANTAGE_TORCH_CRAVE_POLY_MONO_MT`** (loss_action=1.0) | 未提交 (v2 raw 已证伪修法, 不再花卡) | — |
+
+### 8.6 ❌ v2 MT raw 评估结果 (2026-07-15) —— 修法证伪
+
+**任务**: `t-20260714165216-72v8l` (cnsh robot-task 16×A100, 50k done). ckpt `checkpoints/ADVANTAGE_TORCH_CRAVE_POLY_MT/crave_poly_mt/50000`. config 确认 `loss_action_weight=1.0 / loss_value_weight=1.0` (修法已生效).
+
+**评估** (`eval_value_quick.py`, 12 随机 ep, crave_stage_poly):
+
+| 指标 | v2 MT raw (50k) | 理想 | 判定 |
+|---|---|---|---|
+| Spearman vs GT | **0.105** (std 0.13) | →1.0 | ❌ 近随机 |
+| mean_absolute_value | **0.0195** | 全值域 0→1 | ❌ 塌在 ~0.02 |
+| monotonicity | 0.497 | →1.0 | ❌ 随机水平 |
+| value 曲线形状 | 全 12 ep 贴地 0~0.05 平线, GT 是干净 0→1 | 跟随 GT 上升 | ❌ 无进度信号 |
+
+**权重层面坐实** (非加载 bug): `value_head.4.weight`(末层) std=0.013 absmax=0.028, bias=−0.011 —— head 权重范数极小, pre-tanh 激活≈常数 → tanh 输出恒定 ~0.02. head 根本没学到映射.
+
+**结论**: **§0a 的修法假设 (loss_action=1.0 加 action 辅助任务 → 驱动 backbone → 救活 value) 被证伪.** 加回 action flow-matching 辅助任务后 value **仍然 dead**. 甚至 Spearman (0.10) 比 v1 mono (0.19~0.68) 更低 —— action 任务可能反而主导了 backbone 梯度, 进一步稀释 value 信号.
+
+**⚠️ v2 MT dead 后的关键疑问**: 之前从未跑过**人工标签 baseline 对照**! CRAVE dead 到底是 (a) CRAVE 标签的问题, 还是 (b) 这套 PyTorch AdvantageEstimator config 本身训不出 value? 无法归因. → 见 §8.7 补锚点实验.
+
+### 8.7 🔬 人工 baseline 锚点对照 (2026-07-15, 严格受控)
+
+**动机**: 用户要求严格受控对照证明 "CRAVE 标签比人工标签带来更细致 value 变化". 前提是 pipeline 本身能训出 value. 补一个**人工标签 baseline**, 与 `ADVANTAGE_TORCH_CRAVE_POLY_MT` **逐字段完全相同, 唯一变量=repo_id**:
+
+| | baseline (人工) | CRAVE (对照) |
+|---|---|---|
+| config | `ADVANTAGE_TORCH_KAI0_HUMAN_MT` | `ADVANTAGE_TORCH_CRAVE_POLY_MT` |
+| repo_id | `kai0_advantage` (人工 stage_progress_gt, 接近线性时间) | `crave_stage_poly` (CRAVE polyline, 视觉驱动非线性) |
+| norm_stats | **完全一致** (同底座 kai0_base, actions/state mean diff=0.0000) | 同左 |
+| loss / init / step / bs | loss_action=1.0/value=1.0, pi05_base, 50k, bs144 | **逐字段同** |
+| value target 代码 | `advantage_dataset.py:135` (随机参考帧 stage_progress_gt 差分, initial commit 起未变) | 同左 |
+| job | **`t-20260716111010-2tmt6`** (cnsh 1×8 A100; 原 16卡 7tlgm 已停切 8卡) | t-20260714165216-72v8l (已 dead) |
+
+**判据 (决定性归因)**:
+- ✅ baseline value corr 高 (复现 AE-C 0.93) → **pipeline 正确**; CRAVE dead = CRAVE 标签在此范式下不可学 (或需换 target 构造). 若 CRAVE 反而更细致 → 证明用户观点.
+- ❌ baseline 也 dead → **是这套 PyTorch config 的问题, 非数据**. AE-C 的 0.93 是别的代码/配方 (可能 JAX) 训的, 现 PyTorch 重实现未复现. 需先修 config 再谈 CRAVE.
+
+**⚠️ 关键: 这个 baseline 结果出来前, 不对 "CRAVE 是死路" 下最终结论.** 之前缺这个对照臂, 归因不成立.
+
+#### 8.7.1 ❌ baseline 结果 = 也 dead (2026-07-17) —— 归因: 非 CRAVE 标签问题
+
+`ADVANTAGE_TORCH_KAI0_HUMAN_MT` (job t-20260716111010-2tmt6) 50k 训完, 同口径 eval (`eval_value_quick.py`, seed42/12ep, py311 venv transformers4.53.2):
+
+| 指标 | 人工 baseline (HUMAN_MT) | CRAVE (CRAVE_POLY_MT) |
+|---|---|---|
+| spearman_vs_gt | **0.019** | 0.031 |
+| frame_discrimination | −0.006 | nan (输出常数, var→0) |
+| mean_absolute_value | 0.031 | 0.019 |
+| 曲线 | 贴地平线 ~0.03, 无上升 | 贴地平线 ~0.02 |
+
+**判据落 ❌: 人工 baseline 也 dead** → dead-value **不是 CRAVE 标签的问题**, 换人工标签同样 dead。
+
+#### 8.7.2 🔬 深查 "代码是否被改坏" (2026-07-17, 用户要求对官方 repo)
+
+结论: **核心 value/target 代码没有被改坏** (详见 memory [[project_pytorch_ae_deadvalue_not_code_regression]]):
+- `pi0_pytorch.py` AdvantageEstimator + `advantage_dataset.py` target 与官方 OpenDriveLab/kai0 **逐行一致**; target `spg(cur)−spg(随机参考帧)` **自初始提交 d2d81ed 未改**。
+- 正常 adv_est_v1 (corr 0.93) 是 **PyTorch** 同套代码训的 (reproduction_log; 非 JAX, JAX 无 value head; config.py:1175 "JAX训"注释错误), 配方 loss1.0/1.0 = HUMAN_MT。
+- eval 口径正确 (官方 evaluator `absolute_value=model(frame_0,frame_n)` 两帧6图, 我同口径) → dead 是真 dead。
+- 探针实测: kai0_advantage 参考帧6图确实喂进模型; target mean≈−0.06/std0.29 对称差分。
+
+**dead 版 vs 正常版唯一差异 = 数据集 (kai0_advantage 3055ep ~10%坏视频skip vs A_smooth800_dagger_full ~1033ep) + 步数 (50k vs 100k)**; 另本地唯一偏离官方点 = advantage_dataset 对 kai0_advantage 的 episode 重索引补丁 (官方无, 仅此数据集生效)。
+
+#### 8.7.3 ⭐ 从训练记录挖出关键更正 + value-only 复现任务 (2026-07-18)
+
+追 `gf2_advantage_awbc_plan.md` + `awbc_v2_training_plan.md` + git d2d81ed 初始 FLATTEN_FOLD, 确认:
+- 正常 adv_est_v1 训练数据 = `data/Task_A/advantage` = **`kai0_advantage`**(3055ep/3.36M, info.json total_frames=3362369 完全对上) —— **与 HUMAN_MT 同数据**, 非 A_smooth800(那是后来 eval-only 占位)。
+- 原始配置 = `AdvantageEstimatorConfig(pi05=True, loss_value_weight=1.0, loss_action_weight=0.0, discrete_state_input=False)` —— **纯 value-only**, 100k, bs144。corr 0.93 = self absolute_value vs **官方 absolute_value 列** Pearson。
+- **⚠️ 推翻当前 lore(§0a / config.py:1174)**: "value-only→dead, 多任务修" **说反了** —— 原始 value-only 训出 0.93, 多任务 HUMAN_MT(1/1) 反而 dead。之前一串 MT 实验建立在错误假设上。
+- `discrete_state_input` False→True = 红鲱鱼(PyTorch/JAX 均不用)。
+
+**→ 复现任务 (用户定 value-only + kai0_advantage + 50k + 16卡上海):**
+- config `ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY` (唯一变量 vs HUMAN_MT = loss_action 1.0→0.0; +discrete_state_input=False; 50k/bs144)。
+- yaml `train_scripts/kai/volc/adv_est_kai0_valueonly_cnsh_16gpu.yaml` (robot-task cnsh 2×8 A100, PyTorch DDP)。
+- **job `t-20260719000734-8d6t7`** (2026-07-18 16:07 UTC 提交)。⚠️ 前两次(mtx2t/6zdxs/pvgmh)因 venv 坑秒挂: `.venv` 已升级 transformers5.13.1 崩 transformers_replace check; `.venv_py311_bak` 的 activate/torchrun shebang 硬指 .venv。修法=全程 `$VENV/bin/python -m torch.distributed.run` (bak python 4.53.2 直接跑) + preflight assert 硬门。见 memory [[reference_pytorch_ae_venv]]。
+- **判据**: value corr 高(复现 adv_est_v1 0.93) → 多任务切换是回归源, 回 value-only 即修, CRAVE 照此重训; 若 50k value-only 也 dead → 差分target+Tanh 是天花板 (或需 100k), 改 target/去 Tanh。见 memory [[project_pytorch_ae_deadvalue_not_code_regression]]。
+
+#### 8.7.4 ✅✅ 结果: value 完全恢复 —— 坐实 loss_action 是回归源 (2026-07-19)
+
+job `t-20260719000734-8d6t7` 50k 训完, 同口径 eval (seed42 同12ep, `.venv_py311_bak`):
+
+| config | loss_action | **Spearman vs GT** | frame_disc | mean_abs_val | 曲线 |
+|---|---|---|---|---|---|
+| KAI0_HUMAN_MT | 1.0 | 0.019 | −0.006 | 0.031 | ❌ 贴地平线 |
+| CRAVE_POLY_MT | 1.0 | 0.031 | nan(常数) | 0.019 | ❌ 贴地平线 |
+| **KAI0_HUMAN_VALUEONLY** | **0.0** | **0.800** | **0.150** | −0.120 | ✅ **单调爬升 −0.35→+0.28, 12ep 全绿** |
+
+**Spearman 提升 42×, 唯一变量 = `loss_action_weight` 1.0→0.0。**
+
+**⭐ 定论**: dead-value 根因 = **加了 action 多任务**(loss_action=1.0)训死 value head; **pi0-AE value head 必须 value-only 训**。§0a / config.py:1174 的"value-only→backbone饿瘦→dead, 多任务是修法"**方向完全反了**, 已在 config.py 就地更正。基于该错误假设的一整串 MT 实验(CRAVE_POLY_MT / MONO_MT / HUMAN_MT)**全部作废, ckpt 不可用于 downstream**。
+
+- ckpt: `kai0/checkpoints/ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY/kai0_valueonly/50000` (Spearman 0.800)
+- 尾部观察: t≈0.97→1.0 value 陡降(疑 episode 收尾静置段), 不影响排序判据, 打标时留意。
+#### 8.7.5 🔬 CRAVE value-only 对照臂 —— 本 plan 原始问题的决定性实验 (2026-07-20 提交)
+
+前提成立(§8.7.4 value-only 使 pipeline 复活, 人工基线 Spearman 0.800)后, 终于可做**严格单变量**的 CRAVE vs 人工对照:
+
+| | 人工基线 (已出结果) | **CRAVE 对照臂 (本次)** |
+|---|---|---|
+| config | `ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY` | `ADVANTAGE_TORCH_CRAVE_POLY_VALUEONLY` |
+| repo_id | `kai0_advantage`(人工 spg, 近线性时间) | `crave_stage_poly`(CRAVE polyline, 视觉驱动非线性) |
+| loss / init / step / bs / norm_stats | loss_action=**0.0**/value=1.0, pi05_base, 50k, bs144 | **逐字段同**(代码校验: 除 repo_id 外零差异) |
+| 结果 | **Spearman 0.800 / frame_disc 0.150** | 待训 |
+
+- yaml `train_scripts/kai/volc/adv_est_crave_valueonly_cnsh_16gpu.yaml` (cnsh robot-task 2×8 A100; 已内置 venv 三连坑修法: `$VENV/bin/python -m torch.distributed.run` + preflight assert)。
+- **job `t-20260720080829-t6d82`** (2026-07-20 08:08 UTC 提交)。
+- 数据核验: crave_stage_poly 3055ep / norm_stats / stage_progress_gt 列 / video symlink 全 OK。
+- **判据**: CRAVE Spearman **≥ 人工基准 0.853** → CRAVE 零人工标签带来同等或更细致的 value 信息(用户核心论点成立); 明显低于 → 人工标签在此范式下更优。
+
+**⭐ 评测口径(已定档 2026-07-20, 两臂必须完全一致)**:
+1. `eval_value_quick.py`, seed42, n=12(同 12 个 ep), `.venv_py311_bak`。
+2. **剔除 frame_idx==0 的硬编码点** —— `evaluator.py:453-455` 对第0帧写死 `absolute_val=0`(非模型输出); 而 GT 在该帧是最低秩、预测 0.0 却高于模型真实早期输出(≈−0.37) → 构成秩反转, **系统性压低 Spearman**。剔除后人工基线 0.7996 → **0.8535**(12/12 全部提升)。
+3. **尾部遮挡段保留, 不剔除**(用户定 2026-07-20)。理由: 遮挡是数据真实属性, 任何实际打标都会遇到; 剔掉会美化模型并掩盖影响下游的缺陷。仅作诊断参考: 若额外裁掉峰值后遮挡段, 人工基线可达 0.911(接近当年 adv_est_v1 的 0.93)。
+4. 报告值一律用「剔假象 + 含尾部」= **人工基线 0.853**。
+
+**人工基线曲线的定性特征(供 CRAVE 对比)**: 做 +0.5 重定心后(依据 target `spg(cur)−spg(随机参考)`, `E[spg(参考)]≈0.5`)与 GT 同轴比较, 呈**系统性 S 形偏差** —— t<0.45 模型高于 GT(线性), t∈[0.5,0.94] 低于 GT, 末段快速追上。即**模型认为进度非线性, 而人工 stage_progress_gt 是按时间线性给的**。→ CRAVE 的视觉驱动非线性标签若天然贴合此 S 形(而非被迫拟合直线), 即为"CRAVE 更细致"的直接证据。图: `kai0/eval_valueonly_50k/{fixed_overview,fixed_panels}.png`。
 
 ---
 

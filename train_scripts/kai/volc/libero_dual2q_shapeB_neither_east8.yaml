@@ -1,0 +1,83 @@
+# [梯度隔离消融 shapeB=neither] dual2q + MS_DETACH + LOCAL_DETACH — 华东 Robot-East-H20 8×H20(cnsh/gf0)
+#   北京版僵尸(hung@720)后改投空闲的 East-H20; 所有输入都在 gf0=cnsh(无需传输)。
+#   /home 垫片: LAM ckpt 软链经 /home 绝对路径, East 容器不挂 /home → 垫片指回 /vePFS。
+TaskName: "libero-dual2q-shapeB-neither-east"
+Description: "梯度隔离消融 shapeB dual2q neither, East-H20 8×H20 12500steps"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.45xlarge"
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+Entrypoint: |
+  set -uo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  # /home 垫片: LAM ckpt 软链 → /home/tim/workspace/deepdive_kai0/...; East 容器无 /home → 指回 /vePFS
+  mkdir -p /home/tim/workspace 2>/dev/null && ln -sfn "$REPO" /home/tim/workspace/deepdive_kai0 2>/dev/null || echo "shim-be"
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_dualarm; mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/dual2q_shapeB_east_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  set -x
+  echo "=== shapeB neither (East 8×H20) start $(date -u) ==="
+  export PYTHON=$REPO/kai0/.venv/bin/python
+  export PATH=$REPO/kai0/.venv/bin:$PATH
+  cd $REPO/lmvla/lawam
+  nvidia-smi -L | head
+  $PYTHON -c "from starVLA.model.framework.vlas.lawam import LatentWorldPolicyBackend; print('Backend import OK')"
+  LAW=$REPO/lmvla/lawam/starVLA/model/framework/vlas/lawam.py
+  grep -q "_ms_detach_bb" "$LAW" || { echo "FATAL: $LAW 无 _ms_detach_bb — 代码未同步, 中止" >&2; exit 17; }
+  # LAM 软链解析核验(垫片后须能读到实体)
+  LAM=$REPO/lmvla/lawam/latent_action_model/logs/dino_large_vae/lam_release/checkpoints/pytorch_model.pt
+  [ -r "$LAM" ] || { echo "FATAL: LAM ckpt 不可读(垫片失效?) $LAM" >&2; exit 18; }
+  echo "[preflight] detach 代码 + LAM 软链 OK"
+  LMWM=$REPO/lmvla/lmwm
+  MS=$LMWM/data/libero_rvalley
+  for f in "$LMWM/checkpoints/lmwm_libero_rvalley/lmwm.pt" "$MS/pairs.npz" "$MS/target_compact.npz"; do
+    [ -f "$f" ] || { echo "FATAL: $f missing" >&2; exit 13; }
+  done
+  echo "[$(date)] preflight OK"
+  export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+  export MASTER_PORT=29523
+  export LMWM_CKPT=$LMWM/checkpoints/lmwm_libero_rvalley/lmwm.pt
+  export LMWM_MILESTONE_TARGET=$MS/pairs.npz
+  export LMWM_TARGET_COMPACT=$MS/target_compact.npz
+  export LMWM_ADAPTER_DIR=$REPO/lmvla/lmwam/adapter
+  export LMWM_SWAP_TEACHER=1
+  export LMWM_HINT_DROPOUT=0.15
+  export LMWM_DUAL=1
+  export LMWM_DUAL_2Q=1
+  export LMWM_MS_DETACH_BACKBONE=1
+  export LMWM_LOCAL_DETACH_BACKBONE=1
+  export LAWAM_RUN_TIMESTAMP=${STAMP}
+  bash train_lawam_distributed.sh \
+    --config_yaml starVLA/config/training/train_libero.yaml \
+    --run_id=dual2q_shapeB_neither \
+    --trainer.max_train_steps=12500 \
+    --trainer.save_interval=2500
+  echo "=== shapeB neither (East) DONE $(date -u) ==="
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+AccessType: "Public"

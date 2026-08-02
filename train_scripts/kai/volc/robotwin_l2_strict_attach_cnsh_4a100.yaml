@@ -1,0 +1,75 @@
+TaskName: "robotwin-l2-strict-attach-cnsh4g"
+Description: "Attach four workers to an active strict L2 evaluation on shared Shanghai vePFS"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.14xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: L2_STRICT_METHOD
+    Value: "absolute"
+  - Name: L2_STRICT_CONTROL
+    Value: "zero"
+  - Name: ROBOTWIN_WORKER_INDEX_OFFSET
+    Value: "36000"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_rteval
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/l2_strict_attach_${L2_STRICT_METHOD}_${L2_STRICT_CONTROL}_${STAMP}.log" 2>&1
+  set -x
+
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  nvidia-smi -L
+
+  export REPO_ROOT=$REPO
+  export ROBOTWIN_PATH=/vePFS/HuanQian/RoboTwin
+  export ROBOTWIN_PYTHON=$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh
+  export TORCH_CUDA_ARCH_LIST=8.0
+  export ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS=50
+  env SEEDS="0 1 2 3" GPUS_PER_SEED=1 LOCAL_GPU_COUNT=4 \
+    NUM_WORKERS=1 ROBOTWIN_NUM_SLOTS=1 \
+    bash "$REPO/train_scripts/kai/eval/local_robotwin_l2_strict_attach.sh"
+
+  mkdir -p "$REPO/logs/resource_markers"
+  printf 'completed=%s method=%s control=%s\n' \
+    "$(date -u +%FT%TZ)" "$L2_STRICT_METHOD" "$L2_STRICT_CONTROL" \
+    > "$REPO/logs/resource_markers/${ATTACH_MARKER_NAME}.ok"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

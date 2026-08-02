@@ -1,0 +1,323 @@
+% =====================================================================
+% IROS 2026 Physical World Models Workshop (non-archival, 4-8 pages)
+% Deadline 2026-08-10. Draft v0.1 (2026-07-28) — numbers frozen from
+% numbers.tex (single source of truth, synced from ../paper_iclr_lmvla).
+% VERIFY before submit: portal/template, ICLR dual-submission wording,
+% all citations (refs.bib is a stub; textual refs carry \verify{}).
+% =====================================================================
+\documentclass[conference]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{cite}
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\verify}[1]{\textcolor{orange}{[V:#1]}}
+\newcommand{\gate}[2]{\textcolor{blue}{[#1: #2]}}
+\input{numbers.tex}
+
+\title{When Do World-Model Signals Help VLAs?\\
+Two Root Causes, Two One-Line Fixes}
+
+\author{Anonymous submission (non-archival workshop draft v0.1)}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Conditioning vision-language-action (VLA) policies on world-model (WM)
+predictions promises task-level guidance for long-horizon manipulation,
+yet such signals rarely improve aggregate success, and several recent
+systems report that naive injection actively hurts. We present a
+diagnosis with per-task resolution. \emph{Phenomenon:} subgoal
+conditioning redistributes per-task success --- guidance-limited tasks
+gain, others lose --- while every global mixing mechanism we tested
+leaves the aggregate on a plateau; a single task can drive an entire
+suite-level regression (76\%$\to$42\%). \emph{Root causes:}
+(i)~\emph{target redundancy} --- across 1{,}693 episodes, $\sim$95\% of
+an absolute future target is explained by the current observation
+(residual-to-absolute discriminability $15\times$, 100\% of episodes
+consistent); (ii)~\emph{WM-gradient interference} --- prediction
+gradients flowing into the shared encoder degrade the policy, shown by
+intervention: detaching them recovers a regressed suite from 93.2 to
+95.9 without hurting the primary suite. \emph{Fixes, one line each:}
+residual targets (subgoal $-$ current) lift LIBERO-10 to
+\aggResid$\pm$\aggResidStd\% ($n{=}8$; $+1.55$ over a multi-seed
+baseline, Welch $t\!\approx\!2.8$); gradient isolation repairs the
+regression. We also report two of our own pre-registered hypotheses
+that \emph{failed} --- a retrieval-aliasing account of the single-task
+regression and a confusion-score predictability law --- and argue that
+task-level units, multi-seed error bars, and pre-registered
+falsification lines should become defaults for this literature.
+\end{abstract}
+
+\section{Introduction}
+Future-prediction signals are rapidly becoming a standard ingredient of
+VLA training: compressed latent future queries (DreamVLA\verify{2507.04447}),
+future patch tokens in the policy's own feature space
+(AHEAD\verify{2606.02486}), generative future frames as auxiliary
+supervision (WorldVLA\verify{2506.21539}), gated visuomotor future tokens
+(FutureVLA\verify{2603.10712}), and retrieval-based progress signals
+(UR-VC\verify{2607.12892}). Yet a striking pattern runs through this
+literature's own ablations: \emph{naive injection hurts}. DreamVLA
+reports that depth- or semantics-only future supervision falls below a
+no-prediction baseline (``competing gradients dilute the task-relevant
+features''); FutureVLA reports that adding future-motor tokens without
+gating \emph{drops} success from 62.5\% to 58.4\%; WorldVLA finds that
+attending the model's own past actions degrades grasping by 10--50
+points unless masked. Third-party benchmarks echo the pattern at the
+task level: in WorldArena~2.0\verify{primary source}, the
+highest-fidelity predictor scores 100\% on one manipulation task and
+0\% on another where a no-prediction baseline reaches 80\%. The field
+has responded with local patches --- attention masks, learnable gates,
+loss re-weighting --- but without a diagnosis of \emph{why} the signal
+harms.
+
+This paper contributes the diagnosis, and a target design derived from
+it. Our claims:
+
+\begin{enumerate}
+\item \textbf{A task-level anatomy of the failure} (\S\ref{sec:tension}):
+global mixing mechanisms (shared/dedicated queries, guidance scaling,
+phase-scheduled dropout) only redistribute per-task success; suite
+aggregates hide single-task collapses.
+\item \textbf{Root cause I: target redundancy, measured at corpus scale}
+(\S\ref{sec:causes}) --- $\sim$95\% of absolute future targets is
+current-state re-encoding (1{,}693 episodes, 100\% consistent) --- and
+its one-line fix, \emph{residual targets}, absent from all six recent
+future-conditioned VLAs we surveyed.
+\item \textbf{Root cause II: WM-gradient interference, established by
+intervention} (\S\ref{sec:grad}) --- detaching WM prediction gradients
+from the shared encoder recovers a regressed suite (93.2$\to$95.9)
+without hurting the primary one; this is a controlled confirmation of
+the ``competing gradients'' effect reported anecdotally by
+DreamVLA\verify{}.
+\item \textbf{Negative results under pre-registration}
+(\S\ref{sec:falsified}): a retrieval-aliasing mechanism and a
+confusion-score predictability law, both falsified by our own
+pre-registered tests --- reported in full.
+\end{enumerate}
+
+\section{The Precision--Guidance Tension}\label{sec:tension}
+\textbf{Setup.} Our primary stack is a dual-channel latent-world-model
+VLA: a local channel predicts a fixed short-horizon future ($t{+}7$) in
+a frozen visual-semantic feature space, and a global channel predicts a
+\emph{milestone} --- a canonical, cross-episode-recurrent future state
+mined by retrieval over demonstrations. Both channels condition a
+flow-matching action expert. The second stack is a
+$\pi_{0.5}$-style VLA\verify{} that consumes the milestone signal as an
+extra conditioning token. Full training details in the appendix
+\todo{appendix or cite tech report}.
+
+\textbf{Observation.} Table~\ref{tab:tension} summarizes the LIBERO-10
+multi-seed picture. Naive milestone injection lifts the hardest
+guidance-limited task (t6, a two-object sequencing task) while
+degrading precision-limited tasks (t7, t8); dedicated query capacity
+(2Q) restores t8 but starves the guidance channel (t6 drops); guidance
+scaling (CFG) and diffusion-phase-scheduled dropout each shift the
+balance without breaking the plateau: every variant lands within
+$\sim$1$\sigma$ of the multi-seed baseline aggregate
+(\aggBaselineArmB$\pm$0.97). Inference-time knobs were falsified twice.
+A qualitatively similar trade appears on a second, $\pi_{0.5}$-style
+stack (external-encoder hints severely harm its hardest task while
+own-encoder hints are benign), though with too few tasks to support a
+quantitative law --- see \S\ref{sec:falsified}.
+
+\begin{table}[t]
+\centering
+\caption{LIBERO-10, multi-seed ($\pm$ population std). Every global
+mixing lands on a plateau; per-task structure is where the action is.}
+\label{tab:tension}
+\setlength{\tabcolsep}{3.5pt}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+Variant & Agg. & t6 (guid.) & t8 (prec.) & t7 (prec.)\\
+\midrule
+Baseline (local only, $n{=}4$) & 94.20$\pm$0.97 & 82.5 & 89.5$\pm$12.4 & 100\\
++ milestone (naive) & 94.6\verify{} & 90\verify{} & 84\verify{} & 96\\
++ dual channels & 94.8 & 88 & 90 & 100\\
++ dedicated queries (2Q) & 94.80$\pm$0.71 & 85.0 & 88.5 & 98\\
++ phase-sched.\ drop ($n{=}8$) & 95.22$\pm$0.91 & 85.0 & 90.0 & 100\\
+\textbf{+ residual} ($n{=}8$) & \textbf{\aggResid$\pm$\aggResidStd} & \textbf{\tSixResid} & \tEightResid & 100\\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig1_tension.pdf}
+\caption{(a)~Aggregate plateau on LIBERO-10: every global mixing lands
+inside the baseline's $\pm$1.5-point claim band (shaded); only residual
+targets clear it (open markers: single-seed runs). (b)~Per-task delta of
+residual vs.\ baseline: guidance tasks rise ($+5.0$/$+4.8$), precision
+tasks stay (t7 at 100; t8 within the baseline's own $\pm$12.4 variance).}
+\label{fig:tension}
+\end{figure}
+
+\section{Two Root Causes}\label{sec:causes}
+\subsection{Root cause I: target redundancy}
+Absolute subgoal targets are dominated by the present. Across the full
+corpus (1{,}693 episodes, four suites), $\sim$95\% of the target's
+energy is explained by the current state --- consistent in 100\% of
+episodes --- and the along-trajectory discriminability of the residual
+component $\mathrm{ms}-h_t$ exceeds that of the absolute target by
+$\sim$15$\times$ (per-episode examples: CV \residCV{} vs.\ \absCV).
+Architecturally the redundancy is double: the conditioning stream
+already contains the current tokens $h_t$, so an absolute target
+re-encodes information that is already present --- at best wasted
+capacity, at worst competing gradients, exactly the failure DreamVLA's
+ablation describes\verify{}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig2_redundancy.pdf}
+\caption{Root cause I, measured. (a)~Along-trajectory coefficient of
+variation of the injected target on two representative episodes: the
+residual carries $\sim$10$\times$ the temporal signal of the absolute
+target. (b)~Decomposition of the absolute target: \redundancyPct{} of
+its energy re-encodes the current state that the conditioning stream
+already contains.}
+\label{fig:redundancy}
+\end{figure}
+
+\subsection{A single task drives a suite-level regression}
+\label{sec:anatomy}
+The LIBERO-spatial suite provides a natural experiment. Under absolute
+milestone targets the suite regresses by $-3.0$ points --- but per-task
+resolution shows the regression is \emph{entirely one task}
+(Fig.~\ref{tab:anatomy}): t5, ``pick up the black bowl \emph{on} the
+ramekin,'' collapsing from 76\% to 42\% (18\% in an independently
+retrained model), while the other nine tasks are unaffected (97--100\%
+for every variant). Residual targets partially rescue t5 (52\%).
+
+We initially attributed this to cross-episode retrieval aliasing (t5
+shares its object set with two near-duplicate tasks). A pre-registered
+confusion-score test \emph{falsified} that account
+(\S\ref{sec:falsified}). The intervention that does repair the suite is
+\emph{gradient isolation} (\S\ref{sec:grad}), implicating training-time
+interference rather than retrieval confusion.
+
+\section{The Fix: Residual Targets}\label{sec:fix}
+The global channel's ground truth becomes
+$h^{\mathrm{ms}}_{\mathrm{gt}} = \mathrm{ms} - h_t$
+instead of $\mathrm{ms}$. The channel's prediction (now a delta)
+conditions the action expert alongside the untouched current tokens
+$h_t$ --- a non-redundant decomposition: $h_t$ carries ``where I am,''
+the channel carries only ``what must change.'' The change is one line,
+parameter-free, and training/inference-consistent. Each element of the
+final design answers one diagnosed cause: dual parallel channels
+(tension: never overwrite the local precision channel), residual
+targets (redundancy), dedicated queries (capacity), and --- suggested
+by our anatomy but left to future work --- retrieval-confidence gating
+(aliasing).
+
+\section{Root Cause II: WM-Gradient Interference, and Its Fix}
+\label{sec:grad}
+The WM prediction heads are trained through the same encoder that
+serves the policy. An A/B intervention isolates the effect: detaching
+the WM-prediction gradients from the shared encoder (one line) recovers
+the regressed spatial suite from $93.2$ to $95.9$ --- near the no-WM
+level of $96.5$ --- while leaving LIBERO-10 unharmed. The conditioning
+\emph{signal} is preserved; only the gradient path changes. This turns
+the ``competing gradients dilute task-relevant features'' observation
+that DreamVLA\verify{} reports anecdotally into a controlled,
+per-suite-verified mechanism, and reattributes our single-task
+regression (\S\ref{sec:anatomy}) to training-time interference.
+\todo{exact per-task t5 number under detach; final table when frozen}
+
+\section{What We Falsified (Pre-Registered)}
+\label{sec:falsified}
+Two of our own hypotheses died by their pre-registered criteria, and we
+report them as results. (1)~\emph{Retrieval-aliasing mechanism}: we
+predicted the collapsed task t5 would be an extreme outlier in a
+cross-episode confusion score; it is not, and the most-confused task
+triplet in another suite shows zero harm. (2)~\emph{Predictability law}:
+we predicted per-task deltas would correlate with data-computable
+confusion/structure scores; the correlation does not survive
+(a difficulty--harm correlation on a second stack likewise loses
+significance once a single outlier task is removed). These negatives
+sharpen the paper's scope: the defensible root causes are redundancy
+and gradient interference --- both established by measurement or
+intervention, not narrative.
+
+\section{Results}\label{sec:results}
+\textbf{Protocol.} Multi-seed everywhere (population std reported;
+$n$ per row); aggregate differences below 1.5 points are never claimed
+(per-seed binomial noise makes smaller aggregate deltas
+unattributable); pre-registered predictions with falsification lines
+were logged before each decisive evaluation \todo{cite repo/appendix}.
+
+\textbf{LIBERO-10.} Residual targets give the only variant that clears
+the claim line: \aggResid$\pm$\aggResidStd\% ($n{=}8$) versus
+\aggBaselineArmB$\pm$0.97 ($n{=}4$), $\Delta{=}{+}1.55$, Welch
+$t\!\approx\!2.8$. The shape matches the diagnosis: guidance tasks rise
+(t6 $82.5\to$\tSixResid, $+5.0$; t9 $86.0\to90.8$, $+4.8$), precision
+tasks do not fall (t7 $100\pm0$; t8 within its own large variance).
+Notably, an earlier pre-registered prediction for the spatial rescue
+(``$\geq$95'') was \emph{missed} (94.4): we report this as a partial
+confirmation --- the mechanism is directionally right and
+quantitatively incomplete, which is precisely what motivates the
+two-component harm model of \S\ref{sec:anatomy}.
+
+\textbf{RoboTwin (blocks family, 6 tasks).} With identical recipes and
+training steps, milestone conditioning turns a $46.4\pm0.8$ baseline
+into $49.3\pm1.5$ ($n{=}4$, $t{=}3.1$); the gain concentrates in the
+one multi-stage timing task (beat-block-hammer, $0.5\%\to20.0\%$),
+while saturated tasks are flat and two zero-competence tasks (stacking)
+remain at 0\% for both --- subgoal signals need a competent base to
+have leverage. \emph{Caveat (honest):} the shared baseline is
+under-trained on this family relative to a single-task reference
+(90\%); the A/B contrast is valid, absolute numbers are not
+leaderboard-grade \todo{replace with retrained-to-convergence numbers
+when P1-E lands}.
+
+\textbf{Scoping.} On saturated suites (LIBERO-goal/object) all variants
+are flat \todo{fill P1-F numbers}; on the aliased spatial task the fix
+is partial (above). Gains are selective --- and, we argue, predictable:
+a task-level law fitting per-task deltas to data-computable subgoal
+structure and aliasing scores is our current pre-registered experiment
+\todo{fill PR-2 verdict when available}.
+
+\section{Related Work}
+Future-signal injection spans four families: appended queries with
+structured attention masks (DreamVLA\verify{}), future-token
+replacement with uncertainty-truncated adaptive horizons
+(AHEAD\verify{} --- the only adaptive-horizon design we are aware of),
+auxiliary-loss-only supervision (WorldVLA\verify{}, Spatial
+Forcing\verify{2510.12276}), and gated cross-attention
+(FutureVLA\verify{}); retrieval-based progress correction (UR-VC)
+forms a fifth, scalar, line. All predict \emph{absolute} futures; task-level
+analysis stops at the suite granularity in all of them. Their own
+ablations (competing gradients; naive-injection drops; action-history
+contamination) are, in our reading, three independent encounters with
+the redundancy/aliasing causes we isolate --- patched respectively with
+masks, gates, and masking, i.e., treatments for a disease that had not
+been named.
+
+\section{Discussion and Open Problems}
+(1)~\emph{The two fixes compose.} Residual targets act on what the
+channel predicts; gradient isolation acts on how it trains --- their
+combination is our current experiment. (2)~\emph{Control-limited tasks do
+not respond to subgoals.} Our hardest precision task fails in
+grasp/place execution regardless of guidance --- consistent with this
+workshop's open problem of long-horizon force-control stability; the
+lever there is control-side (e.g., prefix-continuity replanning), which
+we find composes additively with signal-side fixes. (3)~\emph{Prediction
+quality is not downstream utility.} The WorldArena~2.0 reversal
+(best-fidelity predictor: 100\% on one task, 0\% where a no-prediction
+baseline gets 80\%) mirrors our t5 anatomy; both argue that the field's
+bottleneck is \emph{what} to predict, not how well. (4)~\emph{Claim
+discipline.} Multi-seed error bars, task-level units, and
+pre-registered falsification lines changed our own conclusions twice
+(a single-seed baseline mirage; a partial-rescue verdict); we suggest
+they become community defaults for this literature.
+
+\nocite{*}  % draft: surface stub refs; remove once real \cite{} in place
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

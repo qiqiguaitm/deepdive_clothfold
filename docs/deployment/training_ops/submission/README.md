@@ -42,6 +42,51 @@
 | **`volc_ml_platform.md`** | 提 Volc ML Platform 集群任务 (cn-beijing Robot-North-H20 / cn-shanghai robot-task), 16 卡 + 集群 RDMA | 主要生产路径 |
 | **`gf0_control_plane.md`** ⭐ | 在 gf0 一台机器上统一管理 Volc 任务 (查/停/详情/批量提交) | 日常运维推荐 |
 
+## 资源感知任务队列
+
+剩余实验使用 `train_scripts/kai/volc/resource_aware_scheduler.py` 常驻调度，不预先向已满队列堆积任务。任务定义在 `resource_scheduler_queue.json`，运行状态和最新资源快照分别写入：
+
+- `logs/resource_scheduler_state.json`
+- `logs/resource_scheduler_snapshot.json`
+- `logs/resource_scheduler.log`
+
+当前资源边界：北京 `Robot-North-H20` 严格限制主身份最多 20 GPU；上海
+`Robot-East-H20` 为 8 H20，`robot-task` 为 32 A100 且不设额外个人软上限。
+`robot-task` 按任务所需的名义空卡数尝试提交，以便利用最后 4/8 卡；若因节点碎片
+无法调度，任务会在候选配置的 2--5 分钟 queue timeout 后撤回，并且只有队列活跃
+卡数下降后才重试，不会周期性堆积排队任务。同时监控 gf1 的 8 GPU 和本开发机的
+2 GPU。本地候选任务只在对应 GPU 显存均低于 1 GiB 时启动。
+
+北京还支持一个显式启停的备用 credential profile。密钥仅保存在仓库外、权限为
+`0600` 的 `~/.volc/credentials.scheduler-backup`；开关位于同样为 `0600` 的
+`~/.volc/scheduler-backup.conf`。只有开关为 `enabled = true`、主身份已实际占满
+20 GPU、北京物理队列没有排队且仍有足够空卡时，调度器才会使用备用身份提交。
+备用身份提交的 attempt 会记录 `credential_profile=backup`，后续查询和停止也必须使用
+同一身份。将开关改为 `false` 后，调度器不再读取备用密钥、不查询备用身份，也不提交
+新任务；主身份的 20 GPU 上限始终保留。
+
+个别高优先级任务可设置候选级 `min_dispatch_free`、`queue_timeout_seconds` 和
+`retry_cooldown_seconds` 做受控放置探针。isolation 第二训练种子在恰好 8 张名义空卡时允许
+尝试一次；120 秒仍未调度就自动撤回并冷却一小时，不形成长期平台排队。
+`robot-task` 或 East 出现任何用户的排队任务时不再新增提交，待队列清空后再按实际空闲卡数匹配，避免继续扩大平台排队。
+
+同一任务在同一资源上的运行时/模板失败最多重试 3 次，之后该资源会写入任务状态的
+`exhausted_resources` 并自动尝试其他候选。排队超过 5 分钟的主动回收和平台配额不足属于瞬时容量问题，不计入该失败上限。
+gf1/本地 launcher 还会同时检查状态文件与 PID；状态永久停留在 `RUNNING` 但 launcher 已消失时自动回收，防止任务状态假运行。实际 GPU 未释放时，资源门禁仍禁止重复启动。
+
+调度器不把平台 `Completed` 单独当作实验完成：任务可声明 checkpoint/summary glob 和最低数量，终态产物不足时自动重试。相同资源上的失败默认冷却 15 分钟，冷却期优先尝试其他候选资源；多产物评测的计数两小时不变化会写入停滞告警。当前计数、最后变化时间和 stale 秒数都记录在 snapshot 的 `scheduler_tasks` 中。
+调度器每 60 秒轮询一次，并通过 `logs/resource_scheduler.lock` 的非阻塞文件锁保证只有一个实例拥有提交权。
+`resource_scheduler_queue.json` 每轮都会重新读取；运行期间追加任务不需要重启调度器，新条目会在下一轮自动初始化状态并参与资源匹配。
+
+```bash
+tmux new-session -d -s resource-aware-scheduler \
+  "bash -lc 'cd /vePFS/tim/workspace/deepdive_kai0; source ~/.bashrc; \
+  exec kai0/.venv/bin/python train_scripts/kai/volc/resource_aware_scheduler.py --interval 60 \
+  >> logs/resource_scheduler.nohup 2>&1'"
+
+tail -F logs/resource_scheduler.log
+```
+
 ## 文件清单
 
 | 文件 | 行数 | 用途 |

@@ -18,6 +18,7 @@ Tags: []
 ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
 ResourceQueueName: "Robot-North-H20"
 Framework: "PyTorch"
+Preemptible: false
 
 TaskRoleSpecs:
   - RoleName: "worker"

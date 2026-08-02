@@ -1,0 +1,99 @@
+TaskName: "robotwin-combo-oracle-retrieval-smoke-bj1g"
+Description: "One-episode end-to-end smoke for task-scoped demo-retrieval milestone injection"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  LAWAM=$REPO/lmvla/lawam
+  RUN=$LAWAM/results/Checkpoints/robotwin/20260730_152020+robotwin_all6_v2_combo_seed2026
+  CKPT=$RUN/final_model/pytorch_model.pt
+  MS=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_v2
+  BANK=$REPO/lmvla/lmwm/data/robotwin_oracle_retrieval_bank_v1
+  RESULT=rt_combo_oracle_retrieval_smoke
+  LOG_DIR=$LAWAM/logs/volc_rteval
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/combo_oracle_retrieval_smoke_${STAMP}.log" 2>&1
+  set -x
+
+  test -f "$CKPT"
+  test -s "$BANK/manifest.json"
+  export STAR_VLA_PYTHON=$REPO/kai0/.venv/bin/python
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$LAWAM/robotwin_python_wrapper_northe.sh
+  export ROBOTWIN_TASKS=beat_block_hammer
+  export TASK_CONFIG=demo_clean
+  export ROBOTWIN_TEST_NUM=1
+  export ROBOTWIN_NUM_SLOTS=1
+  export NUM_WORKERS=1
+  export ROBOTWIN_SAVE_VIDEO=0
+  export ROBOTWIN_INSTRUCTION_TYPE=unseen
+  export PORT_SEARCH_LIMIT=30
+  export TORCH_CUDA_ARCH_LIST=9.0
+  export CUDA_VISIBLE_DEVICES=0
+  export GPU_IDS=0
+  export SEED=0
+  export PORT_BASE=15100
+  export ROBOTWIN_CKPT_ALIAS=robotwin_all6_v2_combo_seed2026
+  export ROBOTWIN_EVAL_ROOT=$LAWAM/results/eval_runs/robotwin/$RESULT/seed0
+  export LMWM_CKPT=$MS/lmwm.pt
+  export LMWM_ADAPTER_DIR=$REPO/lmvla/lmwam/adapter
+  export LMWM_SWAP_TEACHER=1
+  export LMWM_FEAT_STRIDE=1
+  export LMWM_HINT_DROPOUT=0.15
+  export LMWM_DUAL=1
+  export LMWM_DUAL_2Q=1
+  export LMWM_MS_RESIDUAL=1
+  export LMWM_MS_DETACH_BACKBONE=1
+  export LMWM_ORACLE_RETRIEVAL_ROOT=$BANK
+  export LMWM_ORACLE_RETRIEVAL_MODE=residual
+  export ROBOTWIN_TASK_SCOPED_SERVER=1
+
+  "$ROBOTWIN_PYTHON" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  mkdir -p "$ROBOTWIN_EVAL_ROOT"
+  cd "$LAWAM"
+  bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
+    "$CKPT" "$TASK_CONFIG" oracle-retrieval-smoke
+  test "$(find "$ROBOTWIN_EVAL_ROOT" -type f -name summary.json | wc -l)" -eq 1
+  mkdir -p "$REPO/logs/resource_markers"
+  printf 'completed=%s\n' "$(date -u +%FT%TZ)" \
+    > "$REPO/logs/resource_markers/combo_oracle_retrieval_smoke.ok"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

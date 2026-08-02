@@ -1,0 +1,104 @@
+# pi05 RoboTwin 2.0 基线 A0 (aloha 双臂, 无 hint) — cnbj 1-host 8 H20, 30k
+#   Config: pi05_robotwin_a0_bj (LeRobotAlohaDataConfig, 单 LeRobotDataset, warm-start pi05_base)
+#   Data:   /vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0 (嵌套目录! v2.1, aloha, fps50, 27500ep/6.07M frame,
+#           3 相机 cam_high/cam_left_wrist/cam_right_wrist, state[14]/action[14]) | Init: pi05_base
+#   norm:   kai0/assets/pi05_robotwin_a0_bj/robotwin2.0/norm_stats.json (走完整管线算: adapt_to_pi+delta, 已放置)
+#   ⚠️ 纯 openpi pi05, 无 lawam/hint 依赖. JAX 训练 (scripts/train.py). adapt_to_pi=True (sim 数据已本机验证无 NaN).
+# Submit: source ~/.volc_creds && kai0/.venv/bin/python train_scripts/kai/volc/submit_yaml.py train_scripts/kai/volc/pi05_robotwin_a0_bj.yaml
+TaskName: "pi05-robotwin-a0-bj"
+Description: "pi05 RoboTwin2.0 A0 基线 (无 hint): JAX 1-host 8 H20, warm-start pi05_base, 30k, 闲时+resume"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false               # 闲时任务: 借空闲资源, 可被抢占 → 入口自动 resume
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"   # 8× H20-SXM5-96GB single node
+
+ActiveDeadlineSeconds: 1209600  # 14 天/run (被抢占后重提 deadline 重置)
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: NCCL_DEBUG
+    Value: "WARN"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+  - Name: XLA_PYTHON_CLIENT_MEM_FRACTION
+    Value: "0.85"
+  - Name: JAX_COMPILATION_CACHE_MIN_ENTRY_SIZE_BYTES
+    Value: "-1"
+  - Name: JAX_COMPILATION_CACHE_MIN_COMPILE_TIME_SECS
+    Value: "1"
+  - Name: JAX_ENABLE_EMPTY_ARRAYS
+    Value: "true"
+
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  NODE=${MLP_ROLE_INDEX:-0}
+  LOG_DIR=/vePFS-North-E/vis_robot/logs
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/pi05_robotwin_a0_bj_${STAMP}_node${NODE}.log"
+  exec >> "$LOG" 2>&1
+  echo "=== entrypoint start $(date) (1-host 8 H20, 闲时任务) ==="
+  set -x
+  nvidia-smi -L
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  cd "$REPO/kai0"
+  source .venv/bin/activate
+  apt-get update 2>&1 | tail -1 && apt-get install -y ffmpeg 2>&1 | tail -2 || echo "ffmpeg best-effort"
+  python -c "import jax; print(f'jax {jax.__version__} devs={len(jax.devices())}')"
+
+  DATA=/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0
+
+  # 视频解码 preflight: openpi data_loader 用 pyav (data_loader.py:194). 测能真解码一帧 robotwin 视频, 否则 fail-fast.
+  python - <<PYEOF || { echo "FATAL: pyav 视频解码不可用 — 训练必崩, 先修镜像" >&2; exit 13; }
+  import glob
+  from lerobot.common.datasets.video_utils import decode_video_frames
+  v = sorted(glob.glob("$DATA/videos/**/*.mp4", recursive=True))[:1]
+  f = decode_video_frames(v[0], [0.0, 0.02], 50.0, "pyav")
+  print("PYAV DECODE OK shape=", tuple(f.shape))
+  PYEOF
+
+  # preflight: robotwin 数据 + norm + pi05_base init
+  INIT=/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params
+  NORM=$REPO/kai0/assets/pi05_robotwin_a0_bj/robotwin2.0/norm_stats.json
+  [ -f "$DATA/meta/info.json" ] || { echo "FATAL: robotwin dataset missing $DATA" >&2; exit 13; }
+  [ -f "$NORM" ]           || { echo "FATAL: norm_stats missing $NORM (先跑 compute_norm 走完整管线)" >&2; exit 13; }
+  [ -f "$INIT/_METADATA" ] || { echo "FATAL: pi05_base init missing $INIT" >&2; exit 13; }
+  echo "[$(date)] preflight OK (robotwin2.0 + norm + pi05_base init)"
+
+  # 自动 resume: ckpt 在共享 vePFS; 有 step 目录 → --resume, 否则 --overwrite.
+  EXP=pi05_robotwin_a0
+  CKPT_DIR=$REPO/kai0/checkpoints/pi05_robotwin_a0_bj/$EXP
+  if ls -d "$CKPT_DIR"/[0-9]*/ >/dev/null 2>&1; then RESUME_FLAG="--resume"; echo "[resume] found ckpt -> --resume"; else RESUME_FLAG="--overwrite"; echo "[resume] fresh --overwrite"; fi
+
+  exec python -u scripts/train.py pi05_robotwin_a0_bj \
+    --exp-name "$EXP" \
+    --no-wandb-enabled \
+    --save-interval 5000 \
+    $RESUME_FLAG
+
+RetryOptions:
+    EnableRetry: true
+    MaxRetryTimes: 10
+
+AccessType: "Public"

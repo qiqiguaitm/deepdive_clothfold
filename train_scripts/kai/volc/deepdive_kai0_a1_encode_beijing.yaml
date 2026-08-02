@@ -1,0 +1,66 @@
+# Task_A1 数据集构建 — 北京计算节点(避开 gsy 提交节点死锁), 输出 A1_base_dagger_awbc_beijing
+#   nproc=2(匹配计算节点2核, 保守避免线程爆炸); 1392视频重编码 ~1-2h
+# Submit: source ~/.volc_creds && VOLC_REGION=cn-beijing \
+#   kai0/.venv/bin/python train_scripts/kai/volc/submit_yaml.py train_scripts/kai/volc/deepdive_kai0_a1_encode_beijing.yaml
+
+TaskName: "deepdive-kai0-a1-encode-beijing"
+Description: "Task_A1数据集构建(北京): base+dagger合并+AWBC打标+视频重编码+norm → A1_base_dagger_awbc_beijing"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+
+ActiveDeadlineSeconds: 28800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "1"
+  - Name: BUILD_ENC_THREADS
+    Value: "1"
+
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=/vePFS-North-E/vis_robot/logs
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/deepdive_kai0_a1_encode_beijing_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  echo "=== A1 beijing encode start $(date) host=$(hostname) cores=$(nproc) ==="
+  set -ex
+  cd /vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0
+  export KAI0_ROOT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0
+  source .venv/bin/activate
+
+  SD=../train_scripts/kai/data
+  # 副本+精确改 OUT 行51(非sed模式匹配,上一轮北侧脚本版本不同导致sed落空)
+  cp "$SD/build_a1_base_dagger_awbc.py" "$SD/build_a1_beijing_v3.py"
+  sed -i '51s|"A1_base_dagger_awbc"|"A1_base_dagger_awbc_beijing"|' "$SD/build_a1_beijing_v3.py"
+  echo "OUT=$(grep 'OUT = TASK_A1' $SD/build_a1_beijing_v3.py | head -1)"
+
+  NPROC=2  # 匹配计算节点2核,序列化解码避免线程爆炸
+  echo "[$(date)] running build with KAI0_ROOT=$PWD nproc=$NPROC"
+  python -u "$SD/build_a1_beijing_v3.py" --nproc $NPROC
+
+  echo "=== A1 beijing encode DONE $(date) ==="
+
+RetryOptions:
+    EnableRetry: false
+
+AccessType: "Public"

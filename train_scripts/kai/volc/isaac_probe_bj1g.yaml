@@ -1,0 +1,54 @@
+# Isaac Sim 5.1 可行性探针 — 北京 North-H20 单卡. 只读体检: 驱动/OS/vulkan/isaacsim可装性.
+TaskName: "isaac-probe-bj"
+Description: "Isaac Sim 5.1 feasibility probe on North-H20"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+ActiveDeadlineSeconds: 3600
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  set -uo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG=$REPO/lmvla/lmwm/logs/isaac_probe_${STAMP}.log
+  mkdir -p "$(dirname $LOG)"
+  exec > "$LOG" 2>&1
+  set -x
+  echo "===== ISAAC PROBE start $(date -u) ====="
+  echo "### 1. 驱动 + GPU (Isaac 5.1 需 driver 570+)"
+  nvidia-smi | head -12
+  echo "### 2. OS / glibc / 内核"
+  cat /etc/os-release | grep -E '^(NAME|VERSION)='
+  ldd --version | head -1
+  uname -r
+  echo "### 3. 容器/权限"
+  id -un; [ -f /.dockerenv ] && echo docker-container || echo no-dockerenv
+  echo "### 4. Vulkan headless (Isaac 渲染必需)"
+  export XDG_RUNTIME_DIR=/tmp/xdg; mkdir -p $XDG_RUNTIME_DIR; chmod 700 $XDG_RUNTIME_DIR
+  (apt-get install -y vulkan-tools 2>&1 | tail -1) || echo apt-be
+  vulkaninfo --summary 2>&1 | grep -iE 'deviceName|driverName|driverInfo|apiVersion|GPU id|ERROR' | head -10 || echo vulkaninfo-fail
+  echo "### 5. isaacsim pip 可装性(仅查元数据, 不真装)"
+  PY=$REPO/kai0/.venv/bin/python
+  env -u http_proxy -u https_proxy $PY -m pip index versions isaacsim 2>&1 | head -3 || echo "pip index be"
+  env -u http_proxy -u https_proxy $PY -m pip download isaacsim --no-deps -d /tmp/isaacdl \
+    -i https://mirrors.aliyun.com/pypi/simple/ 2>&1 | grep -iE 'Saved|Downloading|Requires-Python|No matching|ERROR' | head -5 || echo "pip download be"
+  echo "===== ISAAC PROBE DONE $(date -u) ====="
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+AccessType: "Public"

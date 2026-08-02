@@ -1,0 +1,52 @@
+TaskName: "task-n-v5-272-build-cnbj-1gpu"
+Description: "Build Task_N v5 272: joint14, 3 RGB, 240/32 split, video re-encode, train-only norm"
+Tags: []
+Preemptible: false
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: BUILD_ENC_THREADS
+    Value: "1"
+  - Name: OMP_NUM_THREADS
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  KAI0=$REPO/kai0
+  LOG_DIR=/vePFS-North-E/vis_robot/logs
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/task_n_v5_272_build_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG") 2>&1
+  echo "=== Task_N v5-272 build $(date -u) ==="
+  cd "$REPO"
+  test "$(find "$KAI0/data/Task_N/base/v5" -path '*/data/chunk-*/*.parquet' -type f | wc -l)" -eq 272
+  test "$(find "$KAI0/data/Task_N/base/v5" -path '*/videos/chunk-*/*.mp4' -type f | wc -l)" -eq 1019
+  source "$KAI0/.venv/bin/activate"
+  KAI0_ROOT="$KAI0" python -u train_scripts/kai/data/build_task_n_v5_272_joint14.py \
+    --overwrite --nproc 8
+  test "$(find "$KAI0/data/Task_N/self_built/nail_v5_272_joint14_train/data" -name '*.parquet' | wc -l)" -eq 240
+  test "$(find "$KAI0/data/Task_N/self_built/nail_v5_272_joint14_val/data" -name '*.parquet' | wc -l)" -eq 32
+  echo BUILD_JOB_OK
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

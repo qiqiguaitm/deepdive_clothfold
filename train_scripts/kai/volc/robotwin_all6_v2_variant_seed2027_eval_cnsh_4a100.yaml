@@ -1,0 +1,77 @@
+TaskName: "robotwin-all6-v2-variant-s2027-eval-cnsh4g"
+Description: "Parameterized RoboTwin all6 v2 seed2027 evaluation, six tasks x four eval seeds"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.14xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: ALL6_EVAL_VARIANT
+    Value: "absolute"
+  - Name: ALL6_TRAIN_SEED
+    Value: "2027"
+  - Name: ALL6_EVAL_RUN_BASENAME
+    Value: "latest"
+  - Name: ALL6_EVAL_RESULT_NAME
+    Value: "rt_all6_v2_absolute_seed2027_unseen"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LAWAM=$REPO/lmvla/lawam
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$LAWAM/logs/volc_rteval
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/all6_v2_${ALL6_EVAL_VARIANT}_seed${ALL6_TRAIN_SEED}_eval_cnsh4g_${STAMP}.log" 2>&1
+  set -x
+
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  nvidia-smi -L
+
+  env \
+    ALL6_EVAL_VARIANT="$ALL6_EVAL_VARIANT" \
+    ALL6_EVAL_RUN_BASENAME="$ALL6_EVAL_RUN_BASENAME" \
+    ALL6_TRAIN_SEED="$ALL6_TRAIN_SEED" \
+    SEEDS="0 1 2 3" \
+    GPUS_PER_SEED=1 \
+    LOCAL_GPU_COUNT=4 \
+    NUM_WORKERS=1 \
+    ROBOTWIN_NUM_SLOTS=1 \
+    RESULT_NAME="$ALL6_EVAL_RESULT_NAME" \
+    RUN_TAG_PREFIX="cnsh-${ALL6_EVAL_VARIANT}-s${ALL6_TRAIN_SEED}" \
+    bash "$REPO/train_scripts/kai/eval/local_robotwin_all6_combo_seed2026_2gpu.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

@@ -1,0 +1,69 @@
+# Task_A1 数据编码作业 — 在北京计算节点重编码 A1 训练视频(gsy 提交节点线程死锁, offload 到 compute node)
+#   跑 build_a1_base_dagger_awbc.py: base+dagger 合并 + AWBC打标 + class0静止裁 + 视频重编码(加关键帧修seek) + norm
+#   输出到 A1_base_dagger_awbc_enc(与 gsy 卡死 build 的目录隔离, 免竞争)。nproc 调低避免线程死锁。
+#   16卡训练随后指向 A1_base_dagger_awbc_enc。
+# Submit: source ~/.volc_creds && VOLC_REGION=cn-beijing \
+#   kai0/.venv/bin/python train_scripts/kai/volc/submit_yaml.py train_scripts/kai/volc/pi05_a1_encode_data_cnbj.yaml
+
+TaskName: "pi05-a1-encode-data-cnbj"
+Description: "Task_A1 数据编码(视频重编码加关键帧修seek+打标+norm) on compute node → A1_base_dagger_awbc_enc"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+
+ActiveDeadlineSeconds: 10800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "2"
+  - Name: BUILD_ENC_THREADS
+    Value: "2"
+
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=/vePFS-North-E/vis_robot/logs
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/pi05_a1_encode_data_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  echo "=== A1 encode start $(date) host=$(hostname) cores=$(nproc) ==="
+  set -ex
+  cd /vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0
+  source .venv/bin/activate
+
+  # 用同目录副本 + sed 重定向 OUT → A1_base_dagger_awbc_enc(保留 helper import 路径; 免改原脚本/免与 gsy 竞争)
+  SD=../train_scripts/kai/data
+  cp "$SD/build_a1_base_dagger_awbc.py" "$SD/build_a1_enc_job.py"
+  sed -i 's/"A1_base_dagger_awbc"/"A1_base_dagger_awbc_enc"/' "$SD/build_a1_enc_job.py"
+  grep -n 'A1_base_dagger_awbc_enc' "$SD/build_a1_enc_job.py" | head -2
+
+  # nproc 调低(16)避免 pyav+多进程 线程爆炸/死锁(gsy 48 卡死教训)
+  NPROC=16
+  echo "[$(date)] running build with nproc=$NPROC on $(nproc)-core compute node"
+  python -u "$SD/build_a1_enc_job.py" --nproc $NPROC
+
+  echo "=== A1 encode DONE $(date) ==="
+
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+
+AccessType: "Public"

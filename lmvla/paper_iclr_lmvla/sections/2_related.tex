@@ -1,0 +1,58 @@
+\section{Related Work}\label{sec:related}
+
+\paragraph{Predictive representations for robot policies.}
+Prior systems predict future images, videos, latent observation features, or
+visual subgoals.  VPP conditions inverse dynamics on future visual
+representations produced by a video diffusion model \citep{vpp2024}; SuSIE
+generates image subgoals for a goal-conditioned controller and compares them
+with ground-truth future images \citep{susie2024}.  WorldVLA predicts future
+images together with actions, whereas DreamVLA forecasts dynamic, spatial, and
+semantic scene information for action prediction
+\citep{dreamvla2025,worldvla2025}.  AHEAD predicts future patches in a frozen
+OpenVLA feature space \citep{ahead2026}.  FutureVLA learns joint visuomotor
+representations and transfers them to downstream VLAs through latent alignment
+\citep{futurevla2026}.  Concurrent $\Delta$VLA models changes relative to the
+current scene \citep{deltavla2026}.  LaWAM predicts action-conditioned future
+observation features as latent visual subgoals; WLA-0 jointly predicts subtasks,
+images, and actions; and Enfold distills a generative world model into a
+representation computed from the current observation
+\citep{lawam2026,wla02026,enfold2026}.  MINT-VLA therefore does not claim the first
+latent future state, visual subgoal, residual predictor, or auxiliary prediction
+loss.  It addresses a specific integration problem: keeping target features
+consistent with a trainable policy encoder and mapping the prediction to the
+VLA's existing conditioning interface.
+
+\paragraph{Milestone selection.}
+States shared across successful trajectories have long been used as
+bottlenecks or options \citep{simsek2009,options1999}.  MINT-VLA uses
+cross-episode visual recurrence to select candidate stage states without
+manually annotated boundaries.  This differs from a fixed temporal horizon and
+from terminal-goal conditioning, but recurrence itself is not sufficient
+evidence that the selected state is useful.  Our planned fixed-horizon, random,
+terminal, and oracle controls follow SuSIE's principle of separating subgoal
+quality from controller capacity.
+
+\paragraph{Integration and negative transfer.}
+Auxiliary objectives can improve or damage a shared representation depending
+on weighting and task \citep{gradsim2018,olaux2019,pcgrad2020}; negative
+transfer is not explained by gradient conflict alone
+\citep{forkmerge2023,lyle2021aux}.  VLA systems accordingly use different
+interfaces, including structured attention, latent alignment, conditional
+variation modules, or a frozen policy feature space
+\citep{dreamvla2025,futurevla2026,deltavla2026,ahead2026}.  Selective gradient
+routing is also used to preserve pretrained VLA semantics
+\citep{knowledgeinsulation2025}.  MINT-VLA's current implementation stops the
+milestone target branch but still allows its loss to update current visual
+features through the predictor; the planned auxiliary-only, prefix-only, and
+detached-current controls measure those paths rather than assuming isolation.
+
+\paragraph{Establishing control benefit.}
+Prediction quality and control performance can diverge
+\citep{worldarena2026,robowmbench2026,wmevalposition2026}, and correlated
+conditioning can induce causal confusion \citep{causalconfusion2019,copycat2020}.
+Evaluation seeds also do not replace independent training seeds
+\citep{henderson2018,rliable2021}.  We therefore require closed-loop success,
+fixed-checkpoint content interventions, task-level reporting, and training-seed
+replication.  These controls are necessary to determine whether performance
+depends on the predicted future state rather than merely on an additional
+visual token.

@@ -10,7 +10,7 @@
 | **milestone 图** | milestone 之间的转移/先后结构（precedence / transition matrix） | — |
 | **prototype（latent）** | 某 milestone 的代表 latent（簇心或 episode-local medoid）；在 SigLIP/DINOv3 空间，可作视觉子目标 | — |
 | **value / progress** | CRAVE 从 milestone 序列 readout 的每帧标量进度（离散 V2.4 / 连续 TCC） | — |
-| **LMWAM** | 最终系统 = **LMWM × kai0 π0.5**，action expert 被 latent milestone 引导 | 不是子项目目录名（那是历史命名）；目录用 `lmvla/` |
+| **LMVLA** | 最终系统 = **LMWM × kai0 π0.5**，action expert 被 latent milestone 引导 | `lmwam/` 仅保留为 LaWAM 修改层的历史实现目录名；论文和系统统一称 LMVLA |
 
 ## 预测规则（**严格区分，勿互换**）
 

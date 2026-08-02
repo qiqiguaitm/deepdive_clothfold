@@ -1,0 +1,76 @@
+TaskName: "robotwin-combo-oracle-retrieval-attach-bj4g"
+Description: "Attach four non-resetting workers to the active oracle-retrieval evaluation"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_rteval
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/combo_oracle_retrieval_attach_${STAMP}.log" 2>&1
+  set -x
+
+  export REPO_ROOT=$REPO
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$REPO/lmvla/lawam/robotwin_python_wrapper_northe.sh
+  export TORCH_CUDA_ARCH_LIST=9.0
+  export LMWM_ORACLE_RETRIEVAL_ROOT=$REPO/lmvla/lmwm/data/robotwin_oracle_retrieval_bank_v1
+  export LMWM_ORACLE_RETRIEVAL_MODE=residual
+  export ROBOTWIN_TASK_SCOPED_SERVER=1
+
+  env \
+    ALL6_EVAL_VARIANT=combo \
+    ALL6_EVAL_RUN_BASENAME=20260730_152020+robotwin_all6_v2_combo_seed2026 \
+    ALL6_TRAIN_SEED=2026 \
+    RESULT_NAME=rt_all6_v2_combo_oracle_retrieval_seed2026_unseen \
+    SEEDS="0 1 2 3" \
+    GPUS_PER_SEED=1 \
+    LOCAL_GPU_COUNT=4 \
+    GPU_INDEX_OFFSET=0 \
+    NUM_WORKERS=1 \
+    ROBOTWIN_NUM_SLOTS=1 \
+    ROBOTWIN_ATTACH_EXISTING=1 \
+    ROBOTWIN_WORKER_INDEX_OFFSET=2000 \
+    bash "$REPO/train_scripts/kai/eval/local_robotwin_all6_combo_seed2026_2gpu.sh"
+
+  mkdir -p "$REPO/logs/resource_markers"
+  printf 'completed=%s\n' "$(date -u +%FT%TZ)" \
+    > "$REPO/logs/resource_markers/combo_oracle_retrieval_attach.ok"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

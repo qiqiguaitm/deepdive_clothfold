@@ -1,0 +1,43 @@
+\section{Discussion and Conclusion}\label{sec:conclusion}
+The current results distinguish a useful visual interface from useful future
+content.  Adding a nonzero visual token improved the fixed A2 checkpoint over a
+zero token by 3.50 percentage points on the three-task panel.  Replacing the
+predicted future with the current feature changed success by only 0.33 points
+in the opposite direction.  The intervention therefore supports use of the
+visual token, but not a claim that the predicted milestone improves control
+across tasks or task categories.  Hammering showed the expected ordering, whereas ranking-RGB
+and Stack-2 did not.  This heterogeneity is a result to explain, not variation
+to hide in a macro average.
+
+MINT-VLA addresses two concrete representation problems.  Re-encoding stored
+frames prevents target features from becoming outdated as the policy encoder
+changes, while a small policy-specific adapter avoids deploying a second visual
+stack.  The evaluated $\pi_{0.5}$ adapter uses one prefix token.
+The design does not by itself solve auxiliary-objective interference: the
+target branch is stopped, but the milestone loss can still update the encoder
+through the current feature.  Nor does residual parameterization guarantee a
+useful policy input.  The legacy comparison changed target computation, capacity,
+loss, and parameterization together, so only the factorized controls can assign
+credit to an individual mechanism.
+
+The pilot has three further limitations.  Its no-hint policy used a weak
+joint-delta, quantile-normalized 20k-step recipe, and every arm used one training
+seed.  The milestone-pair artifact also omitted Stack-3; on that task the
+predictor was trained through the action loss without milestone auxiliary
+supervision.  Finally, the observation-only predictor cannot distinguish two
+instructions that require different futures from the same scene.  These
+limitations rule out claims of broad superiority, recurrence-based gains on
+Stack-3, or instruction-aware milestone selection.
+
+The central hypothesis remains precise: a future condition is useful when its
+content adds decision-relevant information beyond the current visual feature,
+and when the interface preserves that information in the policy's changing
+representation space.  MINT-VLA supplies one implementation of this hypothesis;
+the corrected multi-seed matrix, content interventions, and one-factor
+ablations determine whether its predicted milestone satisfies it.  This framing
+turns future conditioning from an architectural label into a claim that can be
+tested against current-state, instance-shuffled, capacity-matched, and gradient-route
+controls.
+\exptodo{T0--T6,E1--E2}{Rewrite the discussion around the corrected multi-seed
+effect, completed content interventions, isolated mechanism, predefined task panel,
+and measured deployment cost.}

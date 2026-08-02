@@ -103,6 +103,14 @@ def main():
     p.add_argument("yaml_path")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--region", default=None, help="Override region (default: derived from queue name)")
+    p.add_argument("--task-name", default=None, help="Override TaskName without editing the YAML")
+    p.add_argument(
+        "--set-env",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="Append or replace an environment variable; may be repeated",
+    )
     args = p.parse_args()
 
     ak = os.environ.get("VOLC_AK") or os.environ.get("VOLC_ACCESSKEY")
@@ -111,6 +119,18 @@ def main():
         sys.exit("ERROR: set VOLC_AK and VOLC_SK env vars")
 
     cfg = parse_yaml(args.yaml_path)
+    if args.task_name:
+        cfg["TaskName"] = args.task_name
+    if args.set_env:
+        envs = {str(item["Name"]): dict(item) for item in (cfg.get("Envs") or [])}
+        for assignment in args.set_env:
+            if "=" not in assignment:
+                p.error(f"--set-env requires NAME=VALUE, got {assignment!r}")
+            name, value = assignment.split("=", 1)
+            if not name:
+                p.error("--set-env variable name cannot be empty")
+            envs[name] = {"Name": name, "Value": value}
+        cfg["Envs"] = list(envs.values())
 
     qname = cfg["ResourceQueueName"]
     meta = RESOURCE_QUEUES.get(qname)

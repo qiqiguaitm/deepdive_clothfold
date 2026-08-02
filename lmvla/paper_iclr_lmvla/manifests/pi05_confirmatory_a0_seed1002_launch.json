@@ -1,0 +1,48 @@
+{
+  "capture_source": "resource_aware_scheduler state backfill",
+  "captured_at": "2026-08-01T23:59:46Z",
+  "code_equivalence_note": "The North pi0.py differs from the shared copy only by spatial-condition code gated behind lmwm_spatial_condition != 'none'; this run sets 'none'.",
+  "config_name": "pi05_robotwin_a0_public_exact_bj",
+  "experiment_name": "pi05_robotwin_a0_public_exact_seed1002",
+  "job_id": "t-20260802072321-dbsdb",
+  "job_name": "pi05-a0-public-exact-s1002-bj4g",
+  "protocol": {
+    "action_horizon": 50,
+    "actions": "absolute",
+    "arm": "a0",
+    "asset_id": "robotwin2.0_absolute_meanstd",
+    "batch_size": 16,
+    "evaluation_cells": 24,
+    "evaluation_seeds": 4,
+    "image_augmentation": "none",
+    "lmwm_spatial_condition": "none",
+    "normalization": "mean_std",
+    "num_train_steps": 50000,
+    "training_seed": 1002
+  },
+  "resource": {
+    "accelerator": "GPU-H3c",
+    "backend": "platform",
+    "gpus": 4,
+    "name": "Robot-North-H20",
+    "preemptible": false,
+    "queue_id": "q-20260516104642-khch9"
+  },
+  "runtime_env": {
+    "PI05_ABSOLUTE_ACTIONS": "1",
+    "PI05_ASSET_ID": "robotwin2.0_absolute_meanstd",
+    "PI05_CONFIG_NAME": "pi05_robotwin_a0_public_exact_bj",
+    "PI05_EXP_NAME": "pi05_robotwin_a0_public_exact_seed1002",
+    "PI05_TRAIN_SEED": "1002"
+  },
+  "sha256": {
+    "conditioning_artifacts": {},
+    "dataset_manifest_raw": "99f7d6235cc97079c344b64e970e5c37abd988d1d676e86b6f27704e4c441ee8",
+    "dataset_manifest_semantic": "5d6f61377ca6f1a469d949f7b687c9ab0a99aadf5e88117978cc6758c5d100cf",
+    "execution_sources": {
+      "config.py": "81a149b061e7e6b9cd914ff301d62fb79fe26812c34aaad2964147ecb32a60aa",
+      "pi0.py": "261a35db24c51cff9f0d774df4c0ecdb02bef77baa555f588129e5f3dba8cf61"
+    },
+    "submitted_yaml": "a8b58caa95136e591d541d387ba474ffcf82e1c8af0ca63d9f8870f63061c5a9"
+  }
+}

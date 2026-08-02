@@ -104,6 +104,10 @@ class RepackTransform(DataTransformFn):
         # causing Pi0.embed_prefix to skip the soft_prompt_hub branch (grad_norm=0).
         if "dataset_id" in flat_item:
             out["dataset_id"] = flat_item["dataset_id"]
+        # AWBC ② loss-weighting: preserve per-frame sample_weight through repack (else dropped →
+        # obs.sample_weight None → weighting silently no-ops). Mirrors dataset_id passthrough.
+        if "sample_weight" in flat_item:
+            out["sample_weight"] = flat_item["sample_weight"]
         return out
 
 

@@ -55,6 +55,25 @@
 
 ---
 
+## 3.5 ⭐ 执行进度 (2026-07-21, 本地全部完成+smoke验证; 北京队列 8卡×3, 分担 Robot-North-H20 + Robot-North-H20-Debug)
+
+**✅ 本地已完成并验证 (storage-无关部分):**
+- **数据 (2 个, enrich_chunk001_three_paradigm.py 产)**: `A_v4_chunk001_3para_human`(A1: task_index=intervention, 51.9%pos/48.1%neg 平衡, 2 advantage task) + `A_v4_chunk001_3para_cls`(A2/A3: task_index=重映射class{robot0,intv1,preintv2,base3}, `sample_weight`列{base1,robot1,intv2,preintv0}, 4中性task)。videos 软链复用 kai0_base/vis_dagger。
+- **代码 (A2 loss加权, 5处; A3 零代码复用采样器)**: model.py(+`sample_weight`字段+from_dict) · pi0_config.py(+`awbc_loss_weight`) · pi0.py(__init__读flag + compute_loss `per_token_loss×w`) · agilex_policy.py(透传) · transforms.py(RepackTransform 保留sample_weight)。A3 复用现成 `_DomainWeightedJAXSampler`(task_index=class + domain_sample_weights, 零改)。
+- **config (3)**: `pi05_v4_awbc_3para_{cond,weight,resample}`(North-E路径, JAX bs128/fsdp8/50k)。
+- **✅ smoke 全 PASS**: S1 sample_weight 穿repack→obs · S2 loss加权 class2(w=0)贡献=0/class1(w=2)翻倍/有限 · S3 采样器 class2采样=0, class1:class0=2.06:1≈2:1。满足 §6 门禁。
+
+**✅ North-E 落地完成 + 已提交 (2026-07-21):**
+- 代码同步: 5 框架文件 scp (md5 校验一致, North-E 版无独有改动) + 3 config 追加插入 launchtrim 前 (语法 OK, 不覆盖 North-E 活跃改动)。
+- 数据: parquet+meta (336M tar) 传 North-E 解包 + 视频软链从 manifest 重建。**坑**: North-E vis_dagger 缺 chunk-001 → 从 TOS(`transfer-shanghai/KAI0/Task_A/dagger/v4`) 拉 12 日期 chunk-001 (9.8G, North-E↔TOS 零本机出口; tosutil 先补 ak 配置; cp -r 双层嵌套 chunk-001/chunk-001 已拍平)。**全量软链 4644 断链 0**。
+- 数据就绪: _human(774pq/2task/intervention) + _cls(774pq/4task/task_index+sample_weight) 列齐/norm/dagger视频全解析。
+- **提交 (VOLC_REGION=cn-beijing, 8卡×3 分担两队列)**:
+  - A1 cond → `Robot-North-H20` job **`t-20260721200622-4wx8f`**
+  - A2 weight → `Robot-North-H20-Debug` job **`t-20260721200628-ggfrc`**
+  - A3 resample → `Robot-North-H20` job **`t-20260721200636-9dfkt`**
+- yaml: `train_scripts/kai/volc/pi05_v4_awbc_3para_{cond,weight,resample}_cnbj_8gpu.yaml`。submit_yaml.py 已加 Robot-North-H20-Debug 队列映射(q-20260714180557-wgkh2)。
+- **待办**: 盯 3 任务过 preflight 起训 → 训完 §5 评估(真机为主判据: 谁最少死循环+最高抓取)。
+
 ## 4. 实现清单(按依赖排序)
 
 ### 4.1 数据(共享前提, 一次构建)

@@ -1,7 +1,12 @@
 import dataclasses
 import enum
 import logging
+import os
+import pathlib
 import socket
+import sys
+
+import numpy as np
 
 import tyro
 
@@ -33,6 +38,51 @@ class Checkpoint:
 @dataclasses.dataclass
 class Default:
     """Use the default policy for the given environment."""
+
+
+class _OnlineRobotwinHintPolicy:
+    def __init__(self, policy: _policy.BasePolicy, encoder: str):
+        self._policy = policy
+        self._encoder = encoder
+        self._hint_computer = None
+        self._intervention = os.getenv("ROBOTWIN_HINT_INTERVENTION", "correct").strip().lower()
+        self._override_hint = None
+        if self._intervention == "override":
+            path = pathlib.Path(os.environ["ROBOTWIN_HINT_OVERRIDE_PATH"])
+            hint = np.asarray(np.load(path), dtype=np.float32).reshape(-1)
+            expected_dim = 1152 if encoder == "so400m" else 768
+            if hint.shape != (expected_dim,) or not np.all(np.isfinite(hint)):
+                raise ValueError(
+                    f"Invalid RoboTwin hint override {path}: shape={hint.shape}, "
+                    f"expected=({expected_dim},), finite={np.all(np.isfinite(hint))}"
+                )
+            self._override_hint = hint
+            logging.info("Loaded fixed RoboTwin hint override from %s", path)
+
+    @property
+    def metadata(self):
+        return self._policy.metadata
+
+    def infer(self, obs: dict) -> dict:
+        obs = dict(obs)
+        if "lmwm_hint" not in obs:
+            if self._intervention == "zero":
+                hint_dim = 1152 if self._encoder == "so400m" else 768
+                obs["lmwm_hint"] = np.zeros((1, hint_dim), dtype=np.float32)
+            elif self._intervention == "override":
+                obs["lmwm_hint"] = self._override_hint[None]
+            else:
+                if self._hint_computer is None:
+                    repo = pathlib.Path(__file__).resolve().parents[2]
+                    sys.path.insert(0, str(repo / "lmvla" / "lawam"))
+                    from examples.Robotwin.eval_files.hint_online_robotwin import RobotwinHintComputer
+
+                    self._hint_computer = RobotwinHintComputer(self._encoder, "cuda")
+                head = np.asarray(obs["images"]["cam_high"])
+                if head.ndim == 3 and head.shape[0] in (1, 3, 4):
+                    head = np.moveaxis(head, 0, -1)
+                obs["lmwm_hint"] = self._hint_computer.compute(head)[None].astype(np.float32)
+        return self._policy.infer(obs)
 
 
 @dataclasses.dataclass
@@ -99,6 +149,10 @@ def create_policy(args: Args) -> _policy.Policy:
 def main(args: Args) -> None:
     policy = create_policy(args)
     policy_metadata = policy.metadata
+
+    if hint_encoder := os.getenv("OPENPI_SERVER_HINT_ENCODER"):
+        logging.info("Enabling server-side RoboTwin hint encoder: %s", hint_encoder)
+        policy = _OnlineRobotwinHintPolicy(policy, hint_encoder)
 
     # Record the policy's behavior.
     if args.record:

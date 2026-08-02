@@ -1,0 +1,47 @@
+{
+  "capture_source": "resource_aware_scheduler state backfill",
+  "captured_at": "2026-08-01T23:59:51Z",
+  "config_name": "pi05_robotwin_a0_public_exact_bj",
+  "experiment_name": "pi05_robotwin_a0_public_exact_seed1000",
+  "job_id": "gf1-848003",
+  "job_name": "pi05-a0-public-exact-s1000-bj4g",
+  "protocol": {
+    "action_horizon": 50,
+    "actions": "absolute",
+    "arm": "a0",
+    "asset_id": "robotwin2.0_absolute_meanstd",
+    "batch_size": 16,
+    "evaluation_cells": 24,
+    "evaluation_seeds": 4,
+    "image_augmentation": "none",
+    "lmwm_spatial_condition": "none",
+    "normalization": "mean_std",
+    "num_train_steps": 50000,
+    "training_seed": 1000
+  },
+  "resource": {
+    "accelerator": "NVIDIA A100-SXM4-80GB",
+    "backend": "ssh",
+    "gpus": 4,
+    "name": "gf1",
+    "preemptible": false,
+    "queue_id": null
+  },
+  "runtime_env": {
+    "PI05_ABSOLUTE_ACTIONS": "1",
+    "PI05_ASSET_ID": "robotwin2.0_absolute_meanstd",
+    "PI05_CONFIG_NAME": "pi05_robotwin_a0_public_exact_bj",
+    "PI05_EXP_NAME": "pi05_robotwin_a0_public_exact_seed1000",
+    "PI05_TRAIN_SEED": "1000"
+  },
+  "sha256": {
+    "conditioning_artifacts": {},
+    "dataset_manifest_raw": "53c48ffc359b36536e73a42a660a250fd9db95ce577f720d0155231ed85cafa3",
+    "dataset_manifest_semantic": "5d6f61377ca6f1a469d949f7b687c9ab0a99aadf5e88117978cc6758c5d100cf",
+    "execution_sources": {
+      "config.py": "81a149b061e7e6b9cd914ff301d62fb79fe26812c34aaad2964147ecb32a60aa",
+      "pi0.py": "b44e5e5c562d406fa0c5c868446634ce9c84f5e0cc5f3c09497a6bff2bcedf74"
+    },
+    "launch_command": "f650e1c465a5273d98ef86c7766e7a29af1ea755838c1b8d6042d5c91959f465"
+  }
+}

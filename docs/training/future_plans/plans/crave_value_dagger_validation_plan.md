@@ -2,7 +2,7 @@
 
 > **建立**: 2026-07-14
 > **目的**: 用 **CRAVE 在线 GRU value 模型**(corr 0.975)给新的 chunk-001 dagger(拼接完整 ep, 387 ep) + 等量 base 数据**打 stage_progress_gt**, 走 AWBC pipeline 训 pi05 → 真机验证:**新格式 dagger 是否可用、是否依然回折冻结**。
-> **本轮范围**: plan + **数据打标**(§1-3) → 后续提交 AWBC 训练 + 真机。
+> **状态**: ✅ **Phase A 打标完成** (2026-07-15)。CRAVE pipeline 对 387 base + 387 dagger 全量打标完成。base corr=0.947, dagger corr=0.931。**Phase B AWBC 就绪,可交其他 agent。** 提交信息见 §6。
 > **上游**: [`dagger_launchpoint_trim_freeze_fix_plan.md`](dagger_launchpoint_trim_freeze_fix_plan.md) 证明了旧 dagger 的迟疑边界段是冻结根因。**本实验验证新格式 dagger(拼接完整 ep,无迟疑起手)是否从源头解决了问题。**
 > ⚠️ **铁律**: 真机为终判; AWBC 无 val MAE(prompt_from_task=True)。
 
@@ -157,9 +157,85 @@ python stage_advantage/discretize_advantage.py \
 5. 数据集 build: base(387) + dagger(387) → `A_v4_chunk001_dagger_crave_labeled`
 
 ### Phase B: AWBC(后续)
-6. discretize top-30% binary
-7. 注册 config + 8 卡 50k 训练
+6. discretize top-30% binary → 见 §6.4
+7. 注册 config + 8 卡 50k 训练 → 见 §6.5
 8. 真机 vs launchtrim(§3 判据)
+
+---
+
+## 6. ✅ Phase B 提交信息 (给任务提交 agent)
+
+### 6.1 数据路径 (已就绪)
+
+| 数据 | 路径 | ep 数 |
+|---|---|---|
+| base 标签 npy | `lmvla/crave/temp/crave_ae_labels/chunk001_val/base/` | 387 |
+| dagger 标签 npy | `lmvla/crave/temp/crave_ae_labels/chunk001_val/dagger/` | 387 |
+| base 源数据 | `kai0/data/Task_A/kai0_base/` (videos+meta) | 3055 (采 387) |
+| dagger 源数据 | `kai0/data/Task_A/vis_dagger/v4/<date>/data/chunk-001/` | 387 (12 日期) |
+| dagger 视频 | `kai0/data/Task_A/vis_dagger/v4/<date>/videos/chunk-001/` | 1161 mp4 |
+| DINOv3 特征 | `lmvla/crave/data/dagger_chunk001_dinov3base/` | 943MB |
+| 输出数据集 | `kai0/data/Task_A/self_built/A_v4_chunk001_dagger_crave_labeled/` | 774 ep |
+
+### 6.2 Dagger 全局 ID 编码
+
+dagger ep 使用 `date_hash * 10000 + local_ep` 唯一编码:
+- `date_hash = month*100 + day` (例: 06-16→616, 07-01→701)
+- base ep 使用 kai0_base 原始 ep 号 (0-3054), 采样了 387 个
+- **两个命名空间不冲突** (base < 3055, dagger ≥ 6160000)
+
+python 解码:
+```python
+dh = global_ep // 10000; local_ep = global_ep % 10000
+month = dh // 100; day = dh % 100
+date_dir = f"2026-{month:02d}-{day:02d}-v4"
+pq = f"kai0/data/Task_A/vis_dagger/v4/{date_dir}/data/chunk-001/episode_{local_ep:06d}.parquet"
+```
+
+### 6.3 数据集 build
+
+需要写 `train_scripts/kai/data/build_chunk001_dagger_crave_labeled.py` (参考现有 `build_v4_awbc_merged.py`):
+
+1. 读 base 标签 → 写入 parquet 的 `stage_progress_gt` 列 (底座 kai0_base, symlink video+meta)
+2. 读 dagger 标签 → 同写入 (底座 dagger chunk-001 parquet, copy/symlink video)
+3. 合并 387 base + 387 dagger → 774 ep, 重排 episode_index 0..773
+4. 重算 norm_stats (`compute_norm_states_fast.py`, action_dim=32)
+5. 输出: `self_built/A_v4_chunk001_dagger_crave_labeled`
+
+### 6.4 Discretize
+
+```bash
+cd /vePFS/tim/workspace/deepdive_kai0/kai0
+.venv/bin/python stage_advantage/discretize_advantage.py \
+    --data data/Task_A/self_built/A_v4_chunk001_dagger_crave_labeled \
+    --advantage-source stage_progress_gt \
+    --discretion-type binary --top 0.3
+```
+
+### 6.5 训练
+
+Config 待注册 `pi05_v4_awbc_chunk001_dagger_crave`:
+- 克隆 `pi05_v4_awbc_launchtrim` (无 DCT)
+- `repo_id` → `A_v4_chunk001_dagger_crave_labeled` (discretized)
+- `prompt_from_task=True`, init pi05_base
+- warmup1k/peak1.5e-5/50k/bs128/fsdp8/EMA0.9999
+
+```bash
+cd /vePFS/tim/workspace/deepdive_kai0/kai0
+uv run torchrun --standalone --nproc_per_node=8 \
+    scripts/train_pytorch.py pi05_v4_awbc_chunk001_dagger_crave \
+    --exp_name=chunk001_dagger_crave --save_interval 10000
+```
+- ⚠️ 这是 **JAX train.py** (AWBC 走 JAX, 非 PyTorch AE)
+- 8 卡 (gf3 cnbj/cnsh 择空闲; `submit-training-job` skill)
+- val MAE 预期失败 (AWBC prompt_from_task=True)
+
+### 6.6 真机判据
+
+对照 launchtrim (已证不冻):
+- ✅ 不冻 + 成功率 ≥ launchtrim → 新格式 dagger **天然干净,可直接用,无需起爆点前裁**
+- ⚠️ 冻结缩短但未消 → 新格式部分解决
+- ❌ 仍冻 → 标签或新格式本身有问题
 
 ---
 
@@ -170,24 +246,42 @@ python stage_advantage/discretize_advantage.py \
 - **base 采样**:387 ep 从 3055 ep kai0_base 随机采,需固定 seed 保证可复现
 - **标签不 faithful 于旧 AE**:CRAVE-GRU label 和旧 AE-C task_index 不可直接比较(不同 label 源),只能真机判
 
-## 执行记录 (2026-07-14)
+## 执行记录
 
-**Phase A 实施中**:
-| 步骤 | 脚本 | 状态 |
+### Phase A: 打标 ✅ (2026-07-14~15)
+
+| 步骤 | 脚本 | 状态 | 备注 |
+|---|---|---|---|
+| 1. 视频同步 | `tosutil cp -r -u` (1161 mp4) | ✅ | 12/12 日期完成 |
+| 2. DINOv3 提取 | `extract_dagger_chunk001_d3b.py` | ✅ | 387 ep, 957,763 frames, 48min |
+| 3. CRAVE labeling | `label_chunk001_dagger_crave.py` | ✅ | 387 base + 387 dagger, 2.8min |
+| 4. 数据集 build | `build_chunk001_dagger_crave_labeled.py` | 🔲 待实施 |
+
+### Phase B: AWBC 训练 + 真机 (2026-07-15)
+
+| 步骤 | 说明 | 状态 |
 |---|---|---|
-| 1. 视频同步 TOS→local | `tosutil cp -r -u` (1161 mp4) | 🔄 进行中 (60%+) |
-| 2. DINOv3 特征提取 | `extract_dagger_chunk001_d3b.py` | 🔄 进行中 (~2h ETA) |
-| 3. CRAVE labeling | `label_chunk001_dagger_crave.py` | 🔲 待提取完成 |
-| 4. 数据集 build | `build_chunk001_dagger_crave_labeled.py` | 🔲 待打标完成 |
+| 5a. Build 脚本 | `build_chunk001_dagger_crave_labeled.py` | ✅ |
+| 5b. Build 执行 | sim01 上运行, 774ep/1.38M 帧成功 | ✅ |
+| 6. Discretize | top-30% binary (threshold=0.68), 30.0% pos | ✅ |
+| 7a. Config 注册 | `pi05_v4_awbc_chunk001_dagger_crave` (cnsh路径, fsdp=16/bs=256) | ✅ |
+| 7b. Volc YAML | `pi05_v4_awbc_crave_dagger_cnsh_16gpu.yaml` (2×8 A100 robot-task) | ✅ |
+| 7c. 训练提交 | **`t-20260715142954-t6dgl`** (cnsh robot-task 16卡 50k) | ✅ 已提交 |
+| 8. 真机 | vs launchtrim | 🔲 训练完后 |
 
-**数据路径**:
-- 源数据: `vis_dagger/v4/<date>/data/chunk-001/` (387 ep, TOS 对齐)
-- DINOv3 特征: `lmvla/crave/data/dagger_chunk001_dinov3base/`
-- 标签 npy: `lmvla/crave/temp/crave_ae_labels/chunk001_val/{base,dagger}/`
-- 数据集输出: `self_built/A_v4_chunk001_dagger_crave_labeled`
+**标签质量**:
+| | base (387 ep) | dagger (387 ep) |
+|---|---|---|
+| polyline vs T corr | **0.947** | **0.931** |
+| 末值 median | 1.000 | 1.000 |
+| M (milestones) | 8 | — |
 
-**特征提取配置**: DINOv3-base `encode_pooled`, fp16, ~77fps RTX 5090, ~960k frames total.
-**标签管线参数**: PCA 128D (kai0_base 全量), BGMM M=8 milestones, SMU/SSD 14D proprio, λ=160, daw() 双锚 Viterbi→polyline.
+**特征提取**: DINOv3-base `encode_pooled`, fp16, ~77fps RTX 5090.
+**标签管线**: PCA 128D (kai0_base 全量), BGMM M=8, SMU/SSD 14D proprio, λ=160, daw() 双锚 Viterbi→polyline.
+**⚠️ 技术细节**:
+- dagger ep 使用全局唯一 ID 编码: `date_hash*10000+local_ep` (如 06-16 ep0→6160000), 避免不同日期 ep 号冲突
+- 标签 npy 文件名: `ep{global_id}.npy` (base 用 kai0_base 原始 ep 号, dagger 用全局 id)
+- PCA + milestones + SMU/SSD 来自 kai0_base 3055 ep 全量 (BGMM random_state=0, 可复现)
 
 ---
 

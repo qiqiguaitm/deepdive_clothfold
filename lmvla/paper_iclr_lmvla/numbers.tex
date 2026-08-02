@@ -1,0 +1,135 @@
+% =====================================================================
+% CENTRALIZED NUMBERS — single source of truth for all quantitative claims.
+% Update here after each gate; text/tables reference these macros.
+% Claim discipline (roadmap 4.16): aggregate diffs < 1.5pt are NOT claimable;
+% all main-table numbers must be multi-seed with std.
+% =====================================================================
+
+% ---------- LIBERO-10, LaWAM stack (multi-seed, same-protocol) ----------
+\newcommand{\noWMtSix}{76.5}          % no-WM baseline t6 (24-route seed protocol)
+\newcommand{\lmwmTSix}{85.0}          % dual2q / tsched t6 (std 1.7--2.4)
+\newcommand{\tSixGain}{+8.5}          % p<0.001, t~6  — THE robust guidance gain
+\newcommand{\aggTsched}{95.22}        % n=8, ±0.91
+\newcommand{\aggTschedStd}{0.91}
+\newcommand{\aggDualQ}{94.80}         % n=4, ±0.71
+\newcommand{\aggDualQStd}{0.71}
+\newcommand{\aggBaselineArmB}{94.20}  % ±0.97 n=4 (E2 2026-07-24). 旧单评 96.4=噪声上尾, 弃用
+\newcommand{\armBtSix}{82.5}          % ±3.8 (E2) — t6 分解: no-WM 76.5 → LaWM 82.5 (+6.0) → LMWM 85.0 (+2.5)
+\newcommand{\armBtEight}{89.5}        % ±12.4 (E2, seed1=68!) — 基线 t8 也高方差, "LMWM伤t8"在LaWAM侧不成立
+\newcommand{\tSixGainWM}{+6.0}        % 任何未来条件化(LaWM t+7) vs no-WM
+\newcommand{\tSixGainMS}{+2.5}        % milestone 特异边际 (LMWM vs LaWM), 弱显著待更多seed
+\newcommand{\tEightDualQ}{94}         % 2Q restores t8 from 90 (E1 dual) — capacity effect
+% ---------- residual V8 (G1 locked for LIBERO-10; full 4-suite is diagnostic) ----------
+\newcommand{\aggResid}{95.75}   % ±0.76 n=8 定稿 (6×NorthE-H20 + 2×gf0-A100, 同协议egl; seed{0,2,3,5,6,7,8,9})
+\newcommand{\aggResidStd}{0.76}   % Δ+1.55 vs armB 94.20±0.97, Welch t≈2.80 → 过1.5声称线 ✅
+\newcommand{\tSixResid}{87.5}    % ±3.8 n=8 — 指引 +5.0 vs armB 82.5; t9=90.8±2.7 (+4.8)
+\newcommand{\tEightResid}{87.0}  % ±6.3 n=8 — 方差内 (armB 89.5±12.4); t7=100±0 满
+
+% ---------- LIBERO full 4-suite honesty table (2026-07-28 status) ----------
+\newcommand{\fourNowmAvg}{97.24}
+\newcommand{\fourAbsAvg}{96.58}
+\newcommand{\fourResidAvg}{96.90}
+\newcommand{\fourShapeBAvg}{97.24}
+\newcommand{\fourAbsDelta}{-0.62}
+\newcommand{\fourResidDelta}{-0.30}
+\newcommand{\fourShapeBDelta}{0.00}
+\newcommand{\nowmLTen}{94.55}
+\newcommand{\nowmLTenStd}{0.50}
+\newcommand{\shapeBLTen}{95.30}
+\newcommand{\shapeBLTenStd}{0.77}
+\newcommand{\nowmGoal}{98.3}
+\newcommand{\residGoal}{97.80}
+\newcommand{\residGoalStd}{0.28}
+\newcommand{\shapeBGoal}{98.00}
+\newcommand{\shapeBGoalStd}{0.85}
+\newcommand{\nowmObject}{99.8}
+\newcommand{\residObject}{99.65}
+\newcommand{\residObjectStd}{0.19}
+\newcommand{\shapeBObject}{99.80}
+\newcommand{\shapeBObjectStd}{0.23}
+\newcommand{\nowmSpatial}{96.3}
+\newcommand{\absSpatial}{93.3}
+\newcommand{\residSpatial}{94.4}
+\newcommand{\residSpatialStd}{0.84}
+\newcommand{\shapeBSpatial}{95.85}
+\newcommand{\shapeBSpatialStd}{1.18}
+
+% ---------- pi05 stack (cross-architecture replication, 4 routes x 50) ----------
+\newcommand{\piBase}{93.87}           % A0 baseline aggregate
+\newcommand{\piExt}{93.07}            % A1 external DINOv3 hint
+\newcommand{\piOwn}{93.70}            % A2 own-space So400m hint
+\newcommand{\piOwnSuffix}{94.20}      % A2-suffix (only config above baseline)
+\newcommand{\harmDifficultyCorrExt}{+0.66}   % ⚠DEMOTED(N5): CI跨0, 单离群t8驱动 — 正文不得作定律引用
+\newcommand{\harmDifficultyCorrOwn}{+0.06}   % own-space: flat
+\newcommand{\precDeltaExt}{-1.48}     % precision-task mean delta, external space
+\newcommand{\precDeltaOwn}{-0.38}     % precision-task mean delta, own space
+\newcommand{\tEightHarmExt}{-10.0}    % A1 on hardest precision task
+
+% ---------- residual discriminability (mechanism) ----------
+\newcommand{\residCV}{1.1}            % residual target trajectory CV
+\newcommand{\absCV}{0.12}             % absolute target trajectory CV  (~10x)
+\newcommand{\redundancyPct}{95\%}     % v3: FULL-CORPUS (1693ep, 4 suites, 100% episodes consistent); old per-ep estimate 86%
+\newcommand{\residDiscrim}{15$\times$} % corpus-level residual-vs-absolute discriminability (per-ep examples ~10x)
+\newcommand{\shapeBFrom}{93.2}        % spatial suite under absolute targets (shared-encoder gradients)
+\newcommand{\shapeBTo}{95.9}          % spatial after WM-gradient detach (shapeB A/B); no-WM ref 96.5
+
+% ---------- intrinsic recurrence signal ----------
+\newcommand{\intrinsicGain}{2.1$\times$}  % r-ridge vs boundary forward gain
+
+% ---------- RoboTwin all6 v2 (4 simulator seeds x 50 episodes/task) ----------
+\newcommand{\rtNoWM}{91.1}
+\newcommand{\rtLocal}{86.6}
+\newcommand{\rtAbsolute}{89.2}
+\newcommand{\rtResidual}{87.9}
+\newcommand{\rtIsolation}{89.4}
+\newcommand{\rtCombo}{89.2}
+\newcommand{\rtLocalDelta}{-4.5}
+\newcommand{\rtAbsoluteDelta}{-1.9}
+\newcommand{\rtResidualDelta}{-3.2}
+\newcommand{\rtIsolationDelta}{-1.7}
+\newcommand{\rtComboDelta}{-1.9}
+\newcommand{\rtStackThreeNoWM}{90.5}
+\newcommand{\rtStackThreeAbsolute}{96.5}
+\newcommand{\rtStackThreeResidual}{99.5}
+\newcommand{\rtLocalSeedB}{86.75}
+\newcommand{\rtComboSeedB}{88.92}
+
+% ---------- pi0.5 RoboTwin internal matrix ----------
+\newcommand{\piRTAZero}{35.50}
+\newcommand{\piRTAOne}{41.17}
+\newcommand{\piRTATwoAbs}{48.75}
+\newcommand{\piRTATwoResid}{43.83}
+\newcommand{\piRTAThree}{49.58}
+\newcommand{\piRTAThreeVsZero}{+14.08}
+\newcommand{\piRTAThreeVsResid}{+5.75}
+\newcommand{\piRTAThreeVsAbs}{+0.83}
+\newcommand{\piRTPublic}{78.42}
+
+% ---------- exploratory ordered-stacking subset (stack-two + stack-three) ----------
+\newcommand{\piRTStackAZero}{29.75}
+\newcommand{\piRTStackATwoAbs}{49.75}
+\newcommand{\piRTStackATwoResid}{40.75}
+\newcommand{\piRTStackAThree}{54.75}
+\newcommand{\piRTStackPublic}{81.75}
+\newcommand{\rtStackFutureOff}{95.25}
+\newcommand{\rtStackAbsolute}{98.00}
+\newcommand{\rtStackResidual}{99.50}
+\newcommand{\rtStackCombo}{97.75}
+
+% ---------- RoboTwin historical balanced probes (not main evidence) ----------
+\newcommand{\rtBaseline}{46.42}   % [STALE-欠训基线, 仅历史] blocks-6 4seeds
+\newcommand{\rtLMVLA}{49.33}     % [STALE] hammer 0.5->20 建于欠训基线, 正文不用
+\newcommand{\rtStackTwoA}{+6.5}   % balanced 设置A, t=3.4 (Qwen骨干)
+\newcommand{\rtStackTwoB}{+9.0}   % balanced 设置B, t=3.6
+\newcommand{\rtHardNet}{+2.0}     % balanced hard split 净增益; stack 0%曾为数据bug已修
+
+% ---------- context numbers from public leaderboards \verify{} ----------
+\newcommand{\piFiveLibero}{96.9}      % pi0.5 LIBERO long/avg — verify exact split
+\newcommand{\piFiveRoboDojo}{6.91}    % pi0.5 on RoboDojo (arXiv 2607.04434)
+
+% ---------- real-robot Task A (fill after E10b, optional) ----------
+\newcommand{\realBaseline}{\todo{E10b}}
+\newcommand{\realLMVLA}{\todo{E10b}}
+
+% ---------- RTC control-side (appendix) ----------
+\newcommand{\rtcGain}{+10}            % t8: RTC h=5 80% vs naive 70% (n=20)

@@ -1,0 +1,125 @@
+TaskName: "robotwin-all6-v2-absolute-nowm-s2026-eval-bj"
+Description: "RoboTwin all6 v2 absolute and no-WM seed2026, six tasks x50 episodes x4 seeds"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  LAWAM=$REPO/lmvla/lawam
+  MS=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_v2
+  ABS_RUN=$LAWAM/results/Checkpoints/robotwin/20260730_063314+robotwin_all6_v2_absolute_seed2026
+  NOWM_RUN=$LAWAM/results/Checkpoints/robotwin/20260730_003900+robotwin_all6_v2_nowm_seed2026
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$LAWAM/logs/volc_rteval
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/all6_v2_absolute_nowm_seed2026_eval_${STAMP}.log" 2>&1
+  set -x
+
+  for run in "$ABS_RUN" "$NOWM_RUN"; do
+    test -s "$run/final_model/pytorch_model.pt"
+    test -s "$run/config.yaml"
+    test -s "$run/dataset_statistics.json"
+  done
+  test -s "$MS/lmwm.pt"
+
+  export STAR_VLA_PYTHON=$REPO/kai0/.venv/bin/python
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$LAWAM/robotwin_python_wrapper_northe.sh
+  export ROBOTWIN_TASKS="beat_block_hammer blocks_ranking_size blocks_ranking_rgb handover_block stack_blocks_two stack_blocks_three"
+  export TASK_CONFIG=demo_clean
+  export ROBOTWIN_TEST_NUM=50
+  export ROBOTWIN_NUM_SLOTS=1
+  export NUM_WORKERS=1
+  export ROBOTWIN_SAVE_VIDEO=0
+  export ROBOTWIN_INSTRUCTION_TYPE=unseen
+  export PORT_SEARCH_LIMIT=30
+  export TORCH_CUDA_ARCH_LIST=9.0
+
+  export LMWM_CKPT=$MS/lmwm.pt
+  export LMWM_ADAPTER_DIR=$REPO/lmvla/lmwam/adapter
+  export LMWM_SWAP_TEACHER=1
+  export LMWM_FEAT_STRIDE=1
+  export LMWM_HINT_DROPOUT=0.15
+  export LMWM_DUAL=1
+  export LMWM_DUAL_2Q=1
+  unset LMWM_MS_RESIDUAL
+  unset LMWM_MS_DETACH_BACKBONE
+
+  "$ROBOTWIN_PYTHON" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+
+  cd "$LAWAM"
+  nvidia-smi -L
+  pids=""
+  status=0
+  for variant in absolute nowm; do
+    if [ "$variant" = absolute ]; then
+      run=$ABS_RUN
+      port_group=12000
+      gpu_offset=0
+    else
+      run=$NOWM_RUN
+      port_group=13000
+      gpu_offset=4
+    fi
+    ckpt=$run/final_model/pytorch_model.pt
+    for seed in 0 1 2 3; do
+      (
+        gpu=$((gpu_offset + seed))
+        export CUDA_VISIBLE_DEVICES=$gpu
+        export GPU_IDS=$gpu
+        export SEED=$seed
+        export PORT_BASE=$((port_group + seed * 100))
+        export ROBOTWIN_CKPT_ALIAS=robotwin_all6_v2_${variant}_seed2026
+        export ROBOTWIN_EVAL_ROOT=$LAWAM/results/eval_runs/robotwin/rt_all6_v2_${variant}_seed2026_unseen/seed$seed
+        mkdir -p "$ROBOTWIN_EVAL_ROOT"
+        bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
+          "$ckpt" "$TASK_CONFIG" "eval-seed$seed"
+      ) > "$LOG_DIR/all6_v2_${variant}_seed2026_eval_${STAMP}_seed${seed}.log" 2>&1 &
+      pids="$pids $!"
+      sleep 10
+    done
+  done
+
+  for pid in $pids; do
+    wait "$pid" || status=1
+  done
+  echo "all6 v2 absolute+nowm seed2026 eval finished status=$status $(date -u)"
+  exit "$status"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

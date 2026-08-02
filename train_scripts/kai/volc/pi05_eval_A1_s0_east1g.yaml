@@ -1,0 +1,61 @@
+# pi05 单臂 eval(在线 hint + gripper inv_pm1)— 上海 East-H20 单卡. 模板, __占位__ 由生成器替换.
+TaskName: "pi05-eval-A1-s0-east1g"
+Description: "pi05 A1 seed0 重评 libero_10, East-H20 单卡"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+ActiveDeadlineSeconds: 28800
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR=$REPO/lmvla/lmwm/logs; mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/pi05_eval_A1_s0_${STAMP}.log" 2>&1
+  set -x
+  echo "=== pi05 A1 s0 eval start $(date -u) (East-H20 1GPU) ==="
+  nvidia-smi -L | head
+  cd "$REPO/kai0"; source .venv/bin/activate
+  apt-get update 2>&1 | tail -1; apt-get install -y libosmesa6 libosmesa6-dev 2>&1 | tail -1 || echo "osmesa apt best-effort"
+  export LIBERO_HOME=$REPO/lmvla/LIBERO
+  export LIBERO_CONFIG_PATH=$LIBERO_HOME/libero
+  export PYTHONPATH="$REPO/kai0/src:$REPO/lmvla/lawam:$LIBERO_HOME"
+  export MUJOCO_GL=osmesa PYTHONUNBUFFERED=1   # volc 节点 egl 起不来(PyOpenGL无EGL平台), 用软件渲染
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.75 XLA_PYTHON_CLIENT_PREALLOCATE=false
+  OUT=$REPO/lmvla/lmwm/data/pi05_libero_eval/reeval1g_A1_s0_${STAMP}
+  python "$REPO/lmvla/lawam/examples/LIBERO/eval_files/local_eval_hint.py" \
+    --config "pi05_libero_a1_prefix_eval" --ckpt "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_libero_a1_prefix_bj/pi05_libero_a1_prefix/29999" --encoder "dinov3-base" \
+    --tasks -1 --trials 10 --seed 0 --replan 5 --out "$OUT"
+  echo "=== A1 s0 DONE $(date -u) OUT=$OUT ==="
+  python - "$OUT" <<'PYEOF'
+  import sys,glob,json
+  o=sys.argv[1]
+  for f in glob.glob(f"{o}/**/summary.json",recursive=True):
+      d=json.load(open(f)); x=d.get("aggregate_SR") or d.get("total_success_rate")
+      print(f"SR={100*float(x):.2f}" if x is not None and x<=1 else f"SR={x}")
+  PYEOF
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+AccessType: "Public"

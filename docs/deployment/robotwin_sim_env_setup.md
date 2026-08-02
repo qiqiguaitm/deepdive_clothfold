@@ -150,6 +150,43 @@ CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:$PATH \
 ### 5.4 ⚠️ SAPIEN headless 渲染找不到 Vulkan ICD
 `VK_ICD_FILENAMES=<client_env>/lib/python3.10/site-packages/sapien/vulkan_library/nvidia_icd.json`(脚本已带,换机改路径)。
 
+上海 `robot-task` 和 `Robot-East-H20` 使用的 `h2r:1.0` 镜像还缺 GLVND EGL/Vulkan loader。即使 NVIDIA ICD 和
+驱动库已由宿主注入，SAPIEN 仍会报 `failed to find a rendering device`。入口先执行：
+```bash
+source lmvla/lmwam/env/prepare_robotwin_renderer.sh
+```
+上海公共入口 `lmvla/lmwam/scripts/robotwin_python_wrapper.sh` 已自动 source 该脚本；
+直接调用 RoboTwin conda Python 的任务仍须在入口显式 source。
+判断修复成功须同时满足 `vulkaninfo --summary` 能枚举 NVIDIA GPU，且
+`sapien.SapienRenderer()` 输出成功。只安装 `libvulkan1` 不够：缺少 `libEGL.so.1`，或宿主
+kernel driver 与镜像 NVIDIA 用户态库版本不一致，都会导致初始化失败。
+
+H20 节点已观察到宿主驱动为 `535.161.08`，镜像 `libGLX_nvidia.so.0` 却指向
+`535.129.03`，对应 `ERROR_INCOMPATIBLE_DRIVER`。bootstrap 会按宿主版本收集容器中注入的
+NVIDIA 库，在 `/tmp/robotwin-nvidia-<version>-<pid>` 建立进程私有 linker 目录和 ICD，通过
+`LD_LIBRARY_PATH` 使用，不修改镜像的全局 symlink。bootstrap 会对私有目录中的全部 NVIDIA
+用户态库执行 `ldd`；只要仍有依赖未注入就立即失败并打印缺失库，禁止带着混合版本驱动继续
+启动评测。它还显式固定 Vulkan 和 EGL vendor ICD，避免 SAPIEN import 时回退到共享环境中
+自带的旧 ICD。
+
+若平台只注入了部分同版本驱动库，bootstrap 会回退到
+`/vePFS/tim/runtime/nvidia_driver/<kernel-version>/lib` 的只读用户态 bundle。bundle 必须与
+`/proc/driver/nvidia/version` 完全一致，不能混用不同版本。East preflight 会依次强制验证
+`vulkaninfo --summary`、`SapienRenderer()` 和一个真实 RoboTwin episode，全部通过后才写入
+正式评测门禁 marker。
+
+2026-07-31 已在 `robot-task` A100 实测修复后 `SAPIEN_RENDER_OK`，且四路 RoboTwin
+正式评测持续产出 episode/summary。East 队列必须使用同一 bootstrap，旧 preflight
+未安装 loader 的失败不能用于判断 vePFS 或 RoboTwin 环境不可用。
+
+East 的自动调度先运行 `robotwin_renderer_preflight_east_1h20.yaml`；只有成功写出
+`logs/resource_markers/robotwin_renderer_east.ok` 后，候选级门禁才允许
+`robotwin_all6_v2_variant_seed2027_eval_east_4h20.yaml` 启动正式四路评测。该模板与本地
+评测共用同一个脚本，只将 GPU 拓扑设为 4x1，并为 H20 设置 CUDA arch 9.0。
+
+平台容器仅挂载 `/vePFS`，LAM release 不能使用旧的 `/home/tim/...` 绝对软链。训练/评测
+入口应先执行 `bash lmvla/lmwam/env/heal_lawam_symlinks.sh`，将其规范为相对链接。
+
 ### 5.5 ⚠️ 端口 8012 "Address already in use"
 上次 eval 的 server 没杀干净。重跑前:
 `for p in $(ps aux|grep '[p]olicy_model_server'|awk '{print $2}'); do kill -9 $p; done; fuser -k 8012/tcp`

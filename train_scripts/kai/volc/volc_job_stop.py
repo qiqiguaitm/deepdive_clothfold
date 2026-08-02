@@ -24,7 +24,7 @@ def get_svc(region="cn-beijing"):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         raise SystemExit("用法: python volc_job_stop.py <task_id> [task_id...]")
-    svc = get_svc()
+    svc = get_svc(os.environ.get("VOLC_REGION", "cn-beijing"))
     for jid in sys.argv[1:]:
         try:
             r = svc.json('StopJob', {}, json.dumps({"Id": jid}).encode())

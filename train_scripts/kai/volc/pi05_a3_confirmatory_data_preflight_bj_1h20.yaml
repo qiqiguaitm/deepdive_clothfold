@@ -1,0 +1,139 @@
+TaskName: "pi05-a3-confirmatory-data-v1-bj1g"
+Description: "Regenerate and audit the immutable six-task recurrence-pair artifact for confirmatory A3"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  PY=$REPO/kai0/.venv/bin/python
+  DATA=$REPO/lmvla/lmwm/data
+  SRC=$REPO/lmvla/lawam/dataset/robotwin2.0
+  FEAT=$DATA/robotwin_dinov3base
+  OUT=$DATA/robotwin_milestone_all6_confirmatory_v1
+  DS=$REPO/lmvla/lawam/dataset/robotwin2_lmvla_confirmatory_v1
+  LOG_DIR=$REPO/lmvla/lmwm/logs
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/pi05_a3_confirmatory_data_v1_${STAMP}.log" 2>&1
+  set -x
+
+  test ! -e "$OUT" || { test -f "$OUT/READY" && exit 0; echo "FATAL: partial output exists: $OUT" >&2; exit 13; }
+  test ! -e "$DS" || { echo "FATAL: partial dataset exists: $DS" >&2; exit 13; }
+  test "$(find "$FEAT" -maxdepth 1 -name 'ep*.npz' | wc -l)" -eq 27500
+
+  "$PY" "$REPO/lmvla/lmwm/scripts/p1_robotwin_rvalley_pairs_balanced.py" \
+    --root "$SRC" --feat "$FEAT" --out "$OUT" --cap 200 --official-blocks
+  "$PY" "$REPO/lmvla/lmwm/scripts/build_robotwin_v30_subset.py" \
+    --src "$SRC" --pairs "$OUT/pairs.npz" --out "$DS"
+
+  export OUT DS REPO
+  "$PY" - <<'PY'
+  import hashlib
+  import json
+  import os
+  from pathlib import Path
+
+  import numpy as np
+  import pyarrow.parquet as pq
+
+  out = Path(os.environ["OUT"])
+  dataset = Path(os.environ["DS"])
+  repo = Path(os.environ["REPO"])
+  pairs = np.load(out / "pairs.npz")
+  manifest = json.loads((out / "selection_manifest.json").read_text())
+  canon = json.loads((out / "canon_id.json").read_text())
+
+  expected_names = {
+      0: "hammer",
+      1: "stack_two",
+      2: "stack_three",
+      3: "ranking_rgb",
+      4: "ranking_size",
+      5: "handover",
+  }
+  assert {int(k): v for k, v in canon.items()} == expected_names
+  coverage = {}
+  for task_id, task_name in expected_names.items():
+      mask = pairs["pair_task"] == task_id
+      coverage[task_name] = {
+          "episodes": int(np.unique(pairs["cur_ep"][mask]).size),
+          "pairs": int(mask.sum()),
+      }
+      assert coverage[task_name]["episodes"] == 200
+      assert coverage[task_name]["pairs"] > 0
+
+  assert np.all(pairs["tgt_fi"] >= pairs["cur_fi"])
+  order = np.lexsort((pairs["cur_fi"], pairs["cur_ep"]))
+  ordered_ep = pairs["cur_ep"][order]
+  ordered_target = pairs["tgt_fi"][order]
+  same_episode = ordered_ep[1:] == ordered_ep[:-1]
+  assert np.all(np.diff(ordered_target)[same_episode] >= 0)
+  episodes = pq.read_table(dataset / "meta/episodes/chunk-000/file-000.parquet")
+  assert episodes.num_rows == 1200
+  assert manifest["selection"] == "official_task_blocks"
+
+  def sha256(path: Path) -> str:
+      digest = hashlib.sha256()
+      with path.open("rb") as stream:
+          for chunk in iter(lambda: stream.read(8 << 20), b""):
+              digest.update(chunk)
+      return digest.hexdigest()
+
+  hashed = [
+      out / "pairs.npz",
+      out / "selection_manifest.json",
+      out / "canon_id.json",
+      dataset / "meta/info.json",
+      dataset / "meta/episodes/chunk-000/file-000.parquet",
+      repo / "lmvla/lmwm/scripts/p1_robotwin_rvalley_pairs_balanced.py",
+      repo / "lmvla/lmwm/scripts/build_robotwin_v30_subset.py",
+  ]
+  audit = {
+      "artifact_version": "robotwin_milestone_all6_confirmatory_v1",
+      "source_feature_episode_files": 27500,
+      "selection": manifest,
+      "coverage": coverage,
+      "dataset_episodes": episodes.num_rows,
+      "future_target_invariant": "tgt_fi >= cur_fi",
+      "monotone_target_sequences": True,
+      "hashes_sha256": {str(path.relative_to(repo)): sha256(path) for path in hashed},
+  }
+  (out / "AUDIT.json").write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n")
+  (out / "READY").write_text(json.dumps({"audit_sha256": sha256(out / "AUDIT.json")}) + "\n")
+  print(json.dumps(audit, indent=2, sort_keys=True))
+  PY
+
+  echo "=== confirmatory A3 data ready $(date -u) ==="
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

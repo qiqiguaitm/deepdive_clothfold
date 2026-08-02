@@ -1,0 +1,114 @@
+TaskName: "robotwin-all6-v2-combo-s2026-eval-east"
+Description: "RoboTwin all6 v2 combo seed2026, six tasks x50 episodes x4 eval seeds"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LAWAM=$REPO/lmvla/lawam
+  RUN=$LAWAM/results/Checkpoints/robotwin/20260730_152020+robotwin_all6_v2_combo_seed2026
+  CKPT=$RUN/checkpoints/steps_20000_pytorch_model.pt
+  MS=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_v2
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$LAWAM/logs/volc_rteval
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/all6_v2_combo_seed2026_eval_${STAMP}.log" 2>&1
+  set -x
+
+  test -f "$CKPT"
+  test -f "$RUN/config.yaml"
+  test -f "$RUN/dataset_statistics.json"
+  test -f "$MS/lmwm.pt"
+  test -x "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh"
+
+  export STAR_VLA_PYTHON=$REPO/kai0/.venv/bin/python
+  export ROBOTWIN_PATH=/vePFS/HuanQian/RoboTwin
+  export ROBOTWIN_PYTHON=$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh
+  export ROBOTWIN_TASKS="beat_block_hammer blocks_ranking_size blocks_ranking_rgb handover_block stack_blocks_two stack_blocks_three"
+  export TASK_CONFIG=demo_clean
+  export ROBOTWIN_TEST_NUM=50
+  export ROBOTWIN_NUM_SLOTS=1
+  export NUM_WORKERS=2
+  export ROBOTWIN_SAVE_VIDEO=0
+  export ROBOTWIN_INSTRUCTION_TYPE=unseen
+  export PORT_SEARCH_LIMIT=30
+  export TORCH_CUDA_ARCH_LIST=9.0
+
+  # Match the training-time combo arm: residual milestone plus backbone isolation.
+  export LMWM_CKPT=$MS/lmwm.pt
+  export LMWM_ADAPTER_DIR=$REPO/lmvla/lmwam/adapter
+  export LMWM_SWAP_TEACHER=1
+  export LMWM_FEAT_STRIDE=1
+  export LMWM_HINT_DROPOUT=0.15
+  export LMWM_DUAL=1
+  export LMWM_DUAL_2Q=1
+  export LMWM_MS_RESIDUAL=1
+  export LMWM_MS_DETACH_BACKBONE=1
+
+  "$ROBOTWIN_PYTHON" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+
+  cd "$LAWAM"
+  nvidia-smi -L
+  pids=""
+  for seed in 0 1 2 3; do
+    (
+      g0=$((seed * 2))
+      g1=$((g0 + 1))
+      export CUDA_VISIBLE_DEVICES="$g0,$g1"
+      export GPU_IDS="$g0,$g1"
+      export SEED=$seed
+      export PORT_BASE=$((11000 + seed * 100))
+      export ROBOTWIN_CKPT_ALIAS=robotwin_all6_v2_combo_seed2026
+      export ROBOTWIN_EVAL_ROOT=$LAWAM/results/eval_runs/robotwin/rt_all6_v2_combo_seed2026/seed$seed
+      mkdir -p "$ROBOTWIN_EVAL_ROOT"
+      bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
+        "$CKPT" "$TASK_CONFIG" "eval-seed$seed"
+    ) > "$LOG_DIR/all6_v2_combo_seed2026_eval_${STAMP}_seed${seed}.log" 2>&1 &
+    pids="$pids $!"
+    sleep 20
+  done
+
+  status=0
+  for pid in $pids; do
+    wait "$pid" || status=1
+  done
+  echo "all6 v2 combo seed2026 eval finished status=$status $(date -u)"
+  exit "$status"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

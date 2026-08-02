@@ -1,0 +1,87 @@
+TaskName: "robotwin-so400m-online-hint-final-bj1g"
+Description: "Final validation of padded online RoboTwin So400m absolute/residual hint contract"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 3600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  LOG_DIR=$REPO/lmvla/lmwm/logs
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/robotwin_so400m_online_hint_smoke_${STAMP}.log" 2>&1
+  cd "$REPO"
+  export PYTHONPATH=$REPO/lmvla/lawam:$REPO/kai0/src
+  "$REPO/kai0/.venv/bin/python" - <<'PY'
+  import os
+  import cv2
+  import numpy as np
+  from examples.Robotwin.eval_files.hint_online_robotwin import RobotwinHintComputer
+
+  repo = "/vePFS-North-E/vis_robot/workspace/deepdive_kai0"
+  cache = (
+      f"{repo}/lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256/"
+      "chunk-000/observation.images.cam_high/episode_000000.npz"
+  )
+  feature = f"{repo}/lmvla/lmwm/data/robotwin_so400m_grid/ep0.npz"
+  with np.load(cache) as data:
+      frame = cv2.cvtColor(cv2.imdecode(data["0"], cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+  expected = np.load(feature)["grid"][0].astype(np.float32)
+
+  computer = RobotwinHintComputer("so400m", "cuda")
+  image = computer._prep(frame)
+  online = computer._encode_grid([image])[0]
+  mae = float(np.abs(online - expected).mean())
+  cosine = float(np.dot(online.ravel(), expected.ravel()) / (
+      np.linalg.norm(online) * np.linalg.norm(expected)
+  ))
+  absolute = computer.compute(frame)
+  os.environ["EVAL_HINT_RESIDUAL"] = "1"
+  residual = computer.compute(frame)
+  identity_error = float(np.abs(residual - (absolute - online.mean(0))).max())
+  print(
+      f"SO400M_ONLINE_FINAL mae={mae:.6f} cosine={cosine:.8f} "
+      f"identity_max={identity_error:.6g} shape={absolute.shape}"
+  )
+  assert online.shape == expected.shape == (256, 1152)
+  assert absolute.shape == residual.shape == (1152,)
+  assert np.isfinite(online).all() and np.isfinite(absolute).all() and np.isfinite(residual).all()
+  assert cosine > 0.999
+  assert identity_error < 1e-4
+  PY
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

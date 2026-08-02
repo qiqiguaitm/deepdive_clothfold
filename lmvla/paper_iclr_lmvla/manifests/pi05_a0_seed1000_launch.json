@@ -1,0 +1,40 @@
+{
+  "capture_source": "Volcengine GetJob API",
+  "captured_at": "2026-08-01T04:10:00Z",
+  "config_name": "pi05_robotwin_a0_public_recipe_bj",
+  "created_at": "2026-08-01T01:10:05Z",
+  "experiment_name": "pi05_robotwin_a0_public_recipe_seed1000",
+  "image": "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1",
+  "job_id": "t-20260801091004-hkvzz",
+  "job_name": "pi05-a0-public-recipe-s1000-bj4g",
+  "protocol": {
+    "action_horizon": 50,
+    "actions": "absolute",
+    "asset_id": "robotwin2.0_absolute_meanstd",
+    "batch_size": 16,
+    "evaluation_cells": 24,
+    "evaluation_seeds": 4,
+    "normalization": "mean_std",
+    "num_train_steps": 50000,
+    "training_seed": 1000
+  },
+  "resource": {
+    "gpus": 4,
+    "instance_type_id": "ml.pni3ln.17xlarge",
+    "preemptible": false,
+    "queue_id": "q-20260516104642-khch9"
+  },
+  "runtime_env": {
+    "PI05_ABSOLUTE_ACTIONS": "1",
+    "PI05_ASSET_ID": "robotwin2.0_absolute_meanstd",
+    "PI05_CONFIG_NAME": "pi05_robotwin_a0_public_recipe_bj",
+    "PI05_EXP_NAME": "pi05_robotwin_a0_public_recipe_seed1000",
+    "PI05_TRAIN_SEED": "1000"
+  },
+  "sha256": {
+    "north_config_source_at_launch": "fe9377c2b93f24288f8e7ad0c63f4ace54ce86c8e6453c0e3744d65ca4dd7264",
+    "north_launcher_file": "fa3b8c56091c1e2433a741ddd3f675d09b6b1dfd7c2508db97042914e72595b2",
+    "runtime_command_from_api": "78ba67e23a2d8384a531703bb5f556041829f6db006d800f08986870cc28a926",
+    "submitted_local_launcher": "40d142c7648f7afc2809d7f513e1a836aef2a3b700a7e70bb3047b28d5a93899"
+  }
+}

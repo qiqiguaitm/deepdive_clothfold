@@ -1,0 +1,90 @@
+# RoboTwin A2 speed-up helper: extract So400m grids from the middle of the
+# episode list into the same output directory as the main prep task. This is
+# extraction-only; the original prep task owns LMWM training and hint export.
+
+TaskName: "robotwin-so400m-grid-mid-helper-bj"
+Description: "RoboTwin A2 prep speed-up: middle-first So400m grid extraction helper"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+
+Entrypoint: |
+  set -uo pipefail
+  export RT_REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  export REPO=$RT_REPO
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lmwm/logs
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/robotwin_so400m_grid_mid_helper_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  set -x
+  echo "=== robotwin_so400m_grid_mid_helper start $(date -u) ==="
+  nvidia-smi -L
+
+  PY=$REPO/kai0/.venv/bin/python
+  SC=$REPO/lmvla/lmwm/scripts
+  EPS=$REPO/lmvla/lmwm/data/full_alleps.txt
+  MID_EPS=$REPO/lmvla/lmwm/data/full_alleps_mid_helper_${STAMP}.txt
+  GRID=$REPO/lmvla/lmwm/data/robotwin_so400m_grid
+
+  [ -f "$EPS" ] || { echo "FATAL: eps file missing $EPS" >&2; exit 13; }
+  [ -d "$REPO/lmvla/lmwm/data/hf_so400m" ] || { echo "FATAL: hf_so400m missing" >&2; exit 13; }
+  [ -d "$REPO/lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256" ] || { echo "FATAL: robotwin frame cache missing" >&2; exit 13; }
+  $PY - "$EPS" "$MID_EPS" <<'PY'
+  import sys
+  eps = [x for x in open(sys.argv[1]).read().strip().split(",") if x]
+  mid = len(eps) // 2
+  rotated = eps[mid:] + eps[:mid]
+  open(sys.argv[2], "w").write(",".join(rotated))
+  print("mid_eps", len(eps), "mid", mid, sys.argv[2])
+  PY
+
+  echo "=== Middle-first So400m grid extract 4 shards $(date -u) ==="
+  pids=""
+  for g in 0 1 2 3; do
+    CUDA_VISIBLE_DEVICES=$g $PY "$SC/robotwin_so400m_grid_extract.py" \
+      --eps-file "$MID_EPS" --shard $g --nshard 4 --bs 64 --out "$GRID" \
+      > "$LOG_DIR/robotwin_so400m_grid_mid_g${g}_${STAMP}.log" 2>&1 &
+    pids="$pids $!"
+  done
+  for p in $pids; do wait $p; done
+  NG=$(find "$GRID" -maxdepth 1 -name 'ep*.npz' 2>/dev/null | wc -l)
+  echo "[grid] ep count=$NG"
+  echo "=== robotwin_so400m_grid_mid_helper DONE $(date -u) ==="
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

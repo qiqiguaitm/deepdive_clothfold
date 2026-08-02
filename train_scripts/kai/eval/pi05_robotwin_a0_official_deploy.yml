@@ -1,0 +1,10 @@
+policy_name: official_openpi_ws_policy
+task_name: beat_block_hammer
+task_config: demo_clean
+ckpt_setting: a0-official-native
+seed: 0
+instruction_type: unseen
+train_config_name: pi05_robotwin_a0_official_bj
+model_name: kai0_a0_official_ws
+checkpoint_id: 19999
+pi0_step: 50

@@ -1,0 +1,120 @@
+TaskName: "robotwin-renderer-preflight-east1g"
+Description: "Validate Vulkan/SAPIEN and one end-to-end RoboTwin episode on Robot-East-H20"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 3600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  PY=/vePFS/HuanQian/conda_envs/RoboTwin/bin/python
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG=$REPO/lmvla/lawam/logs/volc_rteval/renderer_preflight_east_${STAMP}.log
+  mkdir -p "$(dirname "$LOG")"
+  exec > >(tee "$LOG") 2>&1
+  set -x
+
+  export TORCH_EXTENSIONS_DIR=/vePFS/tim/runtime/torch_extensions/h20_sm90_py310
+  mkdir -p "$TORCH_EXTENSIONS_DIR"
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+
+  nvidia-smi
+  echo "NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-unset}"
+  find /usr/share/vulkan /etc/vulkan /usr/local -maxdepth 4 -type f \
+    \( -name '*icd*.json' -o -name '*nvidia*.json' \) -print 2>/dev/null || true
+  find /usr/lib /usr/local/lib -type f \
+    \( -name 'libvulkan.so*' -o -name 'libGLX_nvidia.so*' -o -name 'libnvidia-glcore.so*' \
+       -o -name 'libnvidia-glsi.so*' -o -name 'libnvidia-glvkspirv.so*' \) \
+    -print 2>/dev/null | head -100 || true
+
+  test -x "$PY"
+  test -f "$VK_ICD_FILENAMES"
+  echo "selected ICD:"
+  cat "$VK_ICD_FILENAMES"
+  echo "matching NVIDIA libraries:"
+  find "$(dirname "$VK_ICD_FILENAMES")" -maxdepth 1 -type l -o -type f 2>/dev/null | sort || true
+  GLX_PROBE="$(dirname "$VK_ICD_FILENAMES")/libGLX_nvidia.so.0"
+  if [ ! -e "$GLX_PROBE" ]; then
+    GLX_PROBE=$(ldconfig -p | awk '/libGLX_nvidia\.so\.0/{print $NF; exit}')
+  fi
+  test -n "$GLX_PROBE"
+  ldd "$GLX_PROBE"
+  ldconfig -p | grep -E 'libvulkan\.so\.1|libEGL\.so\.1'
+  if command -v vulkaninfo >/dev/null 2>&1; then
+    vulkaninfo --summary
+  else
+    apt-get install -y --no-install-recommends vulkan-tools
+    vulkaninfo --summary
+  fi
+  "$PY" - <<'PY'
+  import ctypes
+  import os
+
+  ctypes.CDLL("libvulkan.so.1")
+  ctypes.CDLL(os.path.join(os.path.dirname(os.environ["VK_ICD_FILENAMES"]), "libGLX_nvidia.so.0"))
+  print("VULKAN_DRIVER_LIBS_OK")
+
+  import sapien.core as sapien
+
+  print("selected_icd", os.environ["VK_ICD_FILENAMES"])
+  print("ld_library_path", os.environ.get("LD_LIBRARY_PATH"))
+  sapien.SapienRenderer()
+  print("SAPIEN_RENDER_OK")
+  PY
+
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  env \
+    ALL6_EVAL_VARIANT=local \
+    ALL6_EVAL_RUN_BASENAME=20260730_234942+robotwin_all6_v2_local_seed2027 \
+    ALL6_TRAIN_SEED=2027 \
+    SEEDS=0 \
+    GPUS_PER_SEED=1 \
+    LOCAL_GPU_COUNT=1 \
+    NUM_WORKERS=1 \
+    ROBOTWIN_NUM_SLOTS=1 \
+    ROBOTWIN_TASKS=beat_block_hammer \
+    ROBOTWIN_TEST_NUM=1 \
+    TORCH_CUDA_ARCH_LIST=9.0 \
+    RESULT_NAME="renderer_preflight_east_${STAMP}" \
+    RUN_TAG_PREFIX=renderer-preflight-east \
+    bash "$REPO/train_scripts/kai/eval/local_robotwin_all6_combo_seed2026_2gpu.sh"
+
+  summary_count=$(find \
+    "$REPO/lmvla/lawam/results/eval_runs/robotwin/renderer_preflight_east_${STAMP}" \
+    -name summary.json -type f | wc -l)
+  test "$summary_count" -ge 1
+  echo "ROBOTWIN_END_TO_END_OK summaries=$summary_count"
+
+  mkdir -p "$REPO/logs/resource_markers"
+  printf 'validated=%s\nend_to_end_summaries=%s\nhost=%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$summary_count" "$(hostname)" \
+    > "$REPO/logs/resource_markers/robotwin_renderer_east.ok"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

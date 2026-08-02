@@ -1,0 +1,60 @@
+% =====================================================================
+% CENTRALIZED NUMBERS — single source of truth for all quantitative claims.
+% Update here after each gate; text/tables reference these macros.
+% Claim discipline (roadmap 4.16): aggregate diffs < 1.5pt are NOT claimable;
+% all main-table numbers must be multi-seed with std.
+% =====================================================================
+
+% ---------- LIBERO-10, LaWAM stack (multi-seed, same-protocol) ----------
+\newcommand{\noWMtSix}{76.5}          % no-WM baseline t6 (24-route seed protocol)
+\newcommand{\lmwmTSix}{85.0}          % dual2q / tsched t6 (std 1.7--2.4)
+\newcommand{\tSixGain}{+8.5}          % p<0.001, t~6  — THE robust guidance gain
+\newcommand{\aggTsched}{95.22}        % n=8, ±0.91
+\newcommand{\aggTschedStd}{0.91}
+\newcommand{\aggDualQ}{94.80}         % n=4, ±0.71
+\newcommand{\aggDualQStd}{0.71}
+\newcommand{\aggBaselineArmB}{94.20}  % ±0.97 n=4 (E2 2026-07-24). 旧单评 96.4=噪声上尾, 弃用
+\newcommand{\armBtSix}{82.5}          % ±3.8 (E2) — t6 分解: no-WM 76.5 → LaWM 82.5 (+6.0) → LMWM 85.0 (+2.5)
+\newcommand{\armBtEight}{89.5}        % ±12.4 (E2, seed1=68!) — 基线 t8 也高方差, "LMWM伤t8"在LaWAM侧不成立
+\newcommand{\tSixGainWM}{+6.0}        % 任何未来条件化(LaWM t+7) vs no-WM
+\newcommand{\tSixGainMS}{+2.5}        % milestone 特异边际 (LMWM vs LaWM), 弱显著待更多seed
+\newcommand{\tEightDualQ}{94}         % 2Q restores t8 from 90 (E1 dual) — capacity effect
+% ---------- residual V8 (fill after G1: v8xpb eval) ----------
+\newcommand{\aggResid}{95.75}   % ±0.76 n=8 定稿 (6×NorthE-H20 + 2×gf0-A100, 同协议egl; seed{0,2,3,5,6,7,8,9})
+\newcommand{\aggResidStd}{0.76}   % Δ+1.55 vs armB 94.20±0.97, Welch t≈2.80 → 过1.5声称线 ✅
+\newcommand{\tSixResid}{87.5}    % ±3.8 n=8 — 指引 +5.0 vs armB 82.5; t9=90.8±2.7 (+4.8)
+\newcommand{\tEightResid}{87.0}  % ±6.3 n=8 — 方差内 (armB 89.5±12.4); t7=100±0 满
+
+% ---------- pi05 stack (cross-architecture replication, 4 routes x 50) ----------
+\newcommand{\piBase}{93.87}           % A0 baseline aggregate
+\newcommand{\piExt}{93.07}            % A1 external DINOv3 hint
+\newcommand{\piOwn}{93.70}            % A2 own-space So400m hint
+\newcommand{\piOwnSuffix}{94.20}      % A2-suffix (only config above baseline)
+\newcommand{\harmDifficultyCorrExt}{+0.66}   % external-space harm vs difficulty
+\newcommand{\harmDifficultyCorrOwn}{+0.06}   % own-space: flat
+\newcommand{\precDeltaExt}{-1.48}     % precision-task mean delta, external space
+\newcommand{\precDeltaOwn}{-0.38}     % precision-task mean delta, own space
+\newcommand{\tEightHarmExt}{-10.0}    % A1 on hardest precision task
+
+% ---------- residual discriminability (mechanism) ----------
+\newcommand{\residCV}{1.1}            % residual target trajectory CV
+\newcommand{\absCV}{0.12}             % absolute target trajectory CV  (~10x)
+\newcommand{\redundancyPct}{86\%}     % share of absolute hint explained by current state
+
+% ---------- intrinsic recurrence signal ----------
+\newcommand{\intrinsicGain}{2.1$\times$}  % r-ridge vs boundary forward gain
+
+% ---------- RoboTwin (fill after G2) ----------
+\newcommand{\rtBaseline}{46.42}   % ±0.76, blocks-6, 4 seeds, 20k steps [PRELIM]
+\newcommand{\rtLMVLA}{49.33}     % ±1.45, dual2q (pre-residual) [PRELIM]; hammer 0.5->20.0
+
+% ---------- context numbers from public leaderboards \verify{} ----------
+\newcommand{\piFiveLibero}{96.9}      % pi0.5 LIBERO long/avg — verify exact split
+\newcommand{\piFiveRoboDojo}{6.91}    % pi0.5 on RoboDojo (arXiv 2607.04434)
+
+% ---------- real-robot Task A (fill after E10b, optional) ----------
+\newcommand{\realBaseline}{\todo{E10b}}
+\newcommand{\realLMVLA}{\todo{E10b}}
+
+% ---------- RTC control-side (appendix) ----------
+\newcommand{\rtcGain}{+10}            % t8: RTC h=5 80% vs naive 70% (n=20)

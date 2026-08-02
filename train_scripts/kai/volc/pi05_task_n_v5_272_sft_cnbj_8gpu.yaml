@@ -1,0 +1,68 @@
+TaskName: "pi05-task-n-v5-272-sft-w24-cnbj-8gpu"
+Description: "Task_N v5 cleaned 272 base SFT: 24 decode workers, pi05_base, joint14, bs128, 40k, 8 H20"
+Tags: []
+Preemptible: false
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: NCCL_DEBUG
+    Value: "WARN"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+  - Name: XLA_PYTHON_CLIENT_MEM_FRACTION
+    Value: "0.85"
+  - Name: JAX_COMPILATION_CACHE_MIN_ENTRY_SIZE_BYTES
+    Value: "-1"
+  - Name: JAX_COMPILATION_CACHE_MIN_COMPILE_TIME_SECS
+    Value: "1"
+  - Name: JAX_ENABLE_EMPTY_ARRAYS
+    Value: "true"
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  KAI0=$REPO/kai0
+  TRAIN=$KAI0/data/Task_N/self_built/nail_v5_272_joint14_train
+  VAL=$KAI0/data/Task_N/self_built/nail_v5_272_joint14_val
+  INIT=/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params
+  LOG_DIR=/vePFS-North-E/vis_robot/logs
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/pi05_task_n_v5_272_sft_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG") 2>&1
+  nvidia-smi -L
+  test "$(find "$TRAIN/data" -name '*.parquet' | wc -l)" -eq 240
+  test "$(find "$VAL/data" -name '*.parquet' | wc -l)" -eq 32
+  test "$(find "$TRAIN/videos" -name '*.mp4' | wc -l)" -eq 720
+  test -f "$TRAIN/norm_stats.json"
+  test -f "$INIT/_METADATA"
+  grep -q 'nail painting' "$TRAIN/meta/tasks.jsonl"
+  cd "$KAI0"
+  source .venv/bin/activate
+  python -c "from openpi.training.config import get_config; c=get_config('pi05_task_n_v5_272_sft'); print(c.name,c.num_workers,c.batch_size,c.fsdp_devices)"
+  CKPT=$KAI0/checkpoints/pi05_task_n_v5_272_sft/nail_v5_272_sft_w24
+  if ls -d "$CKPT"/[0-9]*/ >/dev/null 2>&1; then RESUME=--resume; else RESUME=--overwrite; fi
+  python -u scripts/train.py pi05_task_n_v5_272_sft --exp-name nail_v5_272_sft_w24 \
+    --no-wandb-enabled "$RESUME"
+RetryOptions:
+  EnableRetry: true
+  MaxRetryTimes: 1
+AccessType: "Public"

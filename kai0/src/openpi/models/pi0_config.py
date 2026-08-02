@@ -41,6 +41,10 @@ class Pi0Config(_model.BaseModelConfig):
     # DCT frequency-domain loss on predicted actions (VLANeXt arXiv 2602.18532).
     # Penalizes high-frequency action jitter and emphasizes smooth trajectories.
     # Complements flow-matching MSE which weights all frequencies equally.
+    # AWBC ② loss-weighting (awbc_three_paradigm §A2): scale per-frame flow-matching loss by
+    # observation.sample_weight (from dagger_frame_class). Default off → identical to upstream.
+    awbc_loss_weight: bool = False
+
     use_dct_loss: bool = False
     dct_loss_weight: float = 0.1
     # Weights for lowest vs highest DCT frequency. Linearly interpolated across bins.
@@ -48,7 +52,7 @@ class Pi0Config(_model.BaseModelConfig):
     dct_low_freq_weight: float = 1.0
     dct_high_freq_weight: float = 0.2
 
-    # Image augmentation level for training: "mild" (default) or "aggressive".
+    # Image augmentation level for training: "none", "mild" (default), or "aggressive".
     # "aggressive" is for deploy-robustness (D435→D405, pose/arm-spacing variation).
     augment_level: str = "mild"
 
@@ -105,6 +109,24 @@ class Pi0Config(_model.BaseModelConfig):
     lmwm_hint_dim: int = 0
     lmwm_hint_len: int = 1
     lmwm_hint_target: str = "prefix"
+    # A3 live-target mode: do not consume offline feature hints. Instead, predict
+    # a live hint from the current pi05 visual encoder space. During training an
+    # optional target representative frame is encoded by the current visual
+    # encoder with stop-gradient and used as an auxiliary target.
+    lmwm_live_hint: bool = False
+    lmwm_live_residual: bool = True
+    lmwm_live_loss_weight: float = 0.05
+    # Encode same-resolution camera views (and the optional A3 target frame)
+    # in one larger vision batch. Disabled until a backend-specific throughput
+    # probe confirms a benefit; the fallback remains the upstream per-view path.
+    fuse_vision_batch: bool = False
+
+    # Spatial future-condition utility gate. All S0 arms instantiate the same
+    # adapter; only the source changes between learned no-goal, current-image,
+    # and privileged milestone patch tokens.
+    lmwm_spatial_condition: str = "none"  # "none" | "no_goal" | "current" | "privileged"
+    lmwm_spatial_grid_size: int = 4
+    lmwm_spatial_bottleneck_dim: int = 256
 
     def __post_init__(self):
         if self.max_token_len is None:

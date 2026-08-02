@@ -1,0 +1,86 @@
+TaskName: "robotwin-renderer-repair-cnsh4g"
+Description: "Diagnose and repair Vulkan/SAPIEN rendering on robot-task A100"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.14xlarge"
+
+ActiveDeadlineSeconds: 1800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: NVIDIA_DRIVER_CAPABILITIES
+    Value: "all"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  PY=/vePFS/HuanQian/conda_envs/RoboTwin/bin/python
+  SAPIEN_ICD=/vePFS/HuanQian/conda_envs/RoboTwin/lib/python3.10/site-packages/sapien/vulkan_library/nvidia_icd.json
+  SYSTEM_ICD=/etc/vulkan/icd.d/nvidia_icd.json
+  LOG=$REPO/lmvla/lawam/logs/volc_rteval/renderer_repair_cnsh_$(date -u +%Y%m%d_%H%M%S).log
+  mkdir -p "$(dirname "$LOG")"
+  exec > >(tee "$LOG") 2>&1
+  set -x
+
+  nvidia-smi -L
+  id
+  env | grep -E 'NVIDIA|CUDA|LD_LIBRARY|VK_' || true
+  ls -l /dev/nvidia* || true
+  ls -l /usr/lib/x86_64-linux-gnu/libvulkan* \
+    /usr/lib/x86_64-linux-gnu/libGLX_nvidia* \
+    /usr/lib/x86_64-linux-gnu/libnvidia-egl* \
+    /usr/lib/x86_64-linux-gnu/libnvidia-glcore* 2>/dev/null || true
+  ldconfig -p | grep -E 'vulkan|GLX_nvidia|nvidia-egl|nvidia-glcore' || true
+  cat "$SYSTEM_ICD" || true
+  cat "$SAPIEN_ICD"
+
+  "$PY" - <<'PY'
+  import ctypes
+  for library in ("libvulkan.so.1", "libGLX_nvidia.so.0"):
+      try:
+          print("CDLL_OK", library, ctypes.CDLL(library))
+      except Exception as exc:
+          print("CDLL_FAIL", library, repr(exc))
+  PY
+
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
+  apt-get install -y --no-install-recommends libvulkan1 libegl1 vulkan-tools
+  ldconfig
+  ldconfig -p | grep -E 'vulkan|GLX_nvidia|nvidia-egl|nvidia-glcore' || true
+
+  for icd in "$SYSTEM_ICD" "$SAPIEN_ICD"; do
+    echo "=== testing ICD $icd ==="
+    VK_ICD_FILENAMES="$icd" vulkaninfo --summary
+    VK_ICD_FILENAMES="$icd" "$PY" - <<'PY'
+  import os
+  import sapien.core as sapien
+  print("VK_ICD_FILENAMES", os.environ["VK_ICD_FILENAMES"])
+  sapien.SapienRenderer()
+  print("SAPIEN_RENDER_OK")
+  PY
+  done
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

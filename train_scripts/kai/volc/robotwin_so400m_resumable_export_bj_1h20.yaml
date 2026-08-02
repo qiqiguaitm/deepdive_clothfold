@@ -1,0 +1,101 @@
+# Resume-safe two-pass export. The first pass preserves all good episode hints,
+# repairs any CRC failures it discovers, and the second pass fills only gaps.
+TaskName: "robotwin-so400m-residual-recovery-bj1g"
+Description: "Reuse completed So400m absolute hints and finish corrected residual A2 hint conversion"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+
+Entrypoint: |
+  set -euo pipefail
+  export REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  export RT_REPO=$REPO
+  PY=$REPO/kai0/.venv/bin/python
+  SC=$REPO/lmvla/lmwm/scripts
+  GRID=$REPO/lmvla/lmwm/data/robotwin_so400m_grid
+  FEATROOT=$REPO/lmvla/lmwm/data/robotwin_so400m_feat_pi05
+  CKPT=$REPO/lmvla/lmwm/checkpoints/lmwm_robotwin_so400m/lmwm.pt
+  ABS=$REPO/lmvla/lmwm/data/pi05_hint/robotwin_so400m
+  RES=$REPO/lmvla/lmwm/data/pi05_hint/robotwin_so400m_residual
+  LOG_DIR=$REPO/lmvla/lmwm/logs
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG=$LOG_DIR/robotwin_so400m_resumable_export_${STAMP}.log
+  mkdir -p "$LOG_DIR" "$ABS" "$FEATROOT"
+  exec >> "$LOG" 2>&1
+  set -x
+
+  test "$(find "$GRID" -maxdepth 1 -name 'ep*.npz' | wc -l)" -eq 27500
+  test -s "$CKPT"
+  ln -sfn "$GRID" "$FEATROOT/robotwin"
+  rm -f "$RES/hint.npz"
+
+  if [ ! -s "$ABS/hint.npz" ]; then
+    set +e
+    CUDA_VISIBLE_DEVICES=0 "$PY" "$SC/export_pi05_hint_resumable.py" \
+      --ckpt "$CKPT" --feat-root "$FEATROOT" --out "$ABS" --K 1 --batch 128
+    FIRST_RC=$?
+    set -e
+
+    if [ "$FIRST_RC" -ne 0 ]; then
+      BAD=$ABS/bad_episode_paths.txt
+      test -s "$BAD"
+      BAD_PATHS=$ABS/bad_paths_${STAMP}.txt
+      BAD_EPS=$ABS/bad_eps_${STAMP}.txt
+      cut -f1 "$BAD" | sort -u > "$BAD_PATHS"
+      sed -E 's#^.*/ep([0-9]+)\.npz$#\1#' "$BAD_PATHS" | sort -n -u | paste -sd, - > "$BAD_EPS"
+      NBAD=$(tr ',' '\n' < "$BAD_EPS" | sed '/^$/d' | wc -l)
+      test "$NBAD" -gt 0
+      echo "=== repairing $NBAD CRC-corrupt episodes ==="
+      while IFS= read -r path; do rm -f "$path"; done < "$BAD_PATHS"
+      CUDA_VISIBLE_DEVICES=0 "$PY" "$SC/robotwin_so400m_grid_extract.py" \
+        --eps-file "$BAD_EPS" --bs 64 --out "$GRID"
+      test "$(find "$GRID" -maxdepth 1 -name 'ep*.npz' | wc -l)" -eq 27500
+    fi
+
+    CUDA_VISIBLE_DEVICES=0 "$PY" "$SC/export_pi05_hint_resumable.py" \
+      --ckpt "$CKPT" --feat-root "$FEATROOT" --out "$ABS" --K 1 --batch 128
+  fi
+
+  test -s "$ABS/hint.npz"
+  "$PY" "$SC/make_pi05_residual_hint.py" \
+    --hint "$ABS/hint.npz" --feat-root "$FEATROOT" --out "$RES"
+  test -s "$RES/hint.npz"
+  ls -lh "$CKPT" "$ABS/hint.npz" "$RES/hint.npz"
+  echo "=== robotwin_so400m_resumable_export DONE $(date -u) ==="
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

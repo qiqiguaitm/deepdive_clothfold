@@ -9,7 +9,7 @@ Out: lmwm/data/robotwin_dinov3base_grid/ep{e}.npz  key=grid [N,256,768] fp16
 import os, sys, glob, argparse, time
 import numpy as np, cv2
 
-REPO = "/vePFS/tim/workspace/deepdive_kai0"
+REPO = os.environ.get("RT_REPO", "/vePFS/tim/workspace/deepdive_kai0")
 DS = f"{REPO}/lmvla/lawam/dataset/robotwin2.0"
 CAM = "observation.images.cam_high"
 CRAVE_SRC = f"{REPO}/lmvla/crave/src"

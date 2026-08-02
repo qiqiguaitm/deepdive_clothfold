@@ -58,8 +58,14 @@ class CheckpointWeightLoader(WeightLoader):
         #   .*action_head_cond_hub.*  — Track C Action Head Cond Token (方案 A), same
         #                                pattern as soft_prompt_hub
         #   .*lmwm_hint_proj.*        — pi05×LMWM hint 投影层 (A1/A2, warm-start pi05_base 时新增,
+        #   .*lmwm_live_pred_.*       — A3 live-target LMWM predictor, also new vs pi05_base
+        #   .*lmwm_spatial_adapter.*  — spatial future-condition adapter, also new vs pi05_base
         #                                pi05_base 无此键 → 保留随机初始化, 其余载 pi05_base)
-        return _merge_params(loaded_params, params, missing_regex=".*(lora|soft_prompt_hub|action_head_cond_hub|lmwm_hint_proj).*")
+        return _merge_params(
+            loaded_params,
+            params,
+            missing_regex=".*(lora|soft_prompt_hub|action_head_cond_hub|lmwm_hint_proj|lmwm_live_pred_|lmwm_spatial_adapter).*",
+        )
 
 
 @dataclasses.dataclass(frozen=True)

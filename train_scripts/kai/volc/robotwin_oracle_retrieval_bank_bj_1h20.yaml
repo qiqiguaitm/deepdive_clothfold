@@ -1,0 +1,58 @@
+TaskName: "robotwin-oracle-retrieval-bank-bj1g"
+Description: "Build compact six-task state-dependent demo retrieval oracle banks"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  PY=$REPO/kai0/.venv/bin/python
+  FEAT=$REPO/lmvla/lmwm/data/robotwin_dinov3base_grid
+  PAIRS=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_v2/pairs.npz
+  OUT=$REPO/lmvla/lmwm/data/robotwin_oracle_retrieval_bank_v1
+  LOG_DIR=$REPO/lmvla/lmwm/logs
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/robotwin_oracle_retrieval_bank_${STAMP}.log" 2>&1
+  set -x
+
+  test "$(find "$FEAT" -maxdepth 1 -name 'ep*.npz' | wc -l)" -eq 27500
+  test -f "$PAIRS"
+  "$PY" "$REPO/lmvla/lmwm/scripts/build_robotwin_oracle_retrieval_bank.py" \
+    --feat "$FEAT" \
+    --pairs "$PAIRS" \
+    --output "$OUT" \
+    --entries-per-task 128 \
+    --seed 2026
+  test -s "$OUT/manifest.json"
+  test "$(find "$OUT" -maxdepth 1 -name '*.npz' | wc -l)" -eq 6
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

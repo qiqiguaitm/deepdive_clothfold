@@ -1,7 +1,11 @@
 import dataclasses
+import glob
+import os
 
+import cv2
 import einops
 import numpy as np
+from openpi_client import image_tools
 
 from openpi import transforms
 from openpi.models import model as _model
@@ -60,7 +64,8 @@ class HintLookupTransform(transforms.DataTransformFn):
         object.__setattr__(self, "_dim", hint.shape[1:])  # (D,) 或 (K,D)
 
     def __call__(self, data: dict) -> dict:
-        did = int(np.asarray(data["dataset_id"]).reshape(-1)[0])
+        # 单-repo 路径(如 robotwin)不注入 dataset_id → 默认 0(配 suite_order=("robotwin",) 单套件).
+        did = int(np.asarray(data.get("dataset_id", 0)).reshape(-1)[0])
         ep = int(np.asarray(data["episode_index"]).reshape(-1)[0])
         fi = int(np.asarray(data["frame_index"]).reshape(-1)[0])
         row = self._index.get((did, ep), {}).get(fi)
@@ -71,6 +76,80 @@ class HintLookupTransform(transforms.DataTransformFn):
         else:
             h = self._hint[row].astype(np.float32)          # [D] 或 [K, D]
             data["lmwm_hint"] = h[None] if h.ndim == 1 else h
+        return data
+
+
+@dataclasses.dataclass(frozen=True)
+class RobotwinTargetImageLookupTransform(transforms.DataTransformFn):
+    """A3 live-target LMWM: attach the mined representative target frame image.
+
+    Reads a pairs.npz containing cur_ep/cur_fi/tgt_fi and a RoboTwin JPEG frame
+    cache. For each training sample, the target frame is decoded and stored as
+    data["lmwm_target_image"] in HWC uint8 224x224. The model re-encodes it with
+    the *current* pi05 visual encoder and stop-gradient, avoiding stale offline
+    feature spaces. Missing pairs get mask=0 and reuse the current cam_high image
+    as a harmless placeholder.
+    """
+
+    pairs_path: str
+    frame_cache_root: str
+    camera: str = "observation.images.cam_high"
+    height: int = 224
+    width: int = 224
+
+    def __post_init__(self):
+        z = np.load(self.pairs_path)
+        cur_ep = z["cur_ep"].astype(np.int64)
+        cur_fi = z["cur_fi"].astype(np.int64)
+        tgt_fi = z["tgt_fi"].astype(np.int64)
+        index = {(int(e), int(f)): int(t) for e, f, t in zip(cur_ep, cur_fi, tgt_fi, strict=False)}
+        ep_paths = {}
+        pattern = os.path.join(self.frame_cache_root, "chunk-*", self.camera, "episode_*.npz")
+        for path in glob.glob(pattern):
+            ep = int(os.path.basename(path).split("_")[1].split(".")[0])
+            ep_paths[ep] = path
+        object.__setattr__(self, "_index", index)
+        object.__setattr__(self, "_ep_paths", ep_paths)
+        object.__setattr__(self, "_cache", {})
+
+    def _decode(self, ep: int, fi: int) -> np.ndarray | None:
+        path = self._ep_paths.get(ep)
+        if path is None:
+            return None
+        cache = self._cache
+        data = cache.get(ep)
+        if data is None:
+            data = np.load(path)
+            if len(cache) > 16:
+                cache.pop(next(iter(cache)))
+            cache[ep] = data
+        key = str(fi)
+        if key not in data:
+            return None
+        img = cv2.imdecode(data[key], cv2.IMREAD_COLOR)
+        if img is None:
+            return None
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        return image_tools.resize_with_pad(img, self.height, self.width).astype(np.uint8)
+
+    def __call__(self, data: dict) -> dict:
+        ep = int(np.asarray(data["episode_index"]).reshape(-1)[0])
+        fi = int(np.asarray(data["frame_index"]).reshape(-1)[0])
+        tgt = self._index.get((ep, fi))
+        img = None if tgt is None else self._decode(ep, tgt)
+        if img is None:
+            cur = data.get("observation", {}).get("images", {}).get("cam_high")
+            if cur is not None:
+                cur = np.asarray(cur)
+                if cur.shape[0] == 3:
+                    cur = einops.rearrange(cur, "c h w -> h w c")
+                img = image_tools.resize_with_pad(cur, self.height, self.width).astype(np.uint8)
+            else:
+                img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+            data["lmwm_target_mask"] = np.asarray(False)
+        else:
+            data["lmwm_target_mask"] = np.asarray(True)
+        data["lmwm_target_image"] = img
         return data
 
 

@@ -1,7 +1,7 @@
 # LMVLA 全景架构 — CRAVE → LMWM → VLA
 
 > 本文只讲**三段如何拼成一条流水线**；每段内部算法见各子项目 docs（本文末给单一事实源）。
-> 最终产出:**LMWAM = LMWM × kai0 π0.5**，在 RoboTwin 2.0(sim)+ kai0 叠衣真机上以 **SR / action-MAE** 裁决。
+> 最终产出:**LMVLA = LMWM × kai0 π0.5**，在 RoboTwin 2.0(sim)+ kai0 叠衣真机上以 **SR / action-MAE** 裁决。
 
 ---
 

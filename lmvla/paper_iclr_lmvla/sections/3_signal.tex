@@ -1,0 +1,58 @@
+\section{Problem Setting and Controlled Comparisons}\label{sec:setup}
+Let $h_t=E_\theta(o_t)$ be the current policy representation, $y_t$ the feature
+of a future milestone frame, and $q_t$ the token presented to the action policy:
+\begin{equation}
+  a_t=\pi_\psi(h_t,q_t,l),
+\end{equation}
+where $l$ is the task instruction.  When $E_\theta$ changes during fine-tuning,
+future conditioning introduces four separable design choices.
+
+\paragraph{Target selection.}
+A fixed horizon, terminal frame, random future, or recurrent milestone encodes
+a different claim about which future state is useful.
+
+\paragraph{Representation space.}
+The target may come from an external encoder, an earlier policy encoder, or
+the current encoder.  A projection matches dimensions but does not align
+semantic neighborhoods, and saved features do not follow encoder drift.
+
+\paragraph{Parameterization and forward path.}
+The model may predict an absolute feature $y_t$ or a displacement
+$y_t-h_t$, and may inject that prediction into the policy or use it only as an
+auxiliary objective.  A residual target can emphasize change without being a
+natural standalone conditioning input.
+
+\paragraph{Backward path.}
+With milestone loss
+$\mathcal L=\mathcal L_{\rm act}+\lambda\mathcal L_{\rm ms}$, the auxiliary
+gradient can reshape shared current features.  A performance change may thus
+come from forward guidance, representation shaping, or both.
+
+Table~\ref{tab:evidence-contract} specifies the minimum comparison for each
+paper claim.  Simulator seeds estimate rollout variation for one checkpoint;
+only independent training seeds measure optimization robustness.
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{3pt}
+\caption{Evidence required for each claim. Pending rows are not inferred from the
+legacy pilot.}
+\begin{tabular}{p{0.05\linewidth}p{0.23\linewidth}p{0.48\linewidth}p{0.13\linewidth}}
+\toprule
+ & Claim & Required comparison & Status \\
+\midrule
+Q1 & matched control performance & corrected-recipe A0 vs. A2-Abs vs. MINT-VLA & \exptodoid{T0--T2} \\
+Q2 & correct content guides action & fixed checkpoint: correct/current/zero/instance-shuffle/cross-task & \exptodoid{E1} \\
+Q3 & effect of target and integration design & one-factor saved/recomputed, absolute/residual, auxiliary/policy-input controls & \exptodoid{T3} \\
+Q4 & robustness, task scope, and efficiency & train seeds, mature policy, predeclared tasks, cost & \exptodoid{T4--T5,E2} \\
+Q5 & use with a second VLA architecture & same target protocol with the second VLA's native input & \exptodoid{T6} \\
+\bottomrule
+\end{tabular}
+\label{tab:evidence-contract}
+\end{table}
+
+The legacy A0--A3 matrix is retained as exploratory evidence because
+its arms are internally matched, but it cannot close Q1 under the intended
+$\pi_{0.5}$ training setting.  LaWAM and LIBERO are supporting diagnostics only: the
+former lacks a clean VLA-from-base comparison, while the latter is near
+saturation for the policies studied here.

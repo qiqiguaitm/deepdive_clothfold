@@ -1,0 +1,116 @@
+# RoboTwin official-aligned pi05 + LMWM prefix hint.
+# Base training knobs match pi05_robotwin_a0_official_bj; only adds hint tokens.
+# Requires official A0 norm stats, then copies them into this config's asset dir.
+
+TaskName: "pi05-robotwin-a1-prefix-official-bj"
+Description: "official-aligned RoboTwin pi05 A1 prefix hint: horizon50 adapt_to_piFalse bs64 steps20k"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -uo pipefail
+  export REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_robotwin
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/pi05_robotwin_a1_prefix_official_bj_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  set -x
+  echo "=== pi05_robotwin_a1_prefix_official_bj start $(date -u) ==="
+
+  cd $REPO/kai0
+  export PYTHON=$REPO/kai0/.venv/bin/python
+  export PATH=$REPO/kai0/.venv/bin:$PATH
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.9
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  export HF_HOME=$REPO/datasets/.hf_cache
+  export HF_DATASETS_CACHE=$HF_HOME/datasets
+  export JAX_COMPILATION_CACHE_DIR=$REPO/.cache/jax
+  mkdir -p "$HF_DATASETS_CACHE" "$JAX_COMPILATION_CACHE_DIR"
+
+  DATA=/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0
+  INIT=/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params
+  HINT=$REPO/lmvla/lmwm/data/pi05_hint/robotwin_dino/hint.npz
+  LMWM_CKPT=$REPO/lmvla/lmwm/checkpoints/lmwm_robotwin_rvalley/lmwm.pt
+  GRID=$REPO/lmvla/lmwm/data/robotwin_dinov3base_grid
+  A0_NORM=$REPO/kai0/assets/pi05_robotwin_a0_official_bj/robotwin2.0/norm_stats.json
+  A1_NORM_DIR=$REPO/kai0/assets/pi05_robotwin_a1_prefix_official_bj/robotwin2.0
+  A1_NORM=$A1_NORM_DIR/norm_stats.json
+  [ -d "$DATA/meta" ] || { echo "FATAL: dataset missing $DATA" >&2; exit 13; }
+  [ -f "$INIT/_METADATA" ] || { echo "FATAL: pi05_base init missing $INIT" >&2; exit 17; }
+  if [ ! -f "$HINT" ]; then
+    echo "[$(date)] exporting RoboTwin pi05 hint -> $HINT"
+    [ -f "$LMWM_CKPT" ] || { echo "FATAL: LMWM ckpt missing $LMWM_CKPT" >&2; exit 18; }
+    NG=$(find "$GRID" -maxdepth 1 -name 'ep*.npz' 2>/dev/null | wc -l)
+    echo "[hint] grid ep count=$NG"
+    [ "$NG" -ge 27000 ] || { echo "FATAL: grid coverage insufficient ($NG<27000): $GRID" >&2; exit 18; }
+    FEATROOT=$REPO/lmvla/lmwm/data/robotwin_feat_pi05
+    mkdir -p "$FEATROOT"
+    ln -sfn "$GRID" "$FEATROOT/robotwin"
+    python -u $REPO/lmvla/lmwm/scripts/export_pi05_hint.py \
+      --ckpt "$LMWM_CKPT" \
+      --feat-root "$FEATROOT" \
+      --out $REPO/lmvla/lmwm/data/pi05_hint/robotwin_dino \
+      --K 1
+    [ -f "$HINT" ] || { echo "FATAL: hint export produced no $HINT" >&2; exit 18; }
+  fi
+
+  if [ ! -f "$A0_NORM" ]; then
+    echo "FATAL: official A0 norm missing $A0_NORM; run pi05_robotwin_a0_official_bj first" >&2
+    exit 19
+  fi
+  mkdir -p "$A1_NORM_DIR"
+  cp -f "$A0_NORM" "$A1_NORM"
+  echo "[$(date)] preflight OK (hint + official norm + pi05_base init)"
+
+  EXP=pi05_robotwin_a1_prefix_official
+  CKPT_DIR=$REPO/kai0/checkpoints/pi05_robotwin_a1_prefix_official_bj/$EXP
+  if ls -d "$CKPT_DIR"/[0-9]*/ >/dev/null 2>&1; then
+    RESUME_FLAG="--resume"
+    echo "[resume] found ckpt -> --resume"
+  else
+    RESUME_FLAG="--overwrite"
+    echo "[resume] fresh --overwrite"
+  fi
+
+  exec python -u scripts/train.py pi05_robotwin_a1_prefix_official_bj \
+    --exp-name "$EXP" \
+    --num-workers 8 \
+    --no-wandb-enabled \
+    $RESUME_FLAG
+
+RetryOptions:
+    EnableRetry: true
+    MaxRetryTimes: 3
+
+AccessType: "Public"

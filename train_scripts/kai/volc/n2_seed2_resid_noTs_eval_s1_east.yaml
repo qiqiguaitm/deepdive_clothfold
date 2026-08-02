@@ -1,0 +1,80 @@
+# shape dual2q LIBERO eval — East-H20(cnsh/gf0)单卡1路. __占位__ 生成器替换.
+#   ckpt+LMWM 资产都在 gf0. /home 垫片修 LAM 软链. osmesa. SUITES=libero_10 libero_spatial.
+TaskName: "shape-n2_seed2_resid_noTs-s1-e1g"
+Description: "shape n2_seed2_resid_noTs dual2q eval s1 East-H20 单卡"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Preemptible: false
+Framework: "PyTorch"
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+ActiveDeadlineSeconds: 28800
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+Entrypoint: |
+  set -uo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  mkdir -p /home/tim/workspace 2>/dev/null && ln -sfn "$REPO" /home/tim/workspace/deepdive_kai0 2>/dev/null || echo "shim-be"
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_eval; mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/shapeeval_n2_seed2_resid_noTs_s1_${STAMP}.log" 2>&1
+  set -x
+  echo "=== shape n2_seed2_resid_noTs s1 eval start $(date -u) (East-H20) ==="
+  CKPT=/vePFS/tim/workspace/deepdive_kai0/lmvla/lawam/results/Checkpoints/libero/20260728_062622+lmwm_2q_resid_noTs_seed2_east/checkpoints/steps_12500_pytorch_model.pt
+  export RUN_GROUP=n2_seed2_resid_noTs
+  export PYTHON=$REPO/kai0/.venv/bin/python
+  export PATH=$REPO/kai0/.venv/bin:$PATH
+  export STAR_VLA_PYTHON=$PYTHON LIBERO_PYTHON=$PYTHON
+  cd $REPO/lmvla/lawam
+  nvidia-smi -L | head
+  [ -f "$CKPT" ] || { echo "FATAL: ckpt 不存在 $CKPT" >&2; exit 13; }
+  env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u all_proxy \
+    $PYTHON -m pip install -q -i https://mirrors.aliyun.com/pypi/simple/ \
+    'robosuite==1.4.1' mujoco opencv-python-headless tyro websockets json-numpy 2>&1 | tail -2
+  # East-H20(cn-shanghai)镜像不带 osmesa → 必装 libosmesa6, 否则 mujoco.osmesa glGetError 崩
+  apt-get update 2>&1|tail -1; apt-get install -y libosmesa6 libosmesa6-dev 2>&1|tail -1 || echo osmesa-be
+  LH=$REPO/lmvla/LIBERO; mkdir -p "$LH/libero"
+  {
+    echo "benchmark_root: $LH/libero/libero"
+    echo "bddl_files: $LH/libero/libero/bddl_files"
+    echo "init_states: $LH/libero/libero/init_files"
+    echo "datasets: $LH/libero/libero/../datasets"
+    echo "assets: $LH/libero/libero/assets"
+  } > "$LH/libero/config.yaml"
+  rm -f /root/.libero/config.yaml 2>/dev/null || true
+  $PYTHON -c "from starVLA.model.framework.vlas.lawam import LatentWorldPolicyBackend; print('Backend OK')"
+  export LMWM_CKPT=$REPO/lmvla/lmwm/checkpoints/lmwm_libero_rvalley/lmwm.pt
+  export LMWM_ADAPTER_DIR=$REPO/lmvla/lmwam/adapter
+  export LMWM_SWAP_TEACHER=1 LMWM_DUAL=1 LMWM_DUAL_2Q=1
+  unset LMWM_MILESTONE_TARGET LMWM_TARGET_COMPACT LMWM_MS_TSCHED LMWM_HINT_DROPOUT
+  [ -f "$LMWM_CKPT" ] || { echo "FATAL: LMWM ckpt 缺 $LMWM_CKPT" >&2; exit 13; }
+  export SUITES="libero_10 libero_spatial"
+  export NUM_TRIALS_PER_TASK=50 NUM_WORKERS=25
+  export MUJOCO_GL=osmesa SERVER_STARTUP_TIMEOUT_SEC=1200
+  export OUTPUT_ROOT=$REPO/lmvla/lawam/results/eval_runs/libero
+  export GPU_IDS=0 EVAL_GPU_IDS=0 PORT_BASE=5714
+  export EVAL_SEED=1 LIBERO_RUN_GROUP=$RUN_GROUP RUN_TAG=s1
+  echo "[s1] ckpt=$CKPT group=$RUN_GROUP seed=1 $(date -u)"
+  bash examples/LIBERO/eval_files/auto_eval_scripts/run_libero_benchmark.sh "$CKPT"
+  echo "=== shape n2_seed2_resid_noTs s1 DONE rc=$? $(date -u) ==="
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+AccessType: "Public"

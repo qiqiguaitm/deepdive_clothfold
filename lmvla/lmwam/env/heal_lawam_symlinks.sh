@@ -33,8 +33,14 @@ LAM_REL="latent_action_model/logs/dino_large_vae/lam_release"   # 相对 lawam �
 [ -f "ckpts_dl/checkpoints/pytorch_model.pt" ] || { echo "FATAL: ckpts_dl/checkpoints/pytorch_model.pt 缺失, 无法自愈(需重下)" >&2; fail=1; }
 if [ "$fail" = 0 ]; then
   mkdir -p "$LAM_REL/checkpoints"
-  [ -e "$LAM_REL/dino_large_vae.yaml" ] || ln -sfn ../../../../ckpts_dl/dino_large_vae.yaml "$LAM_REL/dino_large_vae.yaml"
-  [ -e "$LAM_REL/checkpoints/pytorch_model.pt" ] || ln -sfn ../../../../../ckpts_dl/checkpoints/pytorch_model.pt "$LAM_REL/checkpoints/pytorch_model.pt"
+  # Replace legacy absolute /home/tim links as well. They resolve on the
+  # development host but are broken in platform containers mounted at /vePFS.
+  if [ -L "$LAM_REL/dino_large_vae.yaml" ] || [ ! -e "$LAM_REL/dino_large_vae.yaml" ]; then
+    ln -sfn ../../../../ckpts_dl/dino_large_vae.yaml "$LAM_REL/dino_large_vae.yaml"
+  fi
+  if [ -L "$LAM_REL/checkpoints/pytorch_model.pt" ] || [ ! -e "$LAM_REL/checkpoints/pytorch_model.pt" ]; then
+    ln -sfn ../../../../../ckpts_dl/checkpoints/pytorch_model.pt "$LAM_REL/checkpoints/pytorch_model.pt"
+  fi
   for f in "$LAM_REL/dino_large_vae.yaml" "$LAM_REL/checkpoints/pytorch_model.pt"; do
     [ -e "$f" ] || { echo "FATAL: 软链自愈失败 $f" >&2; fail=1; }
   done

@@ -1,10 +1,24 @@
 import dataclasses
 
 import jax
+import torch
 
 from openpi.models import pi0_config
 from openpi.training import config as _config
 from openpi.training import data_loader as _data_loader
+
+
+def test_expand_sparse_episode_data_index():
+    class SparseDataset:
+        hf_dataset = {"episode_index": [550, 550, 24200, 24200, 24200]}
+        episode_data_index = {"from": torch.tensor([0, 2]), "to": torch.tensor([2, 5])}
+
+    dataset = SparseDataset()
+    _data_loader._expand_sparse_episode_data_index(dataset)
+    assert dataset.episode_data_index["from"][550] == 0
+    assert dataset.episode_data_index["to"][550] == 2
+    assert dataset.episode_data_index["from"][24200] == 2
+    assert dataset.episode_data_index["to"][24200] == 5
 
 
 def test_torch_data_loader():

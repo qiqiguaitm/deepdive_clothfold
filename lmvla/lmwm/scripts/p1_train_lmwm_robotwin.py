@@ -13,7 +13,7 @@ import numpy as np, torch, torch.nn as nn, torch.nn.functional as F
 REPO = "/vePFS/tim/workspace/deepdive_kai0"
 FEAT = f"{REPO}/lmvla/lmwm/data/robotwin_dinov3base_grid"
 PAIRS = f"{REPO}/lmvla/lmwm/data/robotwin_milestone/pairs.npz"
-DIN, PGRID = 768, 16
+PGRID = 16
 
 class InverseEnc(nn.Module):  # teacher: (g_t,g_f)->code, 看未来 milestone+1
     def __init__(self, din, code_dim, hid=256):
@@ -62,14 +62,14 @@ def cosr(a, b): return (a*b).sum(1) / (a.norm(dim=1)*b.norm(dim=1)+1e-8)
 
 class GridCache:
     """有界 LRU, 存 fp16 [N,768,16,16](robotwin 全缓存 float32 会爆 RAM)。"""
-    def __init__(self, feat, cap):
-        self.feat, self.cap = feat, cap
+    def __init__(self, feat, cap, din):
+        self.feat, self.cap, self.din = feat, cap, din
         self.d = OrderedDict()
     def get(self, ep):
         if ep in self.d:
             self.d.move_to_end(ep); return self.d[ep]
         g = np.load(f"{self.feat}/ep{ep}.npz")["grid"]  # [N,256,768] fp16
-        g = g.reshape(len(g), PGRID, PGRID, DIN).transpose(0, 3, 1, 2)  # [N,768,16,16] fp16
+        g = g.reshape(len(g), PGRID, PGRID, self.din).transpose(0, 3, 1, 2)  # [N,D,16,16] fp16
         self.d[ep] = g
         if len(self.d) > self.cap:
             self.d.popitem(last=False)
@@ -92,11 +92,14 @@ def main():
 
     P = np.load(args.pairs)
     cur_ep, cur_fi, tgt_fi = P["cur_ep"], P["cur_fi"], P["tgt_fi"]
-    print(f"[pairs] {len(cur_ep)} 对, {len(np.unique(cur_ep))} ep, feat={args.feat}", flush=True)
-    cache = GridCache(args.feat, args.cache_cap)
-    inv = InverseEnc(DIN, args.code_dim).to(dev)
-    gen = MilestoneGenerator(DIN, args.code_dim).to(dev)
-    prd = MilestonePredictorGrid(DIN, args.code_dim, args.K).to(dev)
+    sample_ep = int(cur_ep[0])
+    sample = np.load(f"{args.feat}/ep{sample_ep}.npz")["grid"]
+    din = int(sample.shape[-1])
+    print(f"[pairs] {len(cur_ep)} 对, {len(np.unique(cur_ep))} ep, feat={args.feat}, din={din}", flush=True)
+    cache = GridCache(args.feat, args.cache_cap, din)
+    inv = InverseEnc(din, args.code_dim).to(dev)
+    gen = MilestoneGenerator(din, args.code_dim).to(dev)
+    prd = MilestonePredictorGrid(din, args.code_dim, args.K).to(dev)
     o1 = torch.optim.AdamW(list(inv.parameters())+list(gen.parameters()), lr=2e-4, weight_decay=1e-5)
     o2 = torch.optim.AdamW(prd.parameters(), lr=2e-4, weight_decay=1e-5)
 
@@ -125,7 +128,7 @@ def main():
     if not args.smoke:
         os.makedirs(args.out, exist_ok=True)
         torch.save({"inv": inv.state_dict(), "gen": gen.state_dict(), "prd": prd.state_dict(),
-                    "code_dim": args.code_dim, "din": DIN}, f"{args.out}/lmwm.pt")
+                    "code_dim": args.code_dim, "din": din}, f"{args.out}/lmwm.pt")
         print(f"[save] {args.out}/lmwm.pt", flush=True)
     print("DONE", flush=True)
 

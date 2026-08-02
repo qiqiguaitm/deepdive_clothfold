@@ -8,9 +8,13 @@ const I18N = {
     tab_capabilities: "能力矩阵",
     tab_pipeline:     "端到端管线",
     tab_docs:         "文档",
+    tab_mint:         "MINT-VLA 决策汇报",
 
     ov_title: "deepdive_kai0 — π0.5 双臂操作部署",
     ov_desc:  "基于 Physical Intelligence 开源的 π0.5 视觉-语言-动作模型，在 Agilex 双 Piper 机械臂 + 三路 RealSense 相机平台上的端到端部署项目。覆盖训练数据采集 (遥操作 / DAgger / autonomy 回放) → 多机训练集群 (gf / uc / js) → 单工控机一体推理 (sim01) → 实时机械臂控制的完整闭环。",
+    mint_entry_title:  "MINT-VLA：未来里程碑接入 VLA",
+    mint_entry_desc:   "面向项目决策的研究汇报：说明为什么值得做、如何低成本接入、已有试验证据、剩余不确定性，以及 Gate 0–4 阶段投入条件。",
+    mint_entry_action: "查看项目决策汇报",
 
     stat_features:    "已交付功能",
     stat_milestones:  "里程碑",
@@ -72,9 +76,13 @@ const I18N = {
     tab_capabilities: "Capabilities",
     tab_pipeline:     "Pipeline",
     tab_docs:         "Docs",
+    tab_mint:         "MINT-VLA decision brief",
 
     ov_title: "deepdive_kai0 — π0.5 dual-arm manipulation deployment",
     ov_desc:  "End-to-end deployment of Physical Intelligence's open-source π0.5 vision-language-action model on the Agilex dual-Piper arm platform with three RealSense cameras. Covers the full loop: training data collection (teleop / DAgger / autonomy replay) → multi-cluster training (gf / uc / js) → single-workstation unified inference (sim01) → real-time arm control.",
+    mint_entry_title:  "MINT-VLA: future milestones for VLA policies",
+    mint_entry_desc:   "A project decision brief covering the investment case, low-cost integration, current evidence, unresolved risks, and Gate 0–4 criteria for continued work.",
+    mint_entry_action: "Open decision brief",
 
     stat_features:    "Features shipped",
     stat_milestones:  "Milestones",

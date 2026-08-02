@@ -373,7 +373,7 @@ def train_step(
             main = jnp.mean(result["main_loss"])
             total = main
             aux_info = {"main_loss": main}
-            for name in ("cl_loss", "dct_loss"):
+            for name in ("cl_loss", "dct_loss", "lmwm_loss"):
                 if name in result:
                     weight_key = name.replace("_loss", "_weight")
                     contrib = result[weight_key] * result[name]
@@ -418,10 +418,23 @@ def train_step(
             lambda _, x: x.value.ndim > 1,
         ),
     )
+    def compute_diagnostics(_):
+        return optax.global_norm(grads), optax.global_norm(kernel_params)
+
+    def skip_diagnostics(_):
+        nan = jnp.asarray(jnp.nan, dtype=loss.dtype)
+        return nan, nan
+
+    grad_norm, param_norm = jax.lax.cond(
+        state.step % config.log_interval == 0,
+        compute_diagnostics,
+        skip_diagnostics,
+        operand=None,
+    )
     info = {
         "loss": loss,
-        "grad_norm": optax.global_norm(grads),
-        "param_norm": optax.global_norm(kernel_params),
+        "grad_norm": grad_norm,
+        "param_norm": param_norm,
         **aux_info,
     }
     return new_state, info
@@ -445,7 +458,8 @@ def main(config: _config.TrainConfig):
             f"Batch size {config.batch_size} must be divisible by the number of devices {jax.device_count()}."
         )
 
-    jax.config.update("jax_compilation_cache_dir", str(epath.Path("~/.cache/jax").expanduser()))
+    compilation_cache_dir = os.environ.get("JAX_COMPILATION_CACHE_DIR", "~/.cache/jax")
+    jax.config.update("jax_compilation_cache_dir", str(epath.Path(compilation_cache_dir).expanduser()))
 
     rng = jax.random.key(config.seed)
     train_rng, init_rng = jax.random.split(rng)
@@ -581,7 +595,7 @@ def main(config: _config.TrainConfig):
         infos.append(info)
         if step % config.log_interval == 0:
             stacked_infos = common_utils.stack_forest(infos)
-            reduced_info = jax.device_get(jax.tree.map(jnp.mean, stacked_infos))
+            reduced_info = jax.device_get(jax.tree.map(jnp.nanmean, stacked_infos))
             info_str = ", ".join(f"{k}={v:.4f}" for k, v in reduced_info.items())
             pbar.write(f"Step {step}: {info_str}")
             if jax.process_index() == 0:

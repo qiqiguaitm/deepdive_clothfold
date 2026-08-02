@@ -1,0 +1,138 @@
+# ============================================================================
+# volc 任务提交参考模板 (2026-07-28 汇总) —— 提新任务前先读本文件
+# ============================================================================
+# 用法: 复制本文件, 按下面"决策三步"填对 队列/存储/镜像/flavor, 删无关注释后提交:
+#   env -u http_proxy -u https_proxy HOME=/tmp/_cron_empty_home \
+#     VOLC_AK=<AK> VOLC_SK=<SK> \
+#     kai0/.venv/bin/python train_scripts/kai/volc/submit_yaml.py <你的yaml>
+#   停任务: volc_job_stop.py <task_id>  (停上海任务须加 VOLC_REGION=cn-shanghai)
+#   查状态: scratchpad/gjob.py <task_id> <cn-beijing|cn-shanghai>
+#
+# ── 决策三步(提交前必判)────────────────────────────────────────────────
+# ① 数据/ckpt 在哪个文件系统? (硬约束, 决定集群, 优先级最高)
+#      cnsh/gf0 (/vePFS/tim/...)         → 只能上海 (East-H20 / robot-task)
+#      North-E  (/vePFS-North-E/vis_robot/...) → 只能北京 (North-H20)
+#      ⚠️ 跨集群搬数据(GB级)是最后手段, 出口5-8MB/s; 优先让任务去数据所在集群.
+# ② 卡数多大? + ★先探"上海有没有空卡", 满了就统一提北京(用户定规则 2026-07-28)
+#      探法: 提一个试探 job 或看在飞 job 是 Running 还是 Queueing —— 全 Queueing = 上海没空卡。
+#      小(1卡 eval 等)  → 北京 North-H20, 小模板一次多提, 好调度
+#      大(8卡 训练)     → 上海有空 → 提上海分流; 上海满 → 统一回北京排队
+#      ⚠️ 但①locality 优先于②: 换集群前必须先确认 ckpt/数据在目标集群**也有**。
+#         查法: 两边 `ls -l` 比 **字节数**(相同=同一份, 零传输可直接换集群);
+#         只有一边有且 >GB 级 → 别搬(出口 5-8MB/s, 7GB≈20min+), 宁可原地排队。
+#         (实例: shapeB ckpt 7.3GB 两边字节数一致 → 上海排队时无损改提北京)
+#      ★★ 但"同一份 .pt"还不够 —— LaWAM ckpt 的 **run_dir 伴生文件**必须一起在, 否则
+#         server 起不来: `AssertionError: Missing config.yaml for run_dir=...`(eval 40min 假完成)。
+#         必备: run_dir/{config.yaml, config.json, dataset_statistics.json}(几 KB, scp 即可)。
+#         换集群前一律: `ls <run_dir>` 两边对比, 不是只看 checkpoints/*.pt。
+# ③ Preemptible: 训练/正式eval 一律 false (非抢占); 别用 true(闲时会被回收中断)
+#
+# ── 集群配置对照表 ──────────────────────────────────────────────────────
+#  维度        | 上海 (cn-shanghai)                          | 北京 (cn-beijing)
+#  队列        | Robot-East-H20 (H20) / robot-task (8×A100)  | Robot-North-H20 (H20)
+#  Region      | cn-shanghai                                 | cn-beijing
+#  VepfsId     | vepfs-cnsh075262e1f815                       | vepfs-cnbj875793a96d6b
+#  MountPath   | /vePFS                                      | /vePFS-North-E/vis_robot
+#  SubPath     | ""                                          | /vis_robot
+#  REPO(容器内)| /vePFS/tim/workspace/deepdive_kai0          | /vePFS-North-E/vis_robot/workspace/deepdive_kai0
+#  镜像 ImageUrl| visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0
+#              |                                             | dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1
+#
+# ── Flavor(卡数)对照 —— H20(GPU-H3c)完整规格表 ────────────────────────
+#  Flavor              | GPU | vCPU | 内存GiB | 网络Gbit/s | 说明
+#  ml.pni3ln.4xlarge   |  1  |  16  |   224   |    40      | 1卡
+#  ml.pni3ln.5xlarge   |  1  |  20  |   200   |    40      | 1卡(最易调度, eval首选)
+#  ml.pni3ln.8xlarge   |  2  |  32  |   448   |    80      | 2卡
+#  ml.pni3ln.11xlarge  |  2  |  44  |   440   |    80      | 2卡
+#  ml.pni3ln.17xlarge  |  4  |  68  |   952   |   160      | 4卡(4-seed并行eval首选)
+#  ml.pni3ln.22xlarge  |  4  |  88  |   880   |   160      | 4卡
+#  ml.pni3ln.35xlarge  |  8  | 140  |  1960   |   320      | 8卡(整节点)
+#  ml.pni3ln.45xlarge  |  8  | 180  |  1960   |   320      | 8卡(整节点)
+#  ml.hpcpni3ln.45xlarge| 8  |  —   |    —    |    —       | 8×H20整节点(RDMA, LaWAM/训练已验)
+#  robot-task(上海):  ml.hpcpni2.28xlarge = 8×A100
+#  ★右-size纪律: 申请卡数 = 实际用量. N-seed×1卡 的eval用 N卡flavor(如4seed→17xlarge),
+#    别用8卡跑4seed(浪费4卡+8卡稀缺更难调度). 只有真FSDP/DDP多卡训练才用8卡.
+#
+# ── 跨集群 & 环境坑(踩过的, 提交前对照)──────────────────────────────────
+#  * 东西不匹配镜像会卡 Deploying: 上海必用 kai:kai0-gf0, 北京必用 kai:kai0-gf1.
+#  * 硬编码 gf0 路径搬北京会空跑/崩(见 project_cross_cluster_hardcoded_gf0_paths):
+#      - crave DINOv3: export CRAVE_REPO=$REPO;  抽取脚本认 RT_REPO=$REPO
+#      - 兜底: /home 垫片 mkdir -p /home/tim/workspace && ln -sfn $REPO /home/tim/workspace/deepdive_kai0
+#      - config datasets_yaml 等硬编码 /vePFS/tim/... → 同垫片解
+#  * East(上海)镜像不带 osmesa → LIBERO eval 前必: apt-get install -y libosmesa6 libosmesa6-dev; MUJOCO_GL=osmesa
+#    (北京镜像自带 osmesa; robotwin SAPIEN 用 builtin vulkan, 无害)
+#  * LAM ckpt 软链经 /home 绝对路径 → East 容器不挂 /home, 用上面 /home 垫片
+#  * LMWM_ADAPTER_DIR: gf0 是 $REPO/lmvla/lmwam/adapter (非 lmvla/lawam); North-E 两处都有
+#  * North-E config.py 有 AWBC WIP → 别 scp 覆盖, 用幂等 patcher 加改动
+#  * pi05 eval config 的 datasets_yaml 只读 repo_id 字符串(不加载数据), yaml 文件存在即可
+#  * job "已完成"但产物0/耗时短得离谱 = 大概率硬编码路径/代码没同步致空跑 → 先看日志尾部, 别信 job 状态
+#  * ★代码同步漏项(2026-07-28 踩): 新写的 bridge/脚本只落在 gf0, 目标集群(North-E)没有 →
+#    env 门控的双分支代码(如 ROBOTWIN_SERVER_BACKEND=openpi/starvla)会**静默 fallback 默认分支**秒崩,
+#    不报"文件缺失"而报下游怪错(如 openpi ckpt目录 被 starvla 分支当文件检查 → "Checkpoint not found").
+#    → 提交前必核对: 目标集群上 新文件存在 + 改过的文件含关键字(grep -c). 覆盖前 cp .bak 并 diff 防清 WIP.
+#  * ★Entrypoint 里给 python 子进程读的变量必须 export(仅 `VAR=x` 是 shell 局部, heredoc python
+#    os.environ['VAR'] 会 KeyError) —— REPO / CRAVE_REPO / RT_REPO 都踩过
+#  * lawam 是 submodule: 代码改动(如 detach/ABS_SCALE/SWAP_HINT hook)重置会丢, 需 submodule 内 commit
+#  * openpi(JAX)训练用 kai0/.venv; PyTorch AE/transformers 用 .venv_py311_bak; isaacsim 需 py3.11
+#  * pkill 在 set -e 下返回非0会中断脚本(exit 144) → 用 kill <PID> 或 || true
+#  * 多 seed eval 必须变 EVAL_SEED/SEED(默认0陷阱); 聚合差<1.5pt 不可声称
+# ============================================================================
+
+# ▼▼▼ 下方 = 可提交骨架. 按①②③选一套集群配置(删另一套注释), 填 Flavor + Entrypoint. ▼▼▼
+TaskName: "your-task-name"
+Description: "一句话描述: 什么任务 / 卡数 / 集群"
+Tags: []
+
+# ── 上海(cnsh/gf0数据)选这套: ──
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"          # 或 robot-task
+# ── 北京(North-E数据)改成这套: ──
+#   ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+#   ResourceQueueName: "Robot-North-H20"
+
+Framework: "PyTorch"
+Preemptible: false                            # 训练/正式eval 一律 false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"               # 按卡数选(见 Flavor 对照): 1卡5x / 8卡 hpcpni3ln.45x
+ActiveDeadlineSeconds: 43200                  # 按预计耗时给足(100k步大训需 ~250000+; 太短会超时停)
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    # ── 上海: ──
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+    # ── 北京改成: VepfsId vepfs-cnbj875793a96d6b / MountPath /vePFS-North-E/vis_robot / SubPath /vis_robot
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+  # JAX(openpi pi05)训练还需: XLA_PYTHON_CLIENT_MEM_FRACTION=0.85 / JAX_ENABLE_EMPTY_ARRAYS=true 等
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  REPO=/vePFS/tim/workspace/deepdive_kai0     # 北京改 /vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  # 若代码有硬编码 gf0 路径(crave/LAM软链/datasets_yaml)且跑北京, 加垫片:
+  #   mkdir -p /home/tim/workspace && ln -sfn "$REPO" /home/tim/workspace/deepdive_kai0 2>/dev/null || true
+  #   export CRAVE_REPO=$REPO RT_REPO=$REPO
+  LOG_DIR=$REPO/lmvla/lmwm/logs; mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/${TaskName:-task}_${STAMP}.log" 2>&1
+  set -x
+  nvidia-smi -L | head
+  cd "$REPO/kai0"; source .venv/bin/activate   # openpi/JAX. lawam训练用 lmvla/lawam 下的栈
+  # LIBERO eval(上海)前: apt-get install -y libosmesa6 libosmesa6-dev; export MUJOCO_GL=osmesa
+  # >>> 你的实际命令 <<<
+RetryOptions:
+    EnableRetry: false                        # 训练可设 true+MaxRetryTimes(抢占后重提); 一次性任务 false
+    MaxRetryTimes: 0
+AccessType: "Public"

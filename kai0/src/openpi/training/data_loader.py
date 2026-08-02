@@ -194,11 +194,32 @@ def create_torch_dataset(
         video_backend="pyav",
         tolerance_s=30.0,  # default 1e-4 is too strict; some kai/vis episodes have gaps up to ~7s
     )
+    if episodes is not None:
+        _expand_sparse_episode_data_index(dataset)
 
     if data_config.prompt_from_task:
         dataset = TransformedDataset(dataset, [_transforms.PromptFromLeRobotTask(dataset_meta.tasks)])
 
     return dataset
+
+
+def _expand_sparse_episode_data_index(dataset) -> None:
+    """Expand LeRobot's compact lookup when a whitelist keeps original sparse IDs."""
+    frame_episode_ids = np.asarray(dataset.hf_dataset["episode_index"], dtype=np.int64)
+    if frame_episode_ids.size == 0:
+        return
+    max_episode_id = int(frame_episode_ids.max())
+    current_size = int(dataset.episode_data_index["from"].shape[0])
+    if max_episode_id < current_size:
+        return
+
+    starts = torch.zeros(max_episode_id + 1, dtype=torch.long)
+    ends = torch.zeros(max_episode_id + 1, dtype=torch.long)
+    unique_ids, first_indices, counts = np.unique(frame_episode_ids, return_index=True, return_counts=True)
+    sparse_ids = torch.as_tensor(unique_ids)
+    starts[sparse_ids] = torch.as_tensor(first_indices)
+    ends[sparse_ids] = torch.as_tensor(first_indices + counts)
+    dataset.episode_data_index = {"from": starts, "to": ends}
 
 
 def _create_concat_torch_dataset(
@@ -508,6 +529,8 @@ def create_torch_data_loader(
         seed: The seed to use for shuffling the data.
         config: Full train config; used when advantage_estimator=True to create advantage dataset.
     """
+    if episodes is None:
+        episodes = data_config.episodes
     if config is not None and getattr(config, "advantage_estimator", False):
         dataset = create_advantage_torch_dataset(data_config, action_horizon, model_config, config)
     else:

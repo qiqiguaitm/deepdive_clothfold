@@ -1,0 +1,174 @@
+\section{Appendix}\label{sec:appendix}
+
+\subsection{Effective configurations}
+The completed A0--A3 pilot shares \texttt{pi05\_base}, joint-delta actions,
+quantile normalization, 20k updates, batch size 64, and a 50-action horizon.
+A0 sets \texttt{lmwm\_hint\_dim=0}.  A1 and A2 use one prefix token with
+dimensions 768 and 1152.  A3 uses dimension 1152,
+\texttt{lmwm\_live\_hint=True}, \texttt{lmwm\_live\_residual=True}, and
+milestone-loss weight 0.05.  The confirmatory configuration instead uses
+absolute actions, mean/std normalization, batch 16, 50k updates, and the
+published optimizer schedule.  The audited configuration source has SHA-256
+\texttt{fe9377c2b93f2428...4dd7264}; the corrected A0 config is
+\texttt{pi05\_robotwin\_a0\_public\_recipe\_bj}.  It disables joint deltas and
+quantile normalization, uses the \texttt{robotwin2.0\_absolute\_meanstd}
+statistics, AdamW weight decay 0.01, batch 16, and 50k updates.  Each future
+confirmatory arm must record its resolved config and dataset-manifest hash next
+to its checkpoint rather than relying on the mutable source file.
+\exptodo{T0--T2}{Insert immutable resolved configs, checkpoint IDs, training
+seeds, and dataset manifests for every confirmatory arm.}
+
+\subsection{Evaluation and statistics}
+Pilot simulator seed groups begin at 100k, 200k, 300k, and 400k.  Candidate
+initializations are retained only when the expert planner and benchmark success
+check both pass.  Each accepted cohort has 50 episodes per task and seed group.
+Because filtering can produce different accepted scenes, intervention tests
+use the intersection of scene identifiers.  Existing A2 report aggregates are
+archived under \texttt{logs/eval\_reports}; the evaluation script emits the
+accepted IDs used for each paired intersection.  Confirmatory reports will
+include seed-level task cells, hierarchical bootstrap intervals, exact paired
+tests, and Holm-adjusted $p$-values.  Independently filtered cohorts are never
+treated as matched observations.
+\exptodo{E1}{Publish accepted-scene intersections, per-seed task cells,
+hierarchical intervals, discordant counts, and Holm-adjusted tests.}
+
+\subsection{Recurrence mining}
+The mining script (SHA-256 \texttt{d05eefc2f9690163...62c}) applies the following
+deterministic procedure independently per task: (1) uniformly retain at most
+200 successful episodes; (2) L2-normalize pooled DINOv3 features; (3) set the
+RBF bandwidth to the median cross-episode nearest-neighbor distance; (4)
+compute the average nearest-match recurrence score; (5) smooth with a temporal
+Gaussian of width 1.4; (6) detect valleys with prominence 0.03 and minimum
+distance $\max(2,\lfloor T/12\rfloor)$; (7) choose the maximum-recurrence frame
+inside each resulting segment; and (8) pair every frame with the next segment's
+representative, using the terminal frame in the final segment.  Valley distance
+acts as temporal NMS, and selecting one ridge per segment performs within-episode
+deduplication.  Cross-episode similarity enters the score rather than a separate
+global prototype-clustering stage.
+
+An artifact audit exposed incomplete pilot coverage.  The current
+\texttt{pairs.npz} (SHA-256 \texttt{5d68e21fbf0dd462...8ade8}) contains 335,624
+pairs from five tasks and omits Stack-3 entirely:
+\begin{center}\small
+\begin{tabular}{lrrrr}
+\toprule
+Task & Episodes & Pairs & Unique targets & Future pairs \\
+\midrule
+Hammer & 200 & 22,820 & 260 & 99.12\% \\
+Stack-2 & 200 & 82,204 & 652 & 99.76\% \\
+Ranking RGB & 200 & 91,836 & 829 & 99.78\% \\
+Ranking size & 200 & 91,932 & 800 & 99.78\% \\
+Handover & 200 & 46,832 & 339 & 99.57\% \\
+Stack-3 & 0 & 0 & 0 & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+When a pair is absent, the data transform supplies the current image as a
+shape-compatible placeholder and sets the milestone-loss mask to false.  The
+A3 predictor token remains active through the action loss, but receives no
+milestone auxiliary supervision for that sample.  Consequently the legacy
+Stack-3 A3 cell measures an added current-state predictor/capacity path, not a
+recurrence-supervised milestone.  We therefore generated the frozen
+\texttt{robotwin\_milestone\_all6\_confirmatory\_v1} artifact.  It contains 200
+episodes for each of the six tasks (1,200 total), including 94,141 Stack-3
+pairs; its \texttt{pairs.npz} SHA-256 begins
+\texttt{592f1e739105951e}, and its READY audit SHA-256 begins
+\texttt{4353c725f7e55f9c}.  It passes nonzero coverage, monotone-target,
+selection-manifest, and source-hash checks and is the only recurrence artifact
+allowed for confirmatory A3 training.  Threshold sensitivity and alternative
+selectors remain training experiments because their effect must be assessed
+through newly trained policies.
+\exptodo{T4}{Report mining-threshold sensitivity and alternative-selector
+comparisons from newly trained, protocol-matched policies.}
+
+\subsection{LaWAM mechanism probe}
+All diagnostic variants inherit \texttt{lawam\_pretrain}, which contains future
+prediction and distillation, and retain current DINO conditioning.  The former
+``no-WM'' row is therefore \emph{LaWAM-init/Future-off}, not a clean VLA
+baseline.  In the six-task matrix, Future-off, Local future, Dual absolute,
+Dual residual, Absolute+stop-grad, and Residual+stop-grad obtain 91.1, 86.6,
+89.2, 87.9, 89.4, and 89.2\%, respectively.
+
+At fixed checkpoints, paired three-task interventions produce the following
+deltas relative to correct content:
+\begin{center}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Checkpoint & Correct & Zero $\Delta$ & Shuffle $\Delta$ & Cross-task $\Delta$ \\
+\midrule
+Absolute & 96.47 & -0.93 & +0.93 & +0.19 \\
+Residual & 91.64 & +1.27 & +2.00 & +2.18 \\
+Residual + stop-grad & 98.33 & -1.49 & -0.93 & -1.12 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The previously reported exact tests are unadjusted; multiplicity-aware results
+must replace them before submission.  These data motivate $\pi_{0.5}$ content
+controls but do not answer Q2 for MINT-VLA.
+
+\subsection{Exploratory task groups and LIBERO boundary}
+In the legacy Stack-2/3 subset, A0, A2-Abs, A2-Res, and A3 average 29.75, 49.75,
+40.75, and 54.75\%.  The public no-hint checkpoint reaches 81.75\%.  This
+post-hoc two-task pattern is not a validated applicability law.  The
+predeclared extension covers block and bowl stacking and includes reactive and
+geometric controls.
+
+The auxiliary $\pi_{0.5}$ LIBERO diagnostic uses checkpoint step 29,999,
+OSMesa rendering, three rollout seeds, and the same one-prefix-token interface:
+\begin{center}\small
+\begin{tabular}{lrrr}
+\toprule
+Suite & A0 & A1 DINO & A2 So400m \\
+\midrule
+LIBERO-10 & 94.7 & 94.3 & 92.7 \\
+Goal & 96.7 & 97.3 & 97.3 \\
+Object & 98.7 & 100.0 & 100.0 \\
+Spatial & 99.7 & 99.3 & 98.7 \\
+\midrule
+Four-suite macro & 97.42 & 97.75 & 97.18 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The aggregate deltas are +0.33 and -0.24 points.  Thirty of forty A0 tasks
+already exceed 97\%, so this table is a saturation/boundary diagnostic rather
+than primary support for MINT-VLA.  The task-type split observed inside LIBERO-10
+(ordered closures positive, unordered collection negative) is exploratory and
+is tested prospectively in Q4 rather than promoted from these small cells.
+
+\subsection{Efficiency and reproducibility}
+Parameter trees constructed from the resolved Flax NNX models give the exact
+counts below.  A3's two $2048\!\times\!2048$ linear layers add 8.39M MACs
+(approximately 16.78 MFLOPs under the two-FLOP convention) per predictor call,
+excluding the small attention cost of one additional prefix token.
+\begin{center}\small
+\begin{tabular}{lrrr}
+\toprule
+Arm & Parameters & Added vs. A0 & Relative \\
+\midrule
+A0 & 3,353,433,872 & -- & -- \\
+A1 & 3,355,008,784 & 1,574,912 & 0.047\% \\
+A2 & 3,355,795,216 & 2,361,344 & 0.070\% \\
+A3 & 3,361,826,576 & 8,392,704 & 0.250\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+Production legacy A0, A1, and A3 runs each stabilized near 2.6 seconds per
+optimizer step with eight data workers; this coarse observation does not
+identify a model-specific throughput difference.  A controlled one-GPU data
+path check measured 2.279 s/update for batch 16 with two accumulation steps and
+2.142 s/update for batch 32 without accumulation.  Peak memory and end-to-end
+action-server latency have not yet been measured under a paired protocol and
+are therefore not reported as advantages.
+\exptodo{E2}{Measure A0/A2/A3 peak train and inference memory, model latency,
+and end-to-end action-server throughput under one paired hardware protocol.}
+
+The implementation environment pins Python 3.11, JAX 0.5.3 with CUDA 12,
+Flax 0.10.2, and PyTorch 2.7.1.  The audited workspace revision is
+\texttt{8d28087d2f69d063...2d01270e}; because the experiment tree contains
+uncommitted research changes, file hashes above are the authoritative
+identifiers.  Pilot rollout seed groups start at 100k, 200k, 300k, and 400k;
+independent training seeds and paired scene manifests will be attached to the
+confirmatory checkpoints.  The AI-use disclosure appears in the main paper.
+\exptodo{T0--T6,E1}{Replace provisional identifiers with released checkpoint,
+scene-manifest, and per-episode artifact hashes.}

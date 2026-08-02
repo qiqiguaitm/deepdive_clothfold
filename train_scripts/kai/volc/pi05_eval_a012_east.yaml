@@ -1,0 +1,100 @@
+# pi05 × LMWM A0/A1/A2 重评(在线 hint + gripper inv_pm1 修法)— 上海 East-H20 8 GPU 单 job 内并行 6 路
+#   A0 基线(无hint) / A1 DINOv3 hint / A2 so400m hint, 各 2 seed = 6 路(GPU 0-5)。libero_10。
+#   cnsh 镜像 + /vePFS 挂载(=gf0 文件系统)→ ckpt/hint/venv/LIBERO 全原生, 零同步。
+#   之前 eval 全 0% = gripper 约定反 bug(local_eval_hint.py 内置 inv_pm1 修法)。
+# Submit: kai0/.venv/bin/python train_scripts/kai/volc/submit_yaml.py train_scripts/kai/volc/pi05_eval_a012_east.yaml
+TaskName: "pi05-eval-a012-east"
+Description: "pi05 A0/A1/A2 重评(在线hint+gripper修法), 上海East-H20 8GPU 6路, libero_10"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR=$REPO/lmvla/lmwm/logs; mkdir -p "$LOG_DIR"
+  MAIN="$LOG_DIR/pi05_eval_a012_${STAMP}.log"
+  exec >> "$MAIN" 2>&1
+  set -x
+  echo "=== pi05 A0/A1/A2 重评 start $(date -u) (East-H20 8GPU) ==="
+  nvidia-smi -L | head
+  cd "$REPO/kai0"; source .venv/bin/activate
+  export LIBERO_HOME=$REPO/lmvla/LIBERO
+  export LIBERO_CONFIG_PATH=$LIBERO_HOME/libero
+  export PYTHONPATH="$REPO/kai0/src:$REPO/lmvla/lawam:$LIBERO_HOME"
+  export MUJOCO_GL=egl PYOPENGL_PLATFORM=egl PYTHONUNBUFFERED=1
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.42 XLA_PYTHON_CLIENT_PREALLOCATE=false
+  TRIALS=10
+  HINT_PY=$REPO/lmvla/lawam/examples/LIBERO/eval_files/local_eval_hint.py
+  run(){ # arm cfg enc ckpt seed gpu
+    local arm=$1 cfg=$2 enc=$3 ckpt=$4 seed=$5 gpu=$6
+    local out=$REPO/lmvla/lmwm/data/pi05_libero_eval/reeval_${arm}_s${seed}_${STAMP}
+    CUDA_VISIBLE_DEVICES=$gpu MUJOCO_EGL_DEVICE_ID=$gpu python "$HINT_PY" \
+      --config "$cfg" --ckpt "$ckpt" --encoder "$enc" --tasks -1 --trials $TRIALS \
+      --seed $seed --replan 5 --gpu $gpu --out "$out" > "$LOG_DIR/reeval_${arm}_s${seed}_${STAMP}.log" 2>&1
+    echo "[$arm s$seed] rc=$?"
+  }
+  A0=$REPO/kai0/checkpoints/pi05_libero_a0_bj/pi05_libero_a0/29999
+  A1=$REPO/kai0/checkpoints/pi05_libero_a1_prefix_bj/pi05_libero_a1_prefix/29999
+  A2=$REPO/kai0/checkpoints/pi05_libero_a2_prefix_bj/pi05_libero_a2_prefix/29999
+  pids=""
+  run A0 pi05_libero_a0                none        "$A0" 0 0 & pids="$pids $!"
+  run A0 pi05_libero_a0                none        "$A0" 1 1 & pids="$pids $!"
+  run A1 pi05_libero_a1_prefix_eval    dinov3-base "$A1" 0 2 & pids="$pids $!"
+  run A1 pi05_libero_a1_prefix_eval    dinov3-base "$A1" 1 3 & pids="$pids $!"
+  run A2 pi05_libero_a2_prefix_eval    so400m      "$A2" 0 4 & pids="$pids $!"
+  run A2 pi05_libero_a2_prefix_eval    so400m      "$A2" 1 5 & pids="$pids $!"
+  for p in $pids; do wait $p; done
+  echo "=== 6 路完成, 聚合 $(date -u) ==="
+  python - "$STAMP" <<'PYEOF'
+  import sys,glob,json,statistics as st
+  stamp=sys.argv[1]; base="/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_libero_eval"
+  print("=== pi05 重评 libero_10 (在线hint+gripper修法) ===")
+  for arm in ["A0","A1","A2"]:
+      sr=[]
+      for f in glob.glob(f"{base}/reeval_{arm}_s*_{stamp}/**/summary.json",recursive=True):
+          try:
+              d=json.load(open(f)); x=d.get("aggregate_SR") or d.get("total_success_rate")
+              if x is not None: sr.append(100*float(x) if x<=1 else float(x))
+          except: pass
+      print(f"  {arm}: {[round(x,1) for x in sr]} n={len(sr)} 均值={st.mean(sr):.2f}" if sr else f"  {arm}: 无结果")
+  print("A0=基线 A1=DINOv3hint A2=so400mhint; 判读: A1/A2 > A0 = hint 帮 pi05")
+  print("PI05_REEVAL_DONE")
+  PYEOF
+  echo "=== DONE $(date -u) STAMP=$STAMP ==="
+
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+
+AccessType: "Public"

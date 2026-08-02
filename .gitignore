@@ -16,6 +16,7 @@ MANIFEST
 .venv_*/
 venv/
 env/
+kai0/.venv_py311_bak
 
 # ===== Project-specific large files =====
 # Model checkpoints (22GB+)
@@ -27,6 +28,7 @@ openpi_cache/
 kai0/cache
 *.tsbuildinfo
 .cache/
+.runtime/
 
 # ===== Training artifacts =====
 logs/
@@ -38,6 +40,18 @@ kai0/wandb/
 kai0/dagger_stage_viz
 kai0/label_sanity_viz
 validation_data/
+test-results/
+web/showcase/test-results/
+tmp/
+
+# Local datasets / generated metadata indexes
+datasets/
+
+# Local pip invocation artifact accidentally created by shell copy/paste
+/--extra-index-url
+
+# Scheduler runtime queue/state; scheduler source stays tracked.
+train_scripts/kai/volc/resource_scheduler_queue.json
 
 # ===== Raw data (calibration / sensor capture) =====
 calib/data/
@@ -81,6 +95,7 @@ xvla/X-VLA-env/
 xvla/xvla_ckpts/
 xvla/ckpts/
 xvla/ckpts_official/
+xvla/official_folding_ckpt/
 
 # WAM training outputs (large checkpoints)
 giga_world_policy/runs/
@@ -156,3 +171,13 @@ lmwm/outputs/
 #   submodule 树内只留软链 → 这样 submodule 内的 git clean -fdx 只删软链, 不伤真数据(见 ENV_SELECTION_RULES §4.5)。
 #   软链由 lmvla/lmwam/env/heal_lawam_symlinks.sh 幂等重建。
 lmvla/lawam_local/
+
+# ===== LMVLA / pi0.5 local experiment assets =====
+# Keep tracked lightweight kai0/assets configs; ignore newly generated policy assets/checkpoints.
+kai0/assets/pi05_*/
+kai0/eval_*/
+
+# Downloaded source archives and local bundles
+*.zip
+*.tar.gz
+*.tgz

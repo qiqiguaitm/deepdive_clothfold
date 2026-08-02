@@ -1,0 +1,25 @@
+World-model-augmented robot policies condition action generation on predicted
+future observations or latent visual states.  Pixel prediction is costly and
+includes control-irrelevant details, whereas precomputed targets can become
+inconsistent with a VLA encoder during fine-tuning.
+We introduce \textbf{MINT-VLA} (\textbf{M}ilestone \textbf{I}ntegration with
+\textbf{N}ative-Space \textbf{T}argets for
+\textbf{V}ision--\textbf{L}anguage--\textbf{A}ction models), a conditioning
+adapter that predicts a future task-stage representation in a VLA's current
+visual feature space.  MINT-VLA identifies recurring task stages in successful
+demonstrations.  During training, the policy encoder jointly encodes the
+observation and a future milestone image, and a compact predictor
+supplies the estimated milestone through the VLA's native conditioning input.
+We instantiate this design as one prefix token in $\pi_{0.5}$.  At inference,
+it adds 0.25\% parameters without retrieval, a second visual encoder, or an
+image decoder.  In a RoboTwin pilot, MINT-VLA improved a weak no-hint policy by
+14.08 percentage points, but exceeded offline latent conditioning by only 0.83
+points.  At a fixed offline-conditioning checkpoint, removing the token reduced
+success from 70.67\% to 67.17\%, whereas current-state, feature-permuted, and
+cross-task replacements reached 71.00\%, 71.50\%, and 71.67\%.  Thus the visual
+token affects control, but current evidence does not show that predicted future
+content causes the improvement.  MINT-VLA separates future-state prediction
+from architecture-specific policy conditioning.
+\exptodo{T0--T2,T6,E1}{Replace pilot evidence with the corrected multi-seed
+matrix, second-VLA evaluation, and completed matched-scene content
+interventions.}

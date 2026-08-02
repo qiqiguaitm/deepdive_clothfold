@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MINT-VLA 项目决策汇报：为什么值得做、如何验证、当前证据与阶段门控。">
+  <title>MINT-VLA 项目决策汇报</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#decision">
+        <strong>MINT-VLA</strong>
+        <span>项目决策汇报 · 2026-08-02</span>
+      </a>
+      <div class="top-actions">
+        <a class="action-link secondary" href="/">项目首页</a>
+        <a class="action-link primary" href="assets/mint_vla_paper.pdf" target="_blank" rel="noopener">论文 PDF</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero" id="decision">
+    <div class="hero-inner">
+      <div>
+        <p class="eyebrow">Research investment brief</p>
+        <h1>MINT-VLA</h1>
+        <p class="full-name">让 VLA 以可验证的方式使用未来状态信息</p>
+        <p class="hero-summary">
+          最新结果证明预测器学到了非平凡未来表征，但正确内容、增强检索和 privileged 4×4 空间目标均未转化为控制收益。
+          项目现阶段不再扩大 predictor，而是以 corrected π0.5 三种子矩阵判断现有集成是否产生稳定策略收益，并将失败接口作为可复现的诊断边界。
+        </p>
+      </div>
+      <aside class="hero-status" aria-label="项目状态">
+        <h2>当前决策状态</h2>
+        <div class="status-list">
+          <div class="status-row"><span>主实验载体</span><strong>π0.5 · RoboTwin 2.0</strong></div>
+          <div class="status-row"><span>当前阶段</span><strong>预测成立，两类控制接口未通过</strong></div>
+          <div class="status-row"><span>关键门槛</span><strong>Corrected A0 macro ≥ 70%</strong></div>
+          <div class="status-row"><span>下一决策点</span><strong>Exact A0 + matched A2/A3</strong></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <div class="shell">
+    <nav class="toc" aria-label="页面目录">
+      <p class="toc-label">决策目录</p>
+      <a href="#summary">01 · 项目摘要</a>
+      <a href="#why">02 · 为什么值得做</a>
+      <a href="#solution">03 · MINT-VLA 方案</a>
+      <a href="#value">04 · 方案价值</a>
+      <a href="#evidence">05 · 已有结果</a>
+      <a href="#unknowns">06 · 剩余不确定性</a>
+      <a href="#gates">07 · 阶段门控</a>
+      <a href="#outcomes">08 · 预期成果</a>
+      <a href="#risks">09 · 风险控制</a>
+      <a href="#recommendation">10 · 决策建议</a>
+      <a href="#appendix">技术附件</a>
+    </nav>
+
+    <main>
+      <section class="report-section" id="summary">
+        <p class="section-kicker">01 · Executive summary</p>
+        <h2 class="section-title">项目摘要</h2>
+        <p class="section-lead">
+          项目已证明预测器能从当前观测中恢复非平凡的未来表征，但现有单-token 接口和 4×4 privileged 空间接口均未把未来表示转化为动作收益。当前主问题已经收敛为：在有效的 π0.5 基线上，现有集成是否仍能产生可复现的策略收益；如果能够，该收益来自表征塑形还是未来内容。
+        </p>
+        <div class="metric-grid">
+          <article class="metric">
+            <div class="metric-value">+0.0655</div>
+            <div class="metric-label">Held-out predictor 相对 persistence 的 latent cosine 提升，证明 future signal 非空。</div>
+          </article>
+          <article class="metric">
+            <div class="metric-value">46.9 / 80.8%</div>
+            <div class="metric-label">Held-out milestone retrieval Top-1 / Top-5，表明预测具有阶段辨识能力。</div>
+          </article>
+          <article class="metric">
+            <div class="metric-value">0 / 9</div>
+            <div class="metric-label">正确 hint 在九组严格 pooled 比较中显著胜过控制条件的次数；每组 n=1,200。</div>
+          </article>
+          <article class="metric">
+            <div class="metric-value">-2.06 pp</div>
+            <div class="metric-label">Combo 三训练种子均值相对 Future-off；总体负差已不是单种子波动。</div>
+          </article>
+        </div>
+        <div class="callout warning">
+          <strong>建议：</strong>完成已经运行的 exact π0.5 A0/A2/A3 三种子矩阵。空间 predictor 扩展已经因 privileged gate 失败而停止；在 matched utility 形成正向证据前，不启动任务扩展、第二 VLA 或更多接口变体。
+        </div>
+      </section>
+
+      <section class="report-section" id="why">
+        <p class="section-kicker">02 · Opportunity</p>
+        <h2 class="section-title">真正需要解决什么问题</h2>
+        <p class="section-lead">
+          低成本本身不构成研究价值，前提是未来信息能降低动作不确定性。当前证据把问题收敛为三个可验证缺口，而不是继续假设“预测越准，控制自然越好”。
+        </p>
+        <div class="gap-grid">
+          <article class="gap-item">
+            <h3>未来表征是否包含新信息</h3>
+            <p>两折 held-out 结果中，预测 cosine 为 0.8134，persistence 为 0.7479；stacking 的 lift 最高，hammer 最低。</p>
+            <div class="verdict">当前结论：future signal 已成立，不能再用“predictor 没学到”解释总体负结果。</div>
+          </article>
+          <article class="gap-item">
+            <h3>策略是否能够读取这些信息</h3>
+            <p>正确 hint、内容替换和 demo-retrieval 均未产生显著控制优势；4×4 privileged patch 也未超过 no-goal，并在 Hammer 上显著增加动作端点误差。</p>
+            <div class="verdict">当前结论：问题不只是预测质量或单-token 空间压缩，milestone 还缺少动作充分性。</div>
+          </article>
+          <article class="gap-item">
+            <h3>LM 是否真正改善 VLA</h3>
+            <p>Future-off 继承 LaWAM 预训练，不能当作纯 VLA；同时所有 active downstream WM arms 都低于它。</p>
+            <div class="verdict">仍需 clean-VLA 对照，分别识别预训练收益与推理期 future-condition 收益。</div>
+          </article>
+        </div>
+        <div class="callout">
+          <strong>经证据校准后的项目判断：</strong>未来表征可以学到，但“可预测”不等于“对当前动作充分”。LaWAM、π0.7 与 AHEAD 的正结果涉及不同的数据、目标语义和动作耦合，不能替代本项目内部 matched evidence；它们现在主要用于界定下一代接口需要包含路径、接触、时序或子任务信息的假设。
+        </div>
+        <div class="metric-grid">
+          <article class="metric">
+            <div class="metric-value">r = 0.360</div>
+            <div class="metric-label">WorldArena 中感知综合质量与 action-planning performance 的相关性。</div>
+          </article>
+          <article class="metric">
+            <div class="metric-value">14 models</div>
+            <div class="metric-label">WorldArena 用于揭示 perception–functionality gap 的代表性模型数量。</div>
+          </article>
+          <article class="metric">
+            <div class="metric-value">187 ms</div>
+            <div class="metric-label">LaWAM 报告的 action-chunk prediction 延迟，说明 latent 路线的效率机会。</div>
+          </article>
+          <article class="metric">
+            <div class="metric-value">3.7–10.1×</div>
+            <div class="metric-label">Enfold 相对 Fast-WAM 的 action latency 降幅范围。</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="report-section" id="solution">
+        <p class="section-kicker">03 · Proposed system</p>
+        <h2 class="section-title">MINT-VLA 怎么做</h2>
+        <p class="section-lead">
+          方法将“未来监督是否可预测”“策略是否使用正确内容”和“集成本身是否改变策略”分开检验。单-token 与 privileged spatial prototype 现均作为诊断接口保留；在 corrected matched utility 产生正结果前，不再扩展 predictor。
+        </p>
+        <div class="method-board" aria-label="MINT-VLA 方法流程">
+          <div class="method-row">
+            <article class="method-node">
+              <div class="method-index">01</div>
+              <h3>Milestone discovery</h3>
+              <p>从成功轨迹中寻找跨 episode 重复出现的阶段状态，不需要人工阶段边界。</p>
+            </article>
+            <article class="method-node">
+              <div class="method-index">02</div>
+              <h3>Matched latent target</h3>
+              <p>当前帧与 milestone image 由同一 VLA 编码器映射，区分编码空间一致性与内容效用。</p>
+            </article>
+            <article class="method-node">
+              <div class="method-index">03</div>
+              <h3>Causal content controls</h3>
+              <p>用 correct、zero、cross-task 和 within-task 条件检验策略是否真正依赖未来内容。</p>
+            </article>
+            <article class="method-node">
+              <div class="method-index">04</div>
+              <h3>Matched policy comparison</h3>
+              <p>在相同初始化、数据、场景和评测器下比较 A0、A2-Abs 与 A3，并报告跨训练种子不确定性。</p>
+            </article>
+          </div>
+          <div class="deploy-row">
+            <strong>Deployment</strong>
+            <span>当前观测 → latent milestone predictor → policy condition → action expert；部署时不访问 demonstration 或真实 future image。</span>
+          </div>
+        </div>
+        <figure class="figure-frame">
+          <img src="assets/mint_pipeline.png" alt="π0.5 上的 MINT-VLA 训练和部署流程">
+          <figcaption>当前 π0.5 实例及其因果控制路径。正确内容未优于替换条件，4×4 privileged patch probe 也未通过动作效用门控，因此该图描述被评估的接口，而非已证实有效的部署方案。</figcaption>
+        </figure>
+      </section>
+
+      <section class="report-section" id="value">
+        <p class="section-kicker">04 · Differentiation</p>
+        <h2 class="section-title">方案价值在哪里</h2>
+        <div class="paper-map">
+          <div class="paper-row">
+            <div class="paper-num">01</div>
+            <div class="paper-name">先验证效用，再扩预测器</div>
+            <div class="paper-job">Privileged spatial target 未改善动作端点；依据预注册门槛停止新增 predictor capacity。</div>
+            <div class="paper-output">门槛已执行</div>
+          </div>
+          <div class="paper-row">
+            <div class="paper-num">02</div>
+            <div class="paper-name">空间与编码器一致</div>
+            <div class="paper-job">同编码器 target 排除外部 latent mismatch；4×4 probe 进一步检验并否定“仅由单-token 压缩导致”的解释。</div>
+            <div class="paper-output">边界证据</div>
+          </div>
+          <div class="paper-row">
+            <div class="paper-num">03</div>
+            <div class="paper-name">优化路径可隔离</div>
+            <div class="paper-job">WM loss 保护策略 encoder；action loss 仍训练 adapter、gate 与 action expert，避免“全 detach 后无人学习使用”。</div>
+            <div class="paper-output">接口核心</div>
+          </div>
+          <div class="paper-row">
+            <div class="paper-num">04</div>
+            <div class="paper-name">收益可以因果拆解</div>
+            <div class="paper-job">按 privileged、predicted、retrieved、current、zero 和 shuffled 顺序区分接口容量、预测误差与内容效用。</div>
+            <div class="paper-output">旧接口内容零结果</div>
+          </div>
+        </div>
+        <div class="callout success">
+          <strong>低成本证据已闭合：</strong>A3 相对 A0 的模型延迟为 +0.80 ms，WebSocket 往返为 -0.18 ms，训练峰值显存仅 +18 MiB；A2 训练峰值显存与 A0 完全相同。这些结果支持“无实质部署开销”，不构成相对其他 WAM 的速度排名。
+        </div>
+      </section>
+
+      <section class="report-section" id="evidence">
+        <p class="section-kicker">05 · Current evidence</p>
+        <h2 class="section-title">已有结果说明什么</h2>
+        <p class="section-lead">证据按强度分成 evaluator calibration、legacy pilot、fixed-checkpoint intervention、配对效率和 LaWAM 多训练种子诊断，避免将探索性增益包装成最终结果。</p>
+
+        <h3 class="subhead">工程与数据基础</h3>
+        <div class="metric-grid">
+          <article class="metric"><div class="metric-value">1,200</div><div class="metric-label">Confirmatory milestone artifact 覆盖的成功 episodes。</div></article>
+          <article class="metric"><div class="metric-value">6 / 6</div><div class="metric-label">RoboTwin 任务均具有非零 pair coverage。</div></article>
+          <article class="metric"><div class="metric-value">78.42%</div><div class="metric-label">公开 π0.5 在相同 evaluator bridge 上的校准结果。</div></article>
+          <article class="metric"><div class="metric-value">READY</div><div class="metric-label">数据选择、未来时序、源文件与 artifact hash 审计通过。</div></article>
+        </div>
+        <div class="callout warning">
+          <strong>Baseline 协议修正：</strong>首个 nominally corrected A0 因 episode 内切换语言 prompt 而失效。Exact recipe 已达到 48.4k/50k；20k 非门控 smoke 在 Hammer 达到 32/40、Stack-3 为 4/40，说明学习曲线上升但多阶段任务尚未成熟。只有最终 50k 的 frozen 24-cell 结果和 provenance 审计可以接纳 A2/A3 对比。
+        </div>
+
+        <h3 class="subhead">Legacy matched pilot</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>方法</th><th>Hammer</th><th>Rank RGB</th><th>Rank size</th><th>Handover</th><th>Stack-3</th><th>Stack-2</th><th>Macro</th></tr></thead>
+            <tbody>
+              <tr><td>A0 · no hint</td><td>70.0</td><td>50.5</td><td>24.0</td><td>9.0</td><td>17.5</td><td>42.0</td><td class="number">35.50</td></tr>
+              <tr><td>A2 · offline absolute</td><td>78.0</td><td>65.0</td><td>30.5</td><td>19.5</td><td>30.5</td><td>69.0</td><td class="number">48.75</td></tr>
+              <tr><td>MINT-VLA · current encoder</td><td>66.0</td><td>70.5</td><td>25.5</td><td>26.0</td><td>35.5</td><td>74.0</td><td class="number">49.58</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <figure class="figure-frame">
+          <img src="assets/pilot_task_effects.png" alt="MINT-VLA pilot 相对 A0 的任务级成功率变化">
+          <figcaption>Pilot 的收益在任务间重新分配：ranking-RGB、handover 和 stacking 为正，hammer 与 ranking-size 相对 A2-Abs 回退。</figcaption>
+        </figure>
+        <div class="callout warning">
+          <strong>Pilot 的正确用途：</strong>证明方案值得进入确认性实验，并选择 A0 / A2-Abs / MINT-VLA 三个主臂。它不能证明最终净增益，因为 A0 配方偏弱且每个方法只有一个训练 seed。
+        </div>
+
+        <h3 class="subhead">Fixed-checkpoint 内容替换 · 最终 518-scene intersection</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>架构</th><th>Correct</th><th>Current</th><th>Zero</th><th>Feature-permuted</th><th>Cross-task</th><th>Instance-shuffle</th></tr></thead>
+            <tbody>
+              <tr><td>A2</td><td class="number">70.46</td><td>70.27</td><td>66.80</td><td>72.20</td><td>71.04</td><td>69.88</td></tr>
+              <tr><td>A3 · MINT-VLA</td><td class="number">71.24</td><td>72.97</td><td>72.97</td><td>72.97</td><td>72.20</td><td>74.13</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout critical">
+          <strong>已闭合的科学边界：</strong>两个单-token 架构中 correct future 均未显著优于任何关键替换条件，所有 pooled Holm-adjusted p=1。该结果关闭的是现有接口的 content claim，不是所有空间化 future-condition 接口的可能性。
+        </div>
+
+        <h3 class="subhead">新机制证据 · 预测质量与控制效用分离</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>诊断</th><th>规模</th><th>主要结果</th><th>能够排除什么</th></tr></thead>
+            <tbody>
+              <tr><td>Held-out predictor</td><td>2 folds · 480 episodes</td><td>cosine 0.8134 vs persistence 0.7479；lift +0.0655</td><td>排除“predictor 没学到 future signal”</td></tr>
+              <tr><td>Milestone retrieval</td><td>Top-1 / Top-5</td><td>46.9% / 80.8%；stacking lift 最高</td><td>证明表征包含阶段辨识信息</td></tr>
+              <tr><td>State-dependent demo retrieval</td><td>1,161 paired episodes</td><td>89.58% vs 89.23%；+0.34 pp，p=0.738</td><td>更强内容仍不能修复当前控制接口</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <strong>机制判断：</strong>系统内部已经出现明确的 model-quality / control-utility gap。Hammer 的 predictor lift 只有 +0.0167，说明短程任务信息增量有限；Stack-2/3 分别为 +0.0974/+0.0916，但 Stack-2 已接近性能上限。Handover 预测质量较好却控制不稳，进一步指向接口与策略利用问题。
+        </div>
+
+        <h3 class="subhead">严格内容与空间接口门控</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>实验</th><th>设计与样本量</th><th>主要效果</th><th>证据边界</th></tr></thead>
+            <tbody>
+              <tr><td>六任务 hint diagnosis</td><td>3 方法 × 3 控制；每组 1,200 paired episodes</td><td>Correct pooled 胜出 0/9；全部 Holm-adjusted p=1</td><td>否定当前单-token future-content utility</td></tr>
+              <tr><td>Handover adverse case</td><td>Combo correct vs same-task foreign instance；n=200</td><td>72.5% vs 82.5%；−10.0 pp，Holm p=0.0337</td><td>正确内容在一个任务中产生可测负作用</td></tr>
+              <tr><td>Privileged spatial probe</td><td>1,000 updates；2 tasks；40 held-out episodes/task</td><td>Hammer endpoint L2 +0.0725 vs no-goal，95% CI [+0.0391,+0.1110]</td><td>离线动作误差，越低越好；不是闭环成功率</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout critical">
+          <strong>新排除项：</strong>空间 probe 保留 4×4 patch topology 后仍未通过门控，因此失败不能只归因于单-token 压缩。当前 milestone 更可能缺少路径、接触、机械臂分工或执行时序等动作充分信息。
+        </div>
+
+        <h3 class="subhead">外部可行性证据 · 什么样的接口能够有效</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>方法</th><th>Future 接口</th><th>正向证据</th><th>对本项目的启示</th></tr></thead>
+            <tbody>
+              <tr><td>LaWAM</td><td>DINO spatial future map + Alternate-DiT</td><td>RoboTwin clean/random 92.64/89.80；相对论文 π0.5 为 +9.90/+13.04 pp</td><td>动作导向 latent、空间 patch 与深层 action conditioning 共同重要；跨架构比较不能单独归因于 WM</td></tr>
+              <tr><td>π0.7</td><td>生成 subgoal image 作为原生视觉 prompt</td><td>复杂指代、反数据偏置和部分长程任务明显提升；简单任务可持平或回退</td><td>训练时混合生成目标、保留视觉结构、按 subtask 在线刷新</td></tr>
+              <tr><td>AHEAD</td><td>预测 future patches 替换 frozen VLA patches</td><td>动态拦截场景 79–97%，最强基线 31–58%</td><td>未来信息在存在真实时延缺口的任务上最具动作判别力</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="subhead">配对效率测量</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>指标</th><th>A0</th><th>A2</th><th>A3 · MINT-VLA</th><th>A3 相对 A0</th></tr></thead>
+            <tbody>
+              <tr><td>Core model mean</td><td>57.19 ms</td><td>58.35 ms</td><td>57.99 ms</td><td>+0.80 ms</td></tr>
+              <tr><td>WebSocket round-trip</td><td>107.20 ms</td><td>108.91 ms</td><td>107.01 ms</td><td>-0.18 ms</td></tr>
+              <tr><td>Action-server throughput</td><td>9.33 req/s</td><td>9.18 req/s</td><td>9.34 req/s</td><td>+0.17%</td></tr>
+              <tr><td>Training peak memory</td><td>67,247 MiB</td><td>67,247 MiB</td><td>67,265 MiB</td><td>+18 MiB</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="subhead">LaWAM 支持性诊断 · 最新多训练种子</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>配置</th><th>训练种子</th><th>Macro 均值</th><th>相对 local-WM</th><th>相对 Future-off</th></tr></thead>
+            <tbody>
+              <tr><td>LaWAM-init / Future-off</td><td>3</td><td class="number">90.83</td><td>+4.17 pp</td><td>--</td></tr>
+              <tr><td>Absolute milestone</td><td>2</td><td class="number">89.21</td><td>+2.54 pp</td><td class="negative">-1.63 pp</td></tr>
+              <tr><td>Residual + isolation</td><td>3</td><td class="number">88.78</td><td>+2.11 pp</td><td class="negative">-2.06 pp</td></tr>
+              <tr><td>Residual milestone</td><td>2</td><td class="number">87.50</td><td>+0.83 pp</td><td class="negative">-3.33 pp</td></tr>
+              <tr><td>Local-WM</td><td>2</td><td class="number">86.67</td><td>--</td><td class="negative">-4.17 pp</td></tr>
+              <tr><td>Gradient isolation</td><td>2</td><td class="number">89.04</td><td>+2.37 pp</td><td class="negative">-1.79 pp</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warning">
+          <strong>解释边界：</strong>Combo 第三种子为 88.25%，三种子均值降至 88.78%；Absolute 两种子为 89.17% / 89.25%，Isolation 为 89.42% / 88.67%，Future-off 三种子为 91.08% / 90.92% / 90.50%。所有 supporting arms 均低于 Future-off；该矩阵不能替代纯 VLA 对照。
+        </div>
+      </section>
+
+      <section class="report-section" id="unknowns">
+        <p class="section-kicker">06 · Remaining uncertainty</p>
+        <h2 class="section-title">为什么现在仍值得继续</h2>
+        <p class="section-lead">项目已经排除若干基础风险，剩余问题可以通过有限、预先定义的实验得到答案。</p>
+        <div class="claim-grid">
+          <article class="claim-column allowed">
+            <h3>已经排除</h3>
+            <ul>
+              <li>Evaluator bridge 整体损坏：公开 π0.5 达到 78.42%。</li>
+              <li>六任务 milestone 数据不完整：confirmatory_v1 已通过审计。</li>
+              <li>大型 VLA 无法接入：π0.5 训练和推理路径已运行。</li>
+              <li>推理成本不可接受：A3 延迟、吞吐和 A0/A3 训练显存均无实质惩罚。</li>
+              <li>正确未来内容是当前收益来源：十个关键对比均未检出该因果关系。</li>
+              <li>单-token 空间压缩是唯一瓶颈：4×4 privileged patch probe 同样未通过。</li>
+              <li>Active future objective 普遍提高策略：所有 replicated arm 均低于 Future-off 90.83%。</li>
+              <li>低成功率任务自然更受益：六任务 headroom 与净收益没有显著正相关。</li>
+            </ul>
+          </article>
+          <article class="claim-column blocked-claim">
+            <h3>仍需回答</h3>
+            <ul>
+              <li>Corrected baseline 下是否存在稳定净增益。</li>
+              <li>LaWAM 预训练相对 clean VLA 是否存在净收益。</li>
+              <li>若 matched A3 有收益，该收益是否仅来自训练期表征塑形。</li>
+              <li>Milestone 需要增加哪些路径、接触、时序或子任务变量才具备动作充分性。</li>
+              <li>同一方法能否在第二种 VLA 上复现。</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="report-section" id="gates">
+        <p class="section-kicker">07 · Gated execution</p>
+        <h2 class="section-title">阶段门控与停止条件</h2>
+        <p class="section-lead">每一阶段都要求上一阶段给出正向或可解释结果，避免在核心假设失败后继续扩大算力投入。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>阶段</th><th>核心问题</th><th>通过条件</th><th>未通过时</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Gate 0</strong></td><td>Baseline 是否有效</td><td>Corrected A0 macro ≥70%，provenance 审计通过</td><td><span class="tag running">Running</span></td></tr>
+              <tr><td><strong>Gate 1</strong></td><td>MINT-VLA 是否提高控制成功率</td><td>Matched A0 / A2 / MINT 跨训练 seed 正向</td><td><span class="tag running">Training · acceptance waits G0</span></td></tr>
+              <tr><td><strong>Gate 2A</strong></td><td>单-token future 内容是否被使用</td><td>Correct 优于关键内容替换条件</td><td><span class="tag invalid">Closed · null</span></td></tr>
+              <tr><td><strong>Gate 2B</strong></td><td>空间 future condition 是否可用</td><td>Privileged spatial tokens 优于 no-goal/current-goal</td><td><span class="tag invalid">Closed · adverse</span></td></tr>
+              <tr><td><strong>Gate 3</strong></td><td>预测接口与任务范围是否可复现</td><td>Predicted condition 保留 oracle 收益，并在预注册任务组复现</td><td><span class="tag blocked">Stopped by G2B</span></td></tr>
+              <tr><td><strong>Gate 4</strong></td><td>是否适用于第二种 VLA</td><td>第二 VLA 内部 matched baseline 对比为正</td><td><span class="tag planned">Planned</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="subhead">论文主线执行队列</h3>
+        <p class="section-lead">仅展示尚未完成且可能改变论文结论的任务。已完成证据已迁移到技术附件；LaWAM 支持性作业的瞬时状态由 scheduler snapshot 维护。</p>
+        <div class="filters" role="group" aria-label="实验状态筛选">
+          <button class="filter-btn active" type="button" data-filter="all">全部</button>
+          <button class="filter-btn" type="button" data-filter="running">进行中</button>
+          <button class="filter-btn" type="button" data-filter="blocked">等待门槛</button>
+          <button class="filter-btn" type="button" data-filter="planned">后续计划</button>
+        </div>
+        <div class="todo-list">
+          <article class="todo-item" data-status="running">
+            <div class="todo-id">T0</div><div class="todo-state"><span class="tag running">Running</span></div>
+            <div class="todo-main"><strong>Exact A0 seed 1000</strong><span>已达到 48.4k/50k，预计约 0.35 小时完成；最终 checkpoint 同步、provenance 审计和冻结 24-cell 评测均已自动化。</span></div>
+            <div class="todo-gate">达到 macro ≥70% 后接纳 matched 结果</div>
+          </article>
+          <article class="todo-item" data-status="running">
+            <div class="todo-id">T1</div><div class="todo-state"><span class="tag running">Running</span></div>
+            <div class="todo-main"><strong>Matched A2-Abs / MINT seed 1000</strong><span>两臂均在 Robot-East-H20 训练；A3 的 LMWM loss 非零。固定 scene manifest 的评测已排队。</span></div>
+            <div class="todo-gate">结果接纳等待 Gate 0</div>
+          </article>
+          <article class="todo-item" data-status="running">
+            <div class="todo-id">T2</div><div class="todo-state"><span class="tag running">Running</span></div>
+            <div class="todo-main"><strong>Independent training seeds</strong><span>A0/A2/A3 seeds 1001/1002 已全部运行；最终报告六任务 cells、三种子值和 paired hierarchical intervals。</span></div>
+            <div class="todo-gate">报告接纳等待 T0/T1</div>
+          </article>
+          <article class="todo-item" data-status="planned">
+            <div class="todo-id">T4–T5</div><div class="todo-state"><span class="tag planned">Planned</span></div>
+            <div class="todo-main"><strong>Task scope and mature initialization</strong><span>结构化任务面板、selector controls 与成熟初始化迁移。</span></div>
+            <div class="todo-gate">需要稳定主效果</div>
+          </article>
+          <article class="todo-item" data-status="planned">
+            <div class="todo-id">T6</div><div class="todo-state"><span class="tag planned">Planned</span></div>
+            <div class="todo-main"><strong>Second-VLA instantiation</strong><span>复用 milestone 与 native-space protocol，按第二 VLA 调整 feature width 和 adapter。</span></div>
+            <div class="todo-gate">Gate 1 通过后再投入</div>
+          </article>
+          <article class="todo-item" data-status="planned">
+            <div class="todo-id">L1</div><div class="todo-state"><span class="tag planned">Supporting</span></div>
+            <div class="todo-main"><strong>Clean-VLA comparison</strong><span>无 LaWAM 预训练的预算匹配 VLA，对照 LaWAM-init / Future-off。</span></div>
+            <div class="todo-gate">决定能否声称 LM 对 VLA 有益</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="report-section" id="outcomes">
+        <p class="section-kicker">08 · Research return</p>
+        <h2 class="section-title">可以形成哪些成果</h2>
+        <p class="section-lead">单-token 内容路径和 privileged spatial gate 均已关闭，因此“VLA–WM 集成诊断”是当前证据直接支持的出口。只有 corrected A3 在三种子 matched comparison 中稳定超过 A0，论文才增加低成本集成方法主张。</p>
+        <div class="outcomes">
+          <article class="outcome"><h3>低成本接口成果</h3><p>Corrected matched utility 跨训练 seed 成立时，形成成本边界清晰的 VLA 条件接口；不扩张为 future-content claim。</p></article>
+          <article class="outcome"><h3>任务特定方法</h3><p>仅当 corrected task cells 和跨种子区间支持时，才能将收益限定到明确的多阶段任务。</p></article>
+          <article class="outcome"><h3>集成诊断成果</h3><p>未来表征可预测但两类接口均无内容效用，形成 VLA–WM 接入、动作充分性与因果评测研究。</p></article>
+          <article class="outcome"><h3>负结果与平台资产</h3><p>Corrected baseline 消除增益时，保留高质量负结果、评测协议和自动化工具链。</p></article>
+        </div>
+        <h3 class="subhead">可复用工程资产</h3>
+        <div class="paper-map">
+          <div class="paper-row"><div class="paper-num">A</div><div class="paper-name">Milestone mining</div><div class="paper-job">跨 episode recurrence、任务覆盖审计、selection manifest。</div><div class="paper-output">可复用数据管线</div></div>
+          <div class="paper-row"><div class="paper-num">B</div><div class="paper-name">VLA adapter</div><div class="paper-job">Native-space target、predictor protocol 与 policy-specific conditioning。</div><div class="paper-output">模型集成模块</div></div>
+          <div class="paper-row"><div class="paper-num">C</div><div class="paper-name">Causal evaluation</div><div class="paper-job">Token replacement、matched scenes、McNemar 与 Holm correction。</div><div class="paper-output">诊断工具</div></div>
+          <div class="paper-row"><div class="paper-num">D</div><div class="paper-name">RoboTwin bridge</div><div class="paper-job">多 seed、多任务、统一 action/normalization 与 artifact provenance。</div><div class="paper-output">评测基础设施</div></div>
+        </div>
+      </section>
+
+      <section class="report-section" id="risks">
+        <p class="section-kicker">09 · Risk management</p>
+        <h2 class="section-title">风险与控制方式</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>风险</th><th>当前信号</th><th>控制方式</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td>弱 baseline 制造虚假提升</td><td>公开 π0.5 明显高于 pilot A0</td><td>Corrected public-recipe baseline gate</td><td><span class="tag running">Running</span></td></tr>
+              <tr><td>单-token package 有用但内容无用</td><td>九组严格 pooled 内容比较均无正结果</td><td>冻结旧接口的 future-content claim</td><td><span class="tag complete">Confirmed</span></td></tr>
+              <tr><td>空间压缩掩盖真实效用</td><td>4×4 privileged probe 未超过 no-goal，Hammer 明确恶化</td><td>关闭 predicted spatial expansion；重新定义动作充分目标后才可重启</td><td><span class="tag complete">Closed</span></td></tr>
+              <tr><td>收益仅存在于少数任务</td><td>Pilot task effect 异质</td><td>预注册 block/bowl stacking 与控制任务</td><td><span class="tag planned">Planned</span></td></tr>
+              <tr><td>Auxiliary loss 干扰 encoder</td><td>相关 VLA 工作依赖 mask/gating</td><td>Aux-only、prefix-only、detached-current</td><td><span class="tag planned">Planned</span></td></tr>
+              <tr><td>只适用于 π0.5</td><td>当前只有 prefix 实例</td><td>第二 VLA 内部 matched comparison</td><td><span class="tag planned">Planned</span></td></tr>
+              <tr><td>实际运行成本无优势</td><td>A3 延迟、吞吐与训练显存接近 A0；A2 显存等于 A0</td><td>三臂配对协议已完成</td><td><span class="tag complete">Complete</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="report-section" id="recommendation">
+        <p class="section-kicker">10 · Recommendation</p>
+        <h2 class="section-title">当前决策建议</h2>
+        <div class="claim-grid">
+          <article class="claim-column allowed">
+            <h3>继续投入</h3>
+            <ul>
+              <li>Corrected A0 训练与冻结六任务评测。</li>
+              <li>已运行的 matched A2-Abs / MINT-VLA 三训练种子与冻结评测。</li>
+              <li>Checkpoint、config、scene 和 dataset provenance 审计。</li>
+            </ul>
+          </article>
+          <article class="claim-column blocked-claim">
+            <h3>暂缓投入</h3>
+            <ul>
+              <li>大规模 factorized mechanism matrix。</li>
+              <li>在新动作充分性假设预注册前扩大 predictor 或空间接口。</li>
+              <li>三种子主矩阵之外继续无选择复制训练 seed。</li>
+              <li>第二 VLA 与成熟初始化迁移。</li>
+              <li>除 clean-VLA 对照外的额外 LaWAM 训练臂。</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout success">
+          <strong>下一次项目评审输入：</strong>只以 exact A0 门控和 matched A0/A2/A3 六任务三种子矩阵作为主决策输入。内容因果与 spatial privileged 两条机制线已经闭合为边界证据；clean-VLA 对照仅在需要声称“LM 预训练改善 VLA”时启动。
+        </div>
+      </section>
+
+      <section class="report-section" id="appendix">
+        <p class="section-kicker">Technical appendix</p>
+        <h2 class="section-title">技术附件与证据来源</h2>
+        <div class="paper-map">
+          <a class="paper-row" href="assets/mint_vla_paper.pdf" target="_blank" rel="noopener">
+            <div class="paper-num">PDF</div><div class="paper-name">MINT-VLA 论文草稿</div><div class="paper-job">方法、实验设计、结果边界与附录审计。</div><div class="paper-output">打开文档</div>
+          </a>
+          <a class="paper-row" href="assets/PAPER_TODO.md" target="_blank" rel="noopener">
+            <div class="paper-num">PLAN</div><div class="paper-name">剩余证据 TODO</div><div class="paper-job">仅保留仍能改变论文结论的 T0–T2、T4–T6、L1，以及验收、报告与停止规则。</div><div class="paper-output">查看清单</div>
+          </a>
+          <a class="paper-row" href="assets/PAPER_EVIDENCE_ARCHIVE_2026-08-01.md" target="_blank" rel="noopener">
+            <div class="paper-num">LOG</div><div class="paper-name">已完成证据归档</div><div class="paper-job">E1、数据审计、效率、基线校准、legacy pilot、LaWAM 诊断与历史执行记录。</div><div class="paper-output">追溯历史</div>
+          </a>
+          <a class="paper-row" href="assets/PLAN_pi05_spatial_future_interface_2026-08-01.md" target="_blank" rel="noopener">
+            <div class="paper-num">T3</div><div class="paper-name">Spatial future interface 实验契约</div><div class="paper-job">记录 privileged probe、动作充分性门槛及失败后停止 predictor 扩展的预注册协议。</div><div class="paper-output">查看已关闭计划</div>
+          </a>
+        </div>
+        <h3 class="subhead">代表性外部证据</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>工作</th><th>本项目使用的证据</th><th>链接</th></tr></thead>
+            <tbody>
+              <tr><td>WorldArena</td><td>预测感知质量与 action planning 仅弱相关，存在 perception–functionality gap。</td><td><a href="https://arxiv.org/abs/2602.08971" target="_blank" rel="noopener">arXiv</a></td></tr>
+              <tr><td>LaWAM</td><td>动作导向 latent、spatial future map、Alternate-DiT 与 Knowledge Insulation 的组合证据。</td><td><a href="https://arxiv.org/abs/2606.15768" target="_blank" rel="noopener">arXiv</a></td></tr>
+              <tr><td>π0.7</td><td>Generated subgoal image 作为原生视觉 prompt，在复杂指代、反数据偏置和跨 embodiment 场景提供选择性收益。</td><td><a href="https://arxiv.org/abs/2604.15483" target="_blank" rel="noopener">arXiv</a></td></tr>
+              <tr><td>AHEAD</td><td>在动态拦截场景中以 future patches 补偿控制时延，说明未来表征在高信息增量场景可转化为动作收益。</td><td><a href="https://arxiv.org/abs/2606.02486" target="_blank" rel="noopener">arXiv</a></td></tr>
+              <tr><td>DreamVLA</td><td>图像预测冗余和多类 world knowledge 训练干扰。</td><td><a href="https://arxiv.org/abs/2507.04447" target="_blank" rel="noopener">arXiv</a></td></tr>
+              <tr><td>FutureVLA</td><td>任务无关视觉细节、visuomotor gating 与 latent alignment。</td><td><a href="https://arxiv.org/abs/2603.10712" target="_blank" rel="noopener">arXiv</a></td></tr>
+              <tr><td>Knowledge Insulation</td><td>朴素新增模块可能损害 VLA 训练与知识迁移。</td><td><a href="https://arxiv.org/abs/2505.23705" target="_blank" rel="noopener">arXiv</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">MINT-VLA internal research decision brief · Evidence snapshot 2026-08-01 16:19 UTC</footer>
+  <script src="app.js"></script>
+</body>
+</html>

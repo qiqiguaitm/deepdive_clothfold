@@ -1,0 +1,107 @@
+# Task_A1 细长夹爪 AWBC warm-start 适配 — 华北北京 16 GPU (2-host H20)
+#   plan:   docs/training/future_plans/plans/pi05_task_a1_awbc_gripper_adapt_plan.md §3
+#   Config: pi05_a1_awbc (config.py; North-E 路径; init=pi05_v4_awbc/49999 warm-start, 非 pi05_base)
+#   Data:   A1_base_dagger_awbc (464ep/574354帧: 422 base全正 + 42 dagger, class0长静止已裁;
+#           positive⟺人控; pos95.6%/neg4.4%) + val A1_val (5ep, inline MAE sanity)
+#   Init:   pi05_v4_awbc/pi05_v4_awbc/49999/params (已训好叠衣 AWBC, gf0→TOS→North-E 同步, 12G)
+#   Spec:   2-host × 8 H20 = 16 GPU FSDP, batch 256, lr 1e-5, 40k step, ema 0.9999, 无 DCT
+#   队列:   Robot-North-H20 (常规, 非闲时)
+#
+# Submit (VOLC_REGION=cn-beijing 必须!): source ~/.volc_creds && VOLC_REGION=cn-beijing \
+#   kai0/.venv/bin/python train_scripts/kai/volc/submit_yaml.py train_scripts/kai/volc/pi05_a1_awbc_cnbj_16gpu.yaml
+
+TaskName: "pi05-a1-awbc-cnbj-16gpu"
+Description: "Task_A1 细长夹爪 AWBC warm-start: A1 base+dagger(07-24) 打标 positive⟺人控, init=pi05_v4_awbc/49999, JAX 2-host 16 H20, bs256 lr1e-5 40k"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"          # gives MLP_WORKER_0_HOST / MLP_ROLE_INDEX / MLP_WORKER_NUM
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 2
+    Flavor: "ml.hpcpni3ln.45xlarge"   # 8× H20-SXM5-96GB per host × 2 = 16 GPU
+
+ActiveDeadlineSeconds: 259200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: NCCL_DEBUG
+    Value: "WARN"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+  - Name: XLA_PYTHON_CLIENT_MEM_FRACTION
+    Value: "0.85"
+  - Name: JAX_COMPILATION_CACHE_MIN_ENTRY_SIZE_BYTES
+    Value: "-1"
+  - Name: JAX_COMPILATION_CACHE_MIN_COMPILE_TIME_SECS
+    Value: "1"
+  - Name: JAX_ENABLE_EMPTY_ARRAYS
+    Value: "true"
+
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  NODE=${MLP_ROLE_INDEX:-0}
+  echo "=== PREFLIGHT $(date) node=$NODE host=$(hostname) ==="
+  ls -ld /vePFS-North-E/vis_robot 2>&1 || echo "MOUNT-MISSING"
+  LOG_DIR=/vePFS-North-E/vis_robot/logs
+  mkdir -p "$LOG_DIR" 2>&1 || echo "MKDIR-FAILED"
+  LOG="$LOG_DIR/pi05_a1_awbc_cnbj_${STAMP}_node${NODE}.log"
+  exec >> "$LOG" 2>&1
+  echo "=== entrypoint start $(date) node=$NODE/${MLP_WORKER_NUM:-1} ==="
+  set -ex
+  echo "[multinode] host0=${MLP_WORKER_0_HOST} num=${MLP_WORKER_NUM} idx=${MLP_ROLE_INDEX}"
+  nvidia-smi -L
+
+  cd /vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0
+  source .venv/bin/activate
+  python -c "import jax; print(f'jax {jax.__version__} devs={len(jax.devices())}')"
+
+  TRAIN=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A1/self_built/A1_base_dagger_awbc_enc  # gf0重编码(base视频加关键帧修seek), TOS同步
+  VAL=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A1/self_built/A1_val
+  INIT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/checkpoints/pi05_v4_awbc/pi05_v4_awbc/49999/params
+  [ -f "$TRAIN/meta/episodes.jsonl" ] || { echo "FATAL: train data missing $TRAIN" >&2; exit 13; }
+  [ -f "$TRAIN/norm_stats.json" ]     || { echo "FATAL: norm_stats missing" >&2; exit 13; }
+  grep -q "Advantage: positive" "$TRAIN/meta/tasks.jsonl" || { echo "FATAL: tasks.jsonl 缺 pos/neg advantage prompt" >&2; exit 13; }
+  # base + dagger 段视频均不断链(3 相机之一抽检)
+  V=$(find -L "$TRAIN/videos/chunk-000/observation.images.top_head" -name '*.mp4' -print -quit 2>/dev/null)
+  [ -n "$V" ] && [ -e "$V" ] || { echo "FATAL: 视频软链断" >&2; exit 13; }
+  [ -f "$VAL/meta/episodes.jsonl" ] || { echo "FATAL: val 集缺 $VAL" >&2; exit 13; }
+  [ -f "$INIT/_METADATA" ]            || { echo "FATAL: init(pi05_v4_awbc/49999) 缺 $INIT — 需先 gf0→North-E 同步" >&2; exit 13; }
+  echo "[$(date)] preflight OK (A1 data + norm + advantage prompt + video + val + warm-start init)"
+
+  export JAX_COORDINATOR_ADDRESS="${MLP_WORKER_0_HOST}:15830"
+  export JAX_NUM_PROCESSES="${MLP_WORKER_NUM:-2}"
+  export JAX_PROCESS_INDEX="${MLP_ROLE_INDEX:-0}"
+
+  EXP=a1_awbc
+  CKPT_DIR=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/checkpoints/pi05_a1_awbc/$EXP
+  if ls -d "$CKPT_DIR"/[0-9]*/ >/dev/null 2>&1; then RESUME_FLAG="--resume"; else RESUME_FLAG="--overwrite"; fi
+
+  exec python -u scripts/train.py pi05_a1_awbc \
+    --exp-name $EXP \
+    --data.repo_id "$TRAIN" \
+    --weight-loader.params-path "$INIT" \
+    --no-wandb-enabled $RESUME_FLAG
+
+RetryOptions:
+    EnableRetry: true
+    MaxRetryTimes: 1
+
+AccessType: "Public"

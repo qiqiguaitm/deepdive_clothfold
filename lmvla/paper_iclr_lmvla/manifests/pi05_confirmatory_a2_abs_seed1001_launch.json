@@ -1,0 +1,52 @@
+{
+  "capture_source": "resource_aware_scheduler state backfill",
+  "captured_at": "2026-08-01T23:59:47Z",
+  "code_equivalence_note": "The North pi0.py differs from the shared copy only by spatial-condition code gated behind lmwm_spatial_condition != 'none'; this run sets 'none'.",
+  "config_name": "pi05_robotwin_a2_abs_confirmatory",
+  "experiment_name": "pi05_robotwin_a2_abs_seed1001",
+  "job_id": "t-20260802072058-km5hr",
+  "job_name": "pi05-a2-abs-confirmatory-s1001-bj4g",
+  "protocol": {
+    "action_horizon": 50,
+    "actions": "absolute",
+    "arm": "a2_abs",
+    "asset_id": "robotwin2.0_absolute_meanstd",
+    "batch_size": 16,
+    "evaluation_cells": 24,
+    "evaluation_seeds": 4,
+    "image_augmentation": "none",
+    "lmwm_spatial_condition": "none",
+    "normalization": "mean_std",
+    "num_train_steps": 50000,
+    "training_seed": 1001
+  },
+  "resource": {
+    "accelerator": "GPU-H3c",
+    "backend": "platform",
+    "gpus": 4,
+    "name": "Robot-North-H20",
+    "preemptible": false,
+    "queue_id": "q-20260516104642-khch9"
+  },
+  "runtime_env": {
+    "PI05_CONFIRM_ARM": "a2_abs",
+    "PI05_CONFIRM_CONFIG": "pi05_robotwin_a2_abs_confirmatory",
+    "PI05_CONFIRM_EXP": "pi05_robotwin_a2_abs_seed1001",
+    "PI05_CONFIRM_HINT": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/robotwin_so400m/hint.npz",
+    "PI05_CONFIRM_REQUIRE_GATE": "0",
+    "PI05_CONFIRM_SEED": "1001"
+  },
+  "sha256": {
+    "conditioning_artifacts": {
+      "hint.npz": "0d7a03f77532b40e584d079ce9628cad11995e3358c58c36344ef37c04aa8f02"
+    },
+    "dataset_manifest_raw": "99f7d6235cc97079c344b64e970e5c37abd988d1d676e86b6f27704e4c441ee8",
+    "dataset_manifest_semantic": "5d6f61377ca6f1a469d949f7b687c9ab0a99aadf5e88117978cc6758c5d100cf",
+    "execution_sources": {
+      "config.py": "81a149b061e7e6b9cd914ff301d62fb79fe26812c34aaad2964147ecb32a60aa",
+      "pi0.py": "261a35db24c51cff9f0d774df4c0ecdb02bef77baa555f588129e5f3dba8cf61",
+      "train_pi05_robotwin_confirmatory.py": "94af72d82bad3aa8c1acddadabc7da356ea762219566cd4e544f5b62af9afab2"
+    },
+    "submitted_yaml": "b54ac70ae2e64463207c2d08e851c9c6c94b7da4069cc8aed0534f57ce1de18d"
+  }
+}

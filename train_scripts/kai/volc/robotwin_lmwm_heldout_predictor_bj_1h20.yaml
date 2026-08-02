@@ -1,0 +1,67 @@
+TaskName: "robotwin-lmwm-heldout-predictor-bj1g"
+Description: "One task-stratified held-out LMWM predictor fold"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: HELDOUT_FOLD
+    Value: "0"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  PY=$REPO/kai0/.venv/bin/python
+  SCRIPT=$REPO/lmvla/lmwm/scripts/eval_robotwin_lmwm_heldout.py
+  FEAT=$REPO/lmvla/lmwm/data/robotwin_dinov3base_grid
+  PAIRS=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_v2/pairs.npz
+  OUT=$REPO/logs/predictor_eval
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lmwm/logs
+  mkdir -p "$OUT" "$LOG_DIR"
+  exec >> "$LOG_DIR/robotwin_lmwm_heldout_fold${HELDOUT_FOLD}_${STAMP}.log" 2>&1
+  set -x
+
+  test "$(find "$FEAT" -maxdepth 1 -name 'ep*.npz' | wc -l)" -eq 27500
+  test -f "$PAIRS"
+  nvidia-smi -L
+  CUDA_VISIBLE_DEVICES=0 "$PY" "$SCRIPT" \
+    --feat "$FEAT" \
+    --pairs "$PAIRS" \
+    --output "$OUT/robotwin_lmwm_heldout_fold${HELDOUT_FOLD}.json" \
+    --fold "$HELDOUT_FOLD" \
+    --folds 5 \
+    --steps 5000 \
+    --batch-size 48 \
+    --eval-samples-per-task 256 \
+    --cache-cap 200 \
+    --seed 2026
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

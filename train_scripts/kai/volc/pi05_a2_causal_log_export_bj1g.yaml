@@ -1,0 +1,57 @@
+TaskName: "pi05-a2-causal-log-export-bj1g"
+Description: "Collect failed A2 causal eval logs from North vePFS and export through TOS"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 900
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  OUT=/tmp/pi05_a2_causal_diag_20260801.txt
+  LOG_ROOT=$REPO/lmvla/lawam/logs
+  {
+    echo "=== diagnostic host/time ==="
+    hostname
+    date -u
+    echo "=== matching files ==="
+    find "$LOG_ROOT" "$REPO/lmvla/lawam/results/eval_runs/robotwin" -type f \
+      \( -path '*pi05_rt_a2_current_hint_causal*' -o -path '*pi05_rt_a2_zero_hint_causal*' \) \
+      -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %p\n' | sort
+    echo "=== matching log contents ==="
+    while IFS= read -r file; do
+      echo "===== $file ====="
+      tail -n 400 "$file" || true
+    done < <(find "$LOG_ROOT" "$REPO/lmvla/lawam/results/eval_runs/robotwin" -type f \
+      \( -path '*pi05_rt_a2_current_hint_causal*' -o -path '*pi05_rt_a2_zero_hint_causal*' \) | sort)
+  } | tee "$OUT"
+  test -n "${DIAG_UPLOAD_URL:-}"
+  curl --fail --silent --show-error --upload-file "$OUT" "$DIAG_UPLOAD_URL"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

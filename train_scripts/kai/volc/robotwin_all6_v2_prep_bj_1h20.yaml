@@ -1,0 +1,112 @@
+# Build the exact official six-task RoboTwin panel on North vePFS.
+TaskName: "robotwin-all6-v2-prep-bj"
+Description: "Exact official all6 pairs, compact targets, and v3 dataset; Beijing 1xH20"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: OMP_NUM_THREADS
+    Value: "4"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  PY=$REPO/kai0/.venv/bin/python
+  DATA=$REPO/lmvla/lmwm/data
+  SRC=$REPO/lmvla/lawam/dataset/robotwin2.0
+  FEAT=$DATA/robotwin_dinov3base
+  GRID=$DATA/robotwin_dinov3base_grid
+  OUT=$DATA/robotwin_milestone_all6_v2
+  DS=$REPO/lmvla/lawam/dataset/robotwin2_lmwm_all6_v2_v30
+  LOG_DIR=$REPO/lmvla/lmwm/logs
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$LOG_DIR" "$OUT"
+  exec >> "$LOG_DIR/robotwin_all6_v2_prep_${STAMP}.log" 2>&1
+  set -x
+
+  echo "=== RoboTwin all6 v2 prep start $(date -u) ==="
+  nvidia-smi -L | head
+  test "$(find "$FEAT" -maxdepth 1 -name 'ep*.npz' | wc -l)" -eq 27500
+  test "$(find "$GRID" -maxdepth 1 -name 'ep*.npz' | wc -l)" -eq 27500
+
+  "$PY" "$REPO/lmvla/lmwm/scripts/p1_robotwin_rvalley_pairs_balanced.py" \
+    --root "$SRC" --feat "$FEAT" --out "$OUT" --cap 200 --official-blocks
+
+  "$PY" "$REPO/lmvla/lmwm/scripts/p1_build_target_compact.py" \
+    --pairs "$OUT/pairs.npz" --feat "$GRID" --out "$OUT/target_compact.npz"
+
+  "$PY" "$REPO/lmvla/lmwm/scripts/p1_train_lmwm_robotwin.py" \
+    --feat "$GRID" --pairs "$OUT/pairs.npz" --out "$OUT" \
+    --steps 5000 --bs 48 --cache_cap 200
+
+  "$PY" "$REPO/lmvla/lmwm/scripts/build_robotwin_v30_subset.py" \
+    --src "$SRC" --pairs "$OUT/pairs.npz" --out "$DS"
+
+  export OUT DS
+  "$PY" - <<'PYEOF'
+  import json
+  import os
+  import numpy as np
+  import pyarrow.parquet as pq
+
+  out = os.environ["OUT"]
+  ds = os.environ["DS"]
+  pairs = np.load(f"{out}/pairs.npz")
+  assert os.path.getsize(f"{out}/lmwm.pt") > 1_000_000
+  manifest = json.load(open(f"{out}/selection_manifest.json"))
+  counts = {
+      int(task): len(set(map(int, pairs["cur_ep"][pairs["pair_task"] == task])))
+      for task in np.unique(pairs["pair_task"])
+  }
+  expected_ranges = {
+      0: (550, 1099),
+      1: (24750, 25299),
+      2: (24200, 24749),
+      3: (1100, 1649),
+      4: (1650, 2199),
+      5: (4400, 4949),
+  }
+  assert counts == {i: 200 for i in range(6)}, counts
+  for task, (lo, hi) in expected_ranges.items():
+      eps = pairs["cur_ep"][pairs["pair_task"] == task]
+      assert int(eps.min()) >= lo and int(eps.max()) <= hi, (task, eps.min(), eps.max())
+  episodes = pq.read_table(f"{ds}/meta/episodes/chunk-000/file-000.parquet")
+  assert episodes.num_rows == 1200, episodes.num_rows
+  assert manifest["selection"] == "official_task_blocks", manifest
+  with open(f"{out}/READY", "w") as f:
+      f.write(json.dumps({"episode_counts": counts, "dataset_episodes": episodes.num_rows}) + "\n")
+  print("ALL6_V2_READY", counts, episodes.num_rows)
+  PYEOF
+
+  echo "=== RoboTwin all6 v2 prep done $(date -u) ==="
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

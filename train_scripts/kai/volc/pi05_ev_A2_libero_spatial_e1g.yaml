@@ -1,0 +1,57 @@
+# pi05 单臂单套件 eval(在线hint+osmesa+gripper修法, 内循环 seed0-2 n=3)— East-H20 单卡. __占位__ 生成器替换.
+TaskName: "pi05-ev-A2-libero_spatial-e1g"
+Description: "pi05 A2 libero_spatial n=3 重评, East-H20 单卡"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+Entrypoint: |
+  set -uo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR=$REPO/lmvla/lmwm/logs; mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/pi05ev_A2_libero_spatial_${STAMP}.log" 2>&1
+  set -x
+  echo "=== pi05 A2 libero_spatial n=3 start $(date -u) ==="
+  nvidia-smi -L | head
+  cd "$REPO/kai0"; source .venv/bin/activate
+  apt-get update 2>&1|tail -1; apt-get install -y libosmesa6 libosmesa6-dev 2>&1|tail -1 || echo osmesa-be
+  export LIBERO_HOME=$REPO/lmvla/LIBERO
+  export LIBERO_CONFIG_PATH=$LIBERO_HOME/libero
+  export PYTHONPATH="$REPO/kai0/src:$REPO/lmvla/lawam:$LIBERO_HOME"
+  export MUJOCO_GL=osmesa PYTHONUNBUFFERED=1
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.75 XLA_PYTHON_CLIENT_PREALLOCATE=false
+  HINT_PY=$REPO/lmvla/lawam/examples/LIBERO/eval_files/local_eval_hint.py
+  for SEED in 0 1 2; do
+    OUT=$REPO/lmvla/lmwm/data/pi05_libero_eval/suiteev_A2_-libero_spatial-s${SEED}_${STAMP}
+    python "$HINT_PY" --config "pi05_libero_a2_prefix_eval" --ckpt "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_libero_a2_prefix_bj/pi05_libero_a2_prefix/29999" --encoder "so400m" \
+      --suite "libero_spatial" --tasks -1 --trials 10 --seed $SEED --replan 5 --out "$OUT"
+    echo "[A2 libero_spatial s$SEED] done rc=$?"
+  done
+  echo "=== A2 libero_spatial ALL DONE $(date -u) ==="
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+AccessType: "Public"

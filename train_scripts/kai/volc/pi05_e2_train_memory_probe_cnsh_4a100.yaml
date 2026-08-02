@@ -1,0 +1,146 @@
+TaskName: "pi05-e2-train-memory-probe-cnsh4g"
+Description: "Matched pi0.5 A0/A2/A3 training peak-memory probe on four Shanghai A100s"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.14xlarge"
+
+ActiveDeadlineSeconds: 3600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  PY=$REPO/kai0/.venv/bin/python
+  ARM=$PI05_MEMORY_ARM
+  CONFIG=pi05_e2_memory_${ARM}
+  EXP=pi05_e2_memory_${ARM}
+  ASSET_ID=robotwin2.0_absolute_meanstd
+  DATA=$REPO/lmvla/lawam/dataset/robotwin2.0
+  INIT=$REPO/kai0/checkpoints/pi05_base/params
+  A0_NORM=$REPO/kai0/assets/pi05_robotwin_a0_public_recipe_bj/$ASSET_ID/norm_stats.json
+  OUT=$REPO/logs/efficiency/pi05_train_memory_${ARM}.json
+  TELEMETRY=$REPO/logs/efficiency/pi05_train_memory_${ARM}.csv
+  LOG=$REPO/logs/efficiency/pi05_train_memory_${ARM}.log
+  CKPT=$REPO/kai0/checkpoints/$CONFIG/$EXP
+  mkdir -p "$(dirname "$OUT")" "$REPO/kai0/assets/$CONFIG/$ASSET_ID"
+  cp -f "$A0_NORM" "$REPO/kai0/assets/$CONFIG/$ASSET_ID/norm_stats.json"
+  exec > >(tee "$LOG") 2>&1
+  set -x
+
+  test -f "$INIT/_METADATA"
+  test -d "$DATA/meta"
+  test -f "$A0_NORM"
+  rm -rf "$CKPT"
+
+  (
+    set +x
+    while true; do
+      printf '%s,' "$(date -u +%s.%N)"
+      nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | paste -sd, -
+      sleep 0.2
+    done
+  ) > "$TELEMETRY" &
+  MONITOR_PID=$!
+  cleanup() {
+    kill "$MONITOR_PID" 2>/dev/null || true
+    wait "$MONITOR_PID" 2>/dev/null || true
+  }
+  trap cleanup EXIT
+
+  EXTRA=()
+  case "$ARM" in
+    a0) ;;
+    a2_abs)
+      EXTRA+=(--hint-path "$REPO/lmvla/lmwm/data/pi05_hint/robotwin_so400m/hint.npz")
+      ;;
+    a3_live)
+      EXTRA+=(
+        --target-pairs "$REPO/lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/pairs.npz"
+        --frame-cache-root "$REPO/lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256"
+      )
+      ;;
+    *) echo "unknown arm=$ARM" >&2; exit 2 ;;
+  esac
+
+  cd "$REPO/kai0"
+  export PATH=$REPO/kai0/.venv/bin:$PATH
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.9
+  export JAX_COMPILATION_CACHE_DIR=$REPO/.cache/jax
+  "$PY" -u scripts/train_pi05_robotwin_confirmatory.py \
+    --arm "$ARM" \
+    --config-name "$CONFIG" \
+    --exp-name "$EXP" \
+    --seed 1000 \
+    --data-repo "$DATA" \
+    --init-params "$INIT" \
+    --asset-id "$ASSET_ID" \
+    --num-train-steps 10 \
+    --save-interval 1000 \
+    --log-interval 1 \
+    "${EXTRA[@]}"
+
+  cleanup
+  trap - EXIT
+  export ARM CONFIG TELEMETRY LOG OUT
+  "$PY" - <<'PY'
+  import csv
+  import json
+  import os
+  from pathlib import Path
+
+  rows = []
+  with Path(os.environ["TELEMETRY"]).open() as stream:
+      for row in csv.reader(stream):
+          if len(row) >= 5:
+              rows.append([float(row[0]), *[int(value.strip()) for value in row[1:5]]])
+  if not rows:
+      raise RuntimeError("no GPU memory telemetry")
+  per_gpu_peak = [max(row[index] for row in rows) for index in range(1, 5)]
+  report = {
+      "arm": os.environ["ARM"],
+      "config": os.environ["CONFIG"],
+      "hardware": "4x Shanghai A100 (ml.pni2.14xlarge)",
+      "protocol": {"batch_size": 16, "fsdp_devices": 1, "steps": 10, "sample_interval_seconds": 0.2},
+      "samples": len(rows),
+      "per_gpu_peak_memory_mib": per_gpu_peak,
+      "max_peak_memory_mib": max(per_gpu_peak),
+      "telemetry": os.environ["TELEMETRY"],
+      "log": os.environ["LOG"],
+  }
+  Path(os.environ["OUT"]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+  print(json.dumps(report, indent=2, sort_keys=True))
+  PY
+  rm -rf "$CKPT"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

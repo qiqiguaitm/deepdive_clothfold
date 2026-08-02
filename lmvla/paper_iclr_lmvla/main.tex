@@ -1,0 +1,78 @@
+% =====================================================================
+% MINT-VLA -> ICLR 2027 submission skeleton
+% Plan: lmvla/lmwm/docs/PAPER_PLAN.md  (Story A primary; gates G1/G2)
+% Build: latexmk -pdf main.tex   (or `make`)
+% =====================================================================
+\documentclass{article}
+\usepackage{iclr2027_conference}
+% \iclrfinalcopy   % uncomment for camera-ready (de-anonymize)
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{xcolor}
+\usepackage{subcaption}
+\input{math_commands.tex}
+
+% Experiment placeholders in the internal draft. Remove before submission.
+\newcommand{\exptodo}[2]{\par\noindent\textcolor{red}{\textbf{[EXP-TODO #1]} #2}}
+\newcommand{\exptodoid}[1]{\textcolor{red}{\textbf{TODO #1}}}
+
+% ---------- centralized numbers: update ONLY numbers.tex after G1/G2 ----------
+\input{numbers.tex}
+
+\title{MINT-VLA: Milestone Integration with Native-Space Targets for Vision--Language--Action Models}
+% MINT-VLA = Milestone Integration with Native-Space Targets for Vision-Language-Action Models.
+
+\author{Anonymous authors\\
+Paper under double-blind review}
+
+\begin{document}
+\raggedbottom
+\maketitle
+
+\begin{abstract}
+\input{sections/0_abstract}
+\end{abstract}
+
+\input{sections/1_intro}          % 1.5 pages
+\input{sections/2_related}        % 1.0 page
+\input{sections/3_signal}         % problem setting and claim-control contract
+\input{sections/4_diagnosis}      % MINT-VLA method
+\input{sections/5_method}         % confirmatory experimental design
+\input{sections/6_experiments}    % completed evidence and open gates
+\input{sections/7_conclusion}     % 0.5 pages
+
+\subsubsection*{Reproducibility Statement}
+The anonymized supplementary package includes preprocessing and evaluation
+code, effective training configurations, checkpoint identifiers, and aggregate
+evaluation reports.  Appendix~\ref{sec:appendix} records source and data hashes,
+software versions, simulator seeds, and the currently available artifact
+coverage.  Accepted-scene manifests and per-episode outcomes will accompany the
+confirmatory matrix so that all paired tests can be reproduced.
+\exptodo{T0--T6,E1}{Replace provisional reproducibility text with the final
+anonymous archive URL and complete experiment manifests.}
+
+\subsubsection*{AI Usage Disclosure}
+Generative AI tools assisted literature discovery, hypothesis refinement,
+experimental design, implementation and code review, figure and table
+formatting, drafting and translation, and interpretation of experimental
+results.  They were not used to generate demonstrations, simulator outcomes,
+or reported measurements.  The authors inspected the relevant source code,
+checked configuration and artifact provenance, ran builds and tests, and
+verified paper claims against the underlying reports.  The authors take
+responsibility for all content and artifacts in this submission.
+
+\bibliography{refs}
+\bibliographystyle{iclr2027_conference}
+
+\appendix
+\input{sections/8_appendix}
+
+\end{document}

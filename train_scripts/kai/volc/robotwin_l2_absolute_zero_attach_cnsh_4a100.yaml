@@ -1,0 +1,74 @@
+TaskName: "robotwin-l2-absolute-zero-attach-cnsh4g"
+Description: "Attach one non-resetting worker per seed to active absolute zero-hint L2 controls"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.14xlarge"
+
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LAWAM=$REPO/lmvla/lawam
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$LAWAM/logs/volc_rteval
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/l2_absolute_zero_attach_${STAMP}.log" 2>&1
+  set -x
+
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  nvidia-smi -L
+
+  env \
+    ALL6_EVAL_VARIANT=absolute \
+    ALL6_EVAL_RUN_BASENAME=20260730_063314+robotwin_all6_v2_absolute_seed2026 \
+    ALL6_TRAIN_SEED=2026 \
+    L2_CONTROL=zero \
+    SEEDS="0 1 2 3" \
+    GPUS_PER_SEED=1 \
+    LOCAL_GPU_COUNT=4 \
+    NUM_WORKERS=1 \
+    ROBOTWIN_NUM_SLOTS=1 \
+    ROBOTWIN_ATTACH_EXISTING=1 \
+    ROBOTWIN_WORKER_INDEX_OFFSET=1000 \
+    bash "$REPO/train_scripts/kai/eval/local_robotwin_l2_missing3_control.sh"
+
+  mkdir -p "$REPO/logs/resource_markers"
+  printf 'completed=%s\n' "$(date -u +%FT%TZ)" \
+    > "$REPO/logs/resource_markers/l2_absolute_zero_attach_helper.ok"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

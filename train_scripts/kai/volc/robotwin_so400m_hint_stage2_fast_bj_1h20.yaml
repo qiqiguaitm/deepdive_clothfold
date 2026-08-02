@@ -1,0 +1,99 @@
+# RoboTwin A2 accelerated continuation after the complete So400m grid exists.
+# Training/export parameters match the original prep; only the episode cache is
+# enlarged to cover all 1,000 paired episodes and avoid vePFS LRU thrashing.
+
+TaskName: "robotwin-so400m-hint-stage2-fast-bj1g"
+Description: "RoboTwin A2 prep continuation: cached LMWM training and absolute/residual hint export"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+
+Entrypoint: |
+  set -euo pipefail
+  export REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lmwm/logs
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/robotwin_so400m_hint_stage2_fast_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  set -x
+  echo "=== robotwin_so400m_hint_stage2_fast start $(date -u) ==="
+  nvidia-smi -L
+
+  PY=$REPO/kai0/.venv/bin/python
+  SC=$REPO/lmvla/lmwm/scripts
+  GRID=$REPO/lmvla/lmwm/data/robotwin_so400m_grid
+  FEATROOT=$REPO/lmvla/lmwm/data/robotwin_so400m_feat_pi05
+  CKPT=$REPO/lmvla/lmwm/checkpoints/lmwm_robotwin_so400m
+  ABS_HINT_DIR=$REPO/lmvla/lmwm/data/pi05_hint/robotwin_so400m
+  RES_HINT_DIR=$REPO/lmvla/lmwm/data/pi05_hint/robotwin_so400m_residual
+  PAIRS=$REPO/lmvla/lmwm/data/robotwin_milestone_balanced/pairs.npz
+
+  NG=$(find "$GRID" -maxdepth 1 -name 'ep*.npz' 2>/dev/null | wc -l)
+  echo "[grid] ep count=$NG"
+  [ "$NG" -eq 27500 ] || { echo "FATAL: expected complete 27500-episode grid, got $NG" >&2; exit 14; }
+  [ -f "$PAIRS" ] || { echo "FATAL: balanced pairs missing $PAIRS" >&2; exit 13; }
+
+  rm -rf "$CKPT" "$ABS_HINT_DIR" "$RES_HINT_DIR"
+  CUDA_VISIBLE_DEVICES=0 "$PY" "$SC/p1_train_lmwm_robotwin.py" \
+    --feat "$GRID" \
+    --pairs "$PAIRS" \
+    --out "$CKPT" \
+    --steps 5000 \
+    --bs 48 \
+    --cache_cap 1200
+  [ -f "$CKPT/lmwm.pt" ] || { echo "FATAL: LMWM ckpt missing $CKPT/lmwm.pt" >&2; exit 15; }
+
+  mkdir -p "$FEATROOT"
+  ln -sfn "$GRID" "$FEATROOT/robotwin"
+  CUDA_VISIBLE_DEVICES=0 "$PY" "$SC/export_pi05_hint.py" \
+    --ckpt "$CKPT/lmwm.pt" \
+    --feat-root "$FEATROOT" \
+    --out "$ABS_HINT_DIR" \
+    --K 1 \
+    --batch 128
+  [ -f "$ABS_HINT_DIR/hint.npz" ] || { echo "FATAL: absolute hint missing" >&2; exit 16; }
+  "$PY" "$SC/make_pi05_residual_hint.py" \
+    --hint "$ABS_HINT_DIR/hint.npz" \
+    --feat-root "$FEATROOT" \
+    --out "$RES_HINT_DIR"
+  [ -f "$RES_HINT_DIR/hint.npz" ] || { echo "FATAL: residual hint missing" >&2; exit 17; }
+  ls -lh "$CKPT/lmwm.pt" "$ABS_HINT_DIR/hint.npz" "$RES_HINT_DIR/hint.npz"
+  echo "=== robotwin_so400m_hint_stage2_fast DONE $(date -u) ==="
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

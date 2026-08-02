@@ -1,0 +1,100 @@
+TaskName: "pi05-robotwin-confirmatory-east4g"
+Description: "Matched pi0.5 RoboTwin A2/A3 confirmatory training on East"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 345600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    SubPath: ""
+    MountPath: "/vePFS"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  PY=$REPO/kai0/.venv/bin/python
+  GATE=$REPO/logs/pi05_a0_public_exact_gate.json
+  ASSET_ID=robotwin2.0_absolute_meanstd
+  A0_NORM=$REPO/kai0/assets/pi05_robotwin_a0_public_exact_bj/$ASSET_ID/norm_stats.json
+  DATA=/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21
+  INIT=$REPO/kai0/checkpoints/pi05_base/params
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_robotwin
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/${PI05_CONFIRM_EXP}_${STAMP}.log" 2>&1
+  set -x
+
+  if [ "${PI05_CONFIRM_REQUIRE_GATE:-1}" = 1 ]; then
+    "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("accepted") is True, d' "$GATE"
+  else
+    echo "speculative confirmatory run: A0 gate is not required for execution"
+  fi
+  test -f "$A0_NORM"
+  test -f "$INIT/_METADATA"
+  test -d "$DATA/meta"
+  mkdir -p "$REPO/kai0/assets/$PI05_CONFIRM_CONFIG/$ASSET_ID"
+  cp -f "$A0_NORM" "$REPO/kai0/assets/$PI05_CONFIRM_CONFIG/$ASSET_ID/norm_stats.json"
+
+  EXTRA_ARGS=()
+  if [ "$PI05_CONFIRM_ARM" = a2_abs ]; then
+    test -f "$PI05_CONFIRM_HINT"
+    EXTRA_ARGS+=(--hint-path "$PI05_CONFIRM_HINT")
+  elif [ "$PI05_CONFIRM_ARM" = a3_live ]; then
+    test -f "$PI05_CONFIRM_PAIRS"
+    test -d "$PI05_CONFIRM_FRAME_CACHE"
+    EXTRA_ARGS+=(--target-pairs "$PI05_CONFIRM_PAIRS" --frame-cache-root "$PI05_CONFIRM_FRAME_CACHE")
+  else
+    echo "FATAL: unsupported PI05_CONFIRM_ARM=$PI05_CONFIRM_ARM" >&2
+    exit 13
+  fi
+
+  CKPT_ROOT=$REPO/kai0/checkpoints/$PI05_CONFIRM_CONFIG/$PI05_CONFIRM_EXP
+  RESUME_FLAG=()
+  if find "$CKPT_ROOT" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*' -print -quit 2>/dev/null | grep -q .; then
+    RESUME_FLAG+=(--resume)
+  fi
+  cd "$REPO/kai0"
+  export PATH=$REPO/kai0/.venv/bin:$PATH
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.9
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  export JAX_COMPILATION_CACHE_DIR=$REPO/.cache/jax
+  exec "$PY" -u scripts/train_pi05_robotwin_confirmatory.py \
+    --arm "$PI05_CONFIRM_ARM" \
+    --config-name "$PI05_CONFIRM_CONFIG" \
+    --exp-name "$PI05_CONFIRM_EXP" \
+    --seed "$PI05_CONFIRM_SEED" \
+    --data-repo "$DATA" \
+    --init-params "$INIT" \
+    --asset-id "$ASSET_ID" \
+    "${EXTRA_ARGS[@]}" \
+    "${RESUME_FLAG[@]}"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

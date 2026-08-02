@@ -1,0 +1,137 @@
+TaskName: "pi05-public-and-native-diag-cnsh-8a100"
+Description: "Parallel PI0.5 diagnostics: public checkpoint same bridge plus A0 native evaluator"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni2.28xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LAWAM=$REPO/lmvla/lawam
+  RT=/vePFS/HuanQian/RoboTwin
+  MODEL=/vePFS/tim/hf_models/SidneyXie_pi05_robotwin
+  SERVER_PY=/vePFS/tim/workspace/lerobot-pi05-server-venv/bin/python
+  A0_CKPT=$REPO/kai0/checkpoints/pi05_robotwin_a0_official_bj/pi05_robotwin_a0_official/19999
+  A0_CFG=$REPO/train_scripts/kai/eval/pi05_robotwin_a0_official_deploy.yml
+  RT_PY=$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh
+  OPENPI_PY=$REPO/kai0/.venv/bin/python
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$LAWAM/logs/pi05_protocol_diag
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/orchestrator_${STAMP}.log" 2>&1
+  set -x
+
+  test -f "$MODEL/model.safetensors"
+  test -x "$SERVER_PY"
+  test -d "$A0_CKPT/params"
+  test -x "$RT_PY"
+  test -x "$OPENPI_PY"
+
+  run_public_same_bridge() {
+    export CUDA_VISIBLE_DEVICES=0,1,2,3
+    export STAR_VLA_PYTHON=$SERVER_PY
+    export ROBOTWIN_SERVER_BACKEND=openpi
+    export ROBOTWIN_OPENPI_CONFIG=lerobot_pi05
+    export OPENPI_SERVE_SCRIPT=$REPO/train_scripts/kai/eval/serve_lerobot_pi05.py
+    export KAI0_ROOT=$REPO
+    export ROBOTWIN_MODEL_INTERFACE=openpi
+    export ROBOTWIN_PATH=$RT
+    export ROBOTWIN_PYTHON=$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh
+    export PYTHONPATH="$REPO/kai0/packages/openpi-client/src:$REPO/kai0/src:${PYTHONPATH:-}"
+    export ROBOTWIN_TASKS="beat_block_hammer blocks_ranking_size blocks_ranking_rgb handover_block stack_blocks_two stack_blocks_three"
+    export TASK_CONFIG=demo_clean
+    export ROBOTWIN_TEST_NUM=20
+    export ROBOTWIN_NUM_SLOTS=1
+    export NUM_WORKERS=4
+    export ROBOTWIN_SAVE_VIDEO=0
+    export ROBOTWIN_INSTRUCTION_TYPE=unseen
+    export ROBOTWIN_SKIP_GET_OBS_WITHIN_REPLAN=1
+    export ROBOTWIN_REPLAN_STEPS=50
+    export ROBOTWIN_ACTION_ENSEMBLE=0
+    export SEED=0
+    export PORT_BASE=10200
+    export ROBOTWIN_CKPT_ALIAS=SidneyXie_pi05_robotwin
+    export ROBOTWIN_EVAL_ROOT=$LAWAM/results/eval_runs/robotwin/pi05_public_samebridge
+    cd "$LAWAM"
+    bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
+      "$MODEL" "$TASK_CONFIG" "public-samebridge-seed0"
+  }
+
+  run_native_task() {
+    local task=$1
+    local gpu=$2
+    local port=$3
+    local server_log=$LOG_DIR/native_${task}_server_${STAMP}.log
+    CUDA_VISIBLE_DEVICES=$gpu \
+    XLA_PYTHON_CLIENT_MEM_FRACTION=0.35 \
+    XLA_PYTHON_CLIENT_PREALLOCATE=false \
+      "$OPENPI_PY" "$REPO/kai0/scripts/serve_policy.py" \
+        --port "$port" \
+        policy:checkpoint \
+        --policy.config pi05_robotwin_a0_official_bj \
+        --policy.dir "$A0_CKPT" \
+        > "$server_log" 2>&1 &
+    local server_pid=$!
+    trap 'kill "$server_pid" 2>/dev/null || true' RETURN
+    for _ in $(seq 1 180); do
+      curl -fsS "http://127.0.0.1:$port/healthz" >/dev/null && break
+      kill -0 "$server_pid" 2>/dev/null || { cat "$server_log"; return 1; }
+      sleep 2
+    done
+    curl -fsS "http://127.0.0.1:$port/healthz" >/dev/null
+    cd "$RT"
+    CUDA_VISIBLE_DEVICES=$gpu \
+    OPENPI_WS_PORT=$port \
+    ROBOTWIN_REPLAN_STEPS=50 \
+    PYTHONPATH="$REPO/kai0/packages/openpi-client/src:$LAWAM/examples/Robotwin/eval_files:/vePFS/tim/workspace/robotwin-ws-deps:$RT:${PYTHONPATH:-}" \
+      "$RT_PY" script/eval_policy.py \
+        --config "$A0_CFG" \
+        --overrides \
+        --task_name "$task" \
+        --task_config demo_clean \
+        --train_config_name pi05_robotwin_a0_official_bj \
+        --model_name kai0_a0_official_ws \
+        --ckpt_setting a0-official-native \
+        --seed 0 \
+        --policy_name official_openpi_ws_policy \
+        > "$LOG_DIR/native_${task}_${STAMP}.log" 2>&1
+    kill "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  }
+
+  run_public_same_bridge > "$LOG_DIR/public_samebridge_${STAMP}.log" 2>&1 &
+  p_public=$!
+  run_native_task beat_block_hammer 4 11000 &
+  p_hammer=$!
+  run_native_task stack_blocks_two 5 11100 &
+  p_stack=$!
+
+  status=0
+  wait "$p_public" || status=1
+  wait "$p_hammer" || status=1
+  wait "$p_stack" || status=1
+  exit "$status"

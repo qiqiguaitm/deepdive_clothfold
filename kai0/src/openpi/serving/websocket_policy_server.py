@@ -41,6 +41,7 @@ class WebsocketPolicyServer:
             self._port,
             compression=None,
             max_size=None,
+            ping_interval=None,
             ping_timeout=300,
             close_timeout=300,
             process_request=_health_check,

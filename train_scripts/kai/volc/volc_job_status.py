@@ -26,5 +26,6 @@ if __name__ == "__main__":
     svc = get_svc('cn-beijing')
     r = svc.json('ListJobs', {}, json.dumps(
         {"ResourceQueueId": "q-20260516104642-khch9", "PageSize": 30, "State": "Running"}).encode())
-    for j in json.loads(r)['Result'].get('List', []):
+    result = json.loads(r)['Result']
+    for j in result.get('Items', result.get('List', [])):
         print(j['Name'], j['Status']['State'], j['CreateTime'])

@@ -140,6 +140,48 @@
 | **真机冻结** | ✅ **不再冻结 — H 成立** |
 | **夹爪** | ✅ 修复 (fresh dagger 夹爪语义保留) |
 
+## 9. ⭐ CRAVE-value × chunk-001 拼接 dagger：标签重现冻结 + Δprogress 修复 (2026-07-16)
+
+**背景**: 后续用 CRAVE value 架构对**新 chunk-001 拼接完整 ep**(不裁, model段+摇操段拼一条)打标, 走 AWBC 验证"新格式是否天然不冻"。数据 `A_v4_chunk001_dagger_crave_labeled`(387 base+387 dagger=774ep), config `pi05_v4_awbc_chunk001_dagger_crave`, job `t-20260715142954-t6dgl`(cnsh 16×A100 RUNNING)。
+
+### 9.1 诊断：这套标签会重现冻结(实测正在训的那份数据)
+
+| 问题 | 证据 |
+|---|---|
+| **A. "advantage" 其实是 progress** | 实测 `absolute_advantage` 与 `stage_progress_gt` **corr=1.0**、取值 0-1 完全相同。top-30% 二值化 = "任务进度最后30%(spg>0.68)标 positive" → 进度分位条件化, 非优势加权。 |
+| **B. 拼接不裁 → 静止落进 positive** | dagger 静止帧(臂速<0.02)占 **48.0%**(base 27.3%); positive 帧里 **55.9%** 是静止&高进度(base 34.3%)。逐帧时间线证实: 摇操结束 settle、收尾静置(v≈1e-2, spg≈1.0)全被标 positive。 |
+
+冻结机理与 mode B 一致: 部署恒喂 `Advantage: positive` → 任何"看着接近完成"的状态输出近零动作 → 冻结。拼接 dagger 静止占比≈base 两倍, 污染更重。**plan 假设"新格式天然不冻"数据不支持——恰恰相反。** 此外 `run_build_discretize_chunk001_crave.sh` 里 `--advantage-source stage_progress_gt --top 0.3` 路径/参数均不成立(真脚本在 `annotation/`, 只收 `absolute/relative_advantage`, 阈值 `--threshold`), 实际产出用 `absolute_advantage`(≡spg) 走 top-30%。
+
+### 9.2 修复：Δprogress 标签 + 速度门控 + 复用 launchtrim 裁剪
+
+不停 job, 另建修复版数据集(单变量对照原 job):
+
+1. **advantage = 前向 Δprogress** `adv[t]=spg[t+H]-spg[t]` (H=50=动作 chunk 长)。奖励**主动推进**的帧; 静止 plateau(settle/迟疑) Δ≈0 → negative。取代 progress-level。
+2. **速度门控**(关键): 一帧能被标 positive 当且仅当 `adv≥全局p70` **且臂真在动**(launchtrim 的 5帧平滑 `vbar>THR=0.02`, 排除夹爪 6/13)。**保证 static-positive=0%**——这是"不冻"的判据。单 Δprogress(不门控)dagger 仍 42% static-positive(前向 Δ 会给"静止但即将动"的 plateau 边界帧打正), 门控后 →0%。
+3. **复用 launchtrim 裁剪**: dagger 走 `launch_window`(前砍迟疑起手 + 后砍静置收尾), base 不裁(同单变量策略)。
+
+**脚本**: `train_scripts/kai/data/build_chunk001_dagger_crave_dprog_launchtrim.py`(复用 `launchpoint_trim_dagger.launch_window` + `build_no_release._select_job/per_episode_stats`)。task_index/tasks.jsonl 直接算(速度门控 discretize CLI 不支持)。
+
+**干跑核验**(387 base+387 dagger, 全 387 dagger 保留, 0 drop):
+
+| 组 | posfrac | static&pos/pos | 对比原标签 |
+|---|---|---|---|
+| dagger (Δprog+门控+裁) | 0.113 | **0.0%** | 55.9% → 0% |
+| base (Δprog+门控, 不裁) | 0.405 | **0.0%** | 34.3% → 0% |
+
+Δprog top-30% 阈值=0.031。base positive 多是干净 expert 果断动作(合理), dagger positive = 有效摇操纠错。
+
+### 9.3 产物 (✅ 数据已构建+核验 2026-07-16)
+
+- 数据: `A_v4_chunk001_dagger_crave_dprog_launchtrim`(8.4G, 774ep/1,366,666帧, 不覆盖 running job 的 `..._labeled`)。
+  **实建核验**: 387 dagger 全保留(0 drop), positive 20.3%(276,802帧), **static&positive=0**; 抽检 dagger 裁后视频帧数==parquet 长度(PTS 归零正确, frame_index 0..N-1, ts0=0), base symlink 全整段对齐; 列含 `stage_progress_gt`+`absolute_advantage`(=Δprog)。norm_stats(action_dim=32) 已算。
+- config: `pi05_v4_awbc_chunk001_dagger_crave_dprog`(克隆自 `_chunk001_dagger_crave`, 仅换 repo_id; `get_config` 通过, bs256/fsdp16/50k)。
+- 脚本: `train_scripts/kai/data/build_chunk001_dagger_crave_dprog_launchtrim.py`(H=50, THRESH=30, `--dry-run` 报 static-positive; nproc48 视频重编码)。
+- yaml: `train_scripts/kai/volc/pi05_v4_awbc_crave_dagger_dprog_cnsh_16gpu.yaml`(robot-task cnsh, 2×8 A100, JAX fsdp16 multi-node, MASTER_PORT 14524; pre-flight 查 tasks.jsonl advantage prompt + `stage_progress_gt`/`absolute_advantage` 列 + pi05_base init)。
+- **提交 (2026-07-17)**: job `t-20260717114431-zqdqk`(cnsh robot-task 16×A100 50k), CreateTime 03:44 UTC, 当前 **Queueing**(队列配额暂不足, 排队中待资源释放——与 t6dgl 当初排队 ~5.6h 同款)。
+- **待办**: 训完 50k → 真机 vs launchtrim(已证不冻) + vs t6dgl(原 `_labeled`, progress-level 复现冻结)。若修复版不冻而 t6dgl 冻 → 坐实"progress-level+不门控静止"是冻结源, Δprogress+门控是标签级修复(与 launchtrim 帧级裁剪互补/等效)。
+
 ## 关联
 - 上游诊断 + 根因: [`pi05_v4_awbc_modeB_freeze_diagnosis_plan.md`](pi05_v4_awbc_modeB_freeze_diagnosis_plan.md)(§9 逐天 06-16 变点 + 迟疑起手机制)
 - 裁剪+PTS 机制复用: `train_scripts/kai/data/build_no_release.py`(per-date front-trim + tail-cap + PTS) · [[reference_v3_trim_video_pts_bug]]

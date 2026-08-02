@@ -1,7 +1,7 @@
 # LMVLA — Latent-Milestone VLA
 
 > **一句话**:用**零训练的 milestone 结构**（CRAVE）驱动一个**递归里程碑世界模型**（LMWM），
-> 把预测出的 latent milestone 子目标注入 π0.5 action expert，得到 **LMWAM = LMWM × kai0 π0.5**，
+> 把预测出的 latent milestone 子目标注入 π0.5 action expert，得到 **LMVLA = LMWM × kai0 π0.5**，
 > 在 RoboTwin 2.0（sim，验方法）+ kai0 叠衣真机（验域）上以 **SR / action-MAE** 为唯一裁决。
 
 这是一个**伞形项目**，把两个可独立运行的子项目串成一条从"感知里程碑"到"策略执行"的流水线：
@@ -27,7 +27,7 @@ CRAVE demo videos
                                  · Greedy / Max-product next milestone
                                  · latent prototype 子目标 + 置信度/熵
                                  └─► 注入 π0.5 (SigLIP 虚拟图像 token 进 prefix + KI)
-                                       └─► LMWAM 策略 → RoboTwin 2.0 / 真机  → SR
+                                       └─► LMVLA 策略 → RoboTwin 2.0 / 真机  → SR
 ```
 
 - **CRAVE** 的不可替代资产 = *milestone 图 + 零标签技能切分*，value 是副产品。
@@ -48,7 +48,7 @@ lmvla/
 │   ├── README.md          #   文档索引
 │   ├── architecture_overview.md   #   CRAVE→LMWM→VLA 全景 + 注入机制
 │   ├── roadmap.md         #   E0→E3 阶段路线 + kill criteria
-│   └── glossary.md        #   术语锁(milestone / Greedy / Max-product / KI / LMWAM …)
+│   └── glossary.md        #   术语锁(milestone / Greedy / Max-product / KI / LMVLA …)
 ├── crave/                 # 子项目 1：零训练 milestone/value 引擎（自带 pyproject/src/docs）
 └── lmwm/                  # 子项目 2：递归里程碑世界模型（自带 pyproject/src/docs）
 ```

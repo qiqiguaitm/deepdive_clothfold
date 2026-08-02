@@ -1,0 +1,81 @@
+TaskName: "robotwin-renderer-driverdiag-cnsh4g"
+Description: "Inspect NVIDIA Vulkan userspace/kernel driver compatibility on robot-task"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.14xlarge"
+
+ActiveDeadlineSeconds: 1800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: NVIDIA_DRIVER_CAPABILITIES
+    Value: "all"
+
+Entrypoint: |
+  set -uo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  PY=/vePFS/HuanQian/conda_envs/RoboTwin/bin/python
+  LOG=$REPO/lmvla/lawam/logs/volc_rteval/renderer_driverdiag_cnsh_$(date -u +%Y%m%d_%H%M%S).log
+  mkdir -p "$(dirname "$LOG")"
+  exec > >(tee "$LOG") 2>&1
+  set -x
+
+  nvidia-smi
+  cat /proc/driver/nvidia/version
+  cat /proc/self/mountinfo | grep -E 'nvidia|vulkan' || true
+  ls -la /dev/nvidia* /dev/nvidia-caps 2>/dev/null || true
+  find /usr /lib /run -xdev -type f \
+    \( -name 'libGLX_nvidia.so*' -o -name 'libnvidia-glcore.so*' \
+       -o -name 'libnvidia-gpucomp.so*' -o -name 'libnvidia-compiler.so*' \
+       -o -name 'libnvidia-rtcore.so*' -o -name 'libvulkan.so*' \) \
+    -printf '%p %s bytes\n' 2>/dev/null | sort
+  ls -l /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0
+  readlink -f /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0
+  ldd /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.0 || true
+  dpkg -S /usr/lib/x86_64-linux-gnu/libGLX_nvidia.so.535.129.03 || true
+  dpkg -l | grep -E 'nvidia|vulkan' || true
+
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update
+  apt-get install -y --no-install-recommends libvulkan1 vulkan-tools strace
+  ldconfig
+  VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json \
+    strace -f -e trace=openat,access,ioctl -o /tmp/vulkan.strace vulkaninfo --summary || true
+  grep -E 'nvidia|vulkan|ENOENT|EPERM|EINVAL' /tmp/vulkan.strace | tail -300 || true
+
+  VK_ICD_FILENAMES=/etc/vulkan/icd.d/nvidia_icd.json "$PY" - <<'PY'
+  import os
+  import sapien.core as sapien
+  print("VK_ICD_FILENAMES", os.environ["VK_ICD_FILENAMES"])
+  try:
+      sapien.SapienRenderer()
+  except Exception as exc:
+      print("SAPIEN_RENDER_FAIL", repr(exc))
+  else:
+      print("SAPIEN_RENDER_OK")
+  PY
+  exit 0
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

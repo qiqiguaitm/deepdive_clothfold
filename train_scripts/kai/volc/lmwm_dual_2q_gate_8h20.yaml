@@ -1,0 +1,99 @@
+# V8 §9破局主线: 幅度门控 milestone(magnitude-gated) — 北京 Robot-North-H20 8×H20
+# = 残差版 lmwm_dual_2q_resid_8h20.yaml 的门控镜像。唯一改动: LMWM_MS_RESIDUAL=1 → LMWM_MS_GATE=1。
+#   门控逻辑(lawam.py _run_shared_encoding_core): ms GT = _ms_target − (1−alpha)*当前态,
+#   alpha=‖r‖/(‖r‖+‖cur‖) 自归一化变化占比 → 远(指引相)用绝对 hint 救 t6, 近(精度相)用残差 保 t8/t9。
+#   动机: egl 8seed 实测残差=纯精度旋钮(精度类+11.8/指引类−9.3零和抵消), 门控取 +11.8 不吃 −9.3 → 扩前沿破 96.4。
+# 依赖(North-E 已就位): libero_rvalley/{pairs,target_compact}.npz + checkpoints/lmwm_libero_rvalley/lmwm.pt + 门控代码(已改)
+# 提交: cd ~/workspace/deepdive_kai0/train_scripts/kai/volc; submit_yaml.py lmwm_dual_2q_gate_8h20.yaml
+
+TaskName: "lmwm-dual-2q-gate-8h20"
+Description: "V8 §9 幅度门控milestone, 北京8×H20 12500steps, LIBERO — 破precision↔guidance零和"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Preemptible: false
+Framework: "PyTorch"
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"   # 8×H20 整节点
+
+ActiveDeadlineSeconds: 43200   # 12h
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+
+Entrypoint: |
+  set -uo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_dualarm
+  mkdir -p "$LOG_DIR"
+  LOG="$LOG_DIR/dual_2q_gate_cnbj_${STAMP}.log"
+  exec >> "$LOG" 2>&1
+  set -x
+  echo "=== V8 §9 幅度门控 (cnbj 8×H20) start $(date -u) ==="
+
+  export PYTHON=$REPO/kai0/.venv/bin/python
+  export PATH=$REPO/kai0/.venv/bin:$PATH
+  cd $REPO/lmvla/lawam
+
+  nvidia-smi -L | head
+  $PYTHON -c "import torch, transformers, accelerate; print(f'torch={torch.__version__} tf={transformers.__version__} acc={accelerate.__version__} cuda={torch.cuda.is_available()}')"
+  $PYTHON -c "from starVLA.model.framework.vlas.lawam import LatentWorldPolicyBackend; print('LatentWorldPolicyBackend import OK')"
+
+  LMWM=$REPO/lmvla/lmwm
+  MS=$LMWM/data/libero_rvalley
+  for f in "$LMWM/checkpoints/lmwm_libero_rvalley/lmwm.pt" "$MS/pairs.npz" "$MS/target_compact.npz"; do
+    [ -f "$f" ] || { echo "FATAL: $f missing" >&2; exit 13; }
+  done
+  echo "[$(date)] preflight OK (dual-2q-gate, rvalley pairs)"
+
+  export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+  export MASTER_PORT=29523
+  export LMWM_CKPT=$LMWM/checkpoints/lmwm_libero_rvalley/lmwm.pt
+  export LMWM_MILESTONE_TARGET=$MS/pairs.npz
+  export LMWM_TARGET_COMPACT=$MS/target_compact.npz
+  export LMWM_ADAPTER_DIR=$REPO/lmvla/lmwam/adapter
+  export LMWM_SWAP_TEACHER=1
+  export LMWM_HINT_DROPOUT=0.15
+  export LMWM_DUAL=1
+  export LMWM_DUAL_2Q=1
+  export LMWM_MS_TSCHED=2.0
+  export LMWM_MS_GATE=1                   # ★幅度门控: ms GT=_ms_target−(1−alpha)*当前态, alpha=‖r‖/(‖r‖+‖cur‖)
+  # export LMWM_MS_GATE_SHARP=8.0         # (可选)sigmoid 锐化门; 默认线性用原始变化占比
+  export LAWAM_RUN_TIMESTAMP=${STAMP}
+
+  bash train_lawam_distributed.sh \
+    --config_yaml starVLA/config/training/train_libero.yaml \
+    --run_id=lmwm_dual_2q_gate_cnbj_volc \
+    --trainer.max_train_steps=12500 \
+    --trainer.save_interval=2500
+
+  echo "=== V8 §9 幅度门控 (cnbj) DONE $(date -u) ==="
+
+RetryOptions:
+    EnableRetry: false
+    MaxRetryTimes: 0
+
+AccessType: "Public"

@@ -1,0 +1,56 @@
+TaskName: "robotwin-all6-v2-combo-s2027-cnsh"
+Description: "Migrated from Beijing queue: RoboTwin all6 v2 combo seed2027, Shanghai 8xA100"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni2.28xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+  - Name: ROBOTWIN_ALL6_REPO
+    Value: "/vePFS/tim/workspace/deepdive_kai0"
+  - Name: ROBOTWIN_ALL6_VARIANT
+    Value: "combo"
+  - Name: ROBOTWIN_ALL6_SEED
+    Value: "2027"
+
+Entrypoint: |
+  set -euo pipefail
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$ROBOTWIN_ALL6_REPO/lmvla/lawam/logs/volc_robotwin
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/all6_v2_${ROBOTWIN_ALL6_VARIANT}_seed${ROBOTWIN_ALL6_SEED}_cnsh_${STAMP}.log" 2>&1
+  set -x
+  nvidia-smi -L
+  bash "$ROBOTWIN_ALL6_REPO/train_scripts/kai/volc/run_robotwin_all6_v2_train.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

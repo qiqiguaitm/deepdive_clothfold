@@ -1,0 +1,68 @@
+TaskName: "pi05-robotwin-a3-speedprobe-fsdp4-east"
+Description: "A3 throughput probe, official batch64, 4-device FSDP, workers8, Shanghai East 4xH20"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_robotwin
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/pi05_robotwin_a3_speedprobe_fsdp4_${STAMP}.log" 2>&1
+  set -x
+  cd "$REPO/kai0"
+  export PATH=$REPO/kai0/.venv/bin:$PATH
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.9
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+
+  A0_NORM=$REPO/kai0/assets/pi05_robotwin_a0_official_bj/robotwin2.0/norm_stats.json
+  A3_NORM_DIR=$REPO/kai0/assets/pi05_robotwin_a3_live_residual_prefix_official_east/robotwin2.0
+  mkdir -p "$A3_NORM_DIR"
+  cp -f "$A0_NORM" "$A3_NORM_DIR/norm_stats.json"
+
+  exec "$REPO/kai0/.venv/bin/python" -u scripts/train.py \
+    pi05_robotwin_a3_live_residual_prefix_official_east \
+    --exp-name speedprobe_fsdp4 \
+    --fsdp-devices 4 \
+    --num-workers 8 \
+    --num-train-steps 60 \
+    --log-interval 10 \
+    --save-interval 1000 \
+    --no-wandb-enabled \
+    --overwrite
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

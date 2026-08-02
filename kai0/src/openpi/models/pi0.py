@@ -1,10 +1,12 @@
 import logging
+import os
 
 import einops
 import flax.nnx as nnx
 import flax.nnx.bridge as nnx_bridge
 import jax
 import jax.numpy as jnp
+import numpy as np
 from typing_extensions import override
 
 from openpi.models import model as _model
@@ -15,11 +17,77 @@ from openpi.shared import array_typing as at
 
 logger = logging.getLogger("openpi")
 
+_LMWM_LIVE_OTHER_TASK_FEATURE = None
+if os.environ.get("LMWM_LIVE_HINT_INTERVENTION", "").strip().lower() == "other-task":
+    feature_path = os.environ.get("LMWM_LIVE_OTHER_TASK_FEATURE_PATH")
+    if not feature_path:
+        raise ValueError(
+            "LMWM_LIVE_OTHER_TASK_FEATURE_PATH is required for the other-task intervention"
+        )
+    _LMWM_LIVE_OTHER_TASK_FEATURE = np.asarray(np.load(feature_path), dtype=np.float32).reshape(-1)
+
 # X-VLA-style init for the soft prompt hub. Cached as a module-level constant so that
 # eval_shape(init) and the actual jit(init) trace see the SAME function object —
 # otherwise nnx puts the closure in static_fields and the prefix tree (out_shardings)
 # vs full tree pytrees mismatch on closure identity.
 _SOFT_PROMPT_INIT = nnx.initializers.normal(stddev=0.02)
+
+
+def _spatial_pool_tokens(tokens: jax.Array, grid_size: int) -> jax.Array:
+    """Pool square patch tokens to a fixed grid while preserving 2D order."""
+    token_count = tokens.shape[1]
+    side = int(np.sqrt(token_count))
+    if side * side != token_count:
+        raise ValueError(f"spatial condition requires square patch tokens, got {token_count}")
+    if side % grid_size != 0:
+        raise ValueError(f"patch grid side {side} is not divisible by output grid {grid_size}")
+    block = side // grid_size
+    batch_size, width = tokens.shape[0], tokens.shape[-1]
+    tokens = tokens.reshape(batch_size, grid_size, block, grid_size, block, width)
+    return tokens.mean(axis=(2, 4)).reshape(batch_size, grid_size * grid_size, width)
+
+
+class SpatialConditionAdapter(nnx.Module):
+    """Parameter-matched spatial condition used by all privileged-gate arms."""
+
+    def __init__(self, input_dim: int, output_dim: int, grid_size: int, bottleneck_dim: int, *, rngs: nnx.Rngs):
+        self.grid_size = grid_size
+        self.no_goal = nnx.Param(
+            jax.random.normal(rngs.params(), (grid_size * grid_size, input_dim), dtype=jnp.float32) * 0.02
+        )
+        self.adapter_in = nnx.Linear(input_dim, bottleneck_dim, rngs=rngs)
+        self.adapter_out = nnx.Linear(bottleneck_dim, output_dim, rngs=rngs)
+        self.gate = nnx.Linear(output_dim, 1, rngs=rngs)
+
+    def __call__(
+        self,
+        source_tokens: jax.Array | None,
+        *,
+        batch_size: int,
+        available: jax.Array | None = None,
+    ) -> tuple[jax.Array, dict[str, jax.Array]]:
+        no_goal = jnp.broadcast_to(self.no_goal[None, ...], (batch_size, *self.no_goal.shape))
+        if source_tokens is None:
+            source = no_goal
+            availability = jnp.zeros((batch_size,), dtype=jnp.bool_)
+        else:
+            pooled = jax.lax.stop_gradient(_spatial_pool_tokens(source_tokens, self.grid_size))
+            availability = (
+                jnp.ones((batch_size,), dtype=jnp.bool_)
+                if available is None
+                else available.astype(jnp.bool_)
+            )
+            source = jnp.where(availability[:, None, None], pooled, no_goal)
+
+        adapted = self.adapter_out(nnx.swish(self.adapter_in(source.astype(jnp.float32))))
+        gate = jax.nn.sigmoid(self.gate(adapted))
+        condition = (adapted * gate).astype(jnp.bfloat16)
+        stats = {
+            "availability": availability,
+            "gate": gate[..., 0],
+            "token_norm": jnp.linalg.norm(condition.astype(jnp.float32), axis=-1),
+        }
+        return condition, stats
 
 
 def _dct2_last_time_axis(x: jnp.ndarray) -> jnp.ndarray:
@@ -172,15 +240,52 @@ class Pi0(_model.BaseModel):
         self.lmwm_hint_dim = int(getattr(config, "lmwm_hint_dim", 0) or 0)
         self.lmwm_hint_len = int(getattr(config, "lmwm_hint_len", 1) or 1)
         self.lmwm_hint_target = str(getattr(config, "lmwm_hint_target", "prefix") or "prefix")
+        self.lmwm_live_hint = bool(getattr(config, "lmwm_live_hint", False))
+        self.lmwm_live_residual = bool(getattr(config, "lmwm_live_residual", True))
+        self.lmwm_live_loss_weight = float(getattr(config, "lmwm_live_loss_weight", 0.0) or 0.0)
+        self.lmwm_live_intervention = os.environ.get("LMWM_LIVE_HINT_INTERVENTION", "correct").strip().lower()
+        if self.lmwm_live_intervention not in {"correct", "current", "zero", "shuffle", "other-task"}:
+            raise ValueError(f"Unsupported LMWM_LIVE_HINT_INTERVENTION={self.lmwm_live_intervention!r}")
+        self.fuse_vision_batch = bool(getattr(config, "fuse_vision_batch", False))
+        self.lmwm_spatial_condition = str(getattr(config, "lmwm_spatial_condition", "none") or "none")
+        self.lmwm_spatial_grid_size = int(getattr(config, "lmwm_spatial_grid_size", 4) or 4)
+        if self.lmwm_spatial_condition not in {"none", "no_goal", "current", "privileged"}:
+            raise ValueError(f"Unsupported lmwm_spatial_condition={self.lmwm_spatial_condition!r}")
+        if self.lmwm_spatial_condition != "none":
+            self.lmwm_spatial_adapter = SpatialConditionAdapter(
+                paligemma_config.width,
+                paligemma_config.width,
+                self.lmwm_spatial_grid_size,
+                int(getattr(config, "lmwm_spatial_bottleneck_dim", 256) or 256),
+                rngs=rngs,
+            )
         if self.lmwm_hint_dim > 0:
             if self.lmwm_hint_target not in ("prefix", "suffix"):
                 raise ValueError(f"lmwm_hint_target must be 'prefix' or 'suffix', got {self.lmwm_hint_target!r}")
             # prefix → paligemma (VLM) width; suffix → action_expert width.
             hint_out_width = paligemma_config.width if self.lmwm_hint_target == "prefix" else action_expert_config.width
-            self.lmwm_hint_proj = nnx.Linear(self.lmwm_hint_dim, hint_out_width, rngs=rngs)
+            if self.lmwm_live_hint:
+                if self.lmwm_hint_target != "prefix":
+                    raise ValueError("lmwm_live_hint currently supports prefix target only")
+                if self.lmwm_live_intervention == "other-task" and (
+                    _LMWM_LIVE_OTHER_TASK_FEATURE is None
+                    or _LMWM_LIVE_OTHER_TASK_FEATURE.shape != (hint_out_width,)
+                    or not np.all(np.isfinite(_LMWM_LIVE_OTHER_TASK_FEATURE))
+                ):
+                    shape = None if _LMWM_LIVE_OTHER_TASK_FEATURE is None else _LMWM_LIVE_OTHER_TASK_FEATURE.shape
+                    raise ValueError(
+                        "Invalid A3 other-task feature: "
+                        f"shape={shape}, expected=({hint_out_width},), "
+                        f"finite={_LMWM_LIVE_OTHER_TASK_FEATURE is not None and np.all(np.isfinite(_LMWM_LIVE_OTHER_TASK_FEATURE))}"
+                    )
+                self.lmwm_live_pred_in = nnx.Linear(hint_out_width, hint_out_width, rngs=rngs)
+                self.lmwm_live_pred_out = nnx.Linear(hint_out_width, hint_out_width, rngs=rngs)
+            else:
+                self.lmwm_hint_proj = nnx.Linear(self.lmwm_hint_dim, hint_out_width, rngs=rngs)
 
         # Store augment_level so compute_loss can read it (Pi0 doesn't keep full config).
         self.augment_level = getattr(config, "augment_level", "mild")
+        self.awbc_loss_weight = getattr(config, "awbc_loss_weight", False)
         self.use_dct_loss = getattr(config, "use_dct_loss", False)
         if self.use_dct_loss:
             self._dct_loss_weight = config.dct_loss_weight
@@ -194,9 +299,18 @@ class Pi0(_model.BaseModel):
     def embed_prefix(
         self, obs: _model.Observation
     ) -> tuple[at.Float[at.Array, "b s emb"], at.Bool[at.Array, "b s"], at.Bool[at.Array, " s"]]:
+        tokens, input_mask, ar_mask, _ = self._embed_prefix_impl(obs, want_lmwm_aux=False)
+        return tokens, input_mask, ar_mask
+
+    def _embed_prefix_impl(
+        self, obs: _model.Observation, *, want_lmwm_aux: bool
+    ) -> tuple[at.Array, at.Array, at.Array, dict[str, at.Array]]:
         input_mask = []
         ar_mask = []
         tokens = []
+        aux = {}
+        base_image_tokens = None
+        target_image_tokens = None
         # X-VLA style soft prompt: prepend per-domain learnable tokens.
         # Bidirectional (non-AR) — images/language can attend to them and vice versa.
         if (
@@ -212,9 +326,39 @@ class Pi0(_model.BaseModel):
             tokens.append(soft)
             input_mask.append(jnp.ones((B, self.soft_prompt_len), dtype=jnp.bool_))
             ar_mask += [False] * self.soft_prompt_len
+        image_names = list(obs.images)
+        image_values = [obs.images[name] for name in image_names]
+        include_target = (
+            (want_lmwm_aux or self.lmwm_spatial_condition == "privileged")
+            and obs.lmwm_target_image is not None
+        )
+        vision_inputs = [*image_values, *([obs.lmwm_target_image] if include_target else [])]
+        can_fuse = (
+            self.fuse_vision_batch
+            and len(vision_inputs) > 1
+            and all(image.shape[1:] == vision_inputs[0].shape[1:] for image in vision_inputs)
+        )
+        if can_fuse:
+            batch_sizes = [image.shape[0] for image in vision_inputs]
+            fused_tokens, _ = self.PaliGemma.img(jnp.concatenate(vision_inputs, axis=0), train=False)
+            offsets = [0]
+            for batch_size in batch_sizes:
+                offsets.append(offsets[-1] + batch_size)
+            encoded_images = [
+                fused_tokens[offsets[idx] : offsets[idx + 1]]
+                for idx in range(len(image_values))
+            ]
+            if include_target:
+                target_image_tokens = fused_tokens[offsets[-2] : offsets[-1]]
+        else:
+            encoded_images = [self.PaliGemma.img(image, train=False)[0] for image in image_values]
+            if include_target:
+                target_image_tokens, _ = self.PaliGemma.img(obs.lmwm_target_image, train=False)
+
         # embed images
-        for name in obs.images:
-            image_tokens, _ = self.PaliGemma.img(obs.images[name], train=False)
+        for name, image_tokens in zip(image_names, encoded_images, strict=True):
+            if name == "base_0_rgb":
+                base_image_tokens = image_tokens
 
             tokens.append(image_tokens)
             input_mask.append(
@@ -227,19 +371,63 @@ class Pi0(_model.BaseModel):
             # image tokens attend to each other
             ar_mask += [False] * image_tokens.shape[1]
 
-        # LMWM hint (prefix target): project offline hint → prepend token(s) in the
-        # VLM stream, bidirectionally visible like images/language (ar_mask=False).
-        # Same semantic domain as So400m patch tokens → most natural placement.
-        if (
-            self.lmwm_hint_dim > 0
-            and self.lmwm_hint_target == "prefix"
-            and obs.lmwm_hint is not None
-        ):
-            hint = self.lmwm_hint_proj(obs.lmwm_hint)  # (B, hint_len, llm_width)
-            hint = hint.astype(jnp.bfloat16)
-            tokens.append(hint)
-            input_mask.append(jnp.ones(hint.shape[:2], dtype=jnp.bool_))
-            ar_mask += [False] * hint.shape[1]
+        if self.lmwm_spatial_condition != "none":
+            if self.lmwm_spatial_condition == "current":
+                spatial_source = base_image_tokens
+                spatial_available = None
+            elif self.lmwm_spatial_condition == "privileged":
+                spatial_source = target_image_tokens
+                spatial_available = obs.lmwm_target_mask
+            else:
+                spatial_source = None
+                spatial_available = None
+            spatial_tokens, spatial_stats = self.lmwm_spatial_adapter(
+                spatial_source,
+                batch_size=obs.state.shape[0],
+                available=spatial_available,
+            )
+            tokens.append(spatial_tokens)
+            input_mask.append(jnp.ones(spatial_tokens.shape[:2], dtype=jnp.bool_))
+            ar_mask += [False] * spatial_tokens.shape[1]
+            aux["lmwm_spatial_availability"] = spatial_stats["availability"]
+            aux["lmwm_spatial_gate"] = spatial_stats["gate"]
+            aux["lmwm_spatial_token_norm"] = spatial_stats["token_norm"]
+
+        if self.lmwm_hint_dim > 0 and self.lmwm_hint_target == "prefix":
+            if self.lmwm_live_hint and base_image_tokens is not None:
+                cur = jnp.mean(base_image_tokens.astype(jnp.float32), axis=1)
+                delta = self.lmwm_live_pred_out(nnx.swish(self.lmwm_live_pred_in(cur)))
+                pred = cur + delta if self.lmwm_live_residual else delta
+                if self.lmwm_live_intervention == "current":
+                    pred = cur
+                elif self.lmwm_live_intervention == "zero":
+                    pred = jnp.zeros_like(pred)
+                elif self.lmwm_live_intervention == "shuffle":
+                    pred = jnp.roll(pred, shift=pred.shape[-1] // 3, axis=-1)
+                elif self.lmwm_live_intervention == "other-task":
+                    pred = jnp.broadcast_to(
+                        jnp.asarray(_LMWM_LIVE_OTHER_TASK_FEATURE, dtype=pred.dtype), pred.shape
+                    )
+                hint = pred[:, None, :].astype(jnp.bfloat16)
+                tokens.append(hint)
+                input_mask.append(jnp.ones(hint.shape[:2], dtype=jnp.bool_))
+                ar_mask += [False] * hint.shape[1]
+
+                if target_image_tokens is not None:
+                    tgt = jax.lax.stop_gradient(jnp.mean(target_image_tokens.astype(jnp.float32), axis=1))
+                    per = jnp.mean(jnp.square(pred.astype(jnp.float32) - tgt), axis=-1)
+                    if obs.lmwm_target_mask is not None:
+                        mask = obs.lmwm_target_mask.astype(per.dtype)
+                        aux["lmwm_loss"] = jnp.sum(per * mask) / jnp.maximum(jnp.sum(mask), 1.0)
+                    else:
+                        aux["lmwm_loss"] = jnp.mean(per)
+            elif obs.lmwm_hint is not None:
+                # Offline A1/A2 hint path.
+                hint = self.lmwm_hint_proj(obs.lmwm_hint)  # (B, hint_len, llm_width)
+                hint = hint.astype(jnp.bfloat16)
+                tokens.append(hint)
+                input_mask.append(jnp.ones(hint.shape[:2], dtype=jnp.bool_))
+                ar_mask += [False] * hint.shape[1]
 
         # add language (aka tokenized inputs)
         if obs.tokenized_prompt is not None:
@@ -251,7 +439,7 @@ class Pi0(_model.BaseModel):
         tokens = jnp.concatenate(tokens, axis=1)
         input_mask = jnp.concatenate(input_mask, axis=1)
         ar_mask = jnp.array(ar_mask)
-        return tokens, input_mask, ar_mask
+        return tokens, input_mask, ar_mask, aux
 
     @at.typecheck
     def embed_suffix(
@@ -393,7 +581,9 @@ class Pi0(_model.BaseModel):
         u_t = noise - actions
 
         # one big forward pass of prefix + suffix at once
-        prefix_tokens, prefix_mask, prefix_ar_mask = self.embed_prefix(observation)
+        prefix_tokens, prefix_mask, prefix_ar_mask, lmwm_aux = self._embed_prefix_impl(
+            observation, want_lmwm_aux=self.lmwm_live_hint and self.lmwm_live_loss_weight > 0
+        )
         suffix_tokens, suffix_mask, suffix_ar_mask, adarms_cond = self.embed_suffix(observation, x_t, time_for_emb)
         input_mask = jnp.concatenate([prefix_mask, suffix_mask], axis=1)
         ar_mask = jnp.concatenate([prefix_ar_mask, suffix_ar_mask], axis=0)
@@ -405,6 +595,13 @@ class Pi0(_model.BaseModel):
         v_t = self.action_out_proj(suffix_out[:, -self.action_horizon :])
 
         per_token_loss = jnp.mean(jnp.square(v_t - u_t), axis=-1)  # (*b, ah)
+
+        # AWBC ② loss-weighting: scale each frame's loss by its class-derived weight.
+        # w=0 (class2 preintv) → zero gradient; w=2 (class1 intv/grasp) → double. base/robot w=1.
+        if self.awbc_loss_weight and getattr(observation, "sample_weight", None) is not None:
+            w = observation.sample_weight.astype(per_token_loss.dtype)  # (*b,)
+            per_token_loss = per_token_loss * w[..., None]
+
         if self.tac_enabled:
             # Mask: only postfix tokens contribute. Per-sample mean over kept tokens.
             mask_f = postfix_mask_tac.astype(per_token_loss.dtype)
@@ -415,10 +612,13 @@ class Pi0(_model.BaseModel):
         else:
             main_loss = per_token_loss
 
-        if not self.use_dct_loss:
+        if not self.use_dct_loss and not lmwm_aux:
             return main_loss
 
         out = {"main_loss": main_loss}
+        if "lmwm_loss" in lmwm_aux:
+            out["lmwm_loss"] = lmwm_aux["lmwm_loss"]
+            out["lmwm_weight"] = jnp.asarray(self.lmwm_live_loss_weight, dtype=main_loss.dtype)
 
         if self.use_dct_loss:
             # DCT-II on time axis; weight low/high frequencies differently to

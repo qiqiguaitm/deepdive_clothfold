@@ -1,0 +1,62 @@
+TaskName: "pi05-a3-other-task-feature-bj1g"
+Description: "Encode a fixed handover reference frame in the trained pi0.5 A3 visual space"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  PY=$REPO/kai0/.venv/bin/python
+  CKPT=$REPO/kai0/checkpoints/pi05_robotwin_a3_live_residual_prefix_official_east/pi05_robotwin_a3_live_residual_prefix_official/19999
+  FRAME=$REPO/lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256/chunk-004/observation.images.cam_high/episode_004497.npz
+  OUT_DIR=$REPO/lmvla/lmwm/data/pi05_hint/a3_other_task_handover_ep4497
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_robotwin
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$OUT_DIR" "$LOG_DIR"
+  exec >> "$LOG_DIR/pi05_a3_other_task_feature_${STAMP}.log" 2>&1
+  set -x
+
+  if [ -f "$OUT_DIR/feature.npy" ] && [ -f "$OUT_DIR/manifest.json" ]; then
+    exit 0
+  fi
+  "$PY" "$REPO/train_scripts/kai/analysis/extract_pi05_a3_other_task_feature.py" \
+    --repo "$REPO" \
+    --checkpoint "$CKPT" \
+    --frame-cache "$FRAME" \
+    --frame 0 \
+    --output "$OUT_DIR/feature.npy" \
+    --manifest "$OUT_DIR/manifest.json"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

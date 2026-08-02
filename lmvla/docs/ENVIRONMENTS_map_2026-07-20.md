@@ -13,7 +13,7 @@
 | **lawam/** | 我们改造的 **starVLA 训练/评测框架**(下游 VLA) | `lmvla/lawam/` |
 | **CRAVE** | **信号层**:跨-episode 复现密度场 r(o),零训练 | `lmvla/crave/` |
 | **LMWM** | **世界模型**:r-谷分段 + r-脊目标 + (生成器+MDN) | `lmvla/lmwm/` |
-| **LMWAM** | LMWM **注入** lawam 后的集成体(报告页用名) | 无独立目录 |
+| **LMVLA** | LMWM **注入** VLA 后的集成体（论文与报告页用名） | 无独立目录；`lmwam/` 是历史实现层 |
 
 > ⚠️ `lmvla/lmvla/` 是嵌套同名目录,`lmvla/temp/`、`lmvla/xvla/` 未在当前主线使用。
 

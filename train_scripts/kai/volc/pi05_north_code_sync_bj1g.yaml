@@ -1,0 +1,47 @@
+TaskName: "pi05-north-code-sync-bj1g"
+Description: "Atomically install a presigned code artifact on North vePFS"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 900
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  test -n "${CODE_DOWNLOAD_URL:-}"
+  test -n "${CODE_DESTINATION:-}"
+  case "$CODE_DESTINATION" in "$REPO"/*) ;; *) exit 19 ;; esac
+  TMP="${CODE_DESTINATION}.sync-${MLP_TASK_ID}"
+  curl --fail --silent --show-error "$CODE_DOWNLOAD_URL" -o "$TMP"
+  "$REPO/kai0/.venv/bin/python" -m py_compile "$TMP"
+  chmod --reference="$CODE_DESTINATION" "$TMP"
+  mv -f "$TMP" "$CODE_DESTINATION"
+  sha256sum "$CODE_DESTINATION"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

@@ -1,0 +1,39 @@
+{
+  "capture_source": "resource_aware_scheduler dispatch",
+  "captured_at": "2026-08-01T14:44:10Z",
+  "config_name": "pi05_robotwin_a0_public_exact_bj",
+  "experiment_name": "pi05_robotwin_a0_public_exact_seed1000",
+  "job_id": "gf1-848003",
+  "job_name": "pi05-a0-public-exact-s1000-bj4g",
+  "protocol": {
+    "action_horizon": 50,
+    "actions": "absolute",
+    "asset_id": "robotwin2.0_absolute_meanstd",
+    "batch_size": 16,
+    "evaluation_cells": 24,
+    "evaluation_seeds": 4,
+    "image_augmentation": "none",
+    "normalization": "mean_std",
+    "num_train_steps": 50000,
+    "training_seed": 1000
+  },
+  "resource": {
+    "accelerator": "NVIDIA A100-SXM4-80GB",
+    "backend": "ssh",
+    "gpus": 4,
+    "preemptible": false,
+    "queue_id": null
+  },
+  "runtime_env": {
+    "PI05_ABSOLUTE_ACTIONS": "1",
+    "PI05_ASSET_ID": "robotwin2.0_absolute_meanstd",
+    "PI05_CONFIG_NAME": "pi05_robotwin_a0_public_exact_bj",
+    "PI05_EXP_NAME": "pi05_robotwin_a0_public_exact_seed1000",
+    "PI05_TRAIN_SEED": "1000"
+  },
+  "sha256": {
+    "dataset_manifest": "53c48ffc359b36536e73a42a660a250fd9db95ce577f720d0155231ed85cafa3",
+    "launch_command": "e79d594ef4bdbec579204d2959f99e61643bce082749c00f751daca952db60c6",
+    "north_config_source_at_launch": "81a149b061e7e6b9cd914ff301d62fb79fe26812c34aaad2964147ecb32a60aa"
+  }
+}

@@ -1,0 +1,1940 @@
+{
+  "action_horizon": 50,
+  "batch_size": 16,
+  "episodes_jsonl_path": "/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0/meta/episodes.jsonl",
+  "episodes_jsonl_sha256": "7489b3636f8960d04491df4319711f6f12d38f72b8a775408a5d7af4689070b9",
+  "eval_seed": 20260801,
+  "pairs_path": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/pairs.npz",
+  "pairs_sha256": "592f1e739105951e927ab5f3afdd022a68aad31d779382ea760a4b1f4842a2a0",
+  "sample_count": 320,
+  "sample_count_by_task": {
+    "hammer": 160,
+    "stack_three": 160
+  },
+  "samples": [
+    {
+      "episode_index": 553,
+      "frame_index": 13,
+      "target_frame_index": 88,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 553,
+      "frame_index": 26,
+      "target_frame_index": 88,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 553,
+      "frame_index": 38,
+      "target_frame_index": 88,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 553,
+      "frame_index": 51,
+      "target_frame_index": 88,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 556,
+      "frame_index": 13,
+      "target_frame_index": 85,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 556,
+      "frame_index": 26,
+      "target_frame_index": 85,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 556,
+      "frame_index": 38,
+      "target_frame_index": 85,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 556,
+      "frame_index": 51,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 567,
+      "frame_index": 12,
+      "target_frame_index": 90,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 567,
+      "frame_index": 24,
+      "target_frame_index": 90,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 567,
+      "frame_index": 37,
+      "target_frame_index": 90,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 567,
+      "frame_index": 49,
+      "target_frame_index": 90,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 569,
+      "frame_index": 12,
+      "target_frame_index": 79,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 569,
+      "frame_index": 24,
+      "target_frame_index": 79,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 569,
+      "frame_index": 36,
+      "target_frame_index": 79,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 569,
+      "frame_index": 48,
+      "target_frame_index": 79,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 591,
+      "frame_index": 12,
+      "target_frame_index": 109,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 591,
+      "frame_index": 24,
+      "target_frame_index": 109,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 591,
+      "frame_index": 36,
+      "target_frame_index": 109,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 591,
+      "frame_index": 48,
+      "target_frame_index": 109,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 602,
+      "frame_index": 12,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 602,
+      "frame_index": 25,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 602,
+      "frame_index": 37,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 602,
+      "frame_index": 50,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 619,
+      "frame_index": 13,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 619,
+      "frame_index": 26,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 619,
+      "frame_index": 40,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 619,
+      "frame_index": 53,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 624,
+      "frame_index": 13,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 624,
+      "frame_index": 25,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 624,
+      "frame_index": 38,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 624,
+      "frame_index": 50,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 633,
+      "frame_index": 13,
+      "target_frame_index": 83,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 633,
+      "frame_index": 25,
+      "target_frame_index": 83,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 633,
+      "frame_index": 38,
+      "target_frame_index": 83,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 633,
+      "frame_index": 50,
+      "target_frame_index": 83,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 641,
+      "frame_index": 14,
+      "target_frame_index": 117,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 641,
+      "frame_index": 27,
+      "target_frame_index": 117,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 641,
+      "frame_index": 41,
+      "target_frame_index": 117,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 641,
+      "frame_index": 54,
+      "target_frame_index": 117,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 652,
+      "frame_index": 13,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 652,
+      "frame_index": 26,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 652,
+      "frame_index": 38,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 652,
+      "frame_index": 51,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 666,
+      "frame_index": 12,
+      "target_frame_index": 107,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 666,
+      "frame_index": 24,
+      "target_frame_index": 107,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 666,
+      "frame_index": 35,
+      "target_frame_index": 107,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 666,
+      "frame_index": 47,
+      "target_frame_index": 107,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 680,
+      "frame_index": 12,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 680,
+      "frame_index": 25,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 680,
+      "frame_index": 37,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 680,
+      "frame_index": 50,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 691,
+      "frame_index": 13,
+      "target_frame_index": 115,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 691,
+      "frame_index": 26,
+      "target_frame_index": 115,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 691,
+      "frame_index": 40,
+      "target_frame_index": 115,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 691,
+      "frame_index": 53,
+      "target_frame_index": 115,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 696,
+      "frame_index": 13,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 696,
+      "frame_index": 26,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 696,
+      "frame_index": 38,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 696,
+      "frame_index": 51,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 707,
+      "frame_index": 14,
+      "target_frame_index": 90,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 707,
+      "frame_index": 28,
+      "target_frame_index": 90,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 707,
+      "frame_index": 42,
+      "target_frame_index": 90,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 707,
+      "frame_index": 56,
+      "target_frame_index": 90,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 729,
+      "frame_index": 13,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 729,
+      "frame_index": 26,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 729,
+      "frame_index": 38,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 729,
+      "frame_index": 51,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 754,
+      "frame_index": 13,
+      "target_frame_index": 81,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 754,
+      "frame_index": 26,
+      "target_frame_index": 81,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 754,
+      "frame_index": 39,
+      "target_frame_index": 81,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 754,
+      "frame_index": 52,
+      "target_frame_index": 81,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 771,
+      "frame_index": 13,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 771,
+      "frame_index": 26,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 771,
+      "frame_index": 38,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 771,
+      "frame_index": 51,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 773,
+      "frame_index": 13,
+      "target_frame_index": 78,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 773,
+      "frame_index": 25,
+      "target_frame_index": 78,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 773,
+      "frame_index": 38,
+      "target_frame_index": 78,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 773,
+      "frame_index": 50,
+      "target_frame_index": 78,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 818,
+      "frame_index": 14,
+      "target_frame_index": 121,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 818,
+      "frame_index": 29,
+      "target_frame_index": 121,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 818,
+      "frame_index": 43,
+      "target_frame_index": 121,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 818,
+      "frame_index": 58,
+      "target_frame_index": 121,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 842,
+      "frame_index": 13,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 842,
+      "frame_index": 26,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 842,
+      "frame_index": 38,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 842,
+      "frame_index": 51,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 851,
+      "frame_index": 14,
+      "target_frame_index": 117,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 851,
+      "frame_index": 27,
+      "target_frame_index": 117,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 851,
+      "frame_index": 41,
+      "target_frame_index": 117,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 851,
+      "frame_index": 54,
+      "target_frame_index": 117,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 862,
+      "frame_index": 12,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 862,
+      "frame_index": 25,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 862,
+      "frame_index": 37,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 862,
+      "frame_index": 50,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 876,
+      "frame_index": 13,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 876,
+      "frame_index": 26,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 876,
+      "frame_index": 38,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 876,
+      "frame_index": 51,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 889,
+      "frame_index": 12,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 889,
+      "frame_index": 25,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 889,
+      "frame_index": 37,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 889,
+      "frame_index": 50,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 892,
+      "frame_index": 13,
+      "target_frame_index": 41,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 892,
+      "frame_index": 26,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 892,
+      "frame_index": 38,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 892,
+      "frame_index": 51,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 906,
+      "frame_index": 12,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 906,
+      "frame_index": 24,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 906,
+      "frame_index": 37,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 906,
+      "frame_index": 49,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 928,
+      "frame_index": 13,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 928,
+      "frame_index": 26,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 928,
+      "frame_index": 39,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 928,
+      "frame_index": 52,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 936,
+      "frame_index": 13,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 936,
+      "frame_index": 26,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 936,
+      "frame_index": 39,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 936,
+      "frame_index": 52,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 950,
+      "frame_index": 12,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 950,
+      "frame_index": 25,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 950,
+      "frame_index": 37,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 950,
+      "frame_index": 50,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 961,
+      "frame_index": 12,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 961,
+      "frame_index": 25,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 961,
+      "frame_index": 37,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 961,
+      "frame_index": 50,
+      "target_frame_index": 111,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 980,
+      "frame_index": 12,
+      "target_frame_index": 108,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 980,
+      "frame_index": 25,
+      "target_frame_index": 108,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 980,
+      "frame_index": 37,
+      "target_frame_index": 108,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 980,
+      "frame_index": 50,
+      "target_frame_index": 108,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 989,
+      "frame_index": 13,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 989,
+      "frame_index": 25,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 989,
+      "frame_index": 38,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 989,
+      "frame_index": 50,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 991,
+      "frame_index": 13,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 991,
+      "frame_index": 25,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 991,
+      "frame_index": 38,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 991,
+      "frame_index": 50,
+      "target_frame_index": 112,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1011,
+      "frame_index": 12,
+      "target_frame_index": 61,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1011,
+      "frame_index": 25,
+      "target_frame_index": 61,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1011,
+      "frame_index": 37,
+      "target_frame_index": 61,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1011,
+      "frame_index": 50,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1016,
+      "frame_index": 12,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1016,
+      "frame_index": 24,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1016,
+      "frame_index": 37,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1016,
+      "frame_index": 49,
+      "target_frame_index": 110,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1044,
+      "frame_index": 13,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1044,
+      "frame_index": 26,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1044,
+      "frame_index": 39,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1044,
+      "frame_index": 52,
+      "target_frame_index": 114,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1055,
+      "frame_index": 13,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1055,
+      "frame_index": 26,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1055,
+      "frame_index": 38,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1055,
+      "frame_index": 51,
+      "target_frame_index": 113,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1085,
+      "frame_index": 13,
+      "target_frame_index": 115,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1085,
+      "frame_index": 26,
+      "target_frame_index": 115,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1085,
+      "frame_index": 40,
+      "target_frame_index": 115,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 1085,
+      "frame_index": 53,
+      "target_frame_index": 115,
+      "task": "hammer"
+    },
+    {
+      "episode_index": 24206,
+      "frame_index": 82,
+      "target_frame_index": 98,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24206,
+      "frame_index": 165,
+      "target_frame_index": 199,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24206,
+      "frame_index": 247,
+      "target_frame_index": 450,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24206,
+      "frame_index": 330,
+      "target_frame_index": 450,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24225,
+      "frame_index": 85,
+      "target_frame_index": 160,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24225,
+      "frame_index": 169,
+      "target_frame_index": 304,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24225,
+      "frame_index": 254,
+      "target_frame_index": 454,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24225,
+      "frame_index": 338,
+      "target_frame_index": 472,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24239,
+      "frame_index": 85,
+      "target_frame_index": 268,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24239,
+      "frame_index": 169,
+      "target_frame_index": 268,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24239,
+      "frame_index": 254,
+      "target_frame_index": 310,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24239,
+      "frame_index": 338,
+      "target_frame_index": 472,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24269,
+      "frame_index": 85,
+      "target_frame_index": 112,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24269,
+      "frame_index": 170,
+      "target_frame_index": 282,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24269,
+      "frame_index": 255,
+      "target_frame_index": 391,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24269,
+      "frame_index": 340,
+      "target_frame_index": 391,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24280,
+      "frame_index": 82,
+      "target_frame_index": 290,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24280,
+      "frame_index": 164,
+      "target_frame_index": 290,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24280,
+      "frame_index": 245,
+      "target_frame_index": 419,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24280,
+      "frame_index": 327,
+      "target_frame_index": 419,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24299,
+      "frame_index": 87,
+      "target_frame_index": 318,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24299,
+      "frame_index": 174,
+      "target_frame_index": 318,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24299,
+      "frame_index": 261,
+      "target_frame_index": 442,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24299,
+      "frame_index": 348,
+      "target_frame_index": 484,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24308,
+      "frame_index": 88,
+      "target_frame_index": 319,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24308,
+      "frame_index": 175,
+      "target_frame_index": 319,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24308,
+      "frame_index": 263,
+      "target_frame_index": 469,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24308,
+      "frame_index": 350,
+      "target_frame_index": 469,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24335,
+      "frame_index": 81,
+      "target_frame_index": 146,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24335,
+      "frame_index": 163,
+      "target_frame_index": 210,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24335,
+      "frame_index": 244,
+      "target_frame_index": 444,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24335,
+      "frame_index": 326,
+      "target_frame_index": 444,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24354,
+      "frame_index": 85,
+      "target_frame_index": 310,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24354,
+      "frame_index": 170,
+      "target_frame_index": 310,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24354,
+      "frame_index": 254,
+      "target_frame_index": 434,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24354,
+      "frame_index": 339,
+      "target_frame_index": 473,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24360,
+      "frame_index": 83,
+      "target_frame_index": 278,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24360,
+      "frame_index": 166,
+      "target_frame_index": 278,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24360,
+      "frame_index": 249,
+      "target_frame_index": 454,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24360,
+      "frame_index": 332,
+      "target_frame_index": 464,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24382,
+      "frame_index": 83,
+      "target_frame_index": 160,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24382,
+      "frame_index": 166,
+      "target_frame_index": 313,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24382,
+      "frame_index": 250,
+      "target_frame_index": 363,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24382,
+      "frame_index": 333,
+      "target_frame_index": 363,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24385,
+      "frame_index": 78,
+      "target_frame_index": 213,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24385,
+      "frame_index": 156,
+      "target_frame_index": 213,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24385,
+      "frame_index": 233,
+      "target_frame_index": 302,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24385,
+      "frame_index": 311,
+      "target_frame_index": 423,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24410,
+      "frame_index": 78,
+      "target_frame_index": 272,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24410,
+      "frame_index": 157,
+      "target_frame_index": 272,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24410,
+      "frame_index": 235,
+      "target_frame_index": 420,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24410,
+      "frame_index": 314,
+      "target_frame_index": 420,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24415,
+      "frame_index": 86,
+      "target_frame_index": 163,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24415,
+      "frame_index": 172,
+      "target_frame_index": 311,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24415,
+      "frame_index": 259,
+      "target_frame_index": 440,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24415,
+      "frame_index": 345,
+      "target_frame_index": 480,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24418,
+      "frame_index": 80,
+      "target_frame_index": 155,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24418,
+      "frame_index": 160,
+      "target_frame_index": 293,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24418,
+      "frame_index": 241,
+      "target_frame_index": 444,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24418,
+      "frame_index": 321,
+      "target_frame_index": 450,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24426,
+      "frame_index": 80,
+      "target_frame_index": 273,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24426,
+      "frame_index": 160,
+      "target_frame_index": 273,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24426,
+      "frame_index": 241,
+      "target_frame_index": 438,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24426,
+      "frame_index": 321,
+      "target_frame_index": 438,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24454,
+      "frame_index": 85,
+      "target_frame_index": 220,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24454,
+      "frame_index": 170,
+      "target_frame_index": 220,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24454,
+      "frame_index": 256,
+      "target_frame_index": 462,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24454,
+      "frame_index": 341,
+      "target_frame_index": 462,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24465,
+      "frame_index": 85,
+      "target_frame_index": 272,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24465,
+      "frame_index": 170,
+      "target_frame_index": 435,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24465,
+      "frame_index": 255,
+      "target_frame_index": 435,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24465,
+      "frame_index": 340,
+      "target_frame_index": 435,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24503,
+      "frame_index": 88,
+      "target_frame_index": 313,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24503,
+      "frame_index": 175,
+      "target_frame_index": 313,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24503,
+      "frame_index": 263,
+      "target_frame_index": 478,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24503,
+      "frame_index": 350,
+      "target_frame_index": 487,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24506,
+      "frame_index": 86,
+      "target_frame_index": 312,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24506,
+      "frame_index": 172,
+      "target_frame_index": 312,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24506,
+      "frame_index": 258,
+      "target_frame_index": 437,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24506,
+      "frame_index": 344,
+      "target_frame_index": 479,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24509,
+      "frame_index": 85,
+      "target_frame_index": 298,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24509,
+      "frame_index": 169,
+      "target_frame_index": 298,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24509,
+      "frame_index": 254,
+      "target_frame_index": 459,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24509,
+      "frame_index": 338,
+      "target_frame_index": 459,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24512,
+      "frame_index": 84,
+      "target_frame_index": 306,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24512,
+      "frame_index": 168,
+      "target_frame_index": 306,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24512,
+      "frame_index": 253,
+      "target_frame_index": 431,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24512,
+      "frame_index": 337,
+      "target_frame_index": 431,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24556,
+      "frame_index": 81,
+      "target_frame_index": 155,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24556,
+      "frame_index": 162,
+      "target_frame_index": 271,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24556,
+      "frame_index": 242,
+      "target_frame_index": 414,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24556,
+      "frame_index": 323,
+      "target_frame_index": 414,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24561,
+      "frame_index": 82,
+      "target_frame_index": 295,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24561,
+      "frame_index": 164,
+      "target_frame_index": 295,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24561,
+      "frame_index": 246,
+      "target_frame_index": 363,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24561,
+      "frame_index": 328,
+      "target_frame_index": 432,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24567,
+      "frame_index": 84,
+      "target_frame_index": 162,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24567,
+      "frame_index": 168,
+      "target_frame_index": 305,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24567,
+      "frame_index": 253,
+      "target_frame_index": 373,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24567,
+      "frame_index": 337,
+      "target_frame_index": 436,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24581,
+      "frame_index": 84,
+      "target_frame_index": 317,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24581,
+      "frame_index": 168,
+      "target_frame_index": 317,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24581,
+      "frame_index": 252,
+      "target_frame_index": 434,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24581,
+      "frame_index": 336,
+      "target_frame_index": 434,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24589,
+      "frame_index": 82,
+      "target_frame_index": 315,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24589,
+      "frame_index": 164,
+      "target_frame_index": 315,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24589,
+      "frame_index": 247,
+      "target_frame_index": 448,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24589,
+      "frame_index": 329,
+      "target_frame_index": 448,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24595,
+      "frame_index": 84,
+      "target_frame_index": 297,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24595,
+      "frame_index": 168,
+      "target_frame_index": 297,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24595,
+      "frame_index": 252,
+      "target_frame_index": 443,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24595,
+      "frame_index": 336,
+      "target_frame_index": 443,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24619,
+      "frame_index": 85,
+      "target_frame_index": 304,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24619,
+      "frame_index": 170,
+      "target_frame_index": 304,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24619,
+      "frame_index": 256,
+      "target_frame_index": 465,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24619,
+      "frame_index": 341,
+      "target_frame_index": 465,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24622,
+      "frame_index": 83,
+      "target_frame_index": 273,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24622,
+      "frame_index": 165,
+      "target_frame_index": 273,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24622,
+      "frame_index": 248,
+      "target_frame_index": 455,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24622,
+      "frame_index": 330,
+      "target_frame_index": 455,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24639,
+      "frame_index": 83,
+      "target_frame_index": 297,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24639,
+      "frame_index": 167,
+      "target_frame_index": 427,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24639,
+      "frame_index": 250,
+      "target_frame_index": 427,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24639,
+      "frame_index": 334,
+      "target_frame_index": 466,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24650,
+      "frame_index": 80,
+      "target_frame_index": 179,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24650,
+      "frame_index": 160,
+      "target_frame_index": 179,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24650,
+      "frame_index": 240,
+      "target_frame_index": 332,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24650,
+      "frame_index": 320,
+      "target_frame_index": 412,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24675,
+      "frame_index": 82,
+      "target_frame_index": 287,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24675,
+      "frame_index": 164,
+      "target_frame_index": 287,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24675,
+      "frame_index": 247,
+      "target_frame_index": 424,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24675,
+      "frame_index": 329,
+      "target_frame_index": 460,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24686,
+      "frame_index": 86,
+      "target_frame_index": 280,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24686,
+      "frame_index": 172,
+      "target_frame_index": 280,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24686,
+      "frame_index": 257,
+      "target_frame_index": 466,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24686,
+      "frame_index": 343,
+      "target_frame_index": 466,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24688,
+      "frame_index": 83,
+      "target_frame_index": 309,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24688,
+      "frame_index": 166,
+      "target_frame_index": 309,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24688,
+      "frame_index": 248,
+      "target_frame_index": 453,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24688,
+      "frame_index": 331,
+      "target_frame_index": 453,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24705,
+      "frame_index": 84,
+      "target_frame_index": 310,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24705,
+      "frame_index": 168,
+      "target_frame_index": 310,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24705,
+      "frame_index": 251,
+      "target_frame_index": 451,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24705,
+      "frame_index": 335,
+      "target_frame_index": 451,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24710,
+      "frame_index": 87,
+      "target_frame_index": 157,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24710,
+      "frame_index": 173,
+      "target_frame_index": 275,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24710,
+      "frame_index": 260,
+      "target_frame_index": 458,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24710,
+      "frame_index": 346,
+      "target_frame_index": 482,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24719,
+      "frame_index": 87,
+      "target_frame_index": 277,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24719,
+      "frame_index": 175,
+      "target_frame_index": 277,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24719,
+      "frame_index": 262,
+      "target_frame_index": 387,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24719,
+      "frame_index": 350,
+      "target_frame_index": 387,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24741,
+      "frame_index": 87,
+      "target_frame_index": 313,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24741,
+      "frame_index": 175,
+      "target_frame_index": 313,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24741,
+      "frame_index": 262,
+      "target_frame_index": 446,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24741,
+      "frame_index": 350,
+      "target_frame_index": 486,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24749,
+      "frame_index": 83,
+      "target_frame_index": 296,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24749,
+      "frame_index": 166,
+      "target_frame_index": 296,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24749,
+      "frame_index": 250,
+      "target_frame_index": 425,
+      "task": "stack_three"
+    },
+    {
+      "episode_index": 24749,
+      "frame_index": 333,
+      "target_frame_index": 465,
+      "task": "stack_three"
+    }
+  ],
+  "samples_per_episode": 4,
+  "schema_version": 1,
+  "split_path": "/vePFS/tim/workspace/deepdive_kai0/lmvla/paper_iclr_lmvla/manifests/pi05_spatial_s0_episode_split.json",
+  "split_sha256": "8c61a9c5bf85612c256f9e637be907c1ea6a4a9a3fda78a3feb8bb27f8e80849"
+}
