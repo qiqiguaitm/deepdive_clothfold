@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 from typing import Optional, Tuple
 from torch.utils.data import DataLoader
 import time
@@ -71,6 +72,38 @@ TRAIN_COMPONENT_METRIC_ALIASES = {
     "train_loss_lpips": ("loss_lpips", "lpips_loss"),
 }
 
+
+def _checkpoint_step(path: Path) -> int:
+    match = re.search(r"steps_(\d+)_state$", path.name)
+    return int(match.group(1)) if match else -1
+
+
+def _resolve_resume_checkpoint(cfg) -> Optional[Path]:
+    """Resolve an explicit checkpoint, or the newest state checkpoint for this exact run id."""
+    trainer_cfg = cfg.trainer
+    explicit = getattr(trainer_cfg, "resume_from_checkpoint", None) or os.environ.get(
+        "LAWAM_RESUME_FROM_CHECKPOINT"
+    )
+    if explicit:
+        checkpoint = Path(str(explicit)).expanduser().resolve()
+        if not checkpoint.is_dir():
+            raise FileNotFoundError(f"Resume checkpoint directory does not exist: {checkpoint}")
+        return checkpoint
+
+    auto_resume = _coerce_config_bool(
+        getattr(trainer_cfg, "auto_resume", False),
+        default=False,
+        field_name="trainer.auto_resume",
+    )
+    if not auto_resume:
+        return None
+
+    run_root = Path(str(cfg.run_root_dir)).expanduser()
+    candidates = list(run_root.glob(f"*+{cfg.run_id}/checkpoints/steps_*_state"))
+    candidates = [path for path in candidates if _checkpoint_step(path) >= 0]
+    return max(candidates, key=_checkpoint_step) if candidates else None
+
+
 def _accumulate_eval_scalar(metric_numerator: torch.Tensor, metric_denominator: torch.Tensor, value) -> None:
     """Accumulate an optional scalar metric as float64 sum/count."""
     if not torch.is_tensor(value):
@@ -118,21 +151,25 @@ def build_accelerator(cfg) -> Accelerator:
 
 def setup_directories(cfg) -> Path:
     """create output directory and save config"""
+    resume_checkpoint = _resolve_resume_checkpoint(cfg)
     base_run_id = str(cfg.run_id)
-    run_timestamp = os.environ.get("LAWAM_RUN_TIMESTAMP")
-    if dist.is_initialized():
-        timestamp_list = [run_timestamp if dist.get_rank() == 0 else None]
-        if dist.get_rank() == 0 and not timestamp_list[0]:
-            timestamp_list[0] = time.strftime("%m%d_%H%M%S")
-        dist.broadcast_object_list(timestamp_list, src=0)
-        timestamp = timestamp_list[0]
+    if resume_checkpoint is not None:
+        output_dir = resume_checkpoint.parent.parent
+        cfg.trainer.resume_from_checkpoint = str(resume_checkpoint)
     else:
-        timestamp = run_timestamp or time.strftime("%m%d_%H%M%S")
-    run_folder_name = f"{timestamp}+{base_run_id}"
+        run_timestamp = os.environ.get("LAWAM_RUN_TIMESTAMP")
+        if dist.is_initialized():
+            timestamp_list = [run_timestamp if dist.get_rank() == 0 else None]
+            if dist.get_rank() == 0 and not timestamp_list[0]:
+                timestamp_list[0] = time.strftime("%m%d_%H%M%S")
+            dist.broadcast_object_list(timestamp_list, src=0)
+            timestamp = timestamp_list[0]
+        else:
+            timestamp = run_timestamp or time.strftime("%m%d_%H%M%S")
+        output_dir = Path(cfg.run_root_dir) / f"{timestamp}+{base_run_id}"
 
-    cfg.output_dir = os.path.join(cfg.run_root_dir, run_folder_name)
+    cfg.output_dir = str(output_dir)
     cfg.log_dir = os.path.join(cfg.output_dir, "logs")
-    output_dir = Path(cfg.output_dir)
 
     if not dist.is_initialized() or dist.get_rank() == 0:
         # create output directory and checkpoint directory
@@ -174,12 +211,18 @@ def setup_optimizer_and_scheduler(model, cfg) -> Tuple[torch.optim.Optimizer, to
     """set optimizer and scheduler"""
     # initialize optimizer
     param_groups = build_param_lr_groups(model=model, cfg=cfg)
+    fused = _coerce_config_bool(
+        getattr(cfg.trainer.optimizer, "fused", False),
+        default=False,
+        field_name="trainer.optimizer.fused",
+    )
     optimizer = torch.optim.AdamW(
         param_groups,
         lr=cfg.trainer.learning_rate.base,
         betas=tuple(cfg.trainer.optimizer.betas),
         weight_decay=cfg.trainer.optimizer.weight_decay,
         eps=cfg.trainer.optimizer.eps,
+        fused=fused,
     )
 
     # print optimizer group info
@@ -230,6 +273,9 @@ class VLATrainer(TrainerUtils):
         # training status tracking
         self.completed_steps = 0
         self.total_batch_size = self._calculate_total_batch_size()
+        self._pending_data_time = 0.0
+        self._pending_model_time = 0.0
+        self._pending_cuda_events = []
         trackers = list(getattr(self.config, "trackers", [])) if hasattr(self.config, "trackers") else []
         self.use_wandb = "wandb" in trackers if trackers else True
     
@@ -238,8 +284,12 @@ class VLATrainer(TrainerUtils):
         seed = self.config.seed + rank if hasattr(self.config, "seed") else rank + 3047
         set_seed(seed)
 
-        # Strict finetune initialization from a full model checkpoint, if configured.
-        self._init_checkpointing()
+        resume_checkpoint = getattr(self.config.trainer, "resume_from_checkpoint", None)
+        if resume_checkpoint:
+            self.checkpoint_dir = os.path.join(self.config.output_dir, "checkpoints")
+        else:
+            # Strict finetune initialization from a full model checkpoint, if configured.
+            self._init_checkpointing()
 
         #  print model trainable parameters:
         self.print_trainable_parameters(self.model)
@@ -262,6 +312,11 @@ class VLATrainer(TrainerUtils):
                     self.vla_val_dataloader,
                 )
             )
+
+        # The scheduler is stepped outside Accelerator.prepare, so register it explicitly.
+        self.accelerator.register_for_checkpointing(self.lr_scheduler)
+        if resume_checkpoint:
+            self._load_checkpoint(Path(str(resume_checkpoint)))
 
         self._init_wandb()
 
@@ -322,22 +377,36 @@ class VLATrainer(TrainerUtils):
             self.completed_steps = 0
 
     def _save_checkpoint(self):
-        """save current training state"""
+        """Save a resumable Accelerate state and retain the legacy inference checkpoint path."""
+        checkpoint_path = Path(self.checkpoint_dir) / f"steps_{self.completed_steps}"
+        state_dir = Path(f"{checkpoint_path}_state")
+        if self.accelerator.is_main_process:
+            state_dir.mkdir(parents=True, exist_ok=True)
+        self.accelerator.wait_for_everyone()
+
+        self.accelerator.save_state(str(state_dir), safe_serialization=False)
 
         if self.accelerator.is_main_process:
+            trainer_state = {"steps": self.completed_steps}
+            with open(state_dir / "trainer_state.json", "w", encoding="utf-8") as f:
+                json.dump(trainer_state, f)
 
-            checkpoint_path = os.path.join(self.checkpoint_dir, f"steps_{self.completed_steps}")
-            # save model state
-            state_dict = self.accelerator.get_state_dict(self.model)
-            torch.save(state_dict, checkpoint_path + "_pytorch_model.pt")
+            # Accelerate's DDP state contains a regular model state dict. Reuse it
+            # through a symlink so existing evaluation scripts do not duplicate it.
+            inference_path = Path(f"{checkpoint_path}_pytorch_model.pt")
+            accelerator_model_path = state_dir / "pytorch_model.bin"
+            if inference_path.exists() or inference_path.is_symlink():
+                inference_path.unlink()
+            if accelerator_model_path.is_file():
+                inference_path.symlink_to(accelerator_model_path.relative_to(inference_path.parent))
+            else:
+                state_dict = self.accelerator.get_state_dict(self.model)
+                torch.save(state_dict, inference_path)
 
-            # save training metadata
-            summary_data = {
-                "steps": self.completed_steps,
-            }
+            summary_data = {"steps": self.completed_steps, "state_dir": str(state_dir)}
             with open(os.path.join(self.config.output_dir, "summary.jsonl"), "a") as f:
                 f.write(json.dumps(summary_data) + "\n")
-            self.accelerator.print(f"✅ Checkpoint saved at {checkpoint_path}")
+            self.accelerator.print(f"Checkpoint saved at {checkpoint_path}")
             # ✅ Save accessed configuration only
             if isinstance(self.config, AccessTrackedConfig):
                 logger.info("📊 Saving accessed configuration...")
@@ -353,6 +422,16 @@ class VLATrainer(TrainerUtils):
                 logger.info("✅ Configuration files saved")
 
         self.accelerator.wait_for_everyone()
+
+    def _load_checkpoint(self, state_dir: Path) -> None:
+        trainer_state_path = state_dir / "trainer_state.json"
+        if not trainer_state_path.is_file():
+            raise FileNotFoundError(f"Missing trainer state metadata: {trainer_state_path}")
+        self.accelerator.load_state(str(state_dir))
+        with open(trainer_state_path, "r", encoding="utf-8") as f:
+            trainer_state = json.load(f)
+        self.completed_steps = int(trainer_state["steps"])
+        logger.info("Resumed complete training state from %s at step %d", state_dir, self.completed_steps)
 
     def _get_learning_rate_metrics(self):
         """Collect learning-rate metrics for all optimizer parameter groups."""
@@ -380,8 +459,15 @@ class VLATrainer(TrainerUtils):
     def _log_metrics(self, metrics):
         """record training metrics"""
         if self.completed_steps % self.config.trainer.logging_frequency == 0:
+            reduced_metrics = {}
+            for key, value in metrics.items():
+                if torch.is_tensor(value):
+                    value = self.accelerator.reduce(value.detach(), reduction="mean")
+                    reduced_metrics[key] = float(value.item())
+                else:
+                    reduced_metrics[key] = value
             if (not dist.is_initialized()) or dist.get_rank() == 0:
-                metrics = self._normalize_metric_aliases(metrics)
+                metrics = self._normalize_metric_aliases(reduced_metrics)
                 # Log both the legacy scalar learning rate and named lr groups.
                 metrics.update(self._get_learning_rate_metrics())
 
@@ -423,8 +509,17 @@ class VLATrainer(TrainerUtils):
         # create progress bar
         progress_bar = tqdm(
             range(self.config.trainer.max_train_steps),
+            initial=self.completed_steps,
+            total=self.config.trainer.max_train_steps,
             desc=str(getattr(self.config, "run_id", "train")),
             disable=not self.accelerator.is_local_main_process,
+        )
+        progress_frequency = int(
+            getattr(
+                self.config.trainer,
+                "progress_frequency",
+                min(20, int(self.config.trainer.logging_frequency)),
+            )
         )
 
         # main training loop
@@ -437,9 +532,28 @@ class VLATrainer(TrainerUtils):
             t_end_data_wait = time.perf_counter()
 
             # Pure training-step compute time for the current process.
+            next_completed_step = self.completed_steps + 1
+            should_measure_update = (
+                (
+                    progress_frequency > 0
+                    and next_completed_step % progress_frequency == 0
+                )
+                or next_completed_step % int(self.config.trainer.logging_frequency) == 0
+            )
+            cuda_start = None
+            cuda_end = None
+            if should_measure_update and torch.cuda.is_available():
+                cuda_start = torch.cuda.Event(enable_timing=True)
+                cuda_end = torch.cuda.Event(enable_timing=True)
+                cuda_start.record()
             t_start_compute = time.perf_counter()
             step_metrics = self._train_step(batch_vla)
             t_end_compute = time.perf_counter()
+            if cuda_end is not None:
+                cuda_end.record()
+                self._pending_cuda_events.append((cuda_start, cuda_end))
+            self._pending_data_time += t_end_data_wait - t_start_data_wait
+            self._pending_model_time += t_end_compute - t_start_compute
 
             # update progress
             step_advanced = False
@@ -447,12 +561,22 @@ class VLATrainer(TrainerUtils):
                 progress_bar.update(1)
                 self.completed_steps += 1
                 step_advanced = True
+                if self._pending_cuda_events:
+                    self._pending_cuda_events[-1][1].synchronize()
+                    self._pending_model_time = sum(
+                        start.elapsed_time(end) for start, end in self._pending_cuda_events
+                    ) / 1000.0
             
-            if self.accelerator.is_local_main_process:
+            if (
+                step_advanced
+                and progress_frequency > 0
+                and self.completed_steps % progress_frequency == 0
+                and self.accelerator.is_local_main_process
+            ):
                 progress_bar.set_postfix(
                         {
-                            "data_times": f"{t_end_data_wait - t_start_data_wait:.3f}",
-                            "model_times": f"{t_end_compute - t_start_compute:.3f}",
+                            "data_times": f"{self._pending_data_time:.3f}",
+                            "model_times": f"{self._pending_model_time:.3f}",
                         }
                     )
 
@@ -462,9 +586,12 @@ class VLATrainer(TrainerUtils):
                     step_metrics = self.eval_action_model(step_metrics)
 
                 # record metrics
-                step_metrics["data_time"] = t_end_data_wait - t_start_data_wait
-                step_metrics["model_time"] = t_end_compute - t_start_compute
+                step_metrics["data_time"] = self._pending_data_time
+                step_metrics["model_time"] = self._pending_model_time
                 self._log_metrics(step_metrics)
+                self._pending_data_time = 0.0
+                self._pending_model_time = 0.0
+                self._pending_cuda_events = []
 
                 # save checkpoint
                 if self.completed_steps % self.config.trainer.save_interval == 0 and self.completed_steps > 0:
@@ -658,17 +785,17 @@ class VLATrainer(TrainerUtils):
 
             # optimizer step
             self.optimizer.step()
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad(set_to_none=True)
 
         if self.accelerator.sync_gradients:
             self.lr_scheduler.step()
 
-        metrics = {"train_loss": float(total_loss.detach().item())}
+        metrics = {"train_loss": total_loss.detach()}
         # Optional component losses with stable logging keys.
         for log_key, raw_keys in TRAIN_COMPONENT_METRIC_ALIASES.items():
             for raw_key in raw_keys:
                 if raw_key in output_dict and torch.is_tensor(output_dict[raw_key]):
-                    metrics[log_key] = float(output_dict[raw_key].detach().item())
+                    metrics[log_key] = output_dict[raw_key].detach()
                     break
         return self._normalize_metric_aliases(metrics)
 

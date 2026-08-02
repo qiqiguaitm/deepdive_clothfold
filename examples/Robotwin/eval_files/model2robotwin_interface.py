@@ -32,7 +32,18 @@ def normalize_quaternion_value(quaternion: np.ndarray) -> np.ndarray:
     return normalized
 
 
-_ROBOTWIN_JOINT_DATA_MIXES = {"robotwin_joint"}
+# [2026-07-20] 由 set 改为 name→action_hz 映射: 原实现把 joint 模式的 action_hz 写死 30.0,
+#   但 robotwin2.0 原生数据是 **50fps**。我们的 robotwin2_lmwm 子集按 50Hz 训练
+#   (sec_chunk=1.0 → 50 步/1.0s), 若按 30Hz 评测则 flow 时间栅格只有 floor(1.0*30)=30 个
+#   有效 token 而模型是按 50 个训的 → 训练/评测时序失配, 结果无意义。
+#   (eef 侧本就区分 robotwin_eef=50Hz 与 robotwin_eef_30hz=30Hz, 说明仿真器两种速率都支持。)
+_ROBOTWIN_JOINT_DATA_MIXES = {
+    "robotwin_joint": 30.0,      # 原有: RoboTwin_merged(降频过的 30fps 数据)
+    "robotwin2_lmwm": 50.0,      # 本项目: robotwin2.0 原生 50fps 积木族子集
+    "robotwin2_lmwm_balanced": 50.0,  # balanced 重建(含 stack_two, 同 50fps joint)
+    "robotwin2_lmwm_all6_v2": 50.0,  # all6 v2 重建(同 50fps joint)
+    "robotwin2_full": 50.0,      # 全量 baseline(同 50fps joint)
+}
 _ROBOTWIN_EEF_DATA_MIXES = {
     "robotwin_eef": 50.0,
     "robotwin_eef_all": 50.0,
@@ -58,7 +69,7 @@ def resolve_robotwin_control_from_data_mix(data_mix: Any) -> RobotwinControlSpec
             data_mix=normalized,
             mode="joint",
             env_action_type="qpos",
-            action_hz=30.0,
+            action_hz=_ROBOTWIN_JOINT_DATA_MIXES[normalized],
             state_gripper_indices=(6, 13),
             passthrough_indices=(),
             gripper_is_binary=True,
@@ -75,7 +86,7 @@ def resolve_robotwin_control_from_data_mix(data_mix: Any) -> RobotwinControlSpec
         )
     raise ValueError(
         "Unsupported Robotwin data_mix for eval mode resolution: "
-        f"{normalized!r}. Expected one of {sorted(_ROBOTWIN_JOINT_DATA_MIXES | set(_ROBOTWIN_EEF_DATA_MIXES))}."
+        f"{normalized!r}. Expected one of {sorted(set(_ROBOTWIN_JOINT_DATA_MIXES) | set(_ROBOTWIN_EEF_DATA_MIXES))}."
     )
 
 

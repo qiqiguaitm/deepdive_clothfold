@@ -159,6 +159,12 @@ fi
 if [ -n "${eval_action_chunk_len}" ]; then
   eval_cmd+=(--args.eval-action-chunk-len "${eval_action_chunk_len}")
 fi
+# [2026-07-19] 重复评测必须变 seed。libero_eval_core.py 用 args.seed 同时驱动 env.seed() 与 np.random.seed(),
+#   默认 0 → 所有历史 eval 都是 seed=0 的近确定性单次测量(实测 4 路同 seed 聚合 std 仅 0.14,
+#   而二项预期 σ≈0.97)→ 同 seed 并行重复给出的误差棒是假的。不设 EVAL_SEED 时行为与旧版一致。
+if [ -n "${EVAL_SEED:-}" ]; then
+  eval_cmd+=(--args.seed "${EVAL_SEED}")
+fi
 
 cleanup() {
   local exit_code=$?

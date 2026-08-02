@@ -42,7 +42,13 @@ def normalize_quaternion_value(quaternion: np.ndarray) -> np.ndarray:
     return normalized
 
 
-_ROBOTWIN_JOINT_DATA_MIXES = {"robotwin_joint"}
+_ROBOTWIN_JOINT_DATA_MIXES = {
+    "robotwin_joint": 30.0,
+    "robotwin2_lmwm": 50.0,
+    "robotwin2_lmwm_balanced": 50.0,
+    "robotwin2_lmwm_all6_v2": 50.0,
+    "robotwin2_full": 50.0,
+}
 _ROBOTWIN_EEF_DATA_MIXES = {
     "robotwin_eef": 50.0,
     "robotwin_eef_all": 50.0,
@@ -68,7 +74,7 @@ def resolve_robotwin_control_from_data_mix(data_mix: Any) -> RobotwinControlSpec
             data_mix=normalized,
             mode="joint",
             env_action_type="qpos",
-            action_hz=30.0,
+            action_hz=_ROBOTWIN_JOINT_DATA_MIXES[normalized],
             state_gripper_indices=(6, 13),
             passthrough_indices=(),
             gripper_is_binary=True,
@@ -85,7 +91,8 @@ def resolve_robotwin_control_from_data_mix(data_mix: Any) -> RobotwinControlSpec
         )
     raise ValueError(
         "Unsupported Robotwin data_mix for eval mode resolution: "
-        f"{normalized!r}. Expected one of {sorted(_ROBOTWIN_JOINT_DATA_MIXES | set(_ROBOTWIN_EEF_DATA_MIXES))}."
+        f"{normalized!r}. Expected one of "
+        f"{sorted(set(_ROBOTWIN_JOINT_DATA_MIXES) | set(_ROBOTWIN_EEF_DATA_MIXES))}."
     )
 
 

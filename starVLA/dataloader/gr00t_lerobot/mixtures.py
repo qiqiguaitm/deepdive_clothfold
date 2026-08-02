@@ -101,6 +101,32 @@ DATASET_NAMED_MIXTURES = {
     "robotwin_eef_30hz": [
         ("robotwin_eef_all_v30_merged_slow30fps", 1.0, "robotwin_eef"),
     ],
+    # [2026-07-19 LMWM-B] robotwin2.0 的 LMWM 子集(1315 个积木族 ep)转成的 v3.0 数据集。
+    #   由 lmvla/lmwm/scripts/build_robotwin_v30_subset.py 生成(软链复用原 parquet/视频, 保留原始 episode_index
+    #   以便 LMWM provider 的 (episode_index, frame_index) 直接命中 pairs.npz, 无需重映射)。
+    #   关节 14 维 → 复用 AgilexDataConfig(注册名 robotwin_joint)。
+    "robotwin2_lmwm": [
+        ("robotwin2_lmwm_v30", 1.0, "robotwin_joint"),
+    ],
+    # [2026-07-26 LMWM-B 均衡重处理] 修 pairs curation bug 后的均衡集(6 积木任务各~200ep,
+    #   含 stack; 由 p1_robotwin_rvalley_pairs_balanced.py + build_robotwin_v30_subset.py 生成)。
+    #   milestone 靶子/对: lmvla/lmwm/data/robotwin_milestone_balanced/{pairs,target_compact}.npz
+    "robotwin2_lmwm_balanced": [
+        ("robotwin2_lmwm_balanced_v30", 1.0, "robotwin_joint"),
+    ],
+    # Exact official six-task panel. Unlike the legacy language-matched balanced
+    # set, this excludes stack_bowls and includes all stack_blocks_three data.
+    "robotwin2_lmwm_all6_v2": [
+        ("robotwin2_lmwm_all6_v2_v30", 1.0, "robotwin_joint"),
+    ],
+    # [2026-07-27 全量对标 LaWAM] robotwin2.0 全量 27500 ep(joint), 对标 LaWAM 全量协议
+    #   (LaWAM 用 robotwin_eef 全量, 本地无 eef 数据 → 用 joint 全量 + LaWAM 其余参数 100k)。
+    "robotwin2_full": [
+        ("robotwin2_full_v30", 1.0, "robotwin_joint"),
+    ],
+    "robotwin2_lmwm_smoke": [
+        ("robotwin2_lmwm_v30_smoke", 1.0, "robotwin_joint"),
+    ],
     "humanoid_merged_v30_robotwin_eef": [
         ("humanoid_merged_v30_robotwin_eef_state_t3", 1.0, "robotwin_eef"),
     ],

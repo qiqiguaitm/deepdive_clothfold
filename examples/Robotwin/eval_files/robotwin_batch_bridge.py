@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import argparse
+from collections import defaultdict, deque
+import hashlib
+import json
 import multiprocessing as mp
 from multiprocessing.connection import wait as mp_wait
 import os
@@ -24,9 +27,18 @@ if str(SCRIPT_DIR) not in sys.path:
 if str(STARVLA_ROOT) not in sys.path:
     sys.path.insert(0, str(STARVLA_ROOT))
 
-from examples.Robotwin.eval_files.model2robotwin_interface import (  # noqa: E402
-    get_model,
-)
+# 模型 client 接口选择: ROBOTWIN_MODEL_INTERFACE=openpi → openpi pi05 桥 (self.client=openpi
+# WebsocketClientPolicy, server 端已反归一化); 默认 starvla (原 model2robotwin_interface)。
+# 两者 get_model 返回对象方法签名一致 → 下面的 env 驱动 (slot/Pipe/SR) 无感知。
+_MODEL_INTERFACE = os.getenv("ROBOTWIN_MODEL_INTERFACE", "starvla").strip().lower()
+if _MODEL_INTERFACE == "openpi":
+    from examples.Robotwin.eval_files.model2robotwin_openpi import (  # noqa: E402
+        get_model,
+    )
+else:
+    from examples.Robotwin.eval_files.model2robotwin_interface import (  # noqa: E402
+        get_model,
+    )
 from examples.Robotwin.eval_files.robotwin_eval_common import (  # noqa: E402
     build_run_group,
     build_run_tag,
@@ -144,6 +156,35 @@ def resolve_seed_log_every() -> int:
 
 def resolve_skip_get_obs_within_replan() -> bool:
     return normalize_bool_env(os.getenv("ROBOTWIN_SKIP_GET_OBS_WITHIN_REPLAN"), default=True)
+
+
+def resolve_fixed_episode_seeds(*, task_name: str, eval_seed: int) -> tuple[list[int] | None, dict[str, Any] | None]:
+    manifest_value = os.getenv("ROBOTWIN_EPISODE_SEED_MANIFEST", "").strip()
+    if not manifest_value:
+        return None, None
+
+    manifest_path = Path(manifest_value).expanduser().resolve()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    eval_seeds = payload.get("eval_seeds", payload)
+    task_map = eval_seeds.get(str(eval_seed)) if isinstance(eval_seeds, dict) else None
+    raw_seeds = task_map.get(task_name) if isinstance(task_map, dict) else None
+    if not isinstance(raw_seeds, list):
+        raise ValueError(
+            f"Fixed seed manifest has no list for eval_seed={eval_seed} task={task_name}: {manifest_path}"
+        )
+
+    seeds = [int(value) for value in raw_seeds]
+    if not seeds:
+        raise ValueError(f"Fixed seed list is empty for eval_seed={eval_seed} task={task_name}")
+    if len(seeds) != len(set(seeds)):
+        raise ValueError(f"Fixed seed list contains duplicates for eval_seed={eval_seed} task={task_name}")
+    return seeds, {
+        "path": str(manifest_path),
+        "sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        "eval_seed": int(eval_seed),
+        "task_name": task_name,
+        "count": len(seeds),
+    }
 
 
 def _plan_action_request(
@@ -583,6 +624,17 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
     test_num = int(usr_args.get("test_num", os.getenv("ROBOTWIN_TEST_NUM", 100)))
     seed = int(usr_args.get("seed", 0))
     instruction_type = str(usr_args.get("instruction_type", "unseen"))
+    fixed_episode_seeds, fixed_seed_manifest = resolve_fixed_episode_seeds(
+        task_name=str(usr_args["task_name"]), eval_seed=seed
+    )
+    if fixed_episode_seeds is not None and len(fixed_episode_seeds) != test_num:
+        raise ValueError(
+            f"Fixed seed count {len(fixed_episode_seeds)} does not match ROBOTWIN_TEST_NUM={test_num} "
+            f"for eval_seed={seed} task={usr_args['task_name']}"
+        )
+    fixed_seed_max_attempts = max(1, int(os.getenv("ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS", "3")))
+    usr_args["fixed_seed_manifest"] = fixed_seed_manifest
+    usr_args["fixed_seed_max_attempts"] = fixed_seed_max_attempts if fixed_episode_seeds is not None else None
 
     log_file = open(run_log_path, "a", encoding="utf-8", buffering=1)
     original_stdout = sys.stdout
@@ -635,6 +687,8 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
         completed_episodes = 0
         success_count = 0
         next_seed = 100000 * (1 + seed)
+        fixed_seed_queue = deque(fixed_episode_seeds or [])
+        fixed_seed_attempts: dict[int, int] = defaultdict(int)
         pending_examples: dict[int, dict[str, Any]] = {}
         pending_observation_requests: dict[int, ObservationRequest] = {}
         episode_records: list[dict[str, Any]] = []
@@ -674,11 +728,16 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
                 pass
             detach_slot(slot_id, mode="stopping")
 
-        def issue_try_seed(slot_id: int) -> None:
+        def issue_try_seed(slot_id: int, *, retry_seed: int | None = None) -> None:
             nonlocal next_seed
-            parent_conns[slot_id].send({"cmd": "try_seed", "seed": next_seed})
-            slot_state[slot_id] = {"mode": "seeking", "episode_id": None, "seed": next_seed}
-            next_seed += 1
+            if fixed_episode_seeds is not None:
+                candidate_seed = int(retry_seed) if retry_seed is not None else int(fixed_seed_queue.popleft())
+                fixed_seed_attempts[candidate_seed] += 1
+            else:
+                candidate_seed = next_seed
+                next_seed += 1
+            parent_conns[slot_id].send({"cmd": "try_seed", "seed": candidate_seed})
+            slot_state[slot_id] = {"mode": "seeking", "episode_id": None, "seed": candidate_seed}
 
         for slot_id in range(num_slots):
             issue_try_seed(slot_id)
@@ -711,7 +770,15 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
                             f"[slot={slot_id}] searched {invalid_seed_counts[slot_id]} invalid seeds so far; "
                             f"latest seed={message['seed']}"
                         )
-                    if completed_episodes + outstanding_episodes < test_num:
+                    if fixed_episode_seeds is not None:
+                        rejected_seed = int(message["seed"])
+                        if fixed_seed_attempts[rejected_seed] >= fixed_seed_max_attempts:
+                            raise RuntimeError(
+                                f"Fixed scene seed {rejected_seed} remained invalid after "
+                                f"{fixed_seed_attempts[rejected_seed]} attempts"
+                            )
+                        issue_try_seed(slot_id, retry_seed=rejected_seed)
+                    elif completed_episodes + outstanding_episodes < test_num:
                         issue_try_seed(slot_id)
                     else:
                         retire_slot(slot_id)
@@ -743,7 +810,15 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
                     )
                     if message.get("error"):
                         print(str(message["error"]).rstrip())
-                    if completed_episodes + outstanding_episodes < test_num:
+                    if fixed_episode_seeds is not None:
+                        rejected_seed = int(message["seed"])
+                        if fixed_seed_attempts[rejected_seed] >= fixed_seed_max_attempts:
+                            raise RuntimeError(
+                                f"Fixed scene seed {rejected_seed} failed episode setup after "
+                                f"{fixed_seed_attempts[rejected_seed]} attempts"
+                            )
+                        issue_try_seed(slot_id, retry_seed=rejected_seed)
+                    elif completed_episodes + outstanding_episodes < test_num:
                         issue_try_seed(slot_id)
                     else:
                         retire_slot(slot_id)
@@ -904,6 +979,7 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
             "obs_skip_count": int(perf_counters["obs_skip_count"]),
             "obs_wait_sec": float(perf_counters["obs_wait_sec"]),
             "infer_wait_sec": float(perf_counters["infer_wait_sec"]),
+            "fixed_seed_manifest": fixed_seed_manifest,
             "episodes": sorted(episode_records, key=lambda item: int(item["episode_id"])),
         }
         write_json(save_dir / "summary.json", summary)

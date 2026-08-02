@@ -1,5 +1,9 @@
 debug/
 ckpts/
+ckpts_dl/
+/ckpts_dl
+weights/
+/weights
 third_party/
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -152,6 +156,8 @@ dmypy.json
 # Caches and Datasets
 cache/
 dataset/
+/dataset
+lmwm_adapter.py
 playground/Models
 =4.43.2
 

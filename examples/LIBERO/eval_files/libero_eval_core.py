@@ -635,6 +635,10 @@ def _run_single_episode(
 
 
 def _task_id_list(task_suite: Any, num_tasks_to_run: int) -> list[int]:
+    import os as _os
+    _only = _os.environ.get("EVAL_ONLY_TASKS")   # 诊断用: 只跑指定 task(如 "8" / "8,9")
+    if _only:
+        return [int(x) for x in _only.split(",")]
     return list(range(int(num_tasks_to_run)))
 
 

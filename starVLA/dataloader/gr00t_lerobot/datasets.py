@@ -2744,7 +2744,11 @@ class LeRobotMixtureDataset(Dataset):
                 )
                 transforms = self._get_transforms_for_selected_video_keys(dataset, selected_video_keys)
                 data = transforms(raw_data)
-                return self._build_output_sample(dataset, data, selected_video_keys)
+                sample = self._build_output_sample(dataset, data, selected_video_keys)
+                # [LMWM Path A] 透传 episode/frame 标识给 collator→batch, 供 milestone-target 查表(BUG_AUDIT CRITICAL-1)
+                sample["episode_index"] = int(trajectory_id)
+                sample["frame_index"] = int(step)
+                return sample
 
                 
             except Exception as e:

@@ -87,6 +87,47 @@ def resolve_robotwin_path() -> str:
     return os.getenv("ROBOTWIN_PATH", "../RoboTwin")
 
 
+def resolve_server_backend() -> str:
+    """"starvla" (默认, 原 deployment.model_server.server_policy) 或 "openpi"
+    (kai0/scripts/serve_policy.py, ckpt 为 openpi checkpoint 目录)。openpi 分支
+    完全 env 门控 — 不设 ROBOTWIN_SERVER_BACKEND 时行为与原版逐字节一致。"""
+    return os.getenv("ROBOTWIN_SERVER_BACKEND", "starvla").strip().lower()
+
+
+def _validate_ckpt_path(ckpt_path: str) -> None:
+    """starVLA: ckpt 必须是文件(.pt); openpi: ckpt 是 checkpoint 目录(含 params/ + assets/)。"""
+    if resolve_server_backend() == "openpi":
+        if not Path(ckpt_path).is_dir():
+            raise FileNotFoundError(f"openpi checkpoint dir not found: {ckpt_path}")
+    else:
+        if not Path(ckpt_path).is_file():
+            raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
+
+
+def build_openpi_server_command(*, ckpt_dir: str, port: int) -> list[str]:
+    """openpi serve_policy.py: 起 pi05 websocket policy server(server 端做 Normalize+AlohaOutputs)。
+    config 名由 ROBOTWIN_OPENPI_CONFIG 指定(如 pi05_robotwin_a0)。python 走 STAR_VLA_PYTHON
+    (须为 kai0/.venv, 含 openpi+jax)。serve_policy.py 路径由 OPENPI_SERVE_SCRIPT 指定。"""
+    config_name = os.getenv("ROBOTWIN_OPENPI_CONFIG")
+    if not config_name:
+        raise ValueError("ROBOTWIN_SERVER_BACKEND=openpi 需要设 ROBOTWIN_OPENPI_CONFIG (如 pi05_robotwin_a0)。")
+    serve_script = os.getenv(
+        "OPENPI_SERVE_SCRIPT",
+        str(Path(os.getenv("KAI0_ROOT", "kai0")) / "scripts" / "serve_policy.py"),
+    )
+    return [
+        resolve_starvla_python(),
+        serve_script,
+        "--port",
+        str(port),
+        "policy:checkpoint",
+        "--policy.config",
+        config_name,
+        "--policy.dir",
+        ckpt_dir,
+    ]
+
+
 def log_line(handle, text: str) -> None:
     timestamp = datetime.now().strftime("%F %T")
     handle.write(f"[{timestamp}] {text}\n")
@@ -129,6 +170,7 @@ def build_bridge_command(
 ) -> list[str]:
     optional_env_args = (
         ("UNNORM_KEY", "--unnorm_key"),
+        ("ROBOTWIN_INSTRUCTION_TYPE", "--instruction_type"),
         ("ROBOTWIN_REPLAN_STEPS", "--replan_steps"),
         ("ROBOTWIN_ACTION_ENSEMBLE", "--action_ensemble"),
         ("ROBOTWIN_ACTION_ENSEMBLE_ALPHA", "--action_ensemble_alpha"),
@@ -290,6 +332,31 @@ def _prepend_unique_tasks(tasks: list[str], prefix_tasks: list[str]) -> list[str
         seen.add(task_name)
         ordered.append(task_name)
     return ordered
+
+
+def requeue_failed_tasks(
+    run_dir: str | os.PathLike[str],
+    requested_tasks: list[str],
+    *,
+    expected_num_episodes: int | None = None,
+) -> list[str]:
+    """Move requested failed cells back to pending under the scheduler lock."""
+    requeued: list[str] = []
+    with locked_task_scheduler_state(run_dir) as state:
+        for task_name in requested_tasks:
+            if task_name not in state["failed"]:
+                continue
+            if _is_task_completed(
+                run_dir,
+                task_name,
+                expected_num_episodes=expected_num_episodes,
+            ):
+                state["failed"].pop(task_name, None)
+                continue
+            state["failed"].pop(task_name, None)
+            requeued.append(task_name)
+        state["pending"] = _prepend_unique_tasks(state["pending"], requeued)
+    return requeued
 
 
 def _is_task_completed(
@@ -517,6 +584,7 @@ def worker_main(args: argparse.Namespace) -> int:
     bridge_env["PYTHONPATH"] = f"{bridge_env['ROBOTWIN_PATH']}:{STARVLA_ROOT}:{SCRIPT_DIR}:{bridge_env.get('PYTHONPATH', '')}"
 
     server_proc: subprocess.Popen | None = None
+    server_task_name: str | None = None
     current_task_proc: subprocess.Popen | None = None
     current_task_name: str | None = None
     status = 0
@@ -549,27 +617,51 @@ def worker_main(args: argparse.Namespace) -> int:
             claimed_tasks.append(current_task_name)
             tasks_file.write_text("\n".join(claimed_tasks) + "\n", encoding="utf-8")
 
+            task_scoped_server = normalize_bool_env(
+                os.getenv("ROBOTWIN_TASK_SCOPED_SERVER"),
+                default=bool(os.getenv("LMWM_ORACLE_RETRIEVAL_ROOT")),
+            )
+            if (
+                task_scoped_server
+                and server_proc is not None
+                and server_task_name != current_task_name
+            ):
+                terminate_process(server_proc)
+                server_proc = None
+                server_task_name = None
+
             if server_proc is None:
-                server_cmd = [
-                    resolve_starvla_python(),
-                    "-m",
-                    "deployment.model_server.server_policy",
-                    "--ckpt_path",
-                    ckpt_path,
-                    "--port",
-                    str(port),
-                ]
-                if os.getenv("USE_BF16", "1") == "1":
-                    server_cmd.append("--use_bf16")
+                if resolve_server_backend() == "openpi":
+                    server_cmd = build_openpi_server_command(ckpt_dir=ckpt_path, port=port)
+                    server_cwd = os.getenv("KAI0_ROOT", str(STARVLA_ROOT))
+                else:
+                    server_cmd = [
+                        resolve_starvla_python(),
+                        "-m",
+                        "deployment.model_server.server_policy",
+                        "--ckpt_path",
+                        ckpt_path,
+                        "--port",
+                        str(port),
+                    ]
+                    if os.getenv("USE_BF16", "1") == "1":
+                        server_cmd.append("--use_bf16")
+                    server_cwd = str(STARVLA_ROOT)
                 try:
+                    server_env = {
+                        **os.environ,
+                        "CUDA_VISIBLE_DEVICES": str(gpu_id),
+                        "ROBOTWIN_ACTIVE_TASK": current_task_name,
+                    }
                     server_proc = subprocess.Popen(
                         server_cmd,
-                        cwd=str(STARVLA_ROOT),
-                        env={**os.environ, "CUDA_VISIBLE_DEVICES": str(gpu_id)},
+                        cwd=server_cwd,
+                        env=server_env,
                         stdout=server_log,
                         stderr=subprocess.STDOUT,
                         start_new_session=True,
                     )
+                    server_task_name = current_task_name
                     wait_for_server_ready(
                         host=host,
                         port=port,
@@ -656,8 +748,7 @@ def worker_main(args: argparse.Namespace) -> int:
 
 def master_main(args: argparse.Namespace) -> int:
     ckpt_path = str(Path(args.ckpt_path).expanduser().resolve())
-    if not Path(ckpt_path).is_file():
-        raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
+    _validate_ckpt_path(ckpt_path)
     if args.task_config not in {"demo_clean", "demo_randomized"}:
         raise ValueError(f"task_config must be demo_clean or demo_randomized, got {args.task_config}")
 
@@ -670,6 +761,14 @@ def master_main(args: argparse.Namespace) -> int:
 
     ckpt_alias = os.getenv("ROBOTWIN_CKPT_ALIAS", derive_ckpt_alias(ckpt_path))
     resume_run_dir = Path(str(args.resume_run_dir).strip()).expanduser().resolve() if str(args.resume_run_dir).strip() else None
+    attach_mode = str(os.getenv("ROBOTWIN_ATTACH_SCHEDULER", "0")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if attach_mode and resume_run_dir is None:
+        raise ValueError("ROBOTWIN_ATTACH_SCHEDULER requires --resume_run_dir")
     if resume_run_dir is not None:
         if not resume_run_dir.is_dir():
             raise FileNotFoundError(f"Resume run directory not found: {resume_run_dir}")
@@ -696,6 +795,21 @@ def master_main(args: argparse.Namespace) -> int:
         scheduled_tasks = list(all_tasks)
         resume_mode = False
 
+    requeue_failed = str(os.getenv("ROBOTWIN_ATTACH_REQUEUE_FAILED", "0")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if attach_mode and requeue_failed:
+        requeued = requeue_failed_tasks(
+            run_dir,
+            scheduled_tasks,
+            expected_num_episodes=expected_test_num,
+        )
+        if requeued:
+            print(f"Requeued failed Robotwin tasks for attach: {requeued}", flush=True)
+
     (run_dir / "workers").mkdir(parents=True, exist_ok=True)
     (run_dir / "tasks").mkdir(parents=True, exist_ok=True)
     progress_dir = run_dir / ".task_status"
@@ -712,37 +826,63 @@ def master_main(args: argparse.Namespace) -> int:
         except Exception:
             existing_meta = {}
 
-    write_json(
-        run_meta_path,
-        {
-            **existing_meta,
-            "run_group": run_group,
-            "run_tag": run_tag,
-            "run_dir": str(run_dir),
-            "checkpoint_path": ckpt_path,
-            "checkpoint_alias": ckpt_alias,
-            "task_config": args.task_config,
-            "gpu_ids": gpu_ids,
-            "num_workers": num_workers,
-            "total_tasks": len(all_tasks),
-            "scheduled_tasks": total_tasks,
-            "requested_tasks": all_tasks,
-            "resume_incomplete": resume_mode,
-            "resume_run_dir": str(run_dir) if resume_mode else None,
-            "expected_test_num": expected_test_num,
-            "task_assignment_strategy": "dynamic_shared_queue",
-            "robotwin_num_slots": int(os.getenv("ROBOTWIN_NUM_SLOTS", os.getenv("ROBOTWIN_BATCH_SIZE", "1"))),
-            "save_video": str(os.getenv("ROBOTWIN_SAVE_VIDEO", "0")).strip().lower() in {"1", "true", "yes", "on"},
-            "task_heartbeat_sec": resolve_task_scheduler_heartbeat_sec(),
-            "task_lease_timeout_sec": resolve_task_scheduler_lease_timeout_sec(resolve_task_scheduler_heartbeat_sec()),
-        },
-    )
+    run_meta = {
+        **existing_meta,
+        "run_group": run_group,
+        "run_tag": run_tag,
+        "run_dir": str(run_dir),
+        "checkpoint_path": ckpt_path,
+        "checkpoint_alias": ckpt_alias,
+        "task_config": args.task_config,
+        "gpu_ids": gpu_ids,
+        "num_workers": num_workers,
+        "total_tasks": len(all_tasks),
+        "scheduled_tasks": total_tasks,
+        "requested_tasks": all_tasks,
+        "resume_incomplete": resume_mode,
+        "resume_run_dir": str(run_dir) if resume_mode else None,
+        "expected_test_num": expected_test_num,
+        "task_assignment_strategy": "dynamic_shared_queue",
+        "robotwin_num_slots": int(
+            os.getenv("ROBOTWIN_NUM_SLOTS", os.getenv("ROBOTWIN_BATCH_SIZE", "1"))
+        ),
+        "save_video": str(os.getenv("ROBOTWIN_SAVE_VIDEO", "0")).strip().lower()
+        in {"1", "true", "yes", "on"},
+        "task_heartbeat_sec": resolve_task_scheduler_heartbeat_sec(),
+        "task_lease_timeout_sec": resolve_task_scheduler_lease_timeout_sec(
+            resolve_task_scheduler_heartbeat_sec()
+        ),
+    }
+    if attach_mode and not task_scheduler_state_path(run_dir).is_file():
+        raise FileNotFoundError(
+            f"Cannot attach without an initialized task scheduler: {run_dir}"
+        )
+    if attach_mode:
+        attachment_dir = run_dir / "attachments"
+        attachment_dir.mkdir(parents=True, exist_ok=True)
+        write_json(
+            attachment_dir / f"attach_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}.json",
+            {
+                **run_meta,
+                "attach_mode": True,
+                "worker_index_offset": int(os.getenv("ROBOTWIN_WORKER_INDEX_OFFSET", "1000")),
+            },
+        )
+    else:
+        write_json(run_meta_path, run_meta)
 
     if total_tasks == 0:
         print(f"No incomplete Robotwin tasks found under {run_dir}")
         return 0
 
-    initialize_task_scheduler(run_dir, scheduled_tasks)
+    if not attach_mode:
+        initialize_task_scheduler(run_dir, scheduled_tasks)
+
+    worker_index_offset = int(
+        os.getenv("ROBOTWIN_WORKER_INDEX_OFFSET", "1000" if attach_mode else "0")
+    )
+    if worker_index_offset < 0:
+        raise ValueError(f"ROBOTWIN_WORKER_INDEX_OFFSET must be >= 0, got {worker_index_offset}")
 
     worker_procs: list[subprocess.Popen] = []
     status = 0
@@ -762,7 +902,8 @@ def master_main(args: argparse.Namespace) -> int:
         if resume_mode:
             worker_env["ROBOTWIN_RESUME_INCOMPLETE"] = "1"
             worker_env["ROBOTWIN_RESUME_RUN_DIR"] = str(run_dir)
-        for worker_index in range(num_workers):
+        for local_worker_index in range(num_workers):
+            worker_index = worker_index_offset + local_worker_index
             cmd = [
                 resolve_starvla_python(),
                 str(Path(__file__).resolve()),
@@ -787,7 +928,7 @@ def master_main(args: argparse.Namespace) -> int:
             )
             worker_procs.append(proc)
             launch_delay = float(os.getenv("LAUNCH_DELAY_SEC", "1"))
-            if worker_index < num_workers - 1 and launch_delay > 0:
+            if local_worker_index < num_workers - 1 and launch_delay > 0:
                 time.sleep(launch_delay)
 
         while True:
@@ -831,8 +972,7 @@ def master_main(args: argparse.Namespace) -> int:
 
 def _prepare_run(args: argparse.Namespace) -> tuple[Path, list[str], int, bool, dict[str, object]]:
     ckpt_path = str(Path(args.ckpt_path).expanduser().resolve())
-    if not Path(ckpt_path).is_file():
-        raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
+    _validate_ckpt_path(ckpt_path)
     if args.task_config not in {"demo_clean", "demo_randomized"}:
         raise ValueError(f"task_config must be demo_clean or demo_randomized, got {args.task_config}")
 

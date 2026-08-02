@@ -48,10 +48,15 @@ def _build_latent_world_collator(cfg, *, policy_cfg, training: bool):
         policy_cfg=policy_cfg,
         vlm_model_id=str(cfg.framework.qwenvl.base_vlm),
     )
+    # [V8 Plan B] LMWM_DUAL_2Q=1: act placeholder 翻倍(局部+全局各一组), prompt 占位符数须与 backend.num_action_queries 一致
+    import os as _os_2q
+    _act_q = int(policy_cfg.num_action_queries)
+    if _os_2q.environ.get("LMWM_DUAL_2Q") == "1":
+        _act_q *= 2
     collator = LatentWorldTrainCollator(
         policy_cfg=policy_cfg,
         processor_spec=processor_spec,
-        act_queries=int(policy_cfg.num_action_queries),
+        act_queries=_act_q,
         flow_queries=int(policy_cfg.flow_action_num_queries),
         enable_primary_video_aug=bool(vla_dataset_cfg.get("enable_primary_video_aug", False)),
         enable_primary_random_resized_crop=bool(vla_dataset_cfg.get("enable_primary_random_resized_crop", False)),

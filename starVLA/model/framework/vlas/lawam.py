@@ -242,6 +242,10 @@ class PolicyEncodingState:
     h_t1_pred: torch.Tensor
     h_t1_gt: torch.Tensor
     h_t_original: torch.Tensor
+    # [V8 dual] 全局(milestone)通道; 非 dual 时为 None
+    pred_action_emb_ms: Optional[torch.Tensor] = None
+    h_ms_pred: Optional[torch.Tensor] = None
+    h_ms_gt: Optional[torch.Tensor] = None
 
 
 # ============================================================================
@@ -265,9 +269,56 @@ class LatentWorldPolicyBackend(nn.Module):
 
         # 2) Load LAM.
         self.lam = load_latent_action_model(self.model_cfg.lam_ckpt_path, self.model_cfg.lam_yaml_path)
+        # [LMWM swap] env-gated: 用我们的 LMWM 生成器替 LaWM decoder(对比实验, 唯一变量=世界模型)
+        # [V8 LMWM_DUAL] 双尺度并联: 不 swap, 局部通道保 LaWM(t+7), 另挂 LMWM 全局通道(milestone)。
+        import os as _os
+        # [V8 Plan B] LMWM_DUAL_2Q=1: 双 query 变体(局部/全局各一组 act placeholder, 解单 query 双头容量瓶颈)。蕴含 dual。
+        self._lmwm_dual_2q = _os.environ.get("LMWM_DUAL_2Q") == "1"
+        self._lmwm_dual = _os.environ.get("LMWM_DUAL") == "1" or self._lmwm_dual_2q
+        # [梯度隔离消融] LMWM_MS_DETACH_BACKBONE=1: 切断 ms(全局)通道对共享 VLM 的梯度,
+        # 只让 vlm_to_lam_ms + lmwm_dec 自训, 骨干仅由 t+7/action 塑形。测"spatial 伤害=退化
+        # milestone 靶子污染共享骨干"假设: 若开后 spatial 回归消失 = 泄漏坐实(结构缺陷, 可修);
+        # 若 long 增益同步蒸发 = 增益与伤害同源耦合。纯训练期梯度手术, forward 值/推理不变, ckpt 可比。
+        self._ms_detach_bb = _os.environ.get("LMWM_MS_DETACH_BACKBONE") == "1"
+        # [编码器塑形消融 B] LMWM_LOCAL_DETACH_BACKBONE=1: 连局部 t+7(LaWM)通道也 detach →
+        # 两个 WM 通道都不反传共享编码器, 编码器只由动作损失驱动(A=只 t+7 塑形 / B=两者都不塑形)。
+        self._local_detach_bb = _os.environ.get("LMWM_LOCAL_DETACH_BACKBONE") == "1"
+        self._lmwm_dec = None      # V8 全局通道 decoder(生成器); dual 时挂
+        self._lmwm_inv = None      # V8 全局通道 teacher(InverseEnc, 冻); dual 时挂
+        if _os.environ.get("LMWM_CKPT"):
+            import sys as _sys
+            # repo root = 4 dirs up from this file (<repo>/starVLA/model/framework/vlas/lawam.py)
+            _repo = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))))
+            _sys.path.insert(0, _os.environ.get("LMWM_ADAPTER_DIR", _repo))
+            if self._lmwm_dual:
+                # 双通道: LaWM decoder 原封不动(守 t8/t7 精度), LMWM 生成器另挂作全局通道(守 t6/t9 指引)
+                from lmwm_adapter import load_lmwm_parts
+                self._lmwm_dec, self._lmwm_inv = load_lmwm_parts(_os.environ["LMWM_CKPT"])
+                print(f"[LMWM][DUAL] loaded LMWM parts (gen+inv) alongside LaWM from {_os.environ['LMWM_CKPT']}; NO decoder swap", flush=True)
+            else:
+                from lmwm_adapter import make_lmwm_lam
+                # swap_teacher 默认 True: 否则 vlm_to_lam 蒸馏到 LaWM code 空间, 与 LMWM generator 期望的 code 失配(BUG_AUDIT MAJOR-2)
+                self.lam = make_lmwm_lam(self.lam, _os.environ["LMWM_CKPT"],
+                                         swap_teacher=_os.environ.get("LMWM_SWAP_TEACHER", "1") == "1")
+                print(f"[LMWM] swapped LAM decoder with LMWM generator from {_os.environ['LMWM_CKPT']}", flush=True)
+
+        # [LMWM Path A] 世界模型目标 h_t1_gt: t+7 近未来帧 -> milestone+1 帧特征(BUG_AUDIT CRITICAL-1)。
+        # 全逻辑在 lmwm_milestone_target 模块, 这里只装 provider; forward 里用它覆盖 h_t1_gt。
+        self._lmwm_target_provider = None
+        if _os.environ.get("LMWM_MILESTONE_TARGET"):
+            import sys as _sys2
+            _repo2 = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))))
+            _sys2.path.insert(0, _os.environ.get("LMWM_ADAPTER_DIR", _repo2))
+            from lmwm_milestone_target import get_provider as _lmwm_get_prov
+            self._lmwm_target_provider = _lmwm_get_prov()
 
         # 3) Create trainable query and mapping head.
         self.num_action_queries = int(self.model_cfg.num_action_queries)
+        # [V8 Plan B] 双 query: act placeholder 翻倍(前半=局部 query, 后半=全局 ms query)。
+        # 注意 dataloader/__init__.py 与 runtime/components.py 也须按 LMWM_DUAL_2Q 传相同的 act_queries 数(prompt 占位符数一致)。
+        self._base_num_action_queries = self.num_action_queries
+        if self._lmwm_dual_2q:
+            self.num_action_queries = self._base_num_action_queries * 2
 
         vlm_cfg = getattr(self.vlm, "config", None)
         text_cfg = getattr(vlm_cfg, "text_config", None)
@@ -290,6 +341,21 @@ class LatentWorldPolicyBackend(nn.Module):
             ffn_expansion_factor=4.0,
             dropout=0.0,
         )
+        # [V8 dual] 全局(ms)通道的第二个投影头: 共享 h_act, 蒸馏到 LMWM InverseEnc code 空间。
+        # 注册为子模块 → 随 model.to(device)/DDP 自动搬运; 生成器/teacher 同理挂为子模块。
+        if self._lmwm_dual:
+            if self._lmwm_dec is None or self._lmwm_inv is None:
+                raise RuntimeError("[LatentWorldPolicyBackend] LMWM_DUAL=1 需同时设 LMWM_CKPT 以加载 LMWM 生成器/teacher。")
+            self.vlm_to_lam_ms = VLMToLAMQFormer(
+                vlm_hidden_dim=vlm_hidden_dim,
+                lam_code_dim=lam_code_dim,   # LaWM code_dim == LMWM code_dim == 32(见 make_lmwm_lam 断言)
+                num_layers=1,
+                num_heads=8,
+                ffn_expansion_factor=4.0,
+                dropout=0.0,
+            )
+            self.lmwm_dec = self._lmwm_dec        # 子模块名(可训生成器)
+            self.lmwm_teacher = self._lmwm_inv    # 子模块名(冻结 teacher)
 
         # 4) Align flow config to LAM output dimensions.
         lam_vision_dim = int(self.lam.input_dim)
@@ -422,12 +488,24 @@ class LatentWorldPolicyBackend(nn.Module):
                 f"[LatentWorldPolicyBackend] action hidden count mismatch: got={h_act.shape[0]}, expected={bsz * q}"
             )
 
-        pred_latent = self.vlm_to_lam(h_act.view(bsz, q, -1))
-        return {
-            "h_vlm": hidden,
-            "pred_latent": pred_latent,
-            "vlm_out": vlm_out,
-        }
+        h_act_q = h_act.view(bsz, q, -1)
+        if getattr(self, "_lmwm_dual_2q", False):
+            # [V8 Plan B] 双 query: 前半 = 局部 query 隐藏态, 后半 = 全局 ms query 隐藏态, 各喂独立投影头
+            Q = self._base_num_action_queries
+            pred_latent = self.vlm_to_lam(h_act_q[:, :Q, :])
+            out = {"h_vlm": hidden, "pred_latent": pred_latent, "vlm_out": vlm_out}
+            _hms = h_act_q[:, Q:, :]
+            if getattr(self, "_ms_detach_bb", False):
+                _hms = _hms.detach()   # 隔离: ms 通道不回流共享 VLM
+            out["pred_latent_ms"] = self.vlm_to_lam_ms(_hms)
+        else:
+            pred_latent = self.vlm_to_lam(h_act_q)
+            out = {"h_vlm": hidden, "pred_latent": pred_latent, "vlm_out": vlm_out}
+            if getattr(self, "_lmwm_dual", False):
+                # [V8 E1] 单 query 双头: 同 h_act 经第二投影头得全局(ms)通道 code
+                _hms = h_act_q.detach() if getattr(self, "_ms_detach_bb", False) else h_act_q
+                out["pred_latent_ms"] = self.vlm_to_lam_ms(_hms)
+        return out
 
     def _build_lam_teacher_inputs_for_distill(self, primary_video: torch.Tensor) -> torch.Tensor:
         expected_t = int(getattr(getattr(self.lam, "encoder", None), "num_frames", 0) or 0)
@@ -508,6 +586,31 @@ class LatentWorldPolicyBackend(nn.Module):
             decoded = decoded[:, 0, :, :] if decoded.shape[1] == 1 else decoded[:, -1, :, :]
         return decoded
 
+    def _decode_ms_future(self, *, h_t: torch.Tensor, code: torch.Tensor) -> torch.Tensor:
+        """[V8 dual] 全局通道: 用 LMWM 生成器从 h_t + ms code 生成 milestone 特征。
+        code: [B,1,code_dim]; 回 [B,K,D]。"""
+        decoded = self.lmwm_dec(h_t, code)   # LMWMDecoder -> [B,1,K,D]
+        if isinstance(decoded, tuple):
+            decoded = decoded[0]
+        if decoded.dim() == 4:
+            decoded = decoded[:, 0, :, :] if decoded.shape[1] == 1 else decoded[:, -1, :, :]
+        return decoded
+
+    def _compute_distill_loss_ms(self, *, pred_ms_emb: torch.Tensor, g_t: torch.Tensor, g_f: torch.Tensor) -> torch.Tensor:
+        """[V8 dual] 全局通道蒸馏: InverseEnc(g_t,g_f)->code 作 teacher(冻), 蒸 pred_ms_emb。
+        与单通道 swap_teacher 的 _gla 闭包一致(g_t=features[:,0], g_f=features[:,-1])。"""
+        B, K, D = g_t.shape
+        P = int(K ** 0.5)
+        gt = g_t.transpose(1, 2).reshape(B, D, P, P)
+        gf = g_f.transpose(1, 2).reshape(B, D, P, P)
+        with torch.no_grad():
+            code = self.lmwm_teacher(gt, gf).unsqueeze(1).detach()   # [B,1,code_dim]
+        return self._compute_latent_loss(
+            pred_latent=pred_ms_emb,
+            teacher_latent=code,
+            latent_loss_type=self.model_cfg.latent_loss_type,
+        )
+
     @classmethod
     def build(
         cls,
@@ -531,6 +634,11 @@ class LatentWorldPolicyBackend(nn.Module):
             self.vlm_to_lam,
             mode=mode,
         )
+        if getattr(self, "_lmwm_dual", False):
+            # 生成器随主训练模式; teacher(InverseEnc)恒 eval(冻结, 只作蒸馏目标)
+            self.lmwm_dec.train(mode)
+            self.vlm_to_lam_ms.train(mode)
+            self.lmwm_teacher.eval()
 
     def set_flow_train_step(self, step: int) -> None:
         self._flow_train_step = max(0, int(step))
@@ -645,16 +753,87 @@ class LatentWorldPolicyBackend(nn.Module):
                 raise ValueError(f"[{source}] lam visual feature extraction returned None; check LAM config.")
             h_t_original = features[:, 0, :, :]
             h_t = h_t_original
-            h_t1_gt = features[:, -1, :, :]
+            h_t7_gt = features[:, -1, :, :]           # 局部 t+7 目标(原样, 从不被覆盖)
+            _dual = getattr(self, "_lmwm_dual", False)
+
+            # [LMWM] milestone+1 目标(provider): 无 milestone 的帧退回 t+7。
+            _prov = getattr(self, "_lmwm_target_provider", None)
+            _ms_target = h_t7_gt
+            if _prov is not None and prepared_batch.get("episode_index") is not None:
+                _tgt, _valid = _prov.get_target(
+                    prepared_batch["episode_index"], prepared_batch["frame_index"],
+                    out_shape=h_t7_gt.shape[1:], device=h_t7_gt.device, dtype=h_t7_gt.dtype)
+                _ms_target = torch.where(_valid[:, None, None], _tgt, h_t7_gt)
+
+            pred_action_emb_ms = vlm_out_dict.get("pred_latent_ms") if _dual else None
+            h_ms_pred = None
+            h_ms_gt = None
+            if _dual:
+                # 双尺度: 局部通道 GT=t+7(不覆盖), 全局通道 GT=milestone
+                h_t1_gt = h_t7_gt
+                h_ms_gt = _ms_target
+                # [残差 milestone target] LMWM_MS_RESIDUAL=1: 全局通道 GT 改为 milestone − 当前态
+                # (本-ep 近未来 delta)。精度真凶 = milestone=跨-ep canonical medoid(语义对但非本-ep
+                # 精确近未来)与当前态高度冗余; 减去当前态只留"要变成什么"的纯指引信号, 去冗余 → 减轻
+                # 精放阶段(t8)伤害。依据: pi05 残差发现——残差判别力 CV=1.1 vs 绝对 0.12(10×),
+                # 绝对 hint 86% 是冗余当前态。ms_pred 经现有 perceptual loss 自动学残差, 条件 flow/
+                # 蒸馏 code 全跟着走, 推理一致(decoder 输出残差→条件 flow, 训练/推理同路径)。
+                import os as _os_ms
+                if _os_ms.environ.get("LMWM_MS_GATE") == "1":
+                    # [幅度门控 milestone target] §9 破局主线: 残差(精度)与绝对(指引)是零和的两个
+                    # 工作点(egl 8seed 实测: 残差精度类+11.8/指引类−9.3抵消)。门控按"离子目标多远"
+                    # 逐样本自适应: 远(大残差=指引相)→绝对 hint 救 t6; 近(小残差=精度相)→残差 保 t8/t9。
+                    # 目标: 取 +11.8 不吃 −9.3 → 扩前沿破 96.4。
+                    #   h_ms_gt = alpha*绝对 + (1-alpha)*残差 = _ms_target - (1-alpha)*h_t_original
+                    #   alpha = ‖r‖/(‖r‖+‖cur‖) ∈[0,1] 自归一化(变化占比), 免阈值标定; r=milestone−当前态。
+                    # 相位检测器 = 残差范数本身(无需任务身份, 不作弊)。推理用 h_ms_pred, 模型隐式从
+                    # 观测估相位, 训练/推理同路径。
+                    _r = _ms_target - h_t_original
+                    _rn = _r.flatten(1).norm(dim=1)               # (B,) 残差范数
+                    _cn = h_t_original.flatten(1).norm(dim=1)      # (B,) 当前态范数
+                    _alpha = _rn / (_rn + _cn + 1e-6)             # (B,) ∈[0,1]; 远→1(绝对), 近→0(残差)
+                    # 可选锐化: LMWM_MS_GATE_SHARP>0 用 sigmoid 绕 batch 均值锐化门(默认0=线性用原始占比)
+                    _sharp = float(_os_ms.environ.get("LMWM_MS_GATE_SHARP", "0"))
+                    if _sharp > 0:
+                        _alpha = torch.sigmoid(_sharp * (_alpha - _alpha.mean()))
+                    _alpha = _alpha.view(-1, *([1] * (h_ms_gt.dim() - 1)))   # 广播 (B,1,1)
+                    h_ms_gt = _ms_target - (1.0 - _alpha) * h_t_original
+                    _rs = float(_os_ms.environ.get("LMWM_MS_RESID_SCALE", "1.0"))
+                    if _rs != 1.0:
+                        h_ms_gt = h_ms_gt * _rs
+                elif _os_ms.environ.get("LMWM_MS_RESIDUAL") == "1":
+                    h_ms_gt = _ms_target - h_t_original
+                    # [尺度对冲] 残差范数≈绝对目标的1/4 → MSE 缩~16×, ms 通道梯度份额或塌。
+                    # LMWM_MS_RESID_SCALE(默认1.0=与 v8xpb 语义一致)放大残差目标恢复损失量级;
+                    # 训练/推理一致(pred 同尺度条件 flow)。
+                    _rs = float(_os_ms.environ.get("LMWM_MS_RESID_SCALE", "1.0"))
+                    if _rs != 1.0:
+                        h_ms_gt = h_ms_gt * _rs
+                elif _os_ms.environ.get("LMWM_MS_ABS_SCALE"):
+                    # [P0-B 反衰减对照] 绝对目标 ×scale(如0.25): 证明残差增益来自"减冗余"非"信号变小".
+                    h_ms_gt = _ms_target * float(_os_ms.environ["LMWM_MS_ABS_SCALE"])
+            else:
+                # 单通道(旧 Path A): provider 就绪时 h_t1_gt 被 milestone 覆盖
+                h_t1_gt = _ms_target
 
             if self.model_cfg.future_prediction:
+                # 局部通道(LaWM decoder): dual 时保 LaWM 原 decoder, 非 dual 时可能是 swap 后的 LMWM decoder
+                _hl, _pl = h_t, pred_action_emb
+                if getattr(self, "_local_detach_bb", False):
+                    _hl, _pl = h_t.detach(), pred_action_emb.detach()   # B: t+7 也不塑形编码器
                 h_t1_pred = self._decode_future_tokens_strict_single_query(
-                    h_t=h_t,
-                    pred_action_emb=pred_action_emb,
+                    h_t=_hl,
+                    pred_action_emb=_pl,
                     source=source,
                 )
+                if _dual:
+                    # 全局通道(LMWM 生成器): 从 ms code 生成 milestone 特征
+                    _hts = h_t.detach() if getattr(self, "_ms_detach_bb", False) else h_t
+                    h_ms_pred = self._decode_ms_future(h_t=_hts, code=pred_action_emb_ms)
             else:
                 h_t1_pred = h_t
+                if _dual:
+                    h_ms_pred = h_t
 
         return PolicyEncodingState(
             h_vlm=h_vlm,
@@ -663,6 +842,9 @@ class LatentWorldPolicyBackend(nn.Module):
             h_t1_pred=h_t1_pred,
             h_t1_gt=h_t1_gt,
             h_t_original=h_t_original,
+            pred_action_emb_ms=pred_action_emb_ms,
+            h_ms_pred=h_ms_pred,
+            h_ms_gt=h_ms_gt,
         )
 
     def _run_shared_encoding_train(
@@ -716,17 +898,36 @@ class LatentWorldPolicyBackend(nn.Module):
             lam_features_with_no_grad=True,
         )
 
+        _dual = getattr(self, "_lmwm_dual", False)
         with _cuda_autocast(lam_stage_dtype):
             loss_distill = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
+            loss_distill_local = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
+            loss_distill_ms = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
             if bool(self.model_cfg.enable_loss_distill):
-                loss_distill = self._compute_distill_loss(
+                # 局部通道(LaWM teacher): dual 时 self.lam 是纯 LaWM, 蒸馏目标=LaWM code
+                loss_distill_local = self._compute_distill_loss(
                     pred_latent=shared.pred_action_emb,
                     primary_video=prepared_batch["primary_video"],
                     embodiment_id=prepared_batch["embodiment_id"],
                 )
+                loss_distill = loss_distill_local
+                if _dual:
+                    # 全局通道(InverseEnc teacher): g_f = shared.h_t1_gt(dual 时=features[:,-1]=t+7)
+                    loss_distill_ms = self._compute_distill_loss_ms(
+                        pred_ms_emb=shared.pred_action_emb_ms,
+                        g_t=shared.h_t,
+                        g_f=shared.h_t1_gt,
+                    )
+                    loss_distill = loss_distill_local + loss_distill_ms
 
+            loss_perceptual_local = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
+            loss_perceptual_ms = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
             if self.model_cfg.future_prediction:
-                loss_perceptual = F.mse_loss(shared.h_t1_pred, shared.h_t1_gt)
+                loss_perceptual_local = F.mse_loss(shared.h_t1_pred, shared.h_t1_gt)
+                loss_perceptual = loss_perceptual_local
+                if _dual:
+                    loss_perceptual_ms = F.mse_loss(shared.h_ms_pred, shared.h_ms_gt)
+                    loss_perceptual = loss_perceptual_local + loss_perceptual_ms
             else:
                 loss_perceptual = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
 
@@ -746,6 +947,15 @@ class LatentWorldPolicyBackend(nn.Module):
                 h_t1_pred=h_t1_pred_rep,
                 h_t1_gt=h_t1_gt_rep,
             )
+            # [V8 dual] 全局通道条件(scheduled sampling 逐通道复用同一函数)
+            h_ms_cond_rep = None
+            if _dual:
+                h_ms_pred_rep = shared.h_ms_pred.repeat(repeat_steps, *([1] * (shared.h_ms_pred.ndim - 1)))
+                h_ms_gt_rep = shared.h_ms_gt.repeat(repeat_steps, *([1] * (shared.h_ms_gt.ndim - 1)))
+                h_ms_cond_rep = self._build_flow_future_condition(
+                    h_t1_pred=h_ms_pred_rep,
+                    h_t1_gt=h_ms_gt_rep,
+                )
             h_vlm_rep = h_vlm_for_flow.repeat(repeat_steps, *([1] * (h_vlm_for_flow.ndim - 1)))
             state_rep = prepared_batch["state"].repeat(repeat_steps, *([1] * (prepared_batch["state"].ndim - 1)))
             state_mask_rep = prepared_batch["state_mask"].repeat(
@@ -772,6 +982,7 @@ class LatentWorldPolicyBackend(nn.Module):
                 state_mask=state_mask_rep,
                 actions_mask=actions_mask_rep,
                 attention_mask=attn_rep,
+                h_ms_star=h_ms_cond_rep,   # [V8 dual] None 时 flow 走单通道老路
             )
 
             loss_total = (
@@ -781,13 +992,20 @@ class LatentWorldPolicyBackend(nn.Module):
             )
 
         zero = torch.tensor(0.0, device=device, dtype=loss_total.dtype)
-        return {
+        out = {
             "loss_flow": loss_flow,
             "loss_perceptual": loss_perceptual,
             "loss_distill": loss_distill,
             "loss_vlm": zero,
             "loss_total": loss_total,
         }
+        if _dual:
+            # 逐通道监控(plan §3: loss_perceptual_ms→~0.011, local 更低)
+            out["loss_perceptual_local"] = loss_perceptual_local.detach()
+            out["loss_perceptual_ms"] = loss_perceptual_ms.detach()
+            out["loss_distill_local"] = loss_distill_local.detach()
+            out["loss_distill_ms"] = loss_distill_ms.detach()
+        return out
 
     @torch.inference_mode()
     def predict_action(
@@ -806,7 +1024,8 @@ class LatentWorldPolicyBackend(nn.Module):
         )
 
         if guidance_scale is None:
-            guidance_scale = float(self.flow.config.cfg_guidance_scale)
+            import os as _os_g   # V7-CFG扫: env 覆盖 guidance(w<1降hint依赖, w=0纯base局部精度)
+            guidance_scale = float(_os_g.environ.get("LMWM_CFG_GUIDANCE", self.flow.config.cfg_guidance_scale))
         if num_inference_steps is None:
             num_inference_steps = int(self.flow.config.num_inference_steps)
 
@@ -817,6 +1036,82 @@ class LatentWorldPolicyBackend(nn.Module):
         )
         attn_flow = prepared_batch["attention_mask"] == 1
 
+        _dual = getattr(self, "_lmwm_dual", False)
+        # ---------------------------------------------------------------------
+        # [P0-D 跨-ep 换 hint 因果探针] LMWM_SWAP_HINT 门控: 推理时用**外来** milestone
+        # 覆盖模型自预测的 h_ms_pred(全局通道 = 唯一进入动作生成的 hint 载体; provider/
+        # h_ms_gt 在推理期从不被使用, LMWM_MILESTONE_TARGET 在 eval yaml 里被 unset)。
+        # 目的: 因果检验"绝对 milestone 的场景身份成分是否有害"——注入错误 ep/任务的
+        # milestone, 比较绝对 ckpt(身份成分) vs 残差 ckpt(身份已减) 的伤害。
+        #   LMWM_SWAP_HINT=<npy>  : h_ms_star ← load(npy) 广播到 batch(as-is, 已在 ckpt
+        #                           原生形态, 由离线脚本按 abs/resid 备好)。
+        #   LMWM_SWAP_HINT_ZERO=1 : h_ms_star ← 0(无 hint 对照)。
+        # 默认(两者皆未设)= 原生 h_ms_pred, 行为不变。训练路径完全不受影响。
+        _ms_star = shared.h_ms_pred if _dual else None
+        if _dual and _ms_star is not None:
+            import os as _os_swap
+            _oracle_root = _os_swap.environ.get("LMWM_ORACLE_RETRIEVAL_ROOT")
+            if _oracle_root:
+                import numpy as _np_oracle
+
+                _task = _os_swap.environ.get("ROBOTWIN_ACTIVE_TASK", "").strip()
+                if not _task:
+                    raise RuntimeError(
+                        "LMWM_ORACLE_RETRIEVAL_ROOT requires ROBOTWIN_ACTIVE_TASK"
+                    )
+                _bank_path = _os_swap.path.join(_oracle_root, f"{_task}.npz")
+                _cache = getattr(self, "_oracle_retrieval_cache", None)
+                if _cache is None or getattr(self, "_oracle_retrieval_path", None) != _bank_path:
+                    _bank = _np_oracle.load(_bank_path)
+                    _current_pooled = torch.from_numpy(
+                        _bank["current_pooled"].astype(_np_oracle.float32)
+                    ).to(device=shared.h_t.device)
+                    _targets = torch.from_numpy(_bank["target_grid"].astype(_np_oracle.float16)).to(
+                        device=shared.h_t.device
+                    )
+                    self._oracle_retrieval_cache = (_current_pooled, _targets)
+                    self._oracle_retrieval_path = _bank_path
+                    _cache = self._oracle_retrieval_cache
+                    print(
+                        f"[LMWM][ORACLE_RETRIEVAL] loaded {_bank_path} entries={len(_targets)}",
+                        flush=True,
+                    )
+                _current_pooled, _targets = _cache
+                _query = F.normalize(shared.h_t.float().mean(dim=1), dim=-1)
+                _index = (_query @ _current_pooled.T).argmax(dim=1)
+                _target = _targets[_index].to(dtype=_ms_star.dtype)
+                _mode = _os_swap.environ.get(
+                    "LMWM_ORACLE_RETRIEVAL_MODE", "absolute"
+                ).strip().lower()
+                if _mode == "absolute":
+                    _ms_star = _target
+                elif _mode == "residual":
+                    _ms_star = _target - shared.h_t.to(dtype=_target.dtype)
+                else:
+                    raise ValueError(
+                        f"Unsupported LMWM_ORACLE_RETRIEVAL_MODE={_mode!r}"
+                    )
+            elif _os_swap.environ.get("LMWM_SWAP_HINT_ZERO") == "1":
+                _ms_star = torch.zeros_like(_ms_star)
+                if not getattr(self, "_swap_hint_logged", False):
+                    print("[LMWM][SWAP_HINT] h_ms_star <- ZERO (no-hint control)", flush=True)
+                    self._swap_hint_logged = True
+            else:
+                _swap_path = _os_swap.environ.get("LMWM_SWAP_HINT")
+                if _swap_path:
+                    _cache = getattr(self, "_swap_hint_cache", None)
+                    if _cache is None or getattr(self, "_swap_hint_path", None) != _swap_path:
+                        import numpy as _np_swap
+                        _arr = _np_swap.load(_swap_path)
+                        self._swap_hint_cache = torch.from_numpy(_arr.astype(_np_swap.float32))
+                        self._swap_hint_path = _swap_path
+                        print(f"[LMWM][SWAP_HINT] loaded foreign milestone {_swap_path} shape={tuple(_arr.shape)}", flush=True)
+                    _v = self._swap_hint_cache.to(device=_ms_star.device, dtype=_ms_star.dtype)
+                    if _v.dim() == 2:
+                        _v = _v.unsqueeze(0)
+                    if _v.shape[0] == 1 and _ms_star.shape[0] > 1:
+                        _v = _v.expand(_ms_star.shape[0], -1, -1)
+                    _ms_star = _v.contiguous()
         with _cuda_autocast(flow_stage_dtype):
             actions = self.flow.sample_actions_cfg(
                 h_t=shared.h_t,
@@ -830,6 +1125,7 @@ class LatentWorldPolicyBackend(nn.Module):
                 num_inference_steps=num_inference_steps,
                 attention_mask=attn_flow,
                 return_padded=bool(return_padded),
+                h_ms_star=_ms_star,   # [V8 dual] 全局通道; CFG 只调此段; P0-D 可被 SWAP_HINT 覆盖
             )
 
         if not return_intermediates:
