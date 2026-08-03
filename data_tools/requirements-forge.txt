@@ -1,0 +1,3 @@
+# Optional cross-format backend. Keep pinned until its reader/writer behavior is
+# revalidated against KAI0's LeRobot v2.1 layout.
+forge-robotics[lerobot,video]==0.2.0
