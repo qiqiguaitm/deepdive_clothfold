@@ -19,7 +19,7 @@ TOKENIZER=/vePFS/tim/hf_models/paligemma_tokenizer
 
 test -s "$AMENDMENT"
 test -s "$INTEGRITY"
-test -x "$SYNC"
+test -s "$SYNC"
 test -x "$RUNTIME/bin/python"
 test -x "$PYTHON_RUNTIME/bin/python3.12"
 test -f "$LEROBOT_SRC/lerobot/__init__.py"

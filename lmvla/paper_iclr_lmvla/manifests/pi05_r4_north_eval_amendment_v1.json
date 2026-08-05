@@ -33,7 +33,7 @@
     "train_scripts/kai/eval/robotwin_python_wrapper_north.sh": "b06a148dada87c8fc32fef85fbead45c01f525a60bf2a5022deec0fdb3898932",
     "train_scripts/kai/eval/run_pi05_r4_formal_eval.sh": "e91ab34a71ae82b3e49099a5fb73154c6493fb2c73954324d4b775dec074bb86",
     "train_scripts/kai/eval/serve_lerobot_pi05.py": "acf914ba7038463e5412ec0cdc05a153dc25af666274dad519fee4692eb3d0d5",
-    "train_scripts/kai/stage_pi05_r4_eval_to_north.sh": "0909c44a318335111dc48d29cc0b398ed773e42fc825a47dbb78f7cdaf2b1c37",
+    "train_scripts/kai/stage_pi05_r4_eval_to_north.sh": "4af463c228355e543f5decda1ab1be40290b269d82d4692a52a1df7a9c42eb71",
     "train_scripts/kai/sync_pi05_r4_eval_from_north.sh": "8aefbbc5c2fecdeb4f81b5debe62022911821cc878220aca99dec066cd205422",
     "train_scripts/kai/sync_tree_from_north_verified.sh": "b2b233c1d92f68582fc25dccd1df3837c1e40a4472ec93cbdf7719712a1e3a63",
     "train_scripts/kai/sync_tree_to_north_verified_tos.sh": "1e251edb0ef0bb7af7bb9fd3a791765dfc51599d2b2d17d19595ce501a32267f",
