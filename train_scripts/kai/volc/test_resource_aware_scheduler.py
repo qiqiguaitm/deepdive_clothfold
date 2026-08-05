@@ -4477,6 +4477,45 @@ def test_completion_locations_require_artifacts_even_without_completion_glob(
     assert evidence == "completion artifacts accelerator=1/1"
 
 
+def test_running_task_polls_remote_completion_before_local_materialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    local_marker = tmp_path / "canonical.ok"
+    task = {
+        "id": "north_attach_helper",
+        "completion_locations": [
+            {"label": "north", "glob": "/north/helper.ok", "remote": True},
+            {"label": "canonical", "glob": str(local_marker), "remote": False},
+        ],
+        "completion_min_count": 1,
+    }
+    attempt = {
+        "kind": "platform",
+        "job_id": "t-remote",
+        "region": "cn-beijing",
+        "last_state": "Queueing",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    probes = []
+    stopped = []
+    monkeypatch.setattr(
+        scheduler,
+        "completion_evidence",
+        lambda _task: probes.append(_task["id"])
+        or (True, "completion artifacts north=1/1, canonical=0/1"),
+    )
+    monkeypatch.setattr(
+        scheduler, "stop_managed_attempt", lambda value: stopped.append(value)
+    )
+
+    scheduler.check_managed_task(task, state)
+
+    assert probes == [task["id"]]
+    assert stopped == [attempt]
+    assert state["status"] == "completed"
+    assert attempt["stopped_after_completion_artifact"]
+
+
 def test_load_state_reopens_terminal_fallback_without_declared_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

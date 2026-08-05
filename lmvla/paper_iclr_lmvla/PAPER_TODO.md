@@ -436,7 +436,12 @@ scheduler will stop it as redundant if another worker closes the canonical A0
 marker first. Its root entrypoint also recounts the four scheduler queues at
 startup and exits immediately without workers if no pending cell remains, so a
 late queue allocation cannot hold four GPUs while waiting on already claimed
-work.
+work. When North reached 16/24 complete with eight active and zero pending
+cells, that skip marker was materialized without launching a worker. This
+exposed and fixed a scheduler bug in which mixed remote/local completion
+locations were not polled until the local marker existed. Active helpers now
+consume remote-first completion evidence, issue StopJob, and leave local
+materialization to its explicit dependency task.
 
 At 19:18 UTC the shared A0 root reached 16/24 complete: both seed-2/3
 `stack_blocks_two` cells completed, their workers atomically claimed the final

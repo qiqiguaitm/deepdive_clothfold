@@ -9770,6 +9770,9 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
     if task.get("completion_locations") and (
         task_state.get("artifacts_complete")
         or any(
+            location.get("remote") for location in task["completion_locations"]
+        )
+        or any(
             glob.glob(location["glob"], recursive=True)
             for location in task["completion_locations"]
             if not location.get("remote")
