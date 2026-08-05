@@ -280,6 +280,10 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
             "outcome_free_crave": "pi05_r4_outcome_free_crave_seed1000_train",
         }.items()
     }
+    formal_eval = {
+        arm: tasks[f"pi05_r4_{arm}_seed1000_eval"]
+        for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
+    }
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -463,6 +467,21 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         )
         assert "policy-effect claims remain blocked" in task["description"]
         assert task["progress_logs"][0]["regex"] == r"step:(\d+)"
+    for arm, task in formal_eval.items():
+        assert task["priority"] == 1
+        assert task["prefer_max_gpus_when_immediate"] is True
+        assert [candidate["resource"] for candidate in task["candidates"]] == [
+            "Robot-East-H20",
+            "local",
+        ]
+        assert [candidate["gpus"] for candidate in task["candidates"]] == [4, 2]
+        assert task["candidates"][0]["env"]["R4_ARM"] == arm
+        assert f"R4_ARM={arm}" in task["candidates"][1]["command"]
+        assert any(
+            item["path"].endswith("pi05_r4_formal_eval_protocol_v1.json")
+            for item in task["ready_hashes"]
+        )
+        assert task["progress_globs"][0]["expected"] == 24
 
 
 def test_r4_sidecar_north_stage_is_exact_and_materialized() -> None:

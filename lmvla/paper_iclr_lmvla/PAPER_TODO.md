@@ -328,6 +328,20 @@ seed-1000, 5000-step ordinary, terminal-outcome, and outcome-free CRAVE screen;
 replication and policy-effect claims remain blocked on fixed-final-checkpoint
 closed-loop evaluation.
 
+At 17:33 UTC the scheduler took a fresh resource snapshot after the A0 East
+helper released its allocation. Two independent recommendation audits selected
+the data-local Robot-East-H20 queue with eight immediately available GPUs.
+Ordinary training launched as `t-20260806013323-snsrr`, and outcome-free CRAVE
+launched as `t-20260806013326-xv5tk`; terminal-outcome remains pending rather
+than queueing in Shanghai. Both active arms passed the exact config preflight
+and emitted `R4_TRAIN_ENTRYPOINT_BINDING_OK` before entering first-step
+compilation. A separate preregistered evaluation protocol now fixes final step
+5000, the six tasks, four eval seeds, 50 episodes per cell, and the exact
+24-cell scene manifest before any trained checkpoint exists. Its DAG prefers
+an immediately available four-GPU East allocation but can use the two local
+GPUs in two seed waves after P1 releases them; either route must first produce
+a fresh recommendation audit and must pass the same 1,200-episode verifier.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from
@@ -599,9 +613,9 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
 - P1 failure closes predictive-adapter replication.
 - P2 failure retains the current negative-integration paper and archives the
   predictive-adapter branch as another bounded interface result.
-- R4 formal training remains blocked on the smoke gate and a separate formal
-  amendment. CRAVE progress alone must never be reported as reward, action
-  advantage, or control value.
+- R4 replication remains blocked on the seed-1000 fixed-checkpoint closed-loop
+  gate. CRAVE progress alone must never be reported as reward, action advantage,
+  or control value.
 - AHEAD-style interception and world-critic RL require new benchmarks or reward
   data and remain outside this graph.
 - LeWM/DINO visual replacement, from-PaliGemma initialization, A2/A3 variants,

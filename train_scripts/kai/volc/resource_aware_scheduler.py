@@ -4139,6 +4139,121 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         )
         existing.add(task_id)
 
+    eval_protocol = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_formal_eval_protocol_v1.json"
+    )
+    eval_spec = json.loads(eval_protocol.read_text())
+    eval_ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(eval_spec["file_sha256"].items())
+    ]
+    eval_ready_files = [item["path"] for item in eval_ready_hashes]
+    eval_script = REPO / "train_scripts/kai/eval/run_pi05_r4_formal_eval.sh"
+    eval_yaml = "train_scripts/kai/volc/pi05_r4_eval_east_4h20.yaml"
+    eval_ports = {
+        "ordinary": 24600,
+        "terminal_outcome": 25000,
+        "outcome_free_crave": 25400,
+    }
+    for arm, train_task_id, train_marker_name, _yaml_path, _task_name in formal_arms:
+        eval_task_id = f"pi05_r4_{arm}_seed1000_eval"
+        if eval_task_id in existing:
+            continue
+        train_marker = REPO / "logs/resource_markers" / train_marker_name
+        model = (
+            REPO
+            / "lmvla/lmwm/checkpoints/pi05_r4_matched_v1"
+            / f"{arm}-seed1000/checkpoints/005000/pretrained_model"
+        )
+        result_name = f"pi05_r4_{arm}_seed1000"
+        eval_marker = REPO / "logs/resource_markers" / f"{result_name}.ok"
+        local_command = shlex.join(
+            [
+                "env",
+                f"R4_ARM={arm}",
+                "LOCAL_GPU_COUNT=2",
+                "GPU_INDEX_OFFSET=0",
+                f"PORT_BASE_OFFSET={eval_ports[arm]}",
+                "bash",
+                str(eval_script),
+            ]
+        )
+        queue["tasks"].append(
+            {
+                "id": eval_task_id,
+                "priority": 1,
+                "description": (
+                    f"Fixed-step, fixed-scene R4 closed-loop evaluation for {arm}"
+                ),
+                "prefer_max_gpus_when_immediate": True,
+                "completion_glob": str(eval_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(train_marker),
+                    str(model / "model.safetensors"),
+                    str(model / "config.json"),
+                    str(eval_protocol),
+                    str(formal_amendment),
+                    *eval_ready_files,
+                ],
+                "ready_hashes": [
+                    *eval_ready_hashes,
+                    {
+                        "path": str(eval_protocol),
+                        "sha256": sha256_file(eval_protocol),
+                    },
+                    {
+                        "path": str(formal_amendment),
+                        "sha256": sha256_file(formal_amendment),
+                    },
+                ],
+                "progress_globs": [
+                    {
+                        "label": "cells",
+                        "glob": str(
+                            REPO
+                            / "lmvla/lawam/results/eval_runs/robotwin"
+                            / result_name
+                            / "**/tasks/*/summary.json"
+                        ),
+                        "expected": 24,
+                    }
+                ],
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 4,
+                        "yaml": eval_yaml,
+                        "task_name": f"pi05-r4-{arm.replace('_', '-')}-eval-east4g",
+                        "env": {
+                            "R4_ARM": arm,
+                            "PORT_BASE_OFFSET": str(eval_ports[arm]),
+                        },
+                    },
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 2,
+                        "gpu_indices": [0, 1],
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 4,
+                        "status_dir": str(
+                            REPO / "logs/r4/eval_launchers" / result_name
+                        ),
+                        "command": local_command,
+                    },
+                ],
+            }
+        )
+        existing.add(eval_task_id)
+
 
 def add_pi05_r4_sidecar_north_tasks(queue: dict[str, Any]) -> None:
     """Stage the exact R4 sidecar inputs to North and materialize its output."""
