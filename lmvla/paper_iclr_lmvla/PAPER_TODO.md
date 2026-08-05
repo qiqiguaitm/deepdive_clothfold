@@ -240,6 +240,15 @@ will attach only when physical North capacity becomes available. They were not
 redirected to Shanghai and cannot write a canonical marker before all 24 cells
 pass the unchanged verifier.
 
+The slower local A0 path also has a conditional East accelerator, but it is
+not yet eligible and has produced no submission audit. It waits for the
+original evaluator to create seed-2 and seed-3 schedulers, then assigns two
+independent attach workers to each seed so all four requested H20 GPUs perform
+useful work. If A0 finishes naturally first, its canonical marker makes the
+accelerator a no-op. At 16:00 UTC shuffled has advanced to 6/24; A0 remains
+4/24, normal and action-masked 12/24 each, and zero-gate 4/24, with zero failed
+cells throughout.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from
