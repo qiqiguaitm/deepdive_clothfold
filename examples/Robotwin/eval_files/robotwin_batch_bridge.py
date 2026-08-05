@@ -82,6 +82,7 @@ class TeeStream:
 class CandidateInfo:
     seed: int
     episode_info: dict[str, Any]
+    oracle_joint_trace: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -347,13 +348,53 @@ def _open_ffmpeg(video_dir: Path, video_size: str, episode_id: int) -> subproces
     )
 
 
+def _joint_vector(task_env: Any) -> np.ndarray:
+    left = task_env.robot.get_left_arm_jointState()
+    right = task_env.robot.get_right_arm_jointState()
+    return np.asarray(list(left) + list(right), dtype=np.float32)
+
+
+def _play_once_with_event_trace(task_env: Any) -> tuple[dict[str, Any], np.ndarray]:
+    """Record expert frame samples and event endpoints while preserving the expert program."""
+    trace = [_joint_vector(task_env)]
+    original_move = task_env.move
+    original_take_picture = getattr(task_env, "_take_picture", None)
+
+    def append_state() -> None:
+        state = _joint_vector(task_env)
+        if not np.allclose(state, trace[-1], atol=1e-6, rtol=0.0):
+            trace.append(state)
+
+    def traced_move(*args, **kwargs):
+        result = original_move(*args, **kwargs)
+        append_state()
+        return result
+
+    def traced_take_picture(*args, **kwargs):
+        append_state()
+        return original_take_picture(*args, **kwargs)
+
+    task_env.move = traced_move
+    if original_take_picture is not None:
+        task_env._take_picture = traced_take_picture
+    try:
+        episode_info = task_env.play_once()
+    finally:
+        task_env.move = original_move
+        if original_take_picture is not None:
+            task_env._take_picture = original_take_picture
+    if len(trace) < 2:
+        raise RuntimeError("oracle expert trace contains fewer than two distinct event states")
+    return episode_info, np.stack(trace)
+
+
 def _try_seed_once(
     task_env: Any,
     task_args: dict[str, Any],
     *,
     seed: int,
     episode_probe_id: int,
-) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
+) -> tuple[bool, Optional[dict[str, Any]], Optional[np.ndarray], Optional[str]]:
     from envs.utils.create_actor import UnStableError  # type: ignore
 
     probe_args = dict(task_args)
@@ -361,23 +402,27 @@ def _try_seed_once(
     probe_args["eval_video_save_dir"] = None
     try:
         task_env.setup_demo(now_ep_num=episode_probe_id, seed=seed, is_test=True, **probe_args)
-        episode_info = task_env.play_once()
+        if os.environ.get("ROBOTWIN_TRANSITION_ORACLE", "0").strip().lower() in {"1", "true", "yes", "on"}:
+            episode_info, oracle_joint_trace = _play_once_with_event_trace(task_env)
+        else:
+            episode_info = task_env.play_once()
+            oracle_joint_trace = None
         task_env.close_env()
     except UnStableError:
         try:
             task_env.close_env()
         except Exception:
             pass
-        return False, None, None
+        return False, None, None, None
     except Exception as exc:
         try:
             task_env.close_env()
         except Exception:
             pass
-        return False, None, traceback.format_exc() or str(exc)
+        return False, None, None, traceback.format_exc() or str(exc)
 
     valid = bool(task_env.plan_success and task_env.check_success())
-    return valid, episode_info, None
+    return valid, episode_info, oracle_joint_trace, None
 
 
 def _slot_worker_main(
@@ -399,6 +444,27 @@ def _slot_worker_main(
     task_env = class_decorator(task_name)
     pending_candidate: Optional[CandidateInfo] = None
     active_episode_id: Optional[int] = None
+    active_transition_tracker = None
+    active_transition_history = None
+    transition_profile = None
+    transition_task_id = None
+    transition_intervention = os.environ.get("ROBOTWIN_TRANSITION_INTERVENTION", "correct")
+    transition_history_enabled = os.environ.get(
+        "ROBOTWIN_TRANSITION_HISTORY", "0"
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    transition_task_map_path = os.environ.get("ROBOTWIN_TRANSITION_TASK_MAP")
+    if transition_task_map_path:
+        transition_task_map = json.loads(Path(transition_task_map_path).read_text())
+        transition_task_id = int(transition_task_map[task_name])
+    if os.environ.get("ROBOTWIN_TRANSITION_ORACLE", "0").strip().lower() in {"1", "true", "yes", "on"}:
+        from examples.Robotwin.eval_files.milestone_transition_oracle import FrozenStageProfile
+
+        if transition_task_id is None:
+            raise ValueError("ROBOTWIN_TRANSITION_ORACLE requires ROBOTWIN_TRANSITION_TASK_MAP")
+        transition_profile = FrozenStageProfile(
+            os.environ["ROBOTWIN_TRANSITION_PAIRS"],
+            os.environ["ROBOTWIN_TRANSITION_EPISODES"],
+        )
 
     def send_action_request(seed: int) -> None:
         if active_episode_id is None:
@@ -414,6 +480,43 @@ def _slot_worker_main(
             }
         )
 
+    def capture_transition_history(observation: dict) -> None:
+        if active_transition_history is None:
+            return
+        step = int(task_env.take_action_cnt)
+        if active_transition_history and active_transition_history[-1][0] == step:
+            return
+        active_transition_history.append(
+            (
+                step,
+                np.asarray(observation["observation"]["head_camera"]["rgb"]).copy(),
+                np.asarray(observation["joint_action"]["vector"], dtype=np.float32).copy(),
+            )
+        )
+
+    def attach_transition_history(observation: dict) -> None:
+        if active_transition_history is None:
+            return
+        capture_transition_history(observation)
+        current_step = int(task_env.take_action_cnt)
+        records = list(active_transition_history)
+        selected = []
+        for offset in (-15, -7, 0):
+            target = current_step + offset
+            selected.append(
+                max(
+                    (record for record in records if record[0] <= target),
+                    default=records[0],
+                    key=lambda value: value[0],
+                )
+            )
+        observation["lmwm_transition_history_images"] = np.stack(
+            [record[1] for record in selected]
+        )
+        observation["lmwm_transition_history_state"] = np.stack(
+            [record[2] for record in selected]
+        )
+
     try:
         while True:
             msg = conn.recv()
@@ -421,14 +524,18 @@ def _slot_worker_main(
 
             if cmd == "try_seed":
                 seed = int(msg["seed"])
-                valid, episode_info, error_text = _try_seed_once(
+                valid, episode_info, oracle_joint_trace, error_text = _try_seed_once(
                     task_env,
                     task_args,
                     seed=seed,
                     episode_probe_id=slot_id,
                 )
                 if valid and episode_info is not None:
-                    pending_candidate = CandidateInfo(seed=seed, episode_info=dict(episode_info.get("info", {})))
+                    pending_candidate = CandidateInfo(
+                        seed=seed,
+                        episode_info=dict(episode_info.get("info", {})),
+                        oracle_joint_trace=oracle_joint_trace,
+                    )
                     conn.send({"type": "candidate_valid", "slot_id": slot_id, "seed": seed})
                 else:
                     conn.send(
@@ -453,6 +560,8 @@ def _slot_worker_main(
 
                 try:
                     task_env.setup_demo(now_ep_num=active_episode_id, seed=seed, is_test=True, **task_args)
+                    active_transition_history = deque(maxlen=16) if transition_history_enabled else None
+                    active_transition_tracker = None
                     instruction = _select_instruction(
                         task_name=task_name,
                         instruction_type=instruction_type,
@@ -463,6 +572,16 @@ def _slot_worker_main(
                     if task_args.get("eval_video_log", False) and task_args.get("eval_video_save_dir"):
                         ffmpeg = _open_ffmpeg(Path(task_args["eval_video_save_dir"]), video_size, active_episode_id)
                         task_env._set_eval_video_ffmpeg(ffmpeg)
+                    if transition_profile is not None:
+                        from examples.Robotwin.eval_files.milestone_transition_oracle import (
+                            MonotonicExpertJointTracker,
+                        )
+
+                        if pending_candidate.oracle_joint_trace is None:
+                            raise RuntimeError("transition oracle enabled without a same-scene expert trace")
+                        active_transition_tracker = MonotonicExpertJointTracker(
+                            pending_candidate.oracle_joint_trace
+                        )
                     pending_candidate = None
                     send_action_request(seed)
                 except UnStableError:
@@ -472,6 +591,7 @@ def _slot_worker_main(
                         pass
                     pending_candidate = None
                     active_episode_id = None
+                    active_transition_history = None
                     conn.send(
                         {
                             "type": "candidate_setup_invalid",
@@ -488,6 +608,7 @@ def _slot_worker_main(
                         pass
                     pending_candidate = None
                     active_episode_id = None
+                    active_transition_history = None
                     conn.send(
                         {
                             "type": "candidate_setup_invalid",
@@ -505,6 +626,8 @@ def _slot_worker_main(
                 action = np.asarray(msg["action"], dtype=np.float32)
                 try:
                     task_env.take_action(action, action_type=env_action_type)
+                    if active_transition_history is not None:
+                        capture_transition_history(task_env.get_obs())
                 except Exception:
                     error_text = traceback.format_exc()
                     try:
@@ -528,6 +651,8 @@ def _slot_worker_main(
                         }
                     )
                     active_episode_id = None
+                    active_transition_history = None
+                    active_transition_tracker = None
                     continue
 
                 if bool(task_env.eval_success) or int(task_env.take_action_cnt) >= int(task_env.step_lim):
@@ -550,6 +675,8 @@ def _slot_worker_main(
                         }
                     )
                     active_episode_id = None
+                    active_transition_history = None
+                    active_transition_tracker = None
                 else:
                     send_action_request(seed=int(msg["seed"]))
                 continue
@@ -557,6 +684,25 @@ def _slot_worker_main(
             if cmd == "get_observation":
                 if active_episode_id is None:
                     raise RuntimeError(f"Slot {slot_id} received get_observation without active episode.")
+                observation = task_env.get_obs()
+                attach_transition_history(observation)
+                if transition_task_id is not None:
+                    observation["lmwm_transition_task"] = np.asarray(
+                        transition_task_id, dtype=np.int32
+                    )
+                if active_transition_tracker is not None:
+                    progress = active_transition_tracker.update(
+                        np.asarray(observation["joint_action"]["vector"], dtype=np.float32)
+                    )
+                    label = transition_profile.label(
+                        transition_task_id,
+                        progress,
+                        transition_intervention,
+                    )
+                    observation["lmwm_transition_task"] = np.asarray(label.task, dtype=np.int32)
+                    observation["lmwm_transition_current"] = np.asarray(label.current, dtype=np.int32)
+                    observation["lmwm_transition_next"] = np.asarray(label.next, dtype=np.int32)
+                    observation["lmwm_transition_mask"] = np.asarray(label.available)
                 conn.send(
                     {
                         "type": "observation_ready",
@@ -564,7 +710,7 @@ def _slot_worker_main(
                         "episode_id": active_episode_id,
                         "seed": int(msg["seed"]),
                         "instruction": str(task_env.get_instruction()),
-                        "observation": task_env.get_obs(),
+                        "observation": observation,
                         "step": int(task_env.take_action_cnt),
                     }
                 )

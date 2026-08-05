@@ -59,7 +59,18 @@ def build_robotwin_example(task_description: str, observation: dict[str, Any]) -
     left_img = observation["observation"]["left_camera"]["rgb"]
     right_img = observation["observation"]["right_camera"]["rgb"]
     state = observation.get("joint_action", {}).get("vector", None)
-    return {"lang": str(task_description), "image": [head_img, left_img, right_img], "state": state}
+    example = {"lang": str(task_description), "image": [head_img, left_img, right_img], "state": state}
+    for key in (
+        "lmwm_transition_task",
+        "lmwm_transition_current",
+        "lmwm_transition_next",
+        "lmwm_transition_mask",
+        "lmwm_transition_history_images",
+        "lmwm_transition_history_state",
+    ):
+        if key in observation:
+            example[key] = observation[key]
+    return example
 
 
 def _to_chw_uint8(img: Any) -> np.ndarray:
@@ -207,6 +218,19 @@ class OpenpiRobotwinModelClient:
         state = example.get("state", None)
         if state is not None:
             obs["state"] = np.asarray(state, dtype=np.float32).reshape(-1)
+        for key in (
+            "lmwm_transition_task",
+            "lmwm_transition_current",
+            "lmwm_transition_next",
+            "lmwm_transition_mask",
+            "lmwm_transition_history_images",
+            "lmwm_transition_history_state",
+        ):
+            if key in example:
+                if key == "lmwm_transition_history_images":
+                    obs[key] = np.stack([_to_chw_uint8(image) for image in example[key]])
+                else:
+                    obs[key] = np.asarray(example[key])
         # a1: 在线 hint 塞入 obs.lmwm_hint (AlohaInputs 透传 → model)。head 是原始 RoboTwin rgb HWC。
         self._ensure_hint_computer()
         if self.hint_computer is not None:
