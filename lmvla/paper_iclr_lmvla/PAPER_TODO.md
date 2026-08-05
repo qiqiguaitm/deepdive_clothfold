@@ -342,6 +342,17 @@ an immediately available four-GPU East allocation but can use the two local
 GPUs in two seed waves after P1 releases them; either route must first produce
 a fresh recommendation audit and must pass the same 1,200-episode verifier.
 
+At 17:47 UTC all four candidate/control evaluations are canonical 24/24
+results with zero failed cells. Their six-task macro success rates are normal
+82.42%, zero-gate 78.50%, action-shuffled 81.17%, and action-masked 78.00%.
+Normal therefore exceeds all three interventions, but its margin over shuffled
+actions is only 1.25 points and is not interpreted before the preregistered
+paired gate runs. North materialization verified every copied file and the
+frozen scene manifest. A0 seed 0/1 are also complete at 12/12 cells with zero
+failures; seed 2/3 are now active on the two local A100 GPUs. The final P1 gate
+remains blocked only on those 12 A0 cells and cannot be inferred from the four
+candidate/control macros alone.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from
