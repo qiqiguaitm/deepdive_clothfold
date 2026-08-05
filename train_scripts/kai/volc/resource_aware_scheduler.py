@@ -10963,6 +10963,13 @@ def dispatch(
             task_state["attempts"].append(attempt)
             task_state["status"] = "running"
             task_state["description"] = task["description"]
+            task_state["artifacts_complete"] = False
+            for key in (
+                "artifact_progress",
+                "artifact_progress_changed_at",
+                "artifact_progress_checked_at",
+            ):
+                task_state.pop(key, None)
             task_state.pop("waiting_reason", None)
             atomic_json(STATE_PATH, state)
             if persistent_north_queue_sink:

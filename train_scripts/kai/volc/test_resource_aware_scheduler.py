@@ -3477,7 +3477,14 @@ def test_dispatch_launches_multiple_nonoverlapping_tasks_per_poll(monkeypatch) -
                 ],
             }
         )
-        state["tasks"][task_id] = {"status": "pending", "attempts": []}
+        state["tasks"][task_id] = {
+            "status": "pending",
+            "attempts": [],
+            "artifacts_complete": False,
+            "artifact_progress": "stale terminal evidence",
+            "artifact_progress_changed_at": "2026-08-05T00:00:00Z",
+            "artifact_progress_checked_at": "2026-08-05T00:00:00Z",
+        }
     snapshot = {
         "resources": {
             "local": {
@@ -3498,6 +3505,13 @@ def test_dispatch_launches_multiple_nonoverlapping_tasks_per_poll(monkeypatch) -
     scheduler.dispatch({"tasks": tasks}, state, snapshot)
     assert len(launched) == 2
     assert all(value["status"] == "running" for value in state["tasks"].values())
+    assert all(
+        value["artifacts_complete"] is False
+        and "artifact_progress" not in value
+        and "artifact_progress_changed_at" not in value
+        and "artifact_progress_checked_at" not in value
+        for value in state["tasks"].values()
+    )
     assert snapshot["resources"]["local"]["managed_reserved_indices"] == [0, 1]
     assert snapshot["resources"]["local"]["free_count"] == 0
 
