@@ -10983,7 +10983,7 @@ def dispatch(
             continue
         # Reconcile durable artifacts even when state was reconstructed without
         # attempt history (for example after importing an older scheduler state).
-        if task.get("completion_glob"):
+        if task.get("completion_glob") or task.get("completion_locations"):
             complete, evidence = completion_evidence(task)
             record_artifact_progress(task_state, complete, evidence)
             if complete:
@@ -11080,6 +11080,17 @@ def dispatch(
                         f"eligible={recommendation['task_eligible_recommendation']} "
                         f"selected={candidate['resource']} audit={recommendation_path}"
                     )
+                if task.get("completion_glob") or task.get("completion_locations"):
+                    complete, evidence = completion_evidence(task)
+                    record_artifact_progress(task_state, complete, evidence)
+                    if complete:
+                        mark_task_completed(task, task_state)
+                        task_state.pop("waiting_reason", None)
+                        log(
+                            f"completed after recommendation before dispatch "
+                            f"{task['id']}: {evidence}"
+                        )
+                        break
                 if candidate["kind"] == "platform":
                     attempt["credential_profile"] = credential_profile
                     if candidate["resource"] == "robot-task":

@@ -1142,6 +1142,73 @@ def test_submission_recommendation_audit_records_locality_and_selection(
     assert json.loads(path.read_text()) == payload
 
 
+def test_dispatch_rechecks_completion_after_recommendation(tmp_path, monkeypatch) -> None:
+    marker = tmp_path / "canonical.ok"
+    task = {
+        "id": "completion-race",
+        "priority": 0,
+        "description": "completion race test",
+        "completion_locations": [
+            {"label": "canonical", "glob": str(marker), "remote": False}
+        ],
+        "completion_min_count": 1,
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 1,
+                "gpu_indices": [0],
+                "status_dir": str(tmp_path / "status"),
+                "command": "true",
+            }
+        ],
+    }
+    state = {"tasks": {task["id"]: {"status": "pending", "attempts": []}}}
+    snapshot = {
+        "resources": {
+            "local": {
+                "available": True,
+                "count": 1,
+                "free_count": 1,
+                "managed_reserved_indices": [],
+                "gpus": [{"index": 0, "memory_used_mib": 0}],
+            }
+        }
+    }
+    launched = []
+
+    monkeypatch.setattr(scheduler, "ready", lambda _task: True)
+    monkeypatch.setattr(scheduler, "candidate_exhausted", lambda *_args: False)
+    monkeypatch.setattr(scheduler, "candidate_in_cooldown", lambda *_args: False)
+
+    def recommend(*_args):
+        marker.write_text("complete\n")
+        return (
+            tmp_path / "recommendation.json",
+            {
+                "global_recommendation": "local",
+                "task_eligible_recommendation": "local",
+                "selected_resource": "local",
+                "selection_analysis": "test",
+            },
+        )
+
+    monkeypatch.setattr(scheduler, "capture_submission_recommendation", recommend)
+    monkeypatch.setattr(
+        scheduler,
+        "launch_local",
+        lambda candidate: launched.append(candidate) or "123",
+    )
+    monkeypatch.setattr(scheduler, "atomic_json", lambda *_args: None)
+    monkeypatch.setattr(scheduler, "log", lambda *_args: None)
+
+    scheduler.dispatch({"tasks": [task]}, state, snapshot)
+
+    assert launched == []
+    assert state["tasks"][task["id"]]["status"] == "completed"
+    assert state["tasks"][task["id"]]["artifacts_complete"] is True
+
+
 def test_submission_recommendation_failure_prevents_launch(monkeypatch) -> None:
     task = {
         "id": "recommendation-required",
