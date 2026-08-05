@@ -2427,7 +2427,7 @@ def add_pi05_p1_a0_seed01_east_helper_task(queue: dict[str, Any]) -> None:
             ],
             "completion_min_count": 1,
             "ready_files": [
-                str(P1_NORTH_EVAL_OVERLAY / "READY"),
+                str(R1_FROZEN_OVERLAY / "READY"),
                 str(checkpoint / "params/_METADATA"),
                 str(
                     checkpoint
@@ -2523,7 +2523,7 @@ def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
             ],
             "completion_min_count": 1,
             "ready_files": [
-                str(P1_NORTH_EVAL_OVERLAY / "READY"),
+                str(R1_FROZEN_OVERLAY / "READY"),
                 str(checkpoint / "params/_METADATA"),
                 str(
                     checkpoint

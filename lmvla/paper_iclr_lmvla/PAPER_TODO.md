@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 16:44 UTC
+Updated: 2026-08-05 16:56 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -277,6 +277,12 @@ available. It cannot write the canonical A0 report or marker, and its DAG node
 also treats an already-existing canonical marker as a no-op completion. The
 helper has not been submitted and has no recommendation audit while East
 remains 8/8; dispatch requires a fresh router decision after capacity release.
+Readiness diagnosis then found that both East A0 accelerator nodes referenced
+the North overlay `READY` path even though their containers use the local East
+overlay. The DAG now uses the matching East path for both nodes. The seed-0/1
+helper has no missing input and reports `ready=true`; the seed-2/3 accelerator
+remains blocked only on its two not-yet-created scheduler files. This correction
+does not weaken a hash gate or alter either amendment.
 
 ## P1: seed-1000 closed-loop causal gate
 

@@ -4195,6 +4195,13 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
         path.endswith(".task_scheduler.json")
         for path in a0_seed01_helper["ready_files"]
     ) == 2
+    assert str(scheduler.R1_FROZEN_OVERLAY / "READY") in a0_seed01_helper[
+        "ready_files"
+    ]
+    assert not any(
+        path.startswith(str(scheduler.P1_NORTH_EVAL_OVERLAY))
+        for path in a0_seed01_helper["ready_files"]
+    )
     helper_candidate = a0_seed01_helper["candidates"][0]
     assert helper_candidate["resource"] == "Robot-East-H20"
     assert helper_candidate["gpus"] == 4
@@ -4218,6 +4225,13 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
         path.endswith(".task_scheduler.json")
         for path in a0_accelerator["ready_files"]
     ) == 2
+    assert str(scheduler.R1_FROZEN_OVERLAY / "READY") in a0_accelerator[
+        "ready_files"
+    ]
+    assert not any(
+        path.startswith(str(scheduler.P1_NORTH_EVAL_OVERLAY))
+        for path in a0_accelerator["ready_files"]
+    )
     candidate = a0_accelerator["candidates"][0]
     assert candidate["resource"] == "Robot-East-H20"
     assert candidate["gpus"] == 4
