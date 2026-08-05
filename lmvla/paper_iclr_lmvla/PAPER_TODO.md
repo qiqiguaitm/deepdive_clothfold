@@ -129,16 +129,27 @@ none of those results establishes control utility.
   output root. Its independently materialized overlay passes the unchanged P1,
   P2, and R1 verifiers over 25 R1 source identities and 12 P2 protocol files.
   The amendment authorizes only the listed seed-1001/1002 training nodes and
-  cannot create either prerequisite gate. After scheduler reload, those nodes
-  have zero source-hash failures and remain unready solely because the P1/R1
-  gate files do not exist; no hash check has been relaxed. The complete
-  scheduler/router and overlay suite passes 118 tests. At 08:20 UTC the repaired
-  P1 pair remained healthy at A0 step 34,500 and candidate step 34,800. The R1
-  zero-route, shuffled, and CRAVE reports are complete; correct-combined has
-  22/24 cells complete, with the two remaining stack-three cells actively
-  rolling out at 19/50 and 21/50 episodes. New
-  robot-task submissions are disabled by operator policy and that resource
-  remains the final, ineligible fallback.
+  cannot create either prerequisite gate. After scheduler reload, those training
+  nodes have zero source-hash failures and remain unready solely because the
+  P1/R1 gate files do not exist; no hash check has been relaxed. The complete
+  scheduler/router and overlay suite passes 119 tests. At 08:30 UTC the repaired
+  P1 pair remained healthy at A0 step 35,300 and candidate step 35,600, both at
+  approximately 1.3 steps/s. The scheduler now discards only materializer
+  failures accumulated before a North parent completes, so the final P1
+  checkpoints can be synchronized without inheriting the obsolete exhausted
+  retry budget. At 08:42 UTC the R1 correct-combined evaluation completed all
+  24 cells and 1,200 episodes. Its macro success rate is 62.92%, versus 68.67%
+  for CRAVE-only: the paired difference is -5.75 points with 95% CI
+  [-9.00, -2.50]. Correct-combined is also statistically indistinguishable
+  from zero-route (+0.75 points, CI [-2.42, 3.92]) and shuffled-action
+  (-1.75 points, CI [-4.92, 1.42]). The predeclared R1 gate therefore already
+  fails the necessary CRAVE comparison and seed-1001/1002 R1 replication must
+  not launch. The formal four-arm gate report still waits for the matched P1 A0
+  and predictive reports so that the complete rejected result is archived.
+  Current owned allocation is North 8 GPUs, East 4 GPUs, and local 0/2 GPUs;
+  there is no gate-ready pending work for the idle devices. New robot-task
+  submissions are disabled by operator policy and that resource remains the
+  final, ineligible fallback.
   The six post-readout R2 execution nodes are now explicitly disabled with the
   reason `R2 causal readout gate rejected`; they can no longer be mistaken for
   unfinished or future-runnable work. gf1 retirement is enforced at queue,
