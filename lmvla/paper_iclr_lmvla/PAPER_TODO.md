@@ -484,6 +484,16 @@ After another fresh audit, seed 1002 launched as
 `t-20260806042252-687hd`. Together they occupy all eight East H20 GPUs; no
 data-nonlocal North or queued robot-task launch was used.
 
+At 21:31 UTC both P2 replications crossed their first resumable checkpoint.
+The canonical main-worktree roots `...seed1001/5000` and `...seed1002/5000`
+are each approximately 31 GB and contain committed Orbax params, train state,
+assets, manifests, and `_CHECKPOINT_METADATA` with nonzero commit timestamps.
+Both asynchronous save threads reported no error, completed cross-host
+finalization, and training continued beyond step 5,000. This validates the v2
+checkpoint-root repair and provides a recovery point; it is not an interim
+model-selection result, and only the frozen final step 49,999 checkpoints may
+enter P2 evaluation.
+
 R4 terminal-outcome training also completed the exact step-5,000 checkpoint.
 All three frozen models are readable, exactly 9,354,050,752 bytes, and have
 recorded SHA-256 values `ec7d3280...bb89` (ordinary),
