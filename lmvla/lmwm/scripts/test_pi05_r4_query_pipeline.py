@@ -30,18 +30,21 @@ def write_episode(root: Path, episode: int, value: int) -> tuple[Path, Path, Pat
     trajectory = root / f"episode{episode}.npz"
     queries = root / f"query_episode{episode}.npz"
     video = root / f"episode{episode}.mp4"
-    states = np.tile(np.arange(14, dtype=np.float32), (75, 1))
+    length = 100 if episode == 0 else 75
+    states = np.tile(np.arange(14, dtype=np.float32), (length, 1))
     np.savez_compressed(
         trajectory,
         actions=states + 0.25,
         states=states,
-        frame_index=np.arange(75, dtype=np.int64),
+        frame_index=np.arange(length, dtype=np.int64),
     )
-    image = np.full((2, 4, 6, 3), value, dtype=np.uint8)
+    frames = np.asarray([0, 50, 100] if episode == 0 else [0, 50], dtype=np.int64)
+    image = np.full((len(frames), 4, 6, 3), value, dtype=np.uint8)
+    query_states = np.stack([states[min(frame, length - 1)] for frame in frames])
     np.savez_compressed(
         queries,
-        query_frame_index=np.asarray([0, 50], dtype=np.int64),
-        query_states=states[[0, 50]],
+        query_frame_index=frames,
+        query_states=query_states,
         cam_high=image,
         cam_left_wrist=image + 1,
         cam_right_wrist=image + 2,
@@ -122,6 +125,7 @@ def test_build_merge_and_audit_query_manifests(tmp_path):
     assert report["accepted"]
     assert report["record_count"] == 12
     assert report["query_count"] == 24
+    assert report["ignored_unexecuted_query_count"] == 1
     assert all(value == {"success": 1, "failure": 1} for value in report["support"].values())
 
 

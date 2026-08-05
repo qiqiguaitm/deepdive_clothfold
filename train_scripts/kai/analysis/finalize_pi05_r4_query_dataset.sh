@@ -9,6 +9,8 @@ SUPPORT=$MANIFEST_DIR/pi05_r4_query_beat_support_v1_query.json
 BALANCED_A=$MANIFEST_DIR/pi05_r4_query_balanced_support_a_v1_query.json
 BALANCED_B=$MANIFEST_DIR/pi05_r4_query_balanced_support_b_v1_query.json
 OUTCOME=$REPO/logs/r4/outcomes/dataset_manifest_combined_v1.json
+QUERY_OUTCOME=$REPO/logs/r4/outcomes/query_outcome_manifest_combined_v1.json
+QUERY_OUTCOME_AUDIT=$REPO/logs/r4/outcomes/query_outcome_dataset_audit_v1.json
 COMBINED=$REPO/lmvla/lawam/results/eval_runs/robotwin/pi05_r4_query_train_v1.json
 AUDIT=$REPO/logs/r4/outcomes/query_dataset_audit_v1.json
 MARKER=$REPO/logs/resource_markers/pi05_r4_query_dataset.ok
@@ -39,6 +41,17 @@ materialize_balanced_manifest \
   "$REPO/lmvla/lmwm/data/pi05_r4_balanced_train_support_b_v1.json" \
   "stack_blocks_two stack_blocks_three" "$BALANCED_B"
 
+python3 "$REPO/lmvla/lmwm/scripts/merge_pi05_r4_outcome_manifests.py" \
+  --manifest "$MANIFEST_DIR/pi05_r4_query_base_train_a_v1_outcome.json" \
+  --manifest "$MANIFEST_DIR/pi05_r4_query_base_train_b_v1_outcome.json" \
+  --manifest "$MANIFEST_DIR/pi05_r4_query_beat_support_v1_outcome.json" \
+  --manifest "$MANIFEST_DIR/pi05_r4_query_balanced_support_a_v1_outcome.json" \
+  --manifest "$MANIFEST_DIR/pi05_r4_query_balanced_support_b_v1_outcome.json" \
+  --output "$QUERY_OUTCOME"
+python3 "$REPO/lmvla/lmwm/scripts/audit_pi05_r4_outcome_dataset.py" \
+  --manifest "$QUERY_OUTCOME" --train-only --expected-record-count 600 \
+  --output "$QUERY_OUTCOME_AUDIT"
+
 test -s "$BASE_A"
 test -s "$BASE_B"
 test -s "$SUPPORT"
@@ -52,7 +65,7 @@ python3 "$REPO/lmvla/lmwm/scripts/merge_pi05_r4_query_manifests.py" \
   --manifest "$BALANCED_A" --manifest "$BALANCED_B" \
   --output "$COMBINED"
 python3 "$REPO/lmvla/lmwm/scripts/audit_pi05_r4_query_dataset.py" \
-  --query-manifest "$COMBINED" --outcome-manifest "$OUTCOME" --output "$AUDIT"
+  --query-manifest "$COMBINED" --outcome-manifest "$QUERY_OUTCOME" --output "$AUDIT"
 
 python3 - "$AUDIT" <<'PY'
 import json, sys

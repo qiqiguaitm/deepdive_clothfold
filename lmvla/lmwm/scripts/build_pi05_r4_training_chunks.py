@@ -76,6 +76,7 @@ def build(
     query_frames_out: list[int] = []
     query_artifacts: list[str] = []
     instructions: list[str] = []
+    ignored_unexecuted_query_count = 0
 
     for record_index, record in enumerate(records):
         trajectory_path = resolve_artifact(query_manifest, str(record["trajectory"]))
@@ -92,6 +93,9 @@ def build(
             frame = int(frame)
             valid = min(CHUNK_SIZE, len(trajectory_actions) - frame)
             if valid <= 0:
+                if frame == len(trajectory_actions) and query_index == len(query_frames) - 1:
+                    ignored_unexecuted_query_count += 1
+                    continue
                 raise ValueError(f"empty action chunk for record {record_index} frame {frame}")
             chunk = np.empty((CHUNK_SIZE, 14), dtype=np.float32)
             chunk[:valid] = trajectory_actions[frame : frame + valid]
@@ -162,6 +166,7 @@ def build(
         "behavior_policy_sha256": str(query["behavior_policy_sha256"]),
         "record_count": len(records),
         "sample_count": len(states),
+        "ignored_unexecuted_query_count": ignored_unexecuted_query_count,
         "chunk_size": CHUNK_SIZE,
         "outcome_temperature": outcome_temperature,
         "task_to_id": task_to_id,

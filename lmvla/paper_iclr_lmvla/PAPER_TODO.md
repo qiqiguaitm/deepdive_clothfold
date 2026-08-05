@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 13:36 UTC
+Updated: 2026-08-05 13:51 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -371,8 +371,24 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   The opt-in runtime now preserves the public normalization processors and
   verifies the weight field after the complete official pi0.5 preprocessing
   pipeline. This runtime preparation does not authorize R4 policy training;
-  exact public-checkpoint loading and the accepted 600-record query audit are
-  still required first.
+  At that point, exact public-checkpoint loading and an accepted 600-record
+  query audit were still required.
+
+  At 13:51 UTC the 600-record query gate passed after resolving an important
+  rollout-identity issue. Independent query reruns are stochastic, so five
+  terminal outcomes and trajectory lengths differed from the earlier outcome
+  collection; attaching the earlier labels was correctly rejected. The
+  predeclared query reruns now use their own aligned trajectories and terminal
+  outcomes, with no scene or outcome filtering. The train-only outcome audit
+  accepts all 600 records and 303,772 executed actions. The query audit accepts
+  all six tasks and 6,313 executable policy queries with exact three-camera,
+  state, action, scene, and behavior-policy alignment. Five additional planning
+  requests occurred exactly at `frame == len(executed_actions)` after the final
+  action chunk; they are retained in source evidence but excluded from training
+  because no action was executed. Any other out-of-range query remains a hard
+  rejection. Action-chunk and LeRobot materialization may now proceed; exact
+  public-checkpoint loading against the resulting dataset remains the final
+  runtime gate before any R4 training can be designed or authorized.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary

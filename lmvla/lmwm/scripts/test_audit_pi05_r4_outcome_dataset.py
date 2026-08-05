@@ -67,3 +67,21 @@ def test_rejects_video_only_rollouts_without_actions(tmp_path):
     result = audit(build_manifest(tmp_path, omit_actions=True))
     assert not result["accepted"]
     assert not result["checks"]["action_state_observation_alignment_present"]
+
+
+def test_accepts_frozen_train_only_query_outcomes(tmp_path):
+    manifest = build_manifest(tmp_path)
+    payload = json.loads(manifest.read_text())
+    payload["records"] = [
+        record for record in payload["records"] if record["split"] == "train"
+    ]
+    manifest.write_text(json.dumps(payload))
+
+    result = audit(
+        manifest,
+        require_eval_split=False,
+        expected_record_count=2 * len(REQUIRED_TASKS),
+    )
+
+    assert result["accepted"]
+    assert result["checks"]["expected_record_count"]

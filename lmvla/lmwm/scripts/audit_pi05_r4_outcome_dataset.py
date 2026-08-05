@@ -37,7 +37,13 @@ def valid_digest(value: Any) -> bool:
     return isinstance(value, str) and len(value) == 64 and set(value.lower()) <= HEX_DIGITS
 
 
-def audit(manifest_path: Path, *, minimum_outcomes_per_task: int = 1) -> dict[str, Any]:
+def audit(
+    manifest_path: Path,
+    *,
+    minimum_outcomes_per_task: int = 1,
+    require_eval_split: bool = True,
+    expected_record_count: int | None = None,
+) -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     records = manifest.get("records", [])
     if not isinstance(records, list) or not records:
@@ -103,13 +109,18 @@ def audit(manifest_path: Path, *, minimum_outcomes_per_task: int = 1) -> dict[st
 
     checks = {
         "all_records_valid": not errors,
+        "expected_record_count": (
+            expected_record_count is None or len(records) == expected_record_count
+        ),
         "all_six_tasks_present_in_train": set(support["train"]) == REQUIRED_TASKS,
         "train_has_success_and_failure_support_per_task": all(
             support["train"][task][outcome] >= minimum_outcomes_per_task
             for task in REQUIRED_TASKS
             for outcome in ("success", "failure")
         ),
-        "eval_split_present": set(support["eval"]) == REQUIRED_TASKS,
+        "eval_split_present": (
+            not require_eval_split or set(support["eval"]) == REQUIRED_TASKS
+        ),
         "train_eval_scene_disjoint": not any("scene leakage" in error for error in errors),
         "behavior_policy_identity_present": bool(behavior_policies),
         "action_state_observation_alignment_present": transition_count > 0 and not errors,
@@ -119,6 +130,8 @@ def audit(manifest_path: Path, *, minimum_outcomes_per_task: int = 1) -> dict[st
         "protocol": "pi05_r4_action_bearing_outcome_dataset_audit_v1",
         "manifest": str(manifest_path.resolve()),
         "minimum_successes_and_failures_per_train_task": minimum_outcomes_per_task,
+        "require_eval_split": require_eval_split,
+        "expected_record_count": expected_record_count,
         "record_count": len(records),
         "transition_count": transition_count,
         "behavior_policy_sha256": sorted(behavior_policies),
@@ -140,11 +153,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--minimum-outcomes-per-task", type=int, default=1)
+    parser.add_argument("--train-only", action="store_true")
+    parser.add_argument("--expected-record-count", type=int)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = audit(
         args.manifest.resolve(),
         minimum_outcomes_per_task=args.minimum_outcomes_per_task,
+        require_eval_split=not args.train_only,
+        expected_record_count=args.expected_record_count,
     )
     atomic_json(args.output, result)
     print(json.dumps(result, sort_keys=True))

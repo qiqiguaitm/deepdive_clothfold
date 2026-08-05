@@ -55,6 +55,7 @@ def audit(query_manifest: Path, outcome_manifest: Path) -> dict:
     support = defaultdict(lambda: {"success": 0, "failure": 0})
     query_count = 0
     action_count = 0
+    ignored_unexecuted_query_count = 0
     root = query_manifest.parent
     for index, record in enumerate(records):
         try:
@@ -93,7 +94,15 @@ def audit(query_manifest: Path, outcome_manifest: Path) -> dict:
             if np.any(np.diff(query_frames) != 50):
                 raise ValueError("policy query intervals must equal the frozen 50-step replan horizon")
             if query_frames[-1] >= len(actions):
-                raise ValueError("query frame lies outside the executed trajectory")
+                invalid = query_frames >= len(actions)
+                if invalid.sum() != 1 or query_frames[-1] != len(actions):
+                    raise ValueError("query frame lies outside the executed trajectory")
+                query_frames = query_frames[:-1]
+                query_states = query_states[:-1]
+                images = {name: values[:-1] for name, values in images.items()}
+                ignored_unexecuted_query_count += 1
+                if len(query_frames) == 0:
+                    raise ValueError("trajectory contains no executed policy query")
             if query_states.shape != (len(query_frames), 14):
                 raise ValueError("query states must have [Q,14] shape")
             if not np.allclose(query_states, states[query_frames], rtol=0.0, atol=1e-6):
@@ -140,6 +149,7 @@ def audit(query_manifest: Path, outcome_manifest: Path) -> dict:
         "expected_train_record_count": len(expected),
         "query_count": query_count,
         "executed_action_count": action_count,
+        "ignored_unexecuted_query_count": ignored_unexecuted_query_count,
         "support": dict(support),
         "errors": errors,
         "checks": checks,

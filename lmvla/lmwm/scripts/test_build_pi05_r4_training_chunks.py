@@ -34,20 +34,23 @@ def test_builds_fifty_step_chunks_only_after_full_audit(tmp_path: Path) -> None:
             seed = 1000 + success_index
             trajectory = tmp_path / f"{task}_{seed}_trajectory.npz"
             query = tmp_path / f"{task}_{seed}_query.npz"
-            actions = np.arange(75 * 14, dtype=np.float32).reshape(75, 14)
+            has_unexecuted_tail = task == sorted(REQUIRED_TASKS)[0] and not success
+            length = 100 if has_unexecuted_tail else 75
+            actions = np.arange(length * 14, dtype=np.float32).reshape(length, 14)
             states = actions / 100.0
             np.savez_compressed(
                 trajectory,
                 actions=actions,
                 states=states,
-                frame_index=np.arange(75),
+                frame_index=np.arange(length),
             )
-            frames = np.asarray([0, 50])
-            cameras = np.zeros((2, 4, 5, 3), dtype=np.uint8)
+            frames = np.asarray([0, 50, 100] if has_unexecuted_tail else [0, 50])
+            cameras = np.zeros((len(frames), 4, 5, 3), dtype=np.uint8)
+            query_states = np.stack([states[min(frame, length - 1)] for frame in frames])
             np.savez_compressed(
                 query,
                 query_frame_index=frames,
-                query_states=states[frames],
+                query_states=query_states,
                 cam_high=cameras,
                 cam_left_wrist=cameras,
                 cam_right_wrist=cameras,
@@ -88,6 +91,7 @@ def test_builds_fifty_step_chunks_only_after_full_audit(tmp_path: Path) -> None:
 
     assert report["record_count"] == 12
     assert report["sample_count"] == 24
+    assert report["ignored_unexecuted_query_count"] == 1
     assert report["interpretation"].endswith("world-critic estimate")
     with np.load(output, allow_pickle=False) as payload:
         assert payload["action"].shape == (24, 50, 14)
@@ -95,7 +99,9 @@ def test_builds_fifty_step_chunks_only_after_full_audit(tmp_path: Path) -> None:
         assert payload["action_valid"].shape == (24, 50)
         assert payload["action_valid"][:, :25].all()
         second_queries = payload["query_frame"] == 50
-        assert payload["action_valid"][second_queries].sum(axis=1).tolist() == [25] * 12
+        assert sorted(payload["action_valid"][second_queries].sum(axis=1).tolist()) == (
+            [25] * 11 + [50]
+        )
         assert np.allclose(
             payload["outcome_calibrated_weight"].reshape(6, 4).mean(axis=1), 1.0
         )

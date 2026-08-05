@@ -3151,7 +3151,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         REPO
         / "lmvla/lawam/results/eval_runs/robotwin/pi05_r4_query_train_v1.json"
     )
-    outcome_manifest = REPO / "logs/r4/outcomes/dataset_manifest_combined_v1.json"
+    outcome_manifest = REPO / "logs/r4/outcomes/query_outcome_manifest_combined_v1.json"
     training_chunks = REPO / "lmvla/lmwm/data/pi05_r4_training_v1/query_action_chunks.npz"
     training_chunks_report = REPO / "logs/r4/training/query_action_chunks_report.json"
     if training_chunks_id not in existing:
