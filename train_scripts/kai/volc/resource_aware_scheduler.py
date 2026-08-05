@@ -2665,6 +2665,85 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 ],
             }
         )
+        existing.add(formal_id)
+
+    support_id = "pi05_r4_beat_train_support_supplement"
+    if support_id not in existing:
+        support_manifest = (
+            REPO / "lmvla/lmwm/data/pi05_r4_beat_train_support_supplement_v1.json"
+        )
+        support_builder = (
+            REPO / "lmvla/lmwm/scripts/build_pi05_r4_support_scene_manifest.py"
+        )
+        support_amendment = (
+            REPO
+            / "lmvla/paper_iclr_lmvla/manifests/"
+            "pi05_r4_outcome_support_amendment_v1.json"
+        )
+        support_marker = (
+            REPO / "logs/resource_markers/pi05_r4_beat_train_support_supplement.ok"
+        )
+        support_result = "pi05_r4_beat_train_support_supplement_v1"
+        first_cell_summaries = [
+            str(
+                REPO
+                / "lmvla/lawam/results/eval_runs/robotwin/pi05_r4_outcomes_public_v1"
+                / f"seed{seed}/SidneyXie_pi05_robotwin__demo_clean"
+                / f"r4-outcomes-public-seed{seed}/tasks/beat_block_hammer/summary.json"
+            )
+            for seed in range(4)
+        ]
+        queue["tasks"].append(
+            {
+                "id": support_id,
+                "priority": 1,
+                "description": (
+                    "Predeclared all-unused-scene train support supplement for "
+                    "R4 beat_block_hammer"
+                ),
+                "completion_glob": str(support_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    *common_ready,
+                    str(smoke_marker),
+                    str(support_manifest),
+                    str(support_builder),
+                    str(support_amendment),
+                    *first_cell_summaries,
+                ],
+                "ready_hashes": [
+                    *ready_hashes,
+                    {"path": str(support_manifest), "sha256": sha256_file(support_manifest)},
+                    {"path": str(support_builder), "sha256": sha256_file(support_builder)},
+                    {
+                        "path": str(support_amendment),
+                        "sha256": sha256_file(support_amendment),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 2,
+                        "gpu_indices": [0, 1],
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/outcomes/beat_support_local"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec env "
+                            "ROBOTWIN_TASKS=beat_block_hammer SEEDS='0 1' "
+                            "ROBOTWIN_TEST_NUM=40 LOCAL_GPU_COUNT=2 "
+                            "R4_FINALIZE_DATASET=0 "
+                            f"RESULT_NAME={support_result} "
+                            "RUN_TAG_PREFIX=r4-beat-train-support "
+                            "PORT_BASE_OFFSET=27000 "
+                            f"R4_SCENE_MANIFEST={shlex.quote(str(support_manifest))} "
+                            f"MARKER={shlex.quote(str(support_marker))} "
+                            "bash train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh"
+                        ),
+                    }
+                ],
+            }
+        )
 
 
 def add_pi05_r2_adaptive_execution_tasks(queue: dict[str, Any]) -> None:

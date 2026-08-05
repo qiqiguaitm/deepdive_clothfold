@@ -15,6 +15,7 @@ checkpoints/**
 data/**
 !data/.gitkeep
 !data/robotwin_mt_stage_tracker_split_v1.json
+!data/pi05_r4_beat_train_support_supplement_v1.json
 outputs/**
 !outputs/.gitkeep
 

@@ -236,6 +236,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     tasks = {task["id"]: task for task in queue["tasks"]}
     smoke = tasks["pi05_r4_outcome_collection_smoke"]
     formal = tasks["pi05_r4_outcome_collection_formal"]
+    support = tasks["pi05_r4_beat_train_support_supplement"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -254,6 +255,19 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert any(
         "frozen_source_overlays/pi05_r4_collector_v1" in item["path"]
         for item in formal["ready_hashes"]
+    )
+    assert support["candidates"][0]["resource"] == "local"
+    assert support["candidates"][0]["gpus"] == 2
+    assert "ROBOTWIN_TEST_NUM=40" in support["candidates"][0]["command"]
+    assert "R4_FINALIZE_DATASET=0" in support["candidates"][0]["command"]
+    assert sum(path.endswith("beat_block_hammer/summary.json") for path in support["ready_files"]) == 4
+    assert any(
+        item["path"].endswith("pi05_r4_beat_train_support_supplement_v1.json")
+        for item in support["ready_hashes"]
+    )
+    assert any(
+        item["path"].endswith("pi05_r4_outcome_support_amendment_v1.json")
+        for item in support["ready_hashes"]
     )
 
 
