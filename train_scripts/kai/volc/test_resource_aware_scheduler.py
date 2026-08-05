@@ -267,6 +267,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     query_finalize = tasks["pi05_r4_query_dataset_finalize"]
     training_chunks = tasks["pi05_r4_training_chunks_build"]
     lerobot_build = tasks["pi05_r4_lerobot_dataset_build"]
+    runtime_verify = tasks["pi05_r4_training_runtime_verify"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -366,6 +367,14 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert "build_pi05_r4_lerobot_dataset.py" in lerobot_command
     assert "lerobot_query_chunks" in lerobot_command
     assert "does not authorize policy training" in lerobot_build["description"]
+    assert runtime_verify["candidates"][0]["resource"] == "local"
+    assert runtime_verify["candidates"][0]["gpus"] == 0
+    assert runtime_verify["completion_glob"].endswith("pi05_r4_training_runtime.ok")
+    assert lerobot_build["completion_glob"] in runtime_verify["ready_files"]
+    runtime_command = runtime_verify["candidates"][0]["command"]
+    assert "PI05_R4_TRAINING_RUNTIME=1" in runtime_command
+    assert "--load-policy" in runtime_command
+    assert "does not authorize policy training" in runtime_verify["description"]
 
 
 def north_snapshot(

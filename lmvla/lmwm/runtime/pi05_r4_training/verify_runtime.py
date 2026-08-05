@@ -15,7 +15,13 @@ from lerobot.policies.pi05.configuration_pi05 import PI05Config
 from lerobot.utils import sample_weighting
 
 
-def verify(model: Path | None = None) -> dict:
+def verify(
+    model: Path | None = None,
+    *,
+    dataset_root: Path | None = None,
+    dataset_repo_id: str = "local/pi05-r4-query-train-v1",
+    load_policy: bool = False,
+) -> dict:
     patched = {
         "make_policy": bool(getattr(policy_factory.make_policy, "_pi05_r4_runtime", False)),
         "make_pre_post_processors": bool(
@@ -79,12 +85,55 @@ def verify(model: Path | None = None) -> dict:
             raise RuntimeError("public pi0.5 preprocessor did not preserve sample_weight")
         processor_probe = {"sample_weight_preserved": True, "shape": list(preserved.shape)}
 
+    dataset_probe = None
+    if dataset_root is not None:
+        from lerobot.datasets.lerobot_dataset import LeRobotDataset
+
+        dataset = LeRobotDataset(
+            dataset_repo_id,
+            root=dataset_root,
+            delta_timestamps={},
+            video_backend="pyav",
+        )
+        sample = dataset[0]
+        action_shape = list(torch.as_tensor(sample["action"]).shape)
+        weight_shape = list(torch.as_tensor(sample["sample_weight"]).shape)
+        if action_shape != [50, 14] or weight_shape != [1]:
+            raise ValueError(
+                f"unexpected direct-chunk sample: action={action_shape}, weight={weight_shape}"
+            )
+        dataset_probe = {
+            "action_shape": action_shape,
+            "episodes": dataset.meta.total_episodes,
+            "frames": dataset.meta.total_frames,
+            "sample_weight_shape": weight_shape,
+        }
+        if load_policy:
+            if model is None:
+                raise ValueError("--load-policy requires --model")
+            policy_config = PI05Config.from_pretrained(model)
+            policy_config.pretrained_path = str(model)
+            policy_config.device = "cpu"
+            policy_config.compile_model = False
+            policy = policy_factory.make_policy(cfg=policy_config, ds_meta=dataset.meta)
+            restored_action_shape = list(policy.config.output_features["action"].shape)
+            if restored_action_shape != [14]:
+                raise ValueError(
+                    f"public policy action contract was not restored: {restored_action_shape}"
+                )
+            dataset_probe["public_policy_loaded"] = True
+            dataset_probe["public_policy_action_shape"] = restored_action_shape
+            dataset_probe["public_policy_parameters"] = sum(
+                parameter.numel() for parameter in policy.parameters()
+            )
+
     # Parsing this object proves the installed LeRobot exposes the exact config
     # and generic sample-weighting interfaces used by the launcher.
     if not issubclass(PI05Config, object) or not hasattr(TrainPipelineConfig, "validate"):
         raise RuntimeError("installed LeRobot lacks the required PI05 training interfaces")
     return {
         "accepted": True,
+        "dataset_probe": dataset_probe,
         "patched": patched,
         "processor_probe": processor_probe,
         "public_config": public_config,
@@ -94,9 +143,17 @@ def verify(model: Path | None = None) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path)
+    parser.add_argument("--dataset-root", type=Path)
+    parser.add_argument("--dataset-repo-id", default="local/pi05-r4-query-train-v1")
+    parser.add_argument("--load-policy", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    report = verify(args.model)
+    report = verify(
+        args.model,
+        dataset_root=args.dataset_root,
+        dataset_repo_id=args.dataset_repo_id,
+        load_policy=args.load_policy,
+    )
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")

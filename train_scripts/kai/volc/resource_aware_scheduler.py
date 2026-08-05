@@ -3257,6 +3257,76 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 ],
             }
         )
+        existing.add(lerobot_id)
+
+    runtime_verify_id = "pi05_r4_training_runtime_verify"
+    runtime_marker = REPO / "logs/resource_markers/pi05_r4_training_runtime.ok"
+    runtime_dir = REPO / "lmvla/lmwm/runtime/pi05_r4_training"
+    runtime_verifier = runtime_dir / "verify_runtime.py"
+    runtime_report = REPO / "logs/r4/training/runtime_preflight.json"
+    public_model = Path("/vePFS/tim/hf_models/SidneyXie_pi05_robotwin")
+    if runtime_verify_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": runtime_verify_id,
+                "priority": 1,
+                "description": (
+                    "Strictly load the public pi0.5 checkpoint against R4 direct chunks; "
+                    "this does not authorize policy training"
+                ),
+                "completion_glob": str(runtime_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(lerobot_marker),
+                    str(lerobot_root / "meta/info.json"),
+                    str(lerobot_report),
+                    str(lerobot_python),
+                    str(runtime_dir / "sitecustomize.py"),
+                    str(runtime_verifier),
+                    str(runtime_dir / "requirements.lock"),
+                    str(public_model / "config.json"),
+                    str(public_model / "model.safetensors"),
+                    str(public_model / "policy_preprocessor.json"),
+                    str(Path("/vePFS/tim/hf_models/paligemma_tokenizer/tokenizer.model")),
+                ],
+                "ready_hashes": [
+                    {"path": str(runtime_verifier), "sha256": sha256_file(runtime_verifier)},
+                    {
+                        "path": str(runtime_dir / "sitecustomize.py"),
+                        "sha256": sha256_file(runtime_dir / "sitecustomize.py"),
+                    },
+                    {
+                        "path": str(runtime_dir / "requirements.lock"),
+                        "sha256": sha256_file(runtime_dir / "requirements.lock"),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/training/runtime_verify"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && rm -f "
+                            f"{shlex.quote(str(runtime_marker))} && exec env "
+                            "PI05_R4_TRAINING_RUNTIME=1 HF_HUB_OFFLINE=1 "
+                            "TRANSFORMERS_OFFLINE=1 "
+                            f"PYTHONPATH={shlex.quote(str(runtime_dir))} "
+                            f"{shlex.quote(str(lerobot_python))} "
+                            f"{shlex.quote(str(runtime_verifier))} "
+                            f"--model {shlex.quote(str(public_model))} "
+                            f"--dataset-root {shlex.quote(str(lerobot_root))} "
+                            "--dataset-repo-id local/pi05-r4-query-train-v1 "
+                            f"--load-policy --output {shlex.quote(str(runtime_report))} && "
+                            f"printf 'completed=%s\\nreport=%s\\n' "
+                            f"\"$(date -u +%FT%TZ)\" {shlex.quote(str(runtime_report))} > "
+                            f"{shlex.quote(str(runtime_marker))}"
+                        ),
+                    }
+                ],
+            }
+        )
 
 
 def add_pi05_r2_adaptive_execution_tasks(queue: dict[str, Any]) -> None:
