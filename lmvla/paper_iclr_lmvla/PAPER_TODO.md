@@ -429,6 +429,11 @@ authorizes one worker per seed at disjoint worker offset 3000. It can claim at
 most those four observed pending cells, retains the official A0 checkpoint and
 all frozen evaluation identities, and must receive a fresh submission-target
 recommendation before dispatch. No direct submission bypass is authorized.
+The recommendation audit at 19:12 UTC selected `Robot-North-H20` and launched
+the helper as `t-20260806031252-r4vzw` under the primary account. It is currently
+the only queued North task; no startup evidence has been claimed, and the
+scheduler will stop it as redundant if another worker closes the canonical A0
+marker first.
 
 ## P1: seed-1000 closed-loop causal gate
 
