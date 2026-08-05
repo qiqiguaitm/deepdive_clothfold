@@ -4,6 +4,8 @@ set -euo pipefail
 REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
 LEROBOT_ROOT=${LEROBOT_ROOT:-/vePFS/tim/workspace/lerobot-main}
 PYTHON=$LEROBOT_ROOT/.venv/bin/python
+RUNTIME_DIR=$REPO/lmvla/lmwm/runtime/pi05_r4_training
+TRAIN_ENTRYPOINT=$RUNTIME_DIR/train_entrypoint.py
 ARM=${R4_ARM:?set R4_ARM to ordinary, terminal_outcome, or outcome_free_crave}
 WORLD_SIZE=${WORLD_SIZE:-4}
 STEPS=${R4_STEPS:-5000}
@@ -15,6 +17,7 @@ case "$ARM" in
   *) echo "unsupported R4 arm: $ARM" >&2; exit 2 ;;
 esac
 test -x "$PYTHON"
+test -f "$TRAIN_ENTRYPOINT"
 test -f "$REPO/logs/resource_markers/pi05_r4_training_runtime.ok"
 test -f "$REPO/logs/resource_markers/pi05_r4_matched_runtime.ok"
 test -f "$REPO/logs/resource_markers/pi05_r4_crave_sidecar.ok"
@@ -73,10 +76,11 @@ PY
 export PI05_R4_TRAINING_RUNTIME=1
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
-export PYTHONPATH=$REPO/lmvla/lmwm/runtime/pi05_r4_training${PYTHONPATH:+:$PYTHONPATH}
+export PYTHONPATH=$RUNTIME_DIR${PYTHONPATH:+:$PYTHONPATH}
+"$PYTHON" "$TRAIN_ENTRYPOINT" --check-binding
 "$PYTHON" -m accelerate.commands.launch \
   --multi_gpu --num_processes "$WORLD_SIZE" --mixed_precision bf16 \
-  --main_process_port 0 -m lerobot.scripts.lerobot_train --config_path "$CONFIG"
+  --main_process_port 0 "$TRAIN_ENTRYPOINT" --config_path "$CONFIG"
 
 if [[ "$SMOKE" != 1 ]]; then
   FINAL=$RUN_ROOT/$RUN_NAME/checkpoints/$(printf '%06d' "$STEPS")

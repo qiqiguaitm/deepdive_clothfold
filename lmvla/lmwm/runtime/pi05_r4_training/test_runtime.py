@@ -65,3 +65,26 @@ def test_runtime_is_inert_without_explicit_opt_in() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_training_entrypoint_binds_patched_processor_factory() -> None:
+    env = os.environ.copy()
+    env["PI05_R4_TRAINING_RUNTIME"] = "1"
+    env["HF_HUB_OFFLINE"] = "1"
+    env["TRANSFORMERS_OFFLINE"] = "1"
+    env["PYTHONPATH"] = f"{RUNTIME}:{env.get('PYTHONPATH', '')}"
+    result = subprocess.run(
+        [
+            str(TRAINING_PYTHON),
+            str(RUNTIME / "train_entrypoint.py"),
+            "--check-binding",
+        ],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "R4_TRAIN_ENTRYPOINT_BINDING_OK" in result.stdout

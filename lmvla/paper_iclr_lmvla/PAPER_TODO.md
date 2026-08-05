@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 16:58 UTC
+Updated: 2026-08-05 17:10 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -295,6 +295,20 @@ fresh audit and launched the partial-only A0 helper as
 initialization. The helper passed overlay/checkpoint checks and activated four
 disjoint workers; across seed 0/1, A0 now has 6 completed, 5 active, 1 pending,
 and zero failed cells. East is again 8/8 with exactly these two four-GPU jobs.
+
+The first R4 smoke attempt failed before any optimizer step and wrote no marker.
+The exact error was an offline lookup for
+`google/paligemma-3b-pt-224`: the runtime verifier exercised the patched policy
+factory, but `lerobot_train.py` retained its module-level reference to the
+unpatched processor factory and therefore ignored the local tokenizer override.
+This is infrastructure evidence only. Automatic dispatch was paused before the
+retry cooldown expired. A new fail-closed training entrypoint now verifies the
+R4 patch marker, binds the training module to the patched factory, and emits a
+sentinel before accelerate launch. The smoke amendment pins this entrypoint,
+the sitecustomize overlay, and the repaired launcher. The exact LeRobot binding
+probe passes, all three R4 runtime tests pass, and the 123 scheduler/router tests
+remain green. At 17:10 UTC the A0 helper has all six remaining seed-0/1 cells
+actively claimed with zero pending or failed cells.
 
 ## P1: seed-1000 closed-loop causal gate
 
