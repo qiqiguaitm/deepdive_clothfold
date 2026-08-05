@@ -245,6 +245,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     query_support = tasks["pi05_r4_query_beat_support_collection"]
     query_balanced = tasks["pi05_r4_query_balanced_support_collection"]
     query_finalize = tasks["pi05_r4_query_dataset_finalize"]
+    training_chunks = tasks["pi05_r4_training_chunks_build"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -315,6 +316,21 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
             item["path"].endswith("pi05_r4_query_base_train_east_4h20.yaml")
             for item in task["ready_hashes"]
         )
+    assert training_chunks["candidates"][0]["resource"] == "local"
+    assert training_chunks["candidates"][0]["gpus"] == 0
+    assert training_chunks["completion_glob"].endswith("pi05_r4_training_chunks.ok")
+    assert any(
+        path.endswith("pi05_r4_outcome_collection.ok")
+        for path in training_chunks["ready_files"]
+    )
+    assert any(
+        path.endswith("pi05_r4_query_dataset.ok")
+        for path in training_chunks["ready_files"]
+    )
+    command = training_chunks["candidates"][0]["command"]
+    assert "build_pi05_r4_training_chunks.py" in command
+    assert "query_action_chunks.npz" in command
+    assert "does not authorize policy training" in training_chunks["description"]
 
 
 def north_snapshot(

@@ -2609,6 +2609,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_query_beat_support_collection",
         "pi05_r4_query_balanced_support_collection",
         "pi05_r4_query_dataset_finalize",
+        "pi05_r4_training_chunks_build",
     }
     # Queue definitions are persisted separately from task state. Rebuild this
     # hash-pinned subgraph so an authorized amendment cannot leave stale hashes
@@ -3112,6 +3113,68 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                         "command": (
                             f"cd {shlex.quote(str(REPO))} && exec bash "
                             "train_scripts/kai/analysis/finalize_pi05_r4_query_dataset.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+
+    training_chunks_id = "pi05_r4_training_chunks_build"
+    training_chunks_marker = REPO / "logs/resource_markers/pi05_r4_training_chunks.ok"
+    training_chunks_builder = REPO / "lmvla/lmwm/scripts/build_pi05_r4_training_chunks.py"
+    query_auditor = REPO / "lmvla/lmwm/scripts/audit_pi05_r4_query_dataset.py"
+    query_manifest = (
+        REPO
+        / "lmvla/lawam/results/eval_runs/robotwin/pi05_r4_query_train_v1.json"
+    )
+    outcome_manifest = REPO / "logs/r4/outcomes/dataset_manifest_combined_v1.json"
+    training_chunks = REPO / "lmvla/lmwm/data/pi05_r4_training_v1/query_action_chunks.npz"
+    training_chunks_report = REPO / "logs/r4/training/query_action_chunks_report.json"
+    if training_chunks_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": training_chunks_id,
+                "priority": 1,
+                "description": (
+                    "Build audited query-level action chunks for the matched R4 arms; "
+                    "this does not authorize policy training"
+                ),
+                "completion_glob": str(training_chunks_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(outcome_marker),
+                    str(query_dataset_marker),
+                    str(query_manifest),
+                    str(outcome_manifest),
+                    str(training_chunks_builder),
+                    str(query_auditor),
+                ],
+                "ready_hashes": [
+                    {
+                        "path": str(training_chunks_builder),
+                        "sha256": sha256_file(training_chunks_builder),
+                    },
+                    {"path": str(query_auditor), "sha256": sha256_file(query_auditor)},
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/training/chunks_build"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && rm -f "
+                            f"{shlex.quote(str(training_chunks_marker))} && "
+                            f"python3 {shlex.quote(str(training_chunks_builder))} "
+                            f"--query-manifest {shlex.quote(str(query_manifest))} "
+                            f"--outcome-manifest {shlex.quote(str(outcome_manifest))} "
+                            f"--output {shlex.quote(str(training_chunks))} "
+                            f"--report {shlex.quote(str(training_chunks_report))} && "
+                            f"printf 'completed=%s\\nchunks=%s\\nreport=%s\\n' "
+                            f"\"$(date -u +%FT%TZ)\" {shlex.quote(str(training_chunks))} "
+                            f"{shlex.quote(str(training_chunks_report))} > "
+                            f"{shlex.quote(str(training_chunks_marker))}"
                         ),
                     }
                 ],
