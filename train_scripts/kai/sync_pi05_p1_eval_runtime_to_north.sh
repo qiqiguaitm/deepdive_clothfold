@@ -26,6 +26,7 @@ files=(
   train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh
   train_scripts/kai/eval/run_pi05_predictive_adapter_p1_formal.sh
   train_scripts/kai/eval/run_pi05_predictive_adapter_p1_frozen.sh
+  train_scripts/kai/sync_pi05_p1_eval_runtime_to_north.sh
   train_scripts/kai/volc/pi05_predictive_adapter_p1_eval_north_4h20.yaml
   lmvla/lawam/examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh
   lmvla/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py
@@ -40,7 +41,10 @@ test -s "$OVERLAY_REL/READY"
 mkdir -p "$LOCAL_DIR" "$(dirname "$LOCAL_MARKER")"
 
 printf 'phase=sync-runtime\n'
-tar --exclude='__pycache__' --exclude='*.pyc' -cf - \
+# The local overlay intentionally uses symlinks to immutable canonical assets.
+# North cannot resolve their East mount targets, so transfer their small file
+# contents while preserving the exact bytes checked by the frozen audit.
+tar --dereference --exclude='__pycache__' --exclude='*.pyc' -cf - \
   "${files[@]}" "$OVERLAY_REL" | \
   ssh -p "$NORTH_PORT" -o BatchMode=yes "$NORTH_HOST" \
     "mkdir -p $(printf %q "$NORTH_REPO") && tar -C $(printf %q "$NORTH_REPO") -xf -"

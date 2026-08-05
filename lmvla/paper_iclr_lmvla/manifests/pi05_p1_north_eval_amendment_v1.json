@@ -22,6 +22,7 @@
     "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
     "train_scripts/kai/eval/run_pi05_predictive_adapter_p1_formal.sh": "01d3f91f6e13c79f3fef3183af3aeeea871218193d915c07980cfb15a1ee7dfc",
     "train_scripts/kai/eval/run_pi05_predictive_adapter_p1_frozen.sh": "e00b3baf389e644351eb053a81abe49b755dee5f3e53dde9ec5dd2c27949986f",
+    "train_scripts/kai/sync_pi05_p1_eval_runtime_to_north.sh": "f58fcbf3ec9215e17d4719b611f16895ff45f3d134e72129da8ba5f25b3a9910",
     "train_scripts/kai/volc/pi05_predictive_adapter_p1_eval_north_4h20.yaml": "778d96611c1a811e33073456c90666c073bb0c8a9b3da466ee7540f2cf2788f7"
   },
   "north_prerequisite_sha256": {
