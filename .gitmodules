@@ -3,5 +3,5 @@
 	url = https://github.com/2toinf/X-VLA.git
 [submodule "lmvla/lawam"]
 	path = lmvla/lawam
-	url = https://github.com/RLinf/LaWAM.git
-	branch = main
+	url = https://github.com/qiqiguaitm/deepdive_clothfold.git
+	branch = lawam-lmvla-eval-bridge
