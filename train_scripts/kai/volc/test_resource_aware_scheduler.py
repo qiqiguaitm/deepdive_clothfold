@@ -4284,6 +4284,7 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
     assert {item["label"] for item in a0_accelerator["completion_locations"]} == {
         "accelerator",
         "canonical",
+        "local_accelerator",
     }
     assert sum(
         path.endswith(".task_scheduler.json")
@@ -4296,15 +4297,23 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
         path.startswith(str(scheduler.P1_NORTH_EVAL_OVERLAY))
         for path in a0_accelerator["ready_files"]
     )
-    candidate = a0_accelerator["candidates"][0]
-    assert candidate["resource"] == "Robot-East-H20"
-    assert candidate["gpus"] == 4
-    assert candidate["yaml"].endswith(
+    candidates = {
+        candidate["resource"]: candidate
+        for candidate in a0_accelerator["candidates"]
+    }
+    assert set(candidates) == {"Robot-East-H20", "local"}
+    east_candidate = candidates["Robot-East-H20"]
+    assert east_candidate["gpus"] == 4
+    assert east_candidate["yaml"].endswith(
         "pi05_p1_a0_accelerator_east_4h20.yaml"
     )
+    local_candidate = candidates["local"]
+    assert local_candidate["gpus"] == 2
+    assert local_candidate["gpu_indices"] == [0, 1]
+    assert "run_pi05_p1_a0_local_accelerator.sh" in local_candidate["command"]
     assert any(
         item["path"].endswith(
-            "pi05_p1_a0_east_accelerator_amendment_v1.json"
+            "pi05_p1_a0_accelerator_amendment_v2.json"
         )
         for item in a0_accelerator["ready_hashes"]
     )

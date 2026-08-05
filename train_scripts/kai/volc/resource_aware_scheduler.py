@@ -2472,7 +2472,7 @@ def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
     amendment = (
         REPO
         / "lmvla/paper_iclr_lmvla/manifests/"
-        "pi05_p1_a0_east_accelerator_amendment_v1.json"
+        "pi05_p1_a0_accelerator_amendment_v2.json"
     )
     spec = json.loads(amendment.read_text())
     ready_hashes = [
@@ -2500,6 +2500,9 @@ def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
     accelerator_marker = (
         REPO / "logs/resource_markers/pi05_p1_a0_east_accelerator.ok"
     )
+    local_accelerator_marker = (
+        REPO / "logs/resource_markers/pi05_p1_a0_local_accelerator.ok"
+    )
     canonical_marker = REPO / "logs/resource_markers" / f"{result_name}.ok"
     yaml_path = "train_scripts/kai/volc/pi05_p1_a0_accelerator_east_4h20.yaml"
     queue["tasks"].append(
@@ -2513,6 +2516,11 @@ def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
                 {
                     "label": "accelerator",
                     "glob": str(accelerator_marker),
+                    "remote": False,
+                },
+                {
+                    "label": "local_accelerator",
+                    "glob": str(local_accelerator_marker),
                     "remote": False,
                 },
                 {
@@ -2537,6 +2545,11 @@ def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
                 *(str(path) for path in scheduler_files),
                 str(amendment),
                 str(REPO / yaml_path),
+                str(
+                    REPO
+                    / "train_scripts/kai/eval/"
+                    "run_pi05_p1_a0_local_accelerator.sh"
+                ),
             ],
             "ready_hashes": [
                 *ready_hashes,
@@ -2553,7 +2566,25 @@ def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
                     "yaml": yaml_path,
                     "task_name": "pi05-p1-a0-attach-east4g",
                     "env": {"CKPT": str(checkpoint)},
-                }
+                },
+                {
+                    "kind": "local",
+                    "resource": "local",
+                    "gpus": 2,
+                    "gpu_indices": [0, 1],
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 2,
+                    "status_dir": str(
+                        REPO / "logs/predictive/p1_a0_local_accelerator/launcher"
+                    ),
+                    "command": (
+                        f"cd {shlex.quote(str(REPO))} && exec env "
+                        f"CKPT={shlex.quote(str(checkpoint))} "
+                        f"P1_VERIFY_REPO={shlex.quote(str(R1_FROZEN_OVERLAY))} "
+                        "bash train_scripts/kai/eval/"
+                        "run_pi05_p1_a0_local_accelerator.sh"
+                    ),
+                },
             ],
         }
     )
