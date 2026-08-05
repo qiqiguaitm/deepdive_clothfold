@@ -25,10 +25,26 @@ if ! ldconfig -p 2>/dev/null | grep 'libvulkan\.so\.1' >/dev/null || \
     echo "RoboTwin renderer requires libvulkan.so.1 and libEGL.so.1; root is needed to install them" >&2
     return 1 2>/dev/null || exit 1
   fi
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update
-  apt-get install -y --no-install-recommends libvulkan1 libegl1
-  ldconfig
+  command -v flock >/dev/null || {
+    echo "RoboTwin renderer setup requires flock to serialize package installation" >&2
+    return 1 2>/dev/null || exit 1
+  }
+  exec 9>/tmp/robotwin-renderer-apt.lock
+  flock -w "${ROBOTWIN_RENDERER_APT_LOCK_TIMEOUT:-600}" 9 || {
+    echo "Timed out waiting for RoboTwin renderer package installation" >&2
+    return 1 2>/dev/null || exit 1
+  }
+  # Multiple simulator seeds share one job container. Recheck after acquiring
+  # the lock so only the first seed mutates the package database.
+  if ! ldconfig -p 2>/dev/null | grep 'libvulkan\.so\.1' >/dev/null || \
+     ! ldconfig -p 2>/dev/null | grep 'libEGL\.so\.1' >/dev/null; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends libvulkan1 libegl1
+    ldconfig
+  fi
+  flock -u 9
+  exec 9>&-
 fi
 
 # Volc images can carry NVIDIA userspace libraries older than the host driver.

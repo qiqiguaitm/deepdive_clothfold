@@ -14,6 +14,7 @@ checkpoints/**
 !checkpoints/.gitkeep
 data/**
 !data/.gitkeep
+!data/robotwin_mt_stage_tracker_split_v1.json
 outputs/**
 !outputs/.gitkeep
 

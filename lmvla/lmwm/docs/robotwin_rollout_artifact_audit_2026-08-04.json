@@ -1,0 +1,57 @@
+{
+  "action_fields": [],
+  "episode_count": 61343,
+  "episode_keys": [
+    "episode_id",
+    "seed",
+    "slot_id",
+    "steps",
+    "success"
+  ],
+  "failures": 13098,
+  "file_count": 9948,
+  "frame_fields": [],
+  "has_frame_observations": false,
+  "limitations": [
+    "Saved summaries contain episode outcomes and lengths but no frame observations.",
+    "CRAVE progress, recurrence density, stall lead time, and regression detection cannot be reconstructed.",
+    "A new outcome-labeled rollout collection with saved visual observations is required."
+  ],
+  "malformed_summaries": [],
+  "mean_failure_steps": 943.0447396549091,
+  "mean_success_steps": 332.34302000207276,
+  "root": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lawam_local/results/eval_runs/robotwin",
+  "state_fields": [],
+  "success_rate": 0.7864793048921638,
+  "successes": 48245,
+  "suffix_counts": {
+    ".json": 4435,
+    ".lock": 367,
+    ".log": 3492,
+    ".txt": 1654
+  },
+  "summary_count": 1245,
+  "summary_payload_keys": [
+    "cached_action_hits",
+    "elapsed_sec",
+    "episodes",
+    "fixed_seed_manifest",
+    "infer_wait_sec",
+    "model_queries",
+    "n_episodes",
+    "num_slots",
+    "obs_fetch_count",
+    "obs_skip_count",
+    "obs_wait_sec",
+    "skip_get_obs_within_replan",
+    "success_rate",
+    "successes",
+    "task_config",
+    "task_name"
+  ],
+  "supports_crave_rollout_metrics": false,
+  "supports_success_failure_duration_analysis": true,
+  "trajectory_file_count": 0,
+  "trajectory_file_examples": [],
+  "valid_summary_count": 1245
+}

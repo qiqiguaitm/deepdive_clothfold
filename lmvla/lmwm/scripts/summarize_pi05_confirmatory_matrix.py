@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from collections import defaultdict
@@ -21,21 +22,89 @@ REPORT_PATTERNS = {
 }
 EXPECTED_TRAINING_SEEDS = (1000, 1001, 1002)
 CONTRASTS = (("a2_abs", "a0"), ("a3_live", "a0"))
+DEFAULT_MANIFEST = (
+    Path(__file__).resolve().parents[1]
+    / "data/robotwin_pi05_confirmatory_scene_seeds_v1.json"
+)
 
 
-def load_reports(report_dir: Path) -> dict[str, dict[int, dict[str, Any]]]:
+def audit_report(report: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    errors: list[str] = []
+    expected_tasks = list(manifest["tasks"])
+    expected_eval_seeds = {int(seed) for seed in manifest["eval_seeds"]}
+    episodes_per_cell = int(manifest["episodes_per_cell"])
+    if report.get("summary_count") != len(expected_tasks) * len(expected_eval_seeds):
+        errors.append(f"summary_count={report.get('summary_count')}")
+    if report.get("task_count") != len(expected_tasks):
+        errors.append(f"task_count={report.get('task_count')}")
+    if report.get("total_episodes") != (
+        len(expected_tasks) * len(expected_eval_seeds) * episodes_per_cell
+    ):
+        errors.append(f"total_episodes={report.get('total_episodes')}")
+
+    report_tasks = report.get("tasks", {})
+    if set(report_tasks) != set(expected_tasks):
+        errors.append("task set differs from manifest")
+    checked_cells = 0
+    for task in expected_tasks:
+        cells = report_tasks.get(task, {}).get("cells", [])
+        by_seed = {cell.get("eval_seed"): cell for cell in cells}
+        if len(by_seed) != len(cells):
+            errors.append(f"{task}: duplicate eval seed")
+        if set(by_seed) != expected_eval_seeds:
+            errors.append(f"{task}: eval seed set differs from manifest")
+            continue
+        for eval_seed in sorted(expected_eval_seeds):
+            checked_cells += 1
+            cell = by_seed[eval_seed]
+            outcomes = cell.get("episode_outcomes", [])
+            expected_scene_seeds = manifest["eval_seeds"][str(eval_seed)][task]
+            if cell.get("episodes") != episodes_per_cell:
+                errors.append(f"{task}/seed{eval_seed}: episodes={cell.get('episodes')}")
+            if len(outcomes) != episodes_per_cell:
+                errors.append(
+                    f"{task}/seed{eval_seed}: outcome_count={len(outcomes)}"
+                )
+                continue
+            episode_ids = [outcome.get("episode_id") for outcome in outcomes]
+            scene_seeds = [outcome.get("scene_seed") for outcome in outcomes]
+            if episode_ids != list(range(episodes_per_cell)):
+                errors.append(f"{task}/seed{eval_seed}: episode order mismatch")
+            if scene_seeds != expected_scene_seeds:
+                errors.append(f"{task}/seed{eval_seed}: scene seed order mismatch")
+            successes = sum(bool(outcome.get("success")) for outcome in outcomes)
+            if cell.get("successes") != successes:
+                errors.append(f"{task}/seed{eval_seed}: success count mismatch")
+            expected_rate = successes / episodes_per_cell
+            if abs(float(cell.get("success_rate", -1)) - expected_rate) > 1e-12:
+                errors.append(f"{task}/seed{eval_seed}: success rate mismatch")
+    return {
+        "accepted": not errors,
+        "errors": errors,
+        "checked_cells": checked_cells,
+        "expected_cells": len(expected_tasks) * len(expected_eval_seeds),
+        "episodes_per_cell": episodes_per_cell,
+    }
+
+
+def load_reports(
+    report_dir: Path, manifest: dict[str, Any]
+) -> tuple[dict[str, dict[int, dict[str, Any]]], dict[str, dict[str, Any]]]:
     reports: dict[str, dict[int, dict[str, Any]]] = defaultdict(dict)
+    audits: dict[str, dict[str, Any]] = {}
     for path in sorted(report_dir.glob("*.json")):
         for method, pattern in REPORT_PATTERNS.items():
             match = pattern.match(path.name)
             if not match:
                 continue
             report = json.loads(path.read_text())
-            if report.get("summary_count") != 24 or report.get("task_count") != 6:
-                break
-            reports[method][int(match.group(1))] = report
+            training_seed = int(match.group(1))
+            audit = audit_report(report, manifest)
+            audits[f"{method}:seed{training_seed}"] = audit
+            if audit["accepted"]:
+                reports[method][training_seed] = report
             break
-    return reports
+    return reports, audits
 
 
 def method_summary(seed_reports: dict[int, dict[str, Any]]) -> dict[str, Any]:
@@ -166,11 +235,14 @@ def paired_hierarchical_contrast(
 
 def summarize(
     report_dir: Path,
+    manifest_path: Path,
     *,
     bootstrap_samples: int,
     bootstrap_seed: int,
 ) -> dict[str, Any]:
-    reports = load_reports(report_dir)
+    manifest_bytes = manifest_path.read_bytes()
+    manifest = json.loads(manifest_bytes)
+    reports, audits = load_reports(report_dir, manifest)
     missing = [
         f"{method}:seed{seed}"
         for method in REPORT_PATTERNS
@@ -191,6 +263,11 @@ def summarize(
         )
     return {
         "complete": not missing,
+        "protocol_audit": {
+            "manifest_path": str(manifest_path),
+            "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+            "reports": audits,
+        },
         "expected_training_seeds": list(EXPECTED_TRAINING_SEEDS),
         "missing_reports": missing,
         "methods": methods,
@@ -201,11 +278,13 @@ def summarize(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("report_dir", type=Path)
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--bootstrap-samples", type=int, default=10_000)
     parser.add_argument("--bootstrap-seed", type=int, default=20260801)
     args = parser.parse_args()
     report = summarize(
         args.report_dir,
+        args.manifest,
         bootstrap_samples=args.bootstrap_samples,
         bootstrap_seed=args.bootstrap_seed,
     )

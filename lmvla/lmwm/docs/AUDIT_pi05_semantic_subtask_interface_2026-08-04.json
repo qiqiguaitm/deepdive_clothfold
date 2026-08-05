@@ -1,0 +1,69 @@
+{
+  "implication": "The audited policy exposes image/language/state conditioning and action-flow output only. Generic stage or milestone embeddings are experimental conditioning interfaces, not a native pi0.5 semantic-subtask prediction head. Run the privileged semantic upper bound first; any learned semantic predictor then requires a separately specified and preflighted interface.",
+  "public_checkpoint_contract": {
+    "action_only_output": true,
+    "chunk_size": 50,
+    "input_feature_types": [
+      "STATE",
+      "VISUAL",
+      "VISUAL",
+      "VISUAL"
+    ],
+    "n_action_steps": 50,
+    "output_feature_types": [
+      "ACTION"
+    ],
+    "tokenizer_max_length": 200
+  },
+  "source_contract": {
+    "has_semantic_api": false,
+    "has_semantic_output": false,
+    "pi05_core_methods": [
+      "__init__",
+      "_apply_checkpoint",
+      "_rtc_enabled",
+      "denoise_step",
+      "embed_prefix",
+      "embed_suffix",
+      "forward",
+      "gradient_checkpointing_disable",
+      "gradient_checkpointing_enable",
+      "sample_actions",
+      "sample_noise",
+      "sample_time"
+    ],
+    "pi05_policy_methods": [
+      "__init__",
+      "_fix_pytorch_state_dict_keys",
+      "_get_default_peft_targets",
+      "_preprocess_images",
+      "_rtc_enabled",
+      "forward",
+      "from_pretrained",
+      "get_optim_params",
+      "init_rtc_processor",
+      "predict_action_chunk",
+      "prepare_action",
+      "reset",
+      "select_action",
+      "supports_rtc"
+    ],
+    "semantic_api_identifiers": []
+  },
+  "sources": {
+    "configuration": {
+      "path": "/vePFS/tim/workspace/lerobot-main/src/lerobot/policies/pi05/configuration_pi05.py",
+      "sha256": "a8b80f54ffe98993529d8013b1f8ddde4289a71b5c6a5e41d7346ac7622da6a6"
+    },
+    "model": {
+      "path": "/vePFS/tim/workspace/lerobot-main/src/lerobot/policies/pi05/modeling_pi05.py",
+      "sha256": "8faec89af9d31f5c2f0e12b4ea369d2af6bf0c25050a13adcaefbd9b8aa03b69"
+    },
+    "public_checkpoint_config": {
+      "path": "/vePFS/tim/hf_models/SidneyXie_pi05_robotwin/config.json",
+      "sha256": "e6ce5bd5aef6640db61f2dbe41178a1aa669821c403b0b1f3cc34fe48bbc83a6"
+    }
+  },
+  "supports_native_semantic_subtask": false,
+  "verdict": "no_native_semantic_subtask_channel_in_audited_implementation"
+}
