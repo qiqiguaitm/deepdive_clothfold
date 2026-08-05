@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from build_pi05_r4_crave_weight_sidecar import (
+    align_sidecar_to_chunks,
     normalized_progress_weights,
     validate_outcome_free_manifest,
     verify_chunk_alignment,
@@ -114,3 +115,31 @@ def test_sidecar_must_exactly_align_with_action_chunks(tmp_path: Path) -> None:
     sidecar["query_frame"] = np.asarray([0, 51])
     with pytest.raises(ValueError, match="query_frame"):
         verify_chunk_alignment(sidecar, chunks)
+
+
+def test_sidecar_alignment_reorders_and_drops_only_terminal_queries(tmp_path: Path) -> None:
+    chunks = tmp_path / "chunks.npz"
+    np.savez(
+        chunks,
+        task=np.asarray(["b", "a"]),
+        scene_seed=np.asarray([2, 1]),
+        query_index=np.asarray([0, 0]),
+        query_frame=np.asarray([0, 0]),
+    )
+    sidecar = {
+        "task": np.asarray(["a", "a", "b"]),
+        "scene_seed": np.asarray([1, 3, 2]),
+        "query_index": np.asarray([0, 1, 0]),
+        "query_frame": np.asarray([0, 50, 0]),
+        "target_mask": np.asarray([True, False, True]),
+        "progress_change": np.asarray([0.1, 0.0, 0.2]),
+    }
+    aligned, dropped = align_sidecar_to_chunks(sidecar, chunks)
+    assert dropped == 1
+    assert aligned["task"].tolist() == ["b", "a"]
+    assert aligned["progress_change"].tolist() == pytest.approx([0.2, 0.1])
+    verify_chunk_alignment(aligned, chunks)
+
+    sidecar["target_mask"][1] = True
+    with pytest.raises(ValueError, match="drop a query with an action target"):
+        align_sidecar_to_chunks(sidecar, chunks)

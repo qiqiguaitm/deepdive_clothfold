@@ -54,7 +54,7 @@
     "lmvla/lmwm/data/pi05_crave_r0_v1/labels_manifest.json": "8f04bb7fab01d5d1f1f432d8c2ce28dc74f34023c1be7a33ed6eb72955316273",
     "lmvla/lmwm/data/pi05_crave_r0_v1/selection_manifest.json": "0a80dd36b99687fbe3e0baf25686e06f20816ae6f7da6c98154eb3510ba92408",
     "lmvla/lmwm/scripts/build_pi05_crave_r0_labels.py": "7e19411e70d53e95711532366ac9886053ee4991f35e09fede40b2ad085adf1e",
-    "lmvla/lmwm/scripts/build_pi05_r4_crave_weight_sidecar.py": "459cd9af88d61352364fd03ce92a45400c2304e32194709904ec33b107b7c64f",
+    "lmvla/lmwm/scripts/build_pi05_r4_crave_weight_sidecar.py": "b28e5a65c75618d82e70cd069d1f1d0e916baa503acc2d29871f23ee5719a801",
     "lmvla/lmwm/scripts/build_pi05_r4_outcome_free_manifest.py": "3a109d80041142cc27ced05ea8531f7fd4daf4186607d3b088b0e3e679fc711c"
   },
   "external_artifact_sha256": {

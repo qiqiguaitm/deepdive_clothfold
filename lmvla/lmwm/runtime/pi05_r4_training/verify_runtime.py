@@ -118,8 +118,9 @@ def verify(
         )
         sample = dataset[0]
         action_shape = list(torch.as_tensor(sample["action"]).shape)
-        weight_shape = list(torch.as_tensor(sample["sample_weight"]).shape)
-        if action_shape != [50, 14] or weight_shape != [1]:
+        weight = torch.as_tensor(sample["sample_weight"])
+        weight_shape = list(weight.shape)
+        if action_shape != [50, 14] or weight.numel() != 1:
             raise ValueError(
                 f"unexpected direct-chunk sample: action={action_shape}, weight={weight_shape}"
             )

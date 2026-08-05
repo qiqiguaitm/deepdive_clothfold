@@ -106,7 +106,13 @@ def encode_query_images(
     return [all_features[lower:upper] for lower, upper in zip(offsets[:-1], offsets[1:], strict=True)]
 
 
-def verify_chunk_alignment(sidecar: dict[str, np.ndarray], chunks_path: Path) -> None:
+ALIGNMENT_FIELDS = ("task", "scene_seed", "query_index", "query_frame")
+
+
+def align_sidecar_to_chunks(
+    sidecar: dict[str, np.ndarray], chunks_path: Path
+) -> tuple[dict[str, np.ndarray], int]:
+    """Project query annotations onto the exact ordered action-chunk sample set."""
     with np.load(chunks_path, allow_pickle=False) as chunks:
         expected = {
             "task": np.asarray(chunks["task"]),
@@ -114,9 +120,46 @@ def verify_chunk_alignment(sidecar: dict[str, np.ndarray], chunks_path: Path) ->
             "query_index": np.asarray(chunks["query_index"]),
             "query_frame": np.asarray(chunks["query_frame"]),
         }
-    for field, values in expected.items():
-        if not np.array_equal(sidecar[field], values):
-            raise ValueError(f"CRAVE sidecar does not align with action chunks: {field}")
+    row_count = len(sidecar["task"])
+    if any(len(values) != row_count for values in sidecar.values()):
+        raise ValueError("CRAVE sidecar arrays do not share one row count")
+
+    def keys(arrays: dict[str, np.ndarray]) -> list[tuple[str, int, int, int]]:
+        return [
+            (str(task), int(scene), int(query), int(frame))
+            for task, scene, query, frame in zip(
+                *(arrays[field] for field in ALIGNMENT_FIELDS), strict=True
+            )
+        ]
+
+    source_keys = keys(sidecar)
+    expected_keys = keys(expected)
+    if len(source_keys) != len(set(source_keys)):
+        raise ValueError("CRAVE query annotations contain duplicate alignment keys")
+    if len(expected_keys) != len(set(expected_keys)):
+        raise ValueError("action chunks contain duplicate alignment keys")
+    source_index = {key: index for index, key in enumerate(source_keys)}
+    missing = [key for key in expected_keys if key not in source_index]
+    if missing:
+        raise ValueError(f"CRAVE sidecar is missing {len(missing)} action-chunk samples")
+    selected = np.asarray([source_index[key] for key in expected_keys], dtype=np.int64)
+    selected_set = set(selected.tolist())
+    dropped = np.asarray(
+        [index for index in range(row_count) if index not in selected_set], dtype=np.int64
+    )
+    if len(dropped) and (
+        "target_mask" not in sidecar or np.any(np.asarray(sidecar["target_mask"])[dropped])
+    ):
+        raise ValueError("CRAVE alignment would drop a query with an action target")
+    aligned = {field: np.asarray(values)[selected] for field, values in sidecar.items()}
+    return aligned, len(dropped)
+
+
+def verify_chunk_alignment(sidecar: dict[str, np.ndarray], chunks_path: Path) -> None:
+    with np.load(chunks_path, allow_pickle=False) as chunks:
+        for field in ALIGNMENT_FIELDS:
+            if not np.array_equal(sidecar[field], np.asarray(chunks[field])):
+                raise ValueError(f"CRAVE sidecar does not align with action chunks: {field}")
 
 
 def build(
@@ -211,21 +254,22 @@ def build(
                 progress_change_out.append(target - float(current) if has_target else 0.0)
                 target_mask_out.append(has_target)
 
-    tasks = np.asarray(task_out)
-    delta = np.asarray(progress_change_out, dtype=np.float32)
-    target_mask = np.asarray(target_mask_out, dtype=bool)
-    weights = normalized_progress_weights(tasks, delta, target_mask, temperature)
     arrays = {
-        "task": tasks,
+        "task": np.asarray(task_out),
         "scene_seed": np.asarray(scene_out, dtype=np.int64),
         "query_index": np.asarray(query_index_out, dtype=np.int16),
         "query_frame": np.asarray(query_frame_out, dtype=np.int32),
         "current_progress": np.asarray(current_progress_out, dtype=np.float32),
         "target_progress": np.asarray(target_progress_out, dtype=np.float32),
-        "progress_change": delta,
-        "target_mask": target_mask,
-        "weight": weights,
+        "progress_change": np.asarray(progress_change_out, dtype=np.float32),
+        "target_mask": np.asarray(target_mask_out, dtype=bool),
     }
+    arrays, dropped_terminal_queries = align_sidecar_to_chunks(arrays, chunks_path)
+    tasks = arrays["task"]
+    delta = arrays["progress_change"]
+    target_mask = arrays["target_mask"]
+    weights = normalized_progress_weights(tasks, delta, target_mask, temperature)
+    arrays["weight"] = weights
     verify_chunk_alignment(arrays, chunks_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_name(f".{output.name}.{os.getpid()}.tmp.npz")
@@ -268,6 +312,7 @@ def build(
         "temperature": temperature,
         "unlabeled_policy": "last query in each rollout receives neutral raw weight before task normalization",
         "sample_count": len(weights),
+        "dropped_non_actionable_terminal_queries": dropped_terminal_queries,
         "per_task": per_task,
         "sidecar": str(output.resolve()),
         "sidecar_sha256": sha256(output),

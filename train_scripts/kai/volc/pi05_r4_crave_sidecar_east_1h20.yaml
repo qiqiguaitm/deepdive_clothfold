@@ -26,6 +26,8 @@ Entrypoint: |
   OUT=$REPO/lmvla/lmwm/data/pi05_r4_training_v1/crave_weights.npz
   REPORT=$REPO/logs/r4/training/crave_weights_report.json
   MARKER=$REPO/logs/resource_markers/pi05_r4_crave_sidecar.ok
+  LOG=$REPO/logs/r4/training/crave_weights_east_$(date -u +%Y%m%dT%H%M%SZ).log
+  exec > >(tee -a "$LOG") 2>&1
   rm -f "$MARKER"
   "$REPO/kai0/.venv/bin/python" "$REPO/lmvla/lmwm/scripts/build_pi05_r4_crave_weight_sidecar.py" \
     --manifest "$REPO/logs/r4/training/outcome_free_query_manifest.json" \
