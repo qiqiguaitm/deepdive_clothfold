@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 11:55 UTC
+Updated: 2026-08-05 12:12 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -318,6 +318,29 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   complete scheduler suite passes 105 tests. Terminal-outcome weighting remains
   explicitly distinct from action advantage, Q-value, or world-critic
   estimation.
+
+  The balanced A shard completed at 12:05 UTC. The finalizer initially remained
+  exhausted by three correct rejections from the pre-amendment input epoch; the
+  scheduler now preserves those attempts but excludes failures older than the
+  declared balanced-A readiness marker. A separate permission defect was also
+  closed by writing derived manifests under the local `logs` tree rather than
+  root-owned East result directories. The rerun accepted all 720 records and
+  352,608 transitions: the train split contains exactly 100 episodes per task,
+  with success/failure counts of 95/5 (hammer), 93/7 (ranking RGB), 70/30
+  (ranking size), 49/51 (handover), 71/29 (stack-three), and 93/7 (stack-two).
+  Three fresh recommendation audits then selected the only data-local eligible
+  targets. Balanced query collection `t-20260805201041-zlxtb` and base query
+  collection `t-20260805201044-9qrsz` now occupy all eight East H20 GPUs, while
+  the hammer query collector runs on both local GPUs as PID 311677. All three
+  initialized their frozen scene schedulers and began writing under distinct
+  result roots. North remains occupied by the P1 recovery; A0 reached step
+  46800 at 12:12 UTC with approximately 41 minutes remaining. The scheduler
+  inventory is now 288 completed, 120 disabled, 20 gated pending, and four
+  running tasks: three platform tasks plus one local task in the active R4/P1
+  DAG. The
+  17 obsolete R1 seed-1001/1002 replication/gate nodes are explicitly disabled
+  because the seed-1000 necessary comparison was rejected. The scheduler suite
+  passes 106 tests.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary
