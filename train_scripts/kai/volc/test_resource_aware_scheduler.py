@@ -542,6 +542,9 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert north_stage["priority"] == 0
     assert north_stage["candidates"][0]["resource"] == "local"
     assert north_stage["candidates"][0]["gpus"] == 0
+    assert north_stage["rearm_after_ready_file"].endswith(
+        "pi05_r4_north_eval_amendment_v1.json"
+    )
     assert "stage_pi05_r4_eval_to_north.sh" in north_stage["candidates"][0]["command"]
     north_stage_script = (
         scheduler.REPO / "train_scripts/kai/stage_pi05_r4_eval_to_north.sh"

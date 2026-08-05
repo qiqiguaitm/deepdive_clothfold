@@ -4712,6 +4712,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             ),
             "completion_glob": str(north_stage_marker),
             "completion_min_count": 1,
+            "rearm_after_ready_file": str(north_eval_amendment),
             "ready_files": [
                 str(permission_marker),
                 str(action_bridge_marker),
