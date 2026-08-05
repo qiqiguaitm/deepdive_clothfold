@@ -4343,6 +4343,53 @@ def test_completion_locations_require_artifacts_even_without_completion_glob(
     assert evidence == "completion artifacts accelerator=1/1"
 
 
+def test_load_state_reopens_terminal_fallback_without_declared_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state_path = tmp_path / "state.json"
+    marker = tmp_path / "accelerator.ok"
+    state_path.write_text(
+        json.dumps(
+            {
+                "tasks": {
+                    "attach_only_accelerator": {
+                        "status": "completed",
+                        "attempts": [{"resource": "local"}],
+                        "artifacts_complete": True,
+                        "artifact_progress": "platform terminal state",
+                        "completed_at": "2026-08-05T18:20:50Z",
+                    }
+                }
+            }
+        )
+    )
+    monkeypatch.setattr(scheduler, "STATE_PATH", state_path)
+    queue = {
+        "tasks": [
+            {
+                "id": "attach_only_accelerator",
+                "completion_locations": [
+                    {
+                        "label": "accelerator",
+                        "glob": str(marker),
+                        "remote": False,
+                    }
+                ],
+                "completion_min_count": 1,
+                "candidates": [],
+            }
+        ]
+    }
+
+    state = scheduler.load_state(queue)
+    task_state = state["tasks"]["attach_only_accelerator"]
+
+    assert task_state["status"] == "pending"
+    assert task_state["artifacts_complete"] is False
+    assert "completed_at" not in task_state
+    assert "completion_misclassification_repaired" in task_state["attempts"][-1]
+
+
 def test_load_state_reopens_report_only_p1_materialization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

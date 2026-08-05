@@ -6890,6 +6890,22 @@ def load_state(queue: dict[str, Any]) -> dict[str, Any]:
             task["id"], {"status": "pending", "attempts": []}
         )
         if (
+            task_state.get("status") == "completed"
+            and task_state.get("artifact_progress") == "platform terminal state"
+            and task.get("completion_locations")
+            and not completion_evidence(task)[0]
+        ):
+            task_state["status"] = "pending"
+            task_state["artifacts_complete"] = False
+            task_state.pop("completed_at", None)
+            task_state["waiting_reason"] = (
+                "terminal-state fallback repaired; declared completion artifacts missing"
+            )
+            if task_state.get("attempts"):
+                task_state["attempts"][-1][
+                    "completion_misclassification_repaired"
+                ] = utc_now()
+        if (
             task["id"] == "pi05_p1_north_failover_pair"
             and task_state.get("status") == "completed"
             and not completion_evidence(task)[0]
