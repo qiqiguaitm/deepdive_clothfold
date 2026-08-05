@@ -30,10 +30,12 @@
   },
   "recovery": {
     "mode": "full_restage_after_root_replacement",
-    "reason": "A retry of the root code payload atomically replaced the stage root, so all model and runtime components must be transferred and verified again.",
+    "reason": "A retry of the root code payload atomically replaced the stage root, and the fixed-seed bridge required an operational final-inflight queue correction, so all code, model, and runtime components must be transferred and verified again.",
     "validation": "After the complete restage, restore executable bits, verify both exact checkpoint hashes, import the pinned runtime, and write remote and local acceptance markers."
   },
   "file_sha256": {
+    "lmvla/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py": "827f2961275d663f7d463e683cbcb1ffc77c7b70bb19ed94ec11dbb6c986abad",
+    "lmvla/lawam/examples/Robotwin/eval_files/test_robotwin_batch_bridge_seed_queue.py": "4fd8ee04ef7690e364fec02b1387759785d95aba7600396ba52540bee40ad4ad",
     "train_scripts/kai/eval/lerobot_pi05_action_bridge.py": "4d8c32a696ede0fb13db09242873ad9e4e8da468f01af02e81eee5d33eccdf11",
     "train_scripts/kai/eval/robotwin_python_wrapper_north.sh": "b06a148dada87c8fc32fef85fbead45c01f525a60bf2a5022deec0fdb3898932",
     "train_scripts/kai/eval/run_pi05_r4_formal_eval.sh": "e91ab34a71ae82b3e49099a5fb73154c6493fb2c73954324d4b775dec074bb86",
@@ -46,6 +48,7 @@
   },
   "invariants": [
     "The two staged arms retain their frozen step-5000 checkpoint bytes.",
+    "The fixed-seed bridge retires an idle slot when all fixed seeds have already been issued, without changing any seed or episode count.",
     "Tasks, evaluation seeds, scene seeds, episodes per cell, replan horizon, instruction type, and action bridge are unchanged.",
     "The North stage is accepted only after SHA-256 verification of every transferred file and exact checkpoint hashes.",
     "North completion is non-canonical until the result tree is hash-preservingly synchronized back and passes the unchanged local 24-cell, 1200-episode verifier.",
