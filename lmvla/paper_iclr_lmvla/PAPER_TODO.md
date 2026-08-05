@@ -455,13 +455,29 @@ cell, scene identities, checkpoints, and 24-cell/1,200-episode verifier are
 unchanged. This allows two R4 arms to use East while the third uses local GPUs
 in parallel after checkpoint permissions are normalized.
 
+At 20:00 UTC the final A0 report passed the strict 24-cell, 1,200-episode
+verifier with 828 successes (69.00% macro success). The atomic P1 gate then
+accepted the predictive adapter: normal reached 82.42%, exceeding A0 by 13.42
+points, zero-gate by 3.92 points, action-shuffled by 1.25 points, and
+action-masked by 4.42 points. Every task improved over A0, so the five-point
+regression guard also passed. The small shuffled margin limits the strength of
+the content-specific claim, but all preregistered seed-1000 conditions are true
+and P2 replication is now authorized. Its two training nodes remain pending
+until the resource router finds an immediately eligible data-local allocation;
+no task has been submitted without a fresh recommendation. The complete R1
+gate was rejected. Combined reached 62.92%, below A0 by 6.08 points, CRAVE-only
+by 5.75 points, and the predictive adapter by 19.50 points; its paired 95%
+interval versus CRAVE-only is [-9.00, -2.50] points. It also regressed on four
+of six tasks by more than five points versus A0. R1 seeds 1001/1002 therefore
+remain permanently disabled under the predeclared stop rule.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from
   official pi0.5 at seed 1000 with matched data, normalization, batch size,
   update count, and source snapshot. The accepted historical A0 is not
   reusable under the completed identity audit.
-- [ ] Evaluate candidate normal, zero-gate, action-shuffled, and action-masked
+- [x] Evaluate candidate normal, zero-gate, action-shuffled, and action-masked
   conditions on the frozen 24-cell scene manifest. Normal must exceed A0 and
   all three controls, with no task regression larger than 5 points.
 
@@ -480,7 +496,7 @@ in parallel after checkpoint permissions are normalized.
 - [x] Finish corrected CRAVE-only and combined seed-1000 training on the frozen
   dense-target protocol. Treat losses and intermediate checkpoints as health
   telemetry only.
-- [ ] Complete the seed-1000 four-arm closed-loop comparison: current-source
+- [x] Complete the seed-1000 four-arm closed-loop comparison: current-source
   A0, predictive adapter, CRAVE-target auxiliary only, and predictive plus
   CRAVE targets. Evaluate zero-route and shuffled-action interventions on the
   same frozen 24-cell scene manifest and report every task.
