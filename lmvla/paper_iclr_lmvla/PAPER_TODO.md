@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 09:06 UTC
+Updated: 2026-08-05 09:31 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -209,11 +209,19 @@ the P1/P2 frozen runtime in an overlay materialized from lawam commit
 and frame-index arrays without changing shared evaluation sources. The frozen
 scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
 2/3 form eval, with scene identities disjoint before collection. A one-task,
-two-episode local smoke is ready; only its successful trajectory audit may
-unlock the four-GPU East collection. The final builder hashes the behavior
-policy, every trajectory, and every video before running the existing R4 input
-audit. The collector and scheduler suite passes 126 tests. R4 training remains
-unscheduled and unauthorized until that final dataset audit is accepted.
+  two-episode local smoke completed in 6 minutes 25 seconds after a fresh
+  recommendation selected local GPU 0. It produced one success and one failure,
+  two videos, and two finite aligned trajectories; the 400-step failure has
+  action/state shape `(400, 14)` and frame indices 0--399. The first formal East
+  submission (`t-20260805171632-rd8m2`) failed before collection because the
+  container lacked system ffmpeg. The launcher now pins a tested ffmpeg binary
+  on the shared vePFS and emits explicit prerequisite errors. After a new
+  recommendation audit, `t-20260805172352-gjqqn` started on four East H20 GPUs;
+  all four public-policy servers bound their ports at 09:29 UTC and began the
+  24-cell/240-episode collection. The final builder hashes the behavior policy,
+  every trajectory, and every video before running the existing R4 input audit.
+  The collector and scheduler suite passes 126 tests. R4 training remains
+  unscheduled and unauthorized until that final dataset audit is accepted.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary
