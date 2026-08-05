@@ -4047,6 +4047,56 @@ def test_p1_north_failover_pair_is_audited_and_materialized() -> None:
     assert materialize["candidates"][0]["resource"] == "local"
 
 
+def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
+    queue = json.loads(scheduler.QUEUE_PATH.read_text())
+
+    scheduler.add_pi05_p1_north_eval_tasks(queue)
+    scheduler.add_pi05_p1_north_eval_tasks(queue)
+    scheduler.apply_frozen_source_readiness(queue)
+    scheduler.validate_queue(queue)
+
+    tasks = {task["id"]: task for task in queue["tasks"]}
+    stage = tasks["pi05_p1_north_eval_stage"]
+    assert stage["completion_glob"] == str(scheduler.P1_NORTH_EVAL_STAGE_MARKER)
+    assert stage["candidates"][0]["gpus"] == 0
+    assert "sync_pi05_p1_eval_runtime_to_north.sh" in stage["candidates"][0][
+        "command"
+    ]
+
+    for condition in ("a0", "normal", "zero_gate", "shuffled", "masked"):
+        parent_id = f"pi05_predictive_adapter_p1_{condition}_seed1000_eval"
+        parent = tasks[parent_id]
+        north = [
+            candidate
+            for candidate in parent["candidates"]
+            if candidate["resource"] == "Robot-North-H20"
+        ]
+        assert len(north) == 1
+        candidate = north[0]
+        assert candidate["gpus"] == 4
+        assert candidate["ready_files"] == [
+            str(scheduler.P1_NORTH_EVAL_STAGE_MARKER)
+        ]
+        assert str(scheduler.P1_NORTH_EVAL_STAGE_MARKER_REMOTE) in candidate[
+            "ready_files_remote"
+        ]
+        assert candidate["env"]["P1_VERIFY_REPO"] == str(
+            scheduler.P1_NORTH_EVAL_OVERLAY
+        )
+        assert candidate["env"]["TORCH_CUDA_ARCH_LIST"] == "9.0"
+        assert {location["label"] for location in parent["completion_locations"]} == {
+            "shared",
+            "north",
+        }
+
+        materialize = tasks[f"pi05_p1_{condition}_eval_materialize_north"]
+        assert materialize["materialize_north_result_for"] == parent_id
+        assert materialize["candidates"][0]["gpus"] == 0
+        assert "sync_pi05_p1_eval_from_north.sh" in materialize["candidates"][0][
+            "command"
+        ]
+
+
 def test_load_state_reopens_report_only_p1_materialization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

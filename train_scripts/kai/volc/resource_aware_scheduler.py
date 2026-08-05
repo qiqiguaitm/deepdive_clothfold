@@ -442,6 +442,13 @@ QUEUE_CONFIG = {
     "robot-task": {"region": "cn-shanghai", "id": SH_QUEUE, "capacity": SH_CAPACITY},
 }
 NORTH_REPO = "/vePFS-North-E/vis_robot/workspace/deepdive_kai0"
+P1_NORTH_EVAL_OVERLAY = Path(NORTH_REPO) / "logs/frozen_source_overlays/pi05_r1_v1"
+P1_NORTH_EVAL_STAGE_MARKER = (
+    REPO / "logs/resource_markers/pi05_p1_north_eval_stage.ok"
+)
+P1_NORTH_EVAL_STAGE_MARKER_REMOTE = (
+    Path(NORTH_REPO) / "logs/resource_markers/pi05_p1_north_eval_stage.ok"
+)
 R1_FROZEN_OVERLAY = REPO / "logs/frozen_source_overlays/pi05_r1_v1"
 REPLICATION_FROZEN_OVERLAY = (
     REPO / "logs/frozen_source_overlays/pi05_replication_v1"
@@ -2094,6 +2101,168 @@ def add_pi05_p1_north_failover_tasks(queue: dict[str, Any]) -> None:
                 ],
             }
         )
+
+
+def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
+    """Run frozen P1 controls on North and materialize canonical local reports."""
+    tasks = {task.get("id"): task for task in queue.get("tasks", [])}
+    stage_id = "pi05_p1_north_eval_stage"
+    if stage_id not in tasks:
+        queue["tasks"].append(
+            {
+                "id": stage_id,
+                "priority": 0,
+                "description": "Hash-verified frozen P1 evaluation runtime stage on North",
+                "completion_glob": str(P1_NORTH_EVAL_STAGE_MARKER),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(
+                        REPO
+                        / "lmvla/paper_iclr_lmvla/manifests/"
+                        "pi05_p1_north_eval_amendment_v1.json"
+                    ),
+                    str(
+                        REPO
+                        / "train_scripts/kai/"
+                        "sync_pi05_p1_eval_runtime_to_north.sh"
+                    ),
+                    str(R1_FROZEN_OVERLAY / "READY"),
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(REPO / "logs/p1_north_eval_stage/launcher"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec bash "
+                            "train_scripts/kai/sync_pi05_p1_eval_runtime_to_north.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+        tasks[stage_id] = queue["tasks"][-1]
+
+    stage_checkpoint = (
+        P1_NORTH_FAILOVER_STAGE
+        / "kai0/checkpoints/pi05_predictive_adapter_p1/"
+        "pi05_predictive_adapter_p1_seed1000/49999"
+    )
+    conditions = {
+        "a0": 21800,
+        "normal": 21840,
+        "zero_gate": 21880,
+        "shuffled": 21920,
+        "masked": 21960,
+    }
+    for condition, port_base in conditions.items():
+        parent_id = f"pi05_predictive_adapter_p1_{condition}_seed1000_eval"
+        parent = tasks.get(parent_id)
+        if parent is None:
+            raise ValueError(f"missing P1 evaluation parent: {parent_id}")
+        result_name = f"pi05_predictive_adapter_p1_seed1000_{condition}"
+        local_marker = REPO / "logs/resource_markers" / f"{result_name}.ok"
+        remote_marker = Path(NORTH_REPO) / "logs/resource_markers" / f"{result_name}.ok"
+        remote_result = (
+            Path(NORTH_REPO)
+            / "lmvla/lawam/results/eval_runs/robotwin"
+            / result_name
+        )
+        checkpoint = stage_checkpoint
+        if condition == "a0":
+            checkpoint = (
+                P1_NORTH_FAILOVER_STAGE
+                / "kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/"
+                "pi05_predictive_adapter_p1_a0_seed1000/49999"
+            )
+
+        parent["completion_locations"] = [
+            {"label": "shared", "glob": str(local_marker), "remote": False},
+            {"label": "north", "glob": str(remote_marker), "remote": True},
+        ]
+        north_yaml = "train_scripts/kai/volc/pi05_predictive_adapter_p1_eval_north_4h20.yaml"
+        if not any(
+            candidate.get("resource") == "Robot-North-H20"
+            for candidate in parent.get("candidates", [])
+        ):
+            parent["candidates"].append(
+                {
+                    "kind": "platform",
+                    "resource": "Robot-North-H20",
+                    "region": "cn-beijing",
+                    "gpus": 4,
+                    "queue_timeout_seconds": 300,
+                    "retry_cooldown_seconds": 300,
+                    "yaml": north_yaml,
+                    "task_name": f"pi05-p1-{condition.replace('_', '-')}-eval-north4g",
+                    "ready_files": [str(P1_NORTH_EVAL_STAGE_MARKER)],
+                    "ready_files_remote": [
+                        str(P1_NORTH_EVAL_STAGE_MARKER_REMOTE),
+                        str(checkpoint / "params/_METADATA"),
+                        str(checkpoint / "_CHECKPOINT_METADATA"),
+                        str(
+                            checkpoint
+                            / "assets/robotwin2.0_absolute_meanstd/norm_stats.json"
+                        ),
+                        str(
+                            Path(NORTH_REPO)
+                            / "lmvla/lmwm/data/"
+                            "robotwin_pi05_confirmatory_scene_seeds_v1.json"
+                        ),
+                    ],
+                    "env": {
+                        "PREDICTIVE_P1_CONDITION": condition,
+                        "PORT_BASE_OFFSET": str(port_base),
+                        "P1_VERIFY_REPO": str(P1_NORTH_EVAL_OVERLAY),
+                        "CKPT": str(checkpoint),
+                        "RESULT_NAME": result_name,
+                        "MARKER": str(remote_marker),
+                    },
+                }
+            )
+
+        materialize_id = f"pi05_p1_{condition}_eval_materialize_north"
+        if materialize_id in tasks:
+            continue
+        queue["tasks"].append(
+            {
+                "id": materialize_id,
+                "priority": 0,
+                "description": f"Verify and materialize North P1 {condition} evaluation",
+                "materialize_north_result_for": parent_id,
+                "completion_glob": str(local_marker),
+                "completion_min_count": 1,
+                "ready_files_remote": [str(remote_marker)],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(
+                            REPO / "logs/p1_north_eval_materialize" / condition
+                        ),
+                        "command": shlex.join(
+                            [
+                                "env",
+                                f"PREDICTIVE_P1_CONDITION={condition}",
+                                f"RESULT_NAME={result_name}",
+                                f"REMOTE_MARKER={remote_marker}",
+                                "bash",
+                                str(
+                                    REPO
+                                    / "train_scripts/kai/"
+                                    "sync_pi05_p1_eval_from_north.sh"
+                                ),
+                            ]
+                        ),
+                    }
+                ],
+            }
+        )
+        tasks[materialize_id] = queue["tasks"][-1]
 
 
 def add_pi05_r1_recurrence_aligned_tasks(queue: dict[str, Any]) -> None:
@@ -6791,9 +6960,14 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                     )
                     candidate["command"] = candidate["command"].replace(old, new)
                 elif candidate.get("kind") == "platform":
+                    verify_repo = (
+                        P1_NORTH_EVAL_OVERLAY
+                        if candidate.get("resource") == "Robot-North-H20"
+                        else R1_FROZEN_OVERLAY
+                    )
                     candidate.setdefault("env", {}).update(
                         {
-                            "P1_VERIFY_REPO": str(R1_FROZEN_OVERLAY),
+                            "P1_VERIFY_REPO": str(verify_repo),
                             "ROBOTWIN_ATTACH_REQUEUE_FAILED": "1",
                         }
                     )
@@ -6804,6 +6978,16 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                                 "TORCH_EXTENSIONS_DIR": (
                                     "/vePFS/tim/runtime/torch_extensions/"
                                     "h20_sm90_py310"
+                                ),
+                            }
+                        )
+                    elif candidate.get("resource") == "Robot-North-H20":
+                        candidate["env"].update(
+                            {
+                                "TORCH_CUDA_ARCH_LIST": "9.0",
+                                "TORCH_EXTENSIONS_DIR": (
+                                    "/vePFS-North-E/vis_robot/tim/runtime/"
+                                    "torch_extensions/h20_sm90_py310"
                                 ),
                             }
                         )
@@ -10108,6 +10292,7 @@ def main() -> None:
     add_pi05_mt1_replication_north_overflow(queue)
     add_pi05_mt1_8g_optimization_probes(queue)
     add_pi05_p1_north_failover_tasks(queue)
+    add_pi05_p1_north_eval_tasks(queue)
     add_pi05_r1_recurrence_aligned_tasks(queue)
     add_pi05_r4_outcome_collection_tasks(queue)
     add_pi05_r2_adaptive_execution_tasks(queue)
@@ -10134,6 +10319,7 @@ def main() -> None:
             add_pi05_mt1_replication_north_overflow(queue)
             add_pi05_mt1_8g_optimization_probes(queue)
             add_pi05_p1_north_failover_tasks(queue)
+            add_pi05_p1_north_eval_tasks(queue)
             add_pi05_r1_recurrence_aligned_tasks(queue)
             add_pi05_r4_outcome_collection_tasks(queue)
             add_pi05_r2_adaptive_execution_tasks(queue)

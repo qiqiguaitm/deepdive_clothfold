@@ -1,0 +1,48 @@
+TaskName: "pi05-predictive-adapter-p1-eval-east4g"
+Description: "Frozen 24-cell predictive-adapter P1 causal evaluation"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%SZ)
+  LOG_DIR=$REPO/logs/predictive/p1_platform
+  mkdir -p "$LOG_DIR"
+  exec >>"$LOG_DIR/${PREDICTIVE_P1_CONDITION:?missing condition}_${STAMP}_eval_east.log" 2>&1
+  set -x
+  export TORCH_CUDA_ARCH_LIST=9.0
+  export TORCH_EXTENSIONS_DIR=/vePFS/tim/runtime/torch_extensions/h20_sm90_py310
+  mkdir -p "$TORCH_EXTENSIONS_DIR"
+  exec env REPO="$REPO" LOCAL_GPU_COUNT=4 MAX_PARALLEL_SEEDS=4 \
+    bash "$REPO/train_scripts/kai/eval/run_pi05_predictive_adapter_p1_frozen.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

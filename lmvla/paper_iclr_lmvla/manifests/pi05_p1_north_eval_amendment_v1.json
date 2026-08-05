@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_p1_north_eval_amendment_v1",
+  "created_at": "2026-08-05T15:05:00Z",
+  "base_amendment": "lmvla/paper_iclr_lmvla/manifests/pi05_p1_frozen_overlay_amendment_v1.json",
+  "base_amendment_sha256": "e33fe468dcd393c9f4cdcc3bab75837199b631ee973a7c3342c1a8cba4a00d82",
+  "north_repo": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0",
+  "checkpoint_root": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z",
+  "synced_file_sha256": {
+    "kai0/scripts/serve_policy.py": "d4a3281afbaef8db2c117566c1ca6ee3231a51fda14377de60917af24789c53e",
+    "kai0/scripts/verify_pi05_predictive_adapter_source_freeze.py": "42801ddedf7c2448757bcf90b1d2d703cd181baaf95f5ca2c45072c350467095",
+    "lmvla/lawam/examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh": "36e8b6cda07cd5713182705fbfecc57b67d80a67d61ee68817875bf3ef443654",
+    "lmvla/lawam/examples/Robotwin/eval_files/model2robotwin_openpi.py": "2ae5c4483c8f2db21f02bb9ff3b1b98378123a899bcd2cdad980c13dfafb7f4d",
+    "lmvla/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py": "8ae453cce53c5e2516dd8e4d0f9204ce789c61ba26704a27869fd0165fc8a167",
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/scripts/preflight_pi05_p1_frozen_overlay.py": "c70727cdb54b7dc602797da4b17f5b183a2393f80597f2de4c0fc665d296a98a",
+    "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "020010464973474175bce94bca9ff0cc111905f180e80c4308ee0c8933a29986",
+    "lmvla/paper_iclr_lmvla/manifests/pi05_p1_frozen_overlay_amendment_v1.json": "e33fe468dcd393c9f4cdcc3bab75837199b631ee973a7c3342c1a8cba4a00d82",
+    "lmvla/paper_iclr_lmvla/manifests/pi05_p1_north_failover_stage_v1.json": "cdd658e65b63ab22524149f5b3a420c942d90e7a767796d488dbc268ad95c7b9",
+    "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p1_baseline_audit.json": "82459c52bb9b45f278bc2bc44b5a240ac2488367a54546d673be169c8cc9ef20",
+    "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p1_formal.sh": "01d3f91f6e13c79f3fef3183af3aeeea871218193d915c07980cfb15a1ee7dfc",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p1_frozen.sh": "e00b3baf389e644351eb053a81abe49b755dee5f3e53dde9ec5dd2c27949986f",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p1_eval_north_4h20.yaml": "778d96611c1a811e33073456c90666c073bb0c8a9b3da466ee7540f2cf2788f7"
+  },
+  "north_prerequisite_sha256": {
+    "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/robotwin_python_wrapper_northe.sh": "69ffb09952c8cb56708687983fd10fcd0bd4262ee1eba3a11330615522a75993"
+  },
+  "authorization_scope": [
+    "pi05_predictive_adapter_p1_a0_seed1000_eval",
+    "pi05_predictive_adapter_p1_normal_seed1000_eval",
+    "pi05_predictive_adapter_p1_zero_gate_seed1000_eval",
+    "pi05_predictive_adapter_p1_shuffled_seed1000_eval",
+    "pi05_predictive_adapter_p1_masked_seed1000_eval"
+  ],
+  "constraints": [
+    "The frozen openpi overlay must pass the unchanged P1 source and inventory preflight on North.",
+    "A North result is canonical only after reverse synchronization and local fixed-scene verification.",
+    "This amendment authorizes evaluation only; it cannot authorize training or P2 replication."
+  ]
+}
