@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_query_observation_amendment_v1",
+  "created_at": "2026-08-05T10:15:00Z",
+  "reason": "The v1 outcome records retain one repeated head-camera video plus per-step actions and states. Official pi0.5 RoboTwin training consumes head, left-wrist, and right-wrist images at each policy query, so v1 outcomes alone are not trainable under the matched public recipe.",
+  "frozen_design": {
+    "collection_unit": "the three camera images, 14-D state, exact instruction, and frame index at every real policy query",
+    "replan_horizon": 50,
+    "train_scenes": "every train-split scene in the accepted combined v1 outcome manifest, with no outcome-dependent stopping or filtering",
+    "base_parallelization": [
+      "East GPUs 0-1: both train seeds for beat_block_hammer, blocks_ranking_size, blocks_ranking_rgb",
+      "East GPUs 2-3: both train seeds for handover_block, stack_blocks_two, stack_blocks_three"
+    ],
+    "support_parallelization": "local GPUs 0-1: both train seeds for all 40 predeclared beat_block_hammer support scenes",
+    "training_authorization": "requires both the accepted outcome audit and the accepted three-camera query audit"
+  },
+  "file_sha256": {
+    "lmvla/lmwm/runtime/pi05_r4_query_capture/hook.py": "414e0895351dc5b567bb7785d5f350188952f102a01af6d4b2e851697b038dfe",
+    "lmvla/lmwm/runtime/pi05_r4_query_capture/sitecustomize.py": "13989283c7db616518b6aa1a52e4243c5eafbb9afc8524750dd0fd83be5f5769",
+    "lmvla/lmwm/scripts/build_pi05_r4_query_manifest.py": "4b992809c6e803e0fbd3d30ebb6a2a35225db44247400b93388ed6e3091ab51f",
+    "lmvla/lmwm/scripts/merge_pi05_r4_query_manifests.py": "db40412bb936a7f46fb8e97488d5860771300f948cb91e3f225c6c6eb96556ba",
+    "lmvla/lmwm/scripts/audit_pi05_r4_query_dataset.py": "adea4388a687181623a0881cc803d43f0fc0600d3cfac97cbfac7a4d9d813fb6",
+    "train_scripts/kai/eval/run_pi05_r4_query_collection.sh": "b67a95c04f25a26c50947c8b5bbe726a0a8a00938488fd035bce410b3dfebb9b",
+    "train_scripts/kai/analysis/finalize_pi05_r4_query_dataset.sh": "860565a0a55de62c6d20c53c84f7ef08929ae5fcc82c15e605b179946c21f971",
+    "train_scripts/kai/volc/pi05_r4_query_base_train_east_4h20.yaml": "e49777e8f3a6041b0ce387a4fe86f64bc8f4f5622d8525161bdc5bfa6b66c58c"
+  }
+}

@@ -1,0 +1,76 @@
+TaskName: "pi05-r4-query-base-train-east4g"
+Description: "Three-camera policy-query capture for the predeclared R4 train scenes"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -Eeuo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  SCENES=$REPO/lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_v1.json
+  MARKER_DIR=$REPO/logs/resource_markers
+  LOG_DIR=$REPO/logs/r4/outcomes/query_collection
+  mkdir -p "$MARKER_DIR" "$LOG_DIR"
+
+  run_part() {
+    local gpu_offset=$1
+    local tasks=$2
+    local result=$3
+    local tag=$4
+    local ports=$5
+    local marker=$6
+    exec env REPO="$REPO" \
+      ROBOTWIN_TASKS="$tasks" SEEDS="0 1" ROBOTWIN_TEST_NUM=10 \
+      LOCAL_GPU_COUNT=2 GPU_INDEX_OFFSET="$gpu_offset" \
+      RESULT_NAME="$result" RUN_TAG_PREFIX="$tag" PORT_BASE_OFFSET="$ports" \
+      R4_SCENE_MANIFEST="$SCENES" MARKER="$marker" \
+      TORCH_CUDA_ARCH_LIST=9.0 \
+      TORCH_EXTENSIONS_DIR=/vePFS/tim/runtime/torch_extensions/h20_sm90_py310 \
+      bash "$REPO/train_scripts/kai/eval/run_pi05_r4_query_collection.sh"
+  }
+
+  run_part 0 \
+    "beat_block_hammer blocks_ranking_size blocks_ranking_rgb" \
+    pi05_r4_query_base_train_a_v1 r4-query-base-a 27600 \
+    "$MARKER_DIR/pi05_r4_query_base_train_a.ok" \
+    >"$LOG_DIR/base_a.log" 2>&1 &
+  pid_a=$!
+  run_part 2 \
+    "handover_block stack_blocks_two stack_blocks_three" \
+    pi05_r4_query_base_train_b_v1 r4-query-base-b 27800 \
+    "$MARKER_DIR/pi05_r4_query_base_train_b.ok" \
+    >"$LOG_DIR/base_b.log" 2>&1 &
+  pid_b=$!
+
+  status=0
+  wait "$pid_a" || status=1
+  wait "$pid_b" || status=1
+  exit "$status"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

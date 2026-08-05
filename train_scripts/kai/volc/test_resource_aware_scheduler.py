@@ -239,6 +239,10 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     formal = tasks["pi05_r4_outcome_collection_formal"]
     support = tasks["pi05_r4_beat_train_support_supplement"]
     finalize = tasks["pi05_r4_outcome_dataset_finalize"]
+    query_smoke = tasks["pi05_r4_query_collection_smoke"]
+    query_base = tasks["pi05_r4_query_base_train_collection"]
+    query_support = tasks["pi05_r4_query_beat_support_collection"]
+    query_finalize = tasks["pi05_r4_query_dataset_finalize"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -280,6 +284,23 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         item["path"].endswith("pi05_r4_outcome_merge_amendment_v1.json")
         for item in finalize["ready_hashes"]
     )
+    assert query_smoke["candidates"][0]["resource"] == "local"
+    assert query_smoke["candidates"][0]["gpus"] == 1
+    assert "run_pi05_r4_query_collection.sh" in query_smoke["candidates"][0]["command"]
+    assert query_base["candidates"][0]["resource"] == "Robot-East-H20"
+    assert query_base["candidates"][0]["gpus"] == 4
+    assert query_base["completion_min_count"] == 2
+    assert any(path.endswith("pi05_r4_outcome_collection.ok") for path in query_base["ready_files"])
+    assert query_support["candidates"][0]["resource"] == "local"
+    assert query_support["candidates"][0]["gpus"] == 2
+    assert "ROBOTWIN_TEST_NUM=40" in query_support["candidates"][0]["command"]
+    assert query_finalize["candidates"][0]["gpus"] == 0
+    assert query_finalize["completion_glob"].endswith("pi05_r4_query_dataset.ok")
+    for task in (query_smoke, query_base, query_support, query_finalize):
+        assert any(
+            item["path"].endswith("pi05_r4_query_base_train_east_4h20.yaml")
+            for item in task["ready_hashes"]
+        )
 
 
 def north_snapshot(

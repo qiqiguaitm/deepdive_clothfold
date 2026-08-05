@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 09:59 UTC
+Updated: 2026-08-05 10:21 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -151,10 +151,11 @@ none of those results establishes control utility.
   fails the necessary CRAVE comparison and seed-1001/1002 R1 replication must
   not launch. The formal four-arm gate report still waits for the matched P1 A0
   and predictive reports so that the complete rejected result is archived.
-  At 09:58 UTC the repaired P1 pair remained healthy: A0 reached step 42,200
-  and the candidate reached step 42,600 at approximately 1.3 steps/s, with
-  estimated completion in 1 hour 33 minutes to 1 hour 38 minutes. Current
-  owned allocation is North 8 GPUs, East 4/8 GPUs, and local 2/2 GPUs. New robot-task
+  At 10:20 UTC the repaired P1 pair remained healthy: A0 reached step 44,000
+  and the candidate reached step 44,400 at approximately 1.3 steps/s, with
+  estimated completion in 1 hour 10 minutes to 1 hour 18 minutes. Current
+  owned allocation is North 8 GPUs and East 4/8 GPUs; local 2/2 GPUs became
+  free after the predeclared R4 support collection completed. New robot-task
   submissions are disabled by operator policy and that resource remains the
   final, ineligible fallback.
   The six post-readout R2 execution nodes are now explicitly disabled with the
@@ -218,27 +219,41 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   submission (`t-20260805171632-rd8m2`) failed before collection because the
   container lacked system ffmpeg. The launcher now pins a tested ffmpeg binary
   on the shared vePFS and emits explicit prerequisite errors. After a new
-  recommendation audit, `t-20260805172352-gjqqn` started on four East H20 GPUs;
-  all four public-policy servers bound their ports at 09:29 UTC and began the
-  24-cell/240-episode collection. After the one-time H20 extension build, all
-  four workers began producing trajectories. At 09:57 UTC the base collection
-  had 120 trajectories and 11 complete cells with no failed task. Every sampled
-  trajectory has finite aligned 14-dimensional actions and states with strictly
-  increasing frame indices. The first train-split task exposed a support gap:
+  recommendation audit, `t-20260805172352-gjqqn` ran on four East H20 GPUs and
+  completed all 24 cells and 240 episodes at 10:18 UTC. Every sampled trajectory
+  has finite aligned 14-dimensional actions and states with strictly increasing
+  frame indices. The first train-split task exposed a support gap:
   both train seeds were 10/10 on `beat_block_hammer`, while the one observed
   failure belongs to the eval split and cannot be moved into training. A
   separately frozen amendment therefore predeclares all 40 remaining source
   scenes for each train seed, retaining all 80 outcomes rather than stopping
   after a failure. A fresh recommendation selected the two local GPUs and the
-  supplemental collector started at 09:51 UTC. Its first scenes are the
-  expected unused identities 100015 and 200014, and both initial trajectories
-  pass the alignment checks. Base collection completion is now separated from
+  supplemental collector started at 09:51 UTC and completed all 80 retained
+  scenes at 10:10 UTC. Seed 0 produced 37 successes and 3 failures; seed 1
+  produced 38 successes and 2 failures, so hammer now has both outcomes in the
+  train split without moving eval data or stopping after the first failure.
+  Base collection completion is separated from
   training authorization: the immutable base manifest prevents redundant
   collection retries, while a second hash-pinned node merges all base and
   supplemental records, rejects policy or scene-identity mismatches, rebases
-  artifact paths, and runs the unchanged R4 input audit. The relevant R4/P1
-  scheduler suite passes 118 tests. R4 training remains unscheduled and
-  unauthorized until that combined dataset audit is accepted.
+  artifact paths, and runs the unchanged R4 input audit.
+
+  A trainability audit then found a second, distinct requirement that the v1
+  outcome audit intentionally did not prove. The public recipe consumes
+  `cam_high`, `cam_left_wrist`, and `cam_right_wrist` at every real 50-step
+  policy query, whereas v1 retains only the head-camera evaluation video. That
+  video is action-aligned but repeats the last queried head image within each
+  open-loop chunk; it cannot reconstruct the two wrist observations. A frozen
+  query-observation amendment now captures the exact three images, 14-D query
+  state, instruction, and frame index without modifying the v1 collector. Its
+  audit requires all 200 predeclared train records to match the accepted outcome
+  manifest exactly, verifies every 50-step query/action alignment, and preserves
+  all success and failure scenes. A 2-episode local smoke is followed, only
+  after the combined outcome gate, by a four-GPU East base collection split
+  across two disjoint three-task shards and a parallel two-GPU local hammer
+  supplement. The scheduler/query suite passes 107 tests. R4 policy training
+  remains unscheduled and unauthorized until both the combined outcome audit
+  and the three-camera query audit are accepted.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary

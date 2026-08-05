@@ -2803,6 +2803,172 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             }
         )
 
+    query_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_query_observation_amendment_v1.json"
+    )
+    query_protocol = json.loads(query_amendment.read_text())
+    query_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(query_protocol["file_sha256"].items())
+    ]
+    query_wrapper = REPO / "train_scripts/kai/eval/run_pi05_r4_query_collection.sh"
+    query_smoke_marker = REPO / "logs/resource_markers/pi05_r4_query_smoke.ok"
+    query_smoke_id = "pi05_r4_query_collection_smoke"
+    if query_smoke_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": query_smoke_id,
+                "priority": 1,
+                "description": "Two-episode three-camera policy-query capture smoke",
+                "completion_glob": str(query_smoke_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    *common_ready,
+                    str(smoke_marker),
+                    str(query_amendment),
+                    str(REPO / "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json"),
+                ],
+                "ready_hashes": query_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 1,
+                        "gpu_indices": [0],
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/outcomes/query_smoke_local"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec env "
+                            "ROBOTWIN_TASKS=beat_block_hammer SEEDS=0 "
+                            "ROBOTWIN_TEST_NUM=2 LOCAL_GPU_COUNT=1 "
+                            "RESULT_NAME=pi05_r4_query_smoke_v1 "
+                            "RUN_TAG_PREFIX=r4-query-smoke PORT_BASE_OFFSET=27400 "
+                            f"R4_SCENE_MANIFEST={shlex.quote(str(REPO / 'lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json'))} "
+                            f"MARKER={shlex.quote(str(query_smoke_marker))} "
+                            "bash train_scripts/kai/eval/run_pi05_r4_query_collection.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(query_smoke_id)
+
+    outcome_marker = REPO / "logs/resource_markers/pi05_r4_outcome_collection.ok"
+    base_query_id = "pi05_r4_query_base_train_collection"
+    base_query_markers = str(REPO / "logs/resource_markers/pi05_r4_query_base_train_*.ok")
+    query_yaml = REPO / "train_scripts/kai/volc/pi05_r4_query_base_train_east_4h20.yaml"
+    if base_query_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": base_query_id,
+                "priority": 1,
+                "description": "All 120 base train-scene three-camera policy queries",
+                "completion_glob": base_query_markers,
+                "completion_min_count": 2,
+                "ready_files": [
+                    str(outcome_marker),
+                    str(query_smoke_marker),
+                    str(query_amendment),
+                    str(query_wrapper),
+                    str(query_yaml),
+                    str(REPO / "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_v1.json"),
+                ],
+                "ready_hashes": query_hashes,
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 300,
+                        "yaml": "train_scripts/kai/volc/pi05_r4_query_base_train_east_4h20.yaml",
+                        "task_name": "pi05-r4-query-base-train-east4g",
+                    }
+                ],
+            }
+        )
+        existing.add(base_query_id)
+
+    support_query_marker = REPO / "logs/resource_markers/pi05_r4_query_beat_support.ok"
+    support_query_id = "pi05_r4_query_beat_support_collection"
+    if support_query_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": support_query_id,
+                "priority": 1,
+                "description": "All 80 supplemental train-scene three-camera policy queries",
+                "completion_glob": str(support_query_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(outcome_marker),
+                    str(query_smoke_marker),
+                    str(query_amendment),
+                    str(query_wrapper),
+                    str(support_manifest),
+                ],
+                "ready_hashes": query_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 2,
+                        "gpu_indices": [0, 1],
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/outcomes/query_support_local"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec env "
+                            "ROBOTWIN_TASKS=beat_block_hammer SEEDS='0 1' "
+                            "ROBOTWIN_TEST_NUM=40 LOCAL_GPU_COUNT=2 "
+                            "RESULT_NAME=pi05_r4_query_beat_support_v1 "
+                            "RUN_TAG_PREFIX=r4-query-beat-support PORT_BASE_OFFSET=28000 "
+                            f"R4_SCENE_MANIFEST={shlex.quote(str(support_manifest))} "
+                            f"MARKER={shlex.quote(str(support_query_marker))} "
+                            "bash train_scripts/kai/eval/run_pi05_r4_query_collection.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(support_query_id)
+
+    query_finalize_id = "pi05_r4_query_dataset_finalize"
+    query_dataset_marker = REPO / "logs/resource_markers/pi05_r4_query_dataset.ok"
+    query_finalizer = REPO / "train_scripts/kai/analysis/finalize_pi05_r4_query_dataset.sh"
+    if query_finalize_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": query_finalize_id,
+                "priority": 1,
+                "description": "Merge all query captures and enforce the R4 trainability gate",
+                "completion_glob": str(query_dataset_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(REPO / "logs/resource_markers/pi05_r4_query_base_train_a.ok"),
+                    str(REPO / "logs/resource_markers/pi05_r4_query_base_train_b.ok"),
+                    str(support_query_marker),
+                    str(query_finalizer),
+                    str(query_amendment),
+                ],
+                "ready_hashes": query_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/outcomes/query_finalize"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec bash "
+                            "train_scripts/kai/analysis/finalize_pi05_r4_query_dataset.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+
 
 def add_pi05_r2_adaptive_execution_tasks(queue: dict[str, Any]) -> None:
     """Stage the causal-readout and same-scene frozen-policy R2 screen."""
