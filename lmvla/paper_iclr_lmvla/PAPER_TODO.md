@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 03:09 UTC
+Updated: 2026-08-05 05:54 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -53,10 +53,11 @@ none of those results establishes control utility.
   Robot-North-H20 at 03:00 UTC. Both arms passed source verification, loader
   construction, and the 27,500-file data index, then restored their complete
   step-10000 Orbax train states in 24.18 and 23.35 seconds. At step 10100 both
-  run near 1.3 iterations/s on disjoint four-GPU sets, implying approximately
-  8.2--8.4 hours remaining. A0 reports loss 0.0139; the candidate reports main
-  loss 0.0124 and nonzero predictive loss 0.0038, with no NaN, NCCL, or data
-  error. The recovery
+  run near 1.3 iterations/s on disjoint four-GPU sets. At 05:50 UTC A0 reached
+  step 22,800 and the candidate reached step 22,900, with approximately
+  5.7 hours remaining. A0 reports loss 0.0061--0.0066; the candidate reports
+  main loss 0.0080--0.0092 and nonzero predictive loss 0.0032--0.0033, with no
+  NaN, NCCL, or data error. The recovery
   atomically exposes final checkpoints only after complete 49999 metadata and
   train state arrive. A separate isolated P1 evaluation overlay and runtime
   preflight are hash-pinned for the five seed-1000 gate conditions, but
@@ -77,9 +78,12 @@ none of those results establishes control utility.
   runtime amendments select that overlay and write protocol audits to a
   caller-writable directory; their hashes are pinned in
   `pi05_r1_frozen_overlay_amendment_v1.json`.
-- Canonical scheduler state at 03:01 UTC: 421 tasks total, 278 completed,
-  103 disabled, 36 pending, and 4 running. Combined runs on local 2 GPU
-  (PID 94791) and has completed 6/24 task-seed cells. Earlier shuffled
+- Canonical scheduler state at 05:49 UTC: 421 tasks total, 293 completed,
+  90 disabled, 35 pending, and 3 scheduler-managed running tasks. Combined
+  runs on local 2 GPU (PID 94791) and had completed 14/24 task-seed cells;
+  CRAVE-only and shuffled are now complete at 24/24 cells with frozen-manifest
+  macro success rates of 68.67% and 64.67%, respectively. These two arms alone
+  cannot trigger the R1 gate. Earlier shuffled
   (`t-20260805082722-mltdq`), CRAVE-only (`t-20260805083104-zm26d`), and
   zero-route (`t-20260805082725-rkqtc`) East attempts failed before rollout.
   They passed the frozen verifier and loaded their checkpoints, but four
@@ -96,14 +100,19 @@ none of those results establishes control utility.
   requeueing only failed cells. The two cache-less attempts were stopped after
   producing no cells. Corrected CRAVE-only (`t-20260805085511-2l2z9`) and
   shuffled (`t-20260805085627-q9svv`) were submitted only after fresh target
-  recommendation audits and now run on East with live heartbeats and connected
-  policy servers. Neither has repeated the H20 kernel-image error. CRAVE-only
-  is at 20/24 cells and shuffled at 18/24, both with zero failed cells and four
-  live workers; combined has two live local workers. Zero-route's eight claims
-  are stale remnants of stopped attempts and will be reclaimed when it obtains
-  the next East slot under its own fresh recommendation audit. No arm-level
-  result is complete. East is 8/8 occupied, local is 2/2 occupied, and Beijing
-  primary is 24/25 with the repaired P1 pair. Source and amendment hashes are enforced
+  recommendation audits and completed on East without repeating the H20
+  kernel-image error. Corrected zero-route
+  (`t-20260805114418-5twhg`) runs on East and had reached 16/24 cells with zero
+  failures. Because the shared per-seed schedulers use `fcntl` locking,
+  heartbeat leases, and atomic task claims, a fresh 4-GPU routing audit selected
+  the four free East GPUs for a combined attach helper. The helper
+  (`t-20260805135315-t9fmq`) started at 05:53 UTC, passed the frozen verifier,
+  and attached without duplicate claims. After the distinct helper claims were
+  visible, the original two local masters were interrupted cleanly, released
+  their claims, and exited before report finalization. Canonical scheduler state
+  now monitors the East helper directly, preventing an unintended local restart
+  or concurrent report write. East is now 8/8 occupied, local is 0/2 occupied,
+  and Beijing primary is 24/25 with the repaired P1 pair. Source and amendment hashes are enforced
   before recommendation and submission; the overlay authorization is limited
   to these four seed-1000 R1 evaluations and cannot authorize R1 training or
   later seeds. P2 remains blocked until the P1 causal gate is complete and
