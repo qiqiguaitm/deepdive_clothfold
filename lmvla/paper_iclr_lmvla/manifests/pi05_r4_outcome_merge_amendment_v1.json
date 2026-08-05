@@ -14,6 +14,6 @@
   ],
   "file_sha256": {
     "lmvla/lmwm/scripts/merge_pi05_r4_outcome_manifests.py": "629e874688aa6c93ed9503744043c46f7fea940f82e94d072d30451bfed51413",
-    "train_scripts/kai/analysis/finalize_pi05_r4_outcome_dataset.sh": "fe71a69c208a174c2db500561c19320d083a169d873ddd14e5cf87c039228874"
+    "train_scripts/kai/analysis/finalize_pi05_r4_outcome_dataset.sh": "93d33e06609d7d475479b805b68b38711c60a0b081fdca40cd95bb5bbd7c4b47"
   }
 }

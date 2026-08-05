@@ -24,7 +24,7 @@
   ],
   "file_sha256": {
     "lmvla/lmwm/data/pi05_r4_beat_train_support_supplement_v1.json": "8c79bce36b856345496bfca156bf65bddbc5da5309b4524f8f22f1dc40980106",
-    "lmvla/lmwm/scripts/build_pi05_r4_support_scene_manifest.py": "a37ba6cd30c14db28567e48af62a4fa9970c16482520fe6de32541f8feb6d15f",
+    "lmvla/lmwm/scripts/build_pi05_r4_support_scene_manifest.py": "81b5ac56456b6399b0fc65dc8004adf22ae0de5ba60a611f33fe8f5897df73d5",
     "lmvla/paper_iclr_lmvla/frozen_sources/pi05_r4_collector_v1/robotwin_batch_bridge.patch": "3a39b0c77077561a85922a9aef1a9828900626557e0f7e14e48be9a58f77058b",
     "train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh": "280079d9a55776c34c7dad8192159fc3475ae6473c1c06fd42fd3fd03c625d49"
   },

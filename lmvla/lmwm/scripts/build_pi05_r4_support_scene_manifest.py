@@ -21,22 +21,24 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def build(source: dict, base: dict, *, task: str) -> dict:
+def build(source: dict, base: dict, *, tasks: list[str]) -> dict:
     selected: dict[str, dict[str, list[int]]] = {}
     counts: set[int] = set()
     for eval_seed in TRAIN_EVAL_SEEDS:
         seed = str(eval_seed)
-        source_scenes = [int(value) for value in source["eval_seeds"][seed][task]]
-        base_scenes = {int(value) for value in base["eval_seeds"][seed][task]}
-        supplement = [value for value in source_scenes if value not in base_scenes]
-        if not supplement:
-            raise ValueError(f"no unused scenes for eval_seed={eval_seed} task={task}")
-        if len(supplement) + len(base_scenes) != len(source_scenes):
-            raise ValueError(f"base scenes are not a subset for eval_seed={eval_seed} task={task}")
-        if len(supplement) != len(set(supplement)):
-            raise ValueError(f"duplicate supplemental scenes for eval_seed={eval_seed} task={task}")
-        selected[seed] = {task: supplement}
-        counts.add(len(supplement))
+        selected[seed] = {}
+        for task in tasks:
+            source_scenes = [int(value) for value in source["eval_seeds"][seed][task]]
+            base_scenes = {int(value) for value in base["eval_seeds"][seed][task]}
+            supplement = [value for value in source_scenes if value not in base_scenes]
+            if not supplement:
+                raise ValueError(f"no unused scenes for eval_seed={eval_seed} task={task}")
+            if len(supplement) + len(base_scenes) != len(source_scenes):
+                raise ValueError(f"base scenes are not a subset for eval_seed={eval_seed} task={task}")
+            if len(supplement) != len(set(supplement)):
+                raise ValueError(f"duplicate supplemental scenes for eval_seed={eval_seed} task={task}")
+            selected[seed][task] = supplement
+            counts.add(len(supplement))
     if len(counts) != 1:
         raise ValueError(f"supplemental cell sizes differ: {sorted(counts)}")
     episodes_per_cell = counts.pop()
@@ -47,7 +49,7 @@ def build(source: dict, base: dict, *, task: str) -> dict:
         "selection_rule": "all source scenes not present in the frozen base manifest",
         "episodes_per_cell": episodes_per_cell,
         "split_by_eval_seed": {"train": list(TRAIN_EVAL_SEEDS), "eval": []},
-        "task": task,
+        "tasks": tasks,
         "eval_seeds": selected,
     }
 
@@ -63,13 +65,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--base", type=Path, required=True)
-    parser.add_argument("--task", default="beat_block_hammer")
+    parser.add_argument("--task", action="append", dest="tasks")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     payload = build(
         json.loads(args.source.read_text()),
         json.loads(args.base.read_text()),
-        task=args.task,
+        tasks=args.tasks or ["beat_block_hammer"],
     )
     payload["source_manifest_sha256"] = sha256(args.source)
     payload["base_manifest_sha256"] = sha256(args.base)

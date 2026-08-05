@@ -2569,10 +2569,12 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_outcome_collection_smoke",
         "pi05_r4_outcome_collection_formal",
         "pi05_r4_beat_train_support_supplement",
+        "pi05_r4_balanced_train_support_supplement",
         "pi05_r4_outcome_dataset_finalize",
         "pi05_r4_query_collection_smoke",
         "pi05_r4_query_base_train_collection",
         "pi05_r4_query_beat_support_collection",
+        "pi05_r4_query_balanced_support_collection",
         "pi05_r4_query_dataset_finalize",
     }
     # Queue definitions are persisted separately from task state. Rebuild this
@@ -2764,6 +2766,59 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             }
         )
 
+    balanced_support_id = "pi05_r4_balanced_train_support_supplement"
+    balanced_support_a = REPO / "lmvla/lmwm/data/pi05_r4_balanced_train_support_a_v1.json"
+    balanced_support_b = REPO / "lmvla/lmwm/data/pi05_r4_balanced_train_support_b_v1.json"
+    balanced_amendment = (
+        REPO / "lmvla/paper_iclr_lmvla/manifests/pi05_r4_balanced_support_amendment_v1.json"
+    )
+    balanced_protocol = json.loads(balanced_amendment.read_text())
+    rejected_audit = REPO / "logs/r4/outcomes/dataset_audit_combined_v1.json"
+    balanced_yaml = REPO / "train_scripts/kai/volc/pi05_r4_balanced_support_east_4h20.yaml"
+    balanced_markers = str(REPO / "logs/resource_markers/pi05_r4_balanced_support_*.ok")
+    if balanced_support_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": balanced_support_id,
+                "priority": 1,
+                "description": "Balance all six R4 train tasks with every unused predeclared scene",
+                "completion_glob": balanced_markers,
+                "completion_min_count": 2,
+                "ready_files": [
+                    *common_ready,
+                    str(support_marker),
+                    str(rejected_audit),
+                    str(balanced_support_a),
+                    str(balanced_support_b),
+                    str(balanced_amendment),
+                    str(balanced_yaml),
+                ],
+                "ready_hashes": [
+                    *ready_hashes,
+                    {"path": str(balanced_support_a), "sha256": sha256_file(balanced_support_a)},
+                    {"path": str(balanced_support_b), "sha256": sha256_file(balanced_support_b)},
+                    {"path": str(balanced_amendment), "sha256": sha256_file(balanced_amendment)},
+                    {"path": str(balanced_yaml), "sha256": sha256_file(balanced_yaml)},
+                    {
+                        "path": str(rejected_audit),
+                        "sha256": balanced_protocol["trigger"]["audit_sha256"],
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 300,
+                        "yaml": "train_scripts/kai/volc/pi05_r4_balanced_support_east_4h20.yaml",
+                        "task_name": "pi05-r4-balanced-support-east4g",
+                    }
+                ],
+            }
+        )
+
     finalize_id = "pi05_r4_outcome_dataset_finalize"
     if finalize_id not in existing:
         finalizer = REPO / "train_scripts/kai/analysis/finalize_pi05_r4_outcome_dataset.sh"
@@ -2789,6 +2844,8 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                         "pi05_r4_outcomes_public_v1/dataset_manifest.json"
                     ),
                     str(support_marker),
+                    str(REPO / "logs/resource_markers/pi05_r4_balanced_support_a.ok"),
+                    str(REPO / "logs/resource_markers/pi05_r4_balanced_support_b.ok"),
                     str(finalizer),
                     str(merger),
                     str(merge_amendment),
@@ -2950,6 +3007,47 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         )
         existing.add(support_query_id)
 
+    balanced_query_id = "pi05_r4_query_balanced_support_collection"
+    balanced_query_yaml = (
+        REPO / "train_scripts/kai/volc/pi05_r4_query_balanced_support_east_4h20.yaml"
+    )
+    balanced_query_markers = str(
+        REPO / "logs/resource_markers/pi05_r4_query_balanced_support_*.ok"
+    )
+    if balanced_query_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": balanced_query_id,
+                "priority": 1,
+                "description": "Three-camera queries for all 400 balanced support scenes",
+                "completion_glob": balanced_query_markers,
+                "completion_min_count": 2,
+                "ready_files": [
+                    str(outcome_marker),
+                    str(query_smoke_marker),
+                    str(query_amendment),
+                    str(query_wrapper),
+                    str(balanced_support_a),
+                    str(balanced_support_b),
+                    str(balanced_query_yaml),
+                ],
+                "ready_hashes": query_hashes,
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 300,
+                        "yaml": "train_scripts/kai/volc/pi05_r4_query_balanced_support_east_4h20.yaml",
+                        "task_name": "pi05-r4-query-balanced-support-east4g",
+                    }
+                ],
+            }
+        )
+        existing.add(balanced_query_id)
+
     query_finalize_id = "pi05_r4_query_dataset_finalize"
     query_dataset_marker = REPO / "logs/resource_markers/pi05_r4_query_dataset.ok"
     query_finalizer = REPO / "train_scripts/kai/analysis/finalize_pi05_r4_query_dataset.sh"
@@ -2965,6 +3063,8 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     str(REPO / "logs/resource_markers/pi05_r4_query_base_train_a.ok"),
                     str(REPO / "logs/resource_markers/pi05_r4_query_base_train_b.ok"),
                     str(support_query_marker),
+                    str(REPO / "logs/resource_markers/pi05_r4_query_balanced_support_a.ok"),
+                    str(REPO / "logs/resource_markers/pi05_r4_query_balanced_support_b.ok"),
                     str(query_finalizer),
                     str(query_amendment),
                 ],

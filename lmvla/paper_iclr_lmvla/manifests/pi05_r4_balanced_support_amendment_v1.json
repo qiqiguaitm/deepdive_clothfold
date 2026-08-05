@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_balanced_train_outcome_support_amendment_v1",
+  "created_at": "2026-08-05T10:31:00Z",
+  "trigger": {
+    "audit_sha256": "8ab5fa5ea30212ac33d3c1a284ad3d3635531a9a90c0a366588cb5bc49648de0",
+    "task": "stack_blocks_two",
+    "base_train_successes": 20,
+    "base_train_failures": 0,
+    "reason": "The first combined audit still rejected because stack_blocks_two had no train failure support. Extending only that task would also leave a 5x task imbalance."
+  },
+  "selection": {
+    "split": "train",
+    "eval_seeds": [0, 1],
+    "episodes_per_cell": 40,
+    "tasks": [
+      "blocks_ranking_size",
+      "blocks_ranking_rgb",
+      "handover_block",
+      "stack_blocks_two",
+      "stack_blocks_three"
+    ],
+    "episode_count": 400,
+    "rule": "For every non-hammer task, retain every source scene not already present in the frozen base manifest, regardless of outcome."
+  },
+  "result": "Together with the immutable base and hammer supplement, the train split has exactly 100 trajectories for each of six tasks.",
+  "constraints": [
+    "No eval-split scene or outcome is admitted to training.",
+    "No outcome-dependent stopping or filtering is permitted.",
+    "The two East shards have disjoint task sets and result roots.",
+    "R4 training remains unauthorized until the original outcome audit and the three-camera query audit both accept."
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/data/pi05_r4_balanced_train_support_a_v1.json": "dd5ced958ba946b47ae04b9d1cb2729a9e295bccbf82615322561003225ab48a",
+    "lmvla/lmwm/data/pi05_r4_balanced_train_support_b_v1.json": "9348d352f1bbbeb47c8d2102c455200b95e5e891fe2fdcb658feda3c8b03356f",
+    "lmvla/lmwm/scripts/build_pi05_r4_support_scene_manifest.py": "81b5ac56456b6399b0fc65dc8004adf22ae0de5ba60a611f33fe8f5897df73d5",
+    "train_scripts/kai/volc/pi05_r4_balanced_support_east_4h20.yaml": "244a89f56c1e51502e37f989f37e537aebc74cb0b727a320037b15936219fbb0"
+  }
+}

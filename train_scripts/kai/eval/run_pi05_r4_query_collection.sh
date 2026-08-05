@@ -13,15 +13,19 @@ ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/$RESULT_NAME
 OUTCOME_MANIFEST=$ROOT/dataset_manifest.json
 QUERY_MANIFEST=$ROOT/query_manifest.json
 HOOK_DIR=$REPO/lmvla/lmwm/runtime/pi05_r4_query_capture
+QUERY_ROBOTWIN_PY=$HOOK_DIR/robotwin_python_wrapper.sh
 
 test -s "$HOOK_DIR/sitecustomize.py"
 test -s "$HOOK_DIR/hook.py"
+test -x "$QUERY_ROBOTWIN_PY"
 rm -f "$FINAL_MARKER" "$INNER_MARKER"
 
 export R4_CAPTURE_QUERY_OBSERVATIONS=1
 export PYTHONPATH=$HOOK_DIR:${PYTHONPATH:-}
+export ROBOTWIN_PYTHON=$QUERY_ROBOTWIN_PY
 export R4_FINALIZE_DATASET=0
 export MARKER=$INNER_MARKER
+unset OUTPUT_ROOT
 
 bash "$REPO/train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh"
 

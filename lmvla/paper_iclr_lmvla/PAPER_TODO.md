@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 10:21 UTC
+Updated: 2026-08-05 10:36 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -236,7 +236,15 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   training authorization: the immutable base manifest prevents redundant
   collection retries, while a second hash-pinned node merges all base and
   supplemental records, rejects policy or scene-identity mismatches, rebases
-  artifact paths, and runs the unchanged R4 input audit.
+  artifact paths, and runs the unchanged R4 input audit. That first combined
+  audit retained all 320 records and validated every trajectory, policy hash,
+  and split identity, but correctly rejected training: `stack_blocks_two` was
+  20/20 successful in the train split and had no failure support. Rather than
+  add only another imbalanced task, a second frozen amendment predeclares all
+  400 unused train scenes for the remaining five tasks. Two disjoint East
+  two-GPU shards will produce exactly 100 retained train trajectories per task
+  when combined with the base and hammer supplement; no shard may stop or
+  filter based on observed outcome.
 
   A trainability audit then found a second, distinct requirement that the v1
   outcome audit intentionally did not prove. The public recipe consumes
@@ -246,12 +254,19 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   open-loop chunk; it cannot reconstruct the two wrist observations. A frozen
   query-observation amendment now captures the exact three images, 14-D query
   state, instruction, and frame index without modifying the v1 collector. Its
-  audit requires all 200 predeclared train records to match the accepted outcome
+  audit requires all 600 predeclared train records to match the accepted outcome
   manifest exactly, verifies every 50-step query/action alignment, and preserves
   all success and failure scenes. A 2-episode local smoke is followed, only
   after the combined outcome gate, by a four-GPU East base collection split
   across two disjoint three-task shards and a parallel two-GPU local hammer
-  supplement. The scheduler/query suite passes 107 tests. R4 policy training
+  supplement plus a four-GPU East balanced-support query collection. The first
+  query smoke completed both rollouts but emitted no query files because the
+  shared RoboTwin dependency shim's `sitecustomize.py` shadowed the capture
+  hook; it was rejected with rc=14 and created no marker. A dedicated
+  hash-pinned RoboTwin Python wrapper now installs the hook before running the
+  bridge and clears an inherited `OUTPUT_ROOT` that had redirected local output
+  to `lawam_local`. The corrected smoke remains pending. The focused
+  scheduler/query suite passes 118 tests. R4 policy training
   remains unscheduled and unauthorized until both the combined outcome audit
   and the three-camera query audit are accepted.
 

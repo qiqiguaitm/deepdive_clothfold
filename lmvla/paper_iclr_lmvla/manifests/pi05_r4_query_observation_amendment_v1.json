@@ -6,22 +6,26 @@
   "frozen_design": {
     "collection_unit": "the three camera images, 14-D state, exact instruction, and frame index at every real policy query",
     "replan_horizon": 50,
-    "train_scenes": "every train-split scene in the accepted combined v1 outcome manifest, with no outcome-dependent stopping or filtering",
+    "train_scenes": "every train-split scene in the accepted balanced combined v1 outcome manifest, with no outcome-dependent stopping or filtering",
     "base_parallelization": [
       "East GPUs 0-1: both train seeds for beat_block_hammer, blocks_ranking_size, blocks_ranking_rgb",
       "East GPUs 2-3: both train seeds for handover_block, stack_blocks_two, stack_blocks_three"
     ],
-    "support_parallelization": "local GPUs 0-1: both train seeds for all 40 predeclared beat_block_hammer support scenes",
+    "support_parallelization": "local GPUs 0-1 capture both train seeds for all beat_block_hammer support scenes; two disjoint East 2-GPU shards capture the remaining five tasks, yielding 100 train trajectories per task",
     "training_authorization": "requires both the accepted outcome audit and the accepted three-camera query audit"
   },
   "file_sha256": {
     "lmvla/lmwm/runtime/pi05_r4_query_capture/hook.py": "414e0895351dc5b567bb7785d5f350188952f102a01af6d4b2e851697b038dfe",
+    "lmvla/lmwm/runtime/pi05_r4_query_capture/robotwin_python_wrapper.sh": "8795e8370f0431ce54164ca9ba0f297852afc0f2b1926f9b3612abf987c9a801",
     "lmvla/lmwm/runtime/pi05_r4_query_capture/sitecustomize.py": "13989283c7db616518b6aa1a52e4243c5eafbb9afc8524750dd0fd83be5f5769",
     "lmvla/lmwm/scripts/build_pi05_r4_query_manifest.py": "4b992809c6e803e0fbd3d30ebb6a2a35225db44247400b93388ed6e3091ab51f",
     "lmvla/lmwm/scripts/merge_pi05_r4_query_manifests.py": "db40412bb936a7f46fb8e97488d5860771300f948cb91e3f225c6c6eb96556ba",
     "lmvla/lmwm/scripts/audit_pi05_r4_query_dataset.py": "adea4388a687181623a0881cc803d43f0fc0600d3cfac97cbfac7a4d9d813fb6",
-    "train_scripts/kai/eval/run_pi05_r4_query_collection.sh": "b67a95c04f25a26c50947c8b5bbe726a0a8a00938488fd035bce410b3dfebb9b",
-    "train_scripts/kai/analysis/finalize_pi05_r4_query_dataset.sh": "c07d662094ed428db731e693b5d0e02c766919b671606049328e1582624acaf1",
-    "train_scripts/kai/volc/pi05_r4_query_base_train_east_4h20.yaml": "e49777e8f3a6041b0ce387a4fe86f64bc8f4f5622d8525161bdc5bfa6b66c58c"
+    "train_scripts/kai/eval/run_pi05_r4_query_collection.sh": "92e67e4cf1939cdd600006761e0f3a04c40dcca9a2301baa719551d6cd9d08d6",
+    "train_scripts/kai/analysis/finalize_pi05_r4_query_dataset.sh": "a1159b7b5bc64282e0cce8ac2545d35fba9ed8acf1c721f41d630e380eb3cd7e",
+    "train_scripts/kai/volc/pi05_r4_query_base_train_east_4h20.yaml": "e49777e8f3a6041b0ce387a4fe86f64bc8f4f5622d8525161bdc5bfa6b66c58c",
+    "train_scripts/kai/volc/pi05_r4_query_balanced_support_east_4h20.yaml": "145fff8589ea7996510e77a062ba54d3e30260b6740e12403fb0e88c1a31e7b7",
+    "lmvla/lmwm/data/pi05_r4_balanced_train_support_a_v1.json": "dd5ced958ba946b47ae04b9d1cb2729a9e295bccbf82615322561003225ab48a",
+    "lmvla/lmwm/data/pi05_r4_balanced_train_support_b_v1.json": "9348d352f1bbbeb47c8d2102c455200b95e5e891fe2fdcb658feda3c8b03356f"
   }
 }

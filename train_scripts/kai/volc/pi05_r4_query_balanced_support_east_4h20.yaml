@@ -1,0 +1,68 @@
+TaskName: "pi05-r4-query-balanced-support-east4g"
+Description: "Three-camera policy-query capture for balanced R4 support scenes"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -Eeuo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  SCENES_A=$REPO/lmvla/lmwm/data/pi05_r4_balanced_train_support_a_v1.json
+  SCENES_B=$REPO/lmvla/lmwm/data/pi05_r4_balanced_train_support_b_v1.json
+  LOG_DIR=$REPO/logs/r4/outcomes/query_balanced_support
+  mkdir -p "$LOG_DIR" "$REPO/logs/resource_markers"
+
+  run_part() {
+    local gpu_offset=$1 scenes=$2 tasks=$3 result=$4 tag=$5 ports=$6 marker=$7
+    exec env REPO="$REPO" ROBOTWIN_TASKS="$tasks" SEEDS="0 1" \
+      ROBOTWIN_TEST_NUM=40 LOCAL_GPU_COUNT=2 GPU_INDEX_OFFSET="$gpu_offset" \
+      RESULT_NAME="$result" RUN_TAG_PREFIX="$tag" PORT_BASE_OFFSET="$ports" \
+      R4_SCENE_MANIFEST="$scenes" MARKER="$marker" TORCH_CUDA_ARCH_LIST=9.0 \
+      TORCH_EXTENSIONS_DIR=/vePFS/tim/runtime/torch_extensions/h20_sm90_py310 \
+      bash "$REPO/train_scripts/kai/eval/run_pi05_r4_query_collection.sh"
+  }
+
+  run_part 0 "$SCENES_A" \
+    "blocks_ranking_size blocks_ranking_rgb handover_block" \
+    pi05_r4_query_balanced_support_a_v1 r4-query-balanced-support-a 28600 \
+    "$REPO/logs/resource_markers/pi05_r4_query_balanced_support_a.ok" \
+    >"$LOG_DIR/part_a.log" 2>&1 &
+  pid_a=$!
+  run_part 2 "$SCENES_B" \
+    "stack_blocks_two stack_blocks_three" \
+    pi05_r4_query_balanced_support_b_v1 r4-query-balanced-support-b 28800 \
+    "$REPO/logs/resource_markers/pi05_r4_query_balanced_support_b.ok" \
+    >"$LOG_DIR/part_b.log" 2>&1 &
+  pid_b=$!
+  status=0
+  wait "$pid_a" || status=1
+  wait "$pid_b" || status=1
+  exit "$status"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

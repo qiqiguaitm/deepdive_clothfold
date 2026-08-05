@@ -238,10 +238,12 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     smoke = tasks["pi05_r4_outcome_collection_smoke"]
     formal = tasks["pi05_r4_outcome_collection_formal"]
     support = tasks["pi05_r4_beat_train_support_supplement"]
+    balanced_support = tasks["pi05_r4_balanced_train_support_supplement"]
     finalize = tasks["pi05_r4_outcome_dataset_finalize"]
     query_smoke = tasks["pi05_r4_query_collection_smoke"]
     query_base = tasks["pi05_r4_query_base_train_collection"]
     query_support = tasks["pi05_r4_query_beat_support_collection"]
+    query_balanced = tasks["pi05_r4_query_balanced_support_collection"]
     query_finalize = tasks["pi05_r4_query_dataset_finalize"]
 
     assert smoke["candidates"][0]["resource"] == "local"
@@ -276,6 +278,13 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         item["path"].endswith("pi05_r4_outcome_support_amendment_v1.json")
         for item in support["ready_hashes"]
     )
+    assert balanced_support["candidates"][0]["resource"] == "Robot-East-H20"
+    assert balanced_support["candidates"][0]["gpus"] == 4
+    assert balanced_support["completion_min_count"] == 2
+    assert any(
+        item["path"].endswith("dataset_audit_combined_v1.json")
+        for item in balanced_support["ready_hashes"]
+    )
     assert finalize["candidates"][0]["gpus"] == 0
     assert finalize["candidates"][0]["resource"] == "local"
     assert any(path.endswith("pi05_r4_beat_train_support_supplement.ok") for path in finalize["ready_files"])
@@ -294,9 +303,12 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert query_support["candidates"][0]["resource"] == "local"
     assert query_support["candidates"][0]["gpus"] == 2
     assert "ROBOTWIN_TEST_NUM=40" in query_support["candidates"][0]["command"]
+    assert query_balanced["candidates"][0]["resource"] == "Robot-East-H20"
+    assert query_balanced["candidates"][0]["gpus"] == 4
+    assert query_balanced["completion_min_count"] == 2
     assert query_finalize["candidates"][0]["gpus"] == 0
     assert query_finalize["completion_glob"].endswith("pi05_r4_query_dataset.ok")
-    for task in (query_smoke, query_base, query_support, query_finalize):
+    for task in (query_smoke, query_base, query_support, query_balanced, query_finalize):
         assert any(
             item["path"].endswith("pi05_r4_query_base_train_east_4h20.yaml")
             for item in task["ready_hashes"]
