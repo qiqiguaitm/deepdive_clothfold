@@ -4371,7 +4371,16 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_local_eval_parallelism_amendment_v1.json"
     )
     local_parallelism_spec = json.loads(local_parallelism_amendment.read_text())
-    eval_hash_overrides = local_parallelism_spec["file_sha256_override"]
+    action_bridge_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_action_bridge_amendment_v1.json"
+    )
+    action_bridge_spec = json.loads(action_bridge_amendment.read_text())
+    eval_hash_overrides = {
+        **local_parallelism_spec["file_sha256_override"],
+        **action_bridge_spec["file_sha256_override"],
+    }
     eval_ready_hashes = [
         {
             "path": str(REPO / relative),
@@ -4382,6 +4391,12 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
     eval_ready_files = [
         *[item["path"] for item in eval_ready_hashes],
         str(local_parallelism_amendment),
+        str(action_bridge_amendment),
+    ]
+    action_bridge_ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for section in ("prerequisite_sha256", "file_sha256")
+        for relative, expected in sorted(action_bridge_spec[section].items())
     ]
     eval_script = REPO / "train_scripts/kai/eval/run_pi05_r4_formal_eval.sh"
     eval_yaml = "train_scripts/kai/volc/pi05_r4_eval_east_4h20.yaml"
@@ -4453,6 +4468,73 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             }
         )
         existing.add(permission_task_id)
+    action_bridge_marker = (
+        REPO / "logs/resource_markers/pi05_r4_action_bridge_preflight.ok"
+    )
+    action_bridge_report = REPO / "logs/r4/action_bridge_preflight_v1.json"
+    action_bridge_task_id = "pi05_r4_action_bridge_preflight"
+    if action_bridge_task_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": action_bridge_task_id,
+                "priority": 0,
+                "description": (
+                    "Validate PI0.5 native 32D action padding against the frozen "
+                    "RoboTwin checkpoint's 14D postprocessor before formal R4 eval"
+                ),
+                "completion_glob": str(action_bridge_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(permission_marker),
+                    str(action_bridge_amendment),
+                    *[item["path"] for item in action_bridge_ready_hashes],
+                    str(
+                        REPO
+                        / "lmvla/lmwm/checkpoints/pi05_r4_matched_v1/"
+                        "ordinary-seed1000/checkpoints/005000/pretrained_model/"
+                        "policy_postprocessor_step_0_unnormalizer_processor.safetensors"
+                    ),
+                ],
+                "ready_hashes": [
+                    *action_bridge_ready_hashes,
+                    {
+                        "path": str(action_bridge_amendment),
+                        "sha256": sha256_file(action_bridge_amendment),
+                    },
+                ],
+                "artifact_progress": [
+                    {
+                        "label": "action bridge report",
+                        "glob": str(action_bridge_report),
+                        "expected": 1,
+                    }
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 1,
+                        "gpu_indices": [0],
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 2,
+                        "status_dir": str(
+                            REPO / "logs/r4/action_bridge_preflight_launcher"
+                        ),
+                        "command": shlex.join(
+                            [
+                                "bash",
+                                str(
+                                    REPO
+                                    / "train_scripts/kai/eval/"
+                                    "run_pi05_r4_action_bridge_preflight.sh"
+                                ),
+                            ]
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(action_bridge_task_id)
     eval_ports = {
         "ordinary": 24600,
         "terminal_outcome": 25000,
@@ -4496,6 +4578,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 "ready_files": [
                     str(train_marker),
                     str(permission_marker),
+                    str(action_bridge_marker),
                     str(model / "model.safetensors"),
                     str(model / "config.json"),
                     str(eval_protocol),
@@ -4504,6 +4587,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 ],
                 "ready_hashes": [
                     *eval_ready_hashes,
+                    *action_bridge_ready_hashes,
                     {
                         "path": str(eval_protocol),
                         "sha256": sha256_file(eval_protocol),
@@ -4515,6 +4599,10 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     {
                         "path": str(local_parallelism_amendment),
                         "sha256": sha256_file(local_parallelism_amendment),
+                    },
+                    {
+                        "path": str(action_bridge_amendment),
+                        "sha256": sha256_file(action_bridge_amendment),
                     },
                 ],
                 "progress_globs": [
@@ -4561,6 +4649,37 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             }
         )
         existing.add(eval_task_id)
+
+    eval_task_ids = {
+        f"pi05_r4_{arm}_seed1000_eval" for arm, *_rest in formal_arms
+    }
+    bridge_files = [
+        str(action_bridge_marker),
+        str(action_bridge_amendment),
+        *[item["path"] for item in action_bridge_ready_hashes],
+    ]
+    bridge_hashes = [
+        *eval_ready_hashes,
+        *action_bridge_ready_hashes,
+        {
+            "path": str(action_bridge_amendment),
+            "sha256": sha256_file(action_bridge_amendment),
+        },
+    ]
+    for task in queue["tasks"]:
+        if task.get("id") not in eval_task_ids:
+            continue
+        task["ready_files"] = list(dict.fromkeys([*task["ready_files"], *bridge_files]))
+        hashes_by_path = {
+            item["path"]: item["sha256"] for item in task["ready_hashes"]
+        }
+        hashes_by_path.update(
+            {item["path"]: item["sha256"] for item in bridge_hashes}
+        )
+        task["ready_hashes"] = [
+            {"path": path, "sha256": sha256}
+            for path, sha256 in hashes_by_path.items()
+        ]
 
     gate_id = "pi05_r4_seed1000_gate"
     if gate_id not in existing:

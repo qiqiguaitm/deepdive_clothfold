@@ -491,9 +491,20 @@ recorded SHA-256 values `ec7d3280...bb89` (ordinary),
 (outcome-free CRAVE). A one-H20 operational task selected by a fresh audit
 normalized only access bits and wrote the integrity report. The first formal
 ordinary evaluation then received its own recommendation selecting local two
-A100 GPUs and launched with two policy/renderer workers per GPU. The other two
-R4 evaluations remain pending for that local slot; their checkpoints, fixed
-scene manifest, and gate are unchanged.
+A100 GPUs and launched with two policy/renderer workers per GPU. That attempt
+exposed an integration error before any cell completed: native pi0.5 returned a
+32-dimensional padded normalized action, while the frozen RoboTwin checkpoint
+postprocessor correctly held 14-dimensional action statistics. The scheduler
+then briefly launched the outcome-free CRAVE arm after reclaiming the stopped
+ordinary launcher; it was stopped before completing a cell. Both operational
+attempts contribute zero admissible episodes. Action-bridge amendment v1 now
+slices only the trailing model padding before the unchanged checkpoint
+postprocessor, validates the configured feature dimension, and requeues failed
+cells only on explicit attach. Seven focused tests pass. A checkpoint-level
+preflight loaded the real config and unnormalizer and accepted the complete
+`32 -> 14 -> 14` path with finite output. All three formal evaluations now
+require that preflight marker; their checkpoints, fixed scene manifest, episode
+counts, and gate remain unchanged.
 
 ## P1: seed-1000 closed-loop causal gate
 

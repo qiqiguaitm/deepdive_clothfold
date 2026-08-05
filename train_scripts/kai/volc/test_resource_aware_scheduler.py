@@ -504,8 +504,22 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         assert any(
             item["path"].endswith("run_pi05_r4_formal_eval.sh")
             and item["sha256"]
-            == "2ffc9c4fd98774a99cdfe140f88a10b14cd4152217815bcef8f9c2b704f9e97a"
+            == "e91ab34a71ae82b3e49099a5fb73154c6493fb2c73954324d4b775dec074bb86"
             for item in task["ready_hashes"]
+        )
+        assert any(
+            item["path"].endswith("pi05_r4_action_bridge_amendment_v1.json")
+            for item in task["ready_hashes"]
+        )
+        assert any(
+            item["path"].endswith("serve_lerobot_pi05.py")
+            and item["sha256"]
+            == "acf914ba7038463e5412ec0cdc05a153dc25af666274dad519fee4692eb3d0d5"
+            for item in task["ready_hashes"]
+        )
+        assert any(
+            path.endswith("pi05_r4_action_bridge_preflight.ok")
+            for path in task["ready_files"]
         )
         assert checkpoint_permissions["completion_glob"] in task["ready_files"]
         assert task["progress_globs"][0]["expected"] == 24

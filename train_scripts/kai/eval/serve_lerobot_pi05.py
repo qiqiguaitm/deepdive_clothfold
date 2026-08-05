@@ -17,6 +17,9 @@ from lerobot.policies import make_pre_post_processors
 from lerobot.policies.pi05 import PI05Policy
 from openpi.serving.websocket_policy_server import WebsocketPolicyServer
 
+from lerobot_pi05_action_bridge import action_feature_dim
+from lerobot_pi05_action_bridge import trim_action_for_postprocessor
+
 
 def _image_tensor(image: Any) -> torch.Tensor:
     array = np.asarray(image)
@@ -41,6 +44,7 @@ class LeRobotPi05Policy:
         self.policy = PI05Policy.from_pretrained(str(checkpoint))
         self.policy.to(self.device)
         self.policy.eval()
+        self.action_dim = action_feature_dim(self.policy.config)
         self.preprocessor, self.postprocessor = make_pre_post_processors(
             policy_cfg=self.policy.config,
             pretrained_path=str(checkpoint),
@@ -71,6 +75,7 @@ class LeRobotPi05Policy:
         with torch.inference_mode(), torch.autocast(device_type=self.device.type, dtype=torch.bfloat16):
             for step in range(self.action_steps):
                 action = self.policy.select_action(batch)
+                action = trim_action_for_postprocessor(action, self.action_dim)
                 actions.append(self.postprocessor(action)[0].detach().float().cpu().numpy())
                 if request_id == 1 and step + 1 in {1, 10, 25, self.action_steps}:
                     logging.info(

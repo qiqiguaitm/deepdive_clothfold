@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_action_bridge_amendment_v1",
+  "created_at": "2026-08-05T20:41:10Z",
+  "status": "authorized_runtime_repair",
+  "incident": {
+    "affected_attempts": [
+      "pi05_r4_ordinary_seed1000_eval local attempt started 2026-08-05T20:22:05Z",
+      "pi05_r4_outcome_free_crave_seed1000_eval local attempt started 2026-08-05T20:35:12Z"
+    ],
+    "observed_error": "PI0.5 emitted a 32-dimensional padded normalized action while the RoboTwin checkpoint postprocessor had 14-dimensional action statistics",
+    "evidence_status": "invalid operational attempts; zero completed cells and zero episodes are admissible",
+    "repair": "slice only trailing native PI0.5 padding before checkpoint unnormalization, with explicit shape validation"
+  },
+  "invariants": [
+    "Model weights, normalized model outputs, task identities, scene seeds, episode counts, and action execution are unchanged.",
+    "The retained 14 dimensions are exactly output_features.action.shape[-1] from the frozen checkpoint config.",
+    "The checkpoint postprocessor still performs the only action unnormalization step.",
+    "Failed cells from the invalid attempt are requeued only after the checkpoint-level bridge preflight passes.",
+    "The preregistered verifier still requires exactly 24 cells and 1200 episodes per arm."
+  ],
+  "prerequisite_sha256": {
+    "lmvla/paper_iclr_lmvla/manifests/pi05_r4_formal_eval_protocol_v1.json": "9c0130a89e670b7e19d721f0090275d6a0d01e90e5e42fe966883652aab31b76",
+    "lmvla/paper_iclr_lmvla/manifests/pi05_r4_local_eval_parallelism_amendment_v1.json": "316daf9fcf72f506a5aa899b6386d2152f3b4a2c0c87c9702ce60fe55a803bf8"
+  },
+  "file_sha256": {
+    "train_scripts/kai/eval/lerobot_pi05_action_bridge.py": "4d8c32a696ede0fb13db09242873ad9e4e8da468f01af02e81eee5d33eccdf11",
+    "train_scripts/kai/eval/run_pi05_r4_action_bridge_preflight.sh": "7ea864922b32d74b4de717bf79e5a11e6f228f3741f5762907a21bfb078797be",
+    "train_scripts/kai/eval/test_serve_lerobot_pi05.py": "51998011b3322e6da2384fd5bd16706dfbdd2881961788b90d2b00c9cfdd7730",
+    "train_scripts/kai/eval/verify_lerobot_pi05_action_bridge.py": "8dbbd44ac6a84c2f81792044af79825f323cd58e5dda9d59c2d465af30b67eea"
+  },
+  "file_sha256_override": {
+    "train_scripts/kai/eval/run_pi05_r4_formal_eval.sh": "e91ab34a71ae82b3e49099a5fb73154c6493fb2c73954324d4b775dec074bb86",
+    "train_scripts/kai/eval/serve_lerobot_pi05.py": "acf914ba7038463e5412ec0cdc05a153dc25af666274dad519fee4692eb3d0d5"
+  },
+  "preflight": {
+    "checkpoint": "lmvla/lmwm/checkpoints/pi05_r4_matched_v1/ordinary-seed1000/checkpoints/005000/pretrained_model",
+    "report": "logs/r4/action_bridge_preflight_v1.json",
+    "marker": "logs/resource_markers/pi05_r4_action_bridge_preflight.ok",
+    "required_result": "native 32 -> configured 14 -> postprocessed 14, all finite"
+  },
+  "claim_limit": "This amendment repairs an action-shape integration error and provides no policy-effect evidence."
+}
