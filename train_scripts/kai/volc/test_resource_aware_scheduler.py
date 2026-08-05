@@ -268,6 +268,9 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     training_chunks = tasks["pi05_r4_training_chunks_build"]
     lerobot_build = tasks["pi05_r4_lerobot_dataset_build"]
     runtime_verify = tasks["pi05_r4_training_runtime_verify"]
+    outcome_free = tasks["pi05_r4_outcome_free_manifest_build"]
+    crave_sidecar = tasks["pi05_r4_crave_sidecar_build"]
+    matched_runtime = tasks["pi05_r4_matched_runtime_verify"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -375,6 +378,43 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert "PI05_R4_TRAINING_RUNTIME=1" in runtime_command
     assert "--load-policy" in runtime_command
     assert "does not authorize policy training" in runtime_verify["description"]
+    assert outcome_free["candidates"][0]["resource"] == "local"
+    assert outcome_free["candidates"][0]["gpus"] == 0
+    assert outcome_free["completion_glob"].endswith(
+        "pi05_r4_outcome_free_manifest.ok"
+    )
+    outcome_free_command = outcome_free["candidates"][0]["command"]
+    assert "build_pi05_r4_outcome_free_manifest.py" in outcome_free_command
+    assert "outcome_free_query_manifest.json" in outcome_free_command
+    assert any(
+        item["path"].endswith("query_action_chunks.npz")
+        and item["sha256"]
+        == "ef47ce3cae6449bb440db6ecd502c687205eed51364fc40574c023c01c33c966"
+        for item in outcome_free["ready_hashes"]
+    )
+    assert [candidate["resource"] for candidate in crave_sidecar["candidates"]] == [
+        "local",
+        "Robot-East-H20",
+    ]
+    assert all(candidate["gpus"] == 1 for candidate in crave_sidecar["candidates"])
+    assert crave_sidecar["completion_glob"].endswith("pi05_r4_crave_sidecar.ok")
+    assert any(
+        path.endswith("pi05_r4_outcome_free_manifest.ok")
+        for path in crave_sidecar["ready_files"]
+    )
+    assert any(
+        path.endswith("pi05_r4_training_chunks.ok")
+        for path in crave_sidecar["ready_files"]
+    )
+    assert "crave_weights.npz" in crave_sidecar["candidates"][0]["command"]
+    assert matched_runtime["candidates"][0]["resource"] == "local"
+    assert matched_runtime["candidates"][0]["gpus"] == 0
+    assert matched_runtime["completion_glob"].endswith("pi05_r4_matched_runtime.ok")
+    assert crave_sidecar["completion_glob"] in matched_runtime["ready_files"]
+    assert runtime_verify["completion_glob"] in matched_runtime["ready_files"]
+    matched_command = matched_runtime["candidates"][0]["command"]
+    assert "--sidecar" in matched_command
+    assert "--load-policy" in matched_command
 
 
 def north_snapshot(

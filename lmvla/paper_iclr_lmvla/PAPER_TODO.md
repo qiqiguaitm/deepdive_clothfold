@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 13:51 UTC
+Updated: 2026-08-05 14:12 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -389,6 +389,26 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   rejection. Action-chunk and LeRobot materialization may now proceed; exact
   public-checkpoint loading against the resulting dataset remains the final
   runtime gate before any R4 training can be designed or authorized.
+
+  At 14:12 UTC the direct-chunk LeRobot 0.6.1 materializer had completed 408
+  of 600 rollout episodes and 4,198 of 6,313 query samples without an error.
+  Exact public-checkpoint loading remains downstream of that atomic build. A
+  separate matched-weighting protocol now closes the previously undefined
+  outcome-free control: it first projects the accepted query manifest onto a
+  form that contains no success, reward, return, trajectory, or video field;
+  a frozen DINOv3-base CRAVE teacher then assigns progress change only between
+  consecutive real query observations from the same rollout. Ordinary,
+  terminal-outcome, and outcome-free CRAVE arms share the identical ordered
+  6,313 image/state/action chunks. Their only difference is respectively no
+  weighter, task-normalized exponential terminal-return weights, or the same
+  temperature and normalization applied to CRAVE progress changes. A final
+  query without a subsequent observation receives neutral raw weight and is
+  marked unlabeled rather than receiving a fabricated future target. Sidecar
+  task, scene, query-index, and frame arrays must exactly equal the action
+  chunks, and the matched runtime must prove sidecar length equals dataset
+  length while loading the exact public policy. This protocol only authorizes
+  data preparation; policy training remains blocked on both runtime gates and
+  the accepted sidecar report.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary

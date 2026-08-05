@@ -2631,6 +2631,10 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_query_dataset_finalize",
         "pi05_r4_training_chunks_build",
         "pi05_r4_lerobot_dataset_build",
+        "pi05_r4_training_runtime_verify",
+        "pi05_r4_outcome_free_manifest_build",
+        "pi05_r4_crave_sidecar_build",
+        "pi05_r4_matched_runtime_verify",
     }
     # Queue definitions are persisted separately from task state. Rebuild this
     # hash-pinned subgraph so an authorized amendment cannot leave stale hashes
@@ -3322,6 +3326,190 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                             f"printf 'completed=%s\\nreport=%s\\n' "
                             f"\"$(date -u +%FT%TZ)\" {shlex.quote(str(runtime_report))} > "
                             f"{shlex.quote(str(runtime_marker))}"
+                        ),
+                    }
+                ],
+            }
+        )
+
+    outcome_free_id = "pi05_r4_outcome_free_manifest_build"
+    outcome_free_marker = REPO / "logs/resource_markers/pi05_r4_outcome_free_manifest.ok"
+    outcome_free_manifest = REPO / "logs/r4/training/outcome_free_query_manifest.json"
+    outcome_free_builder = REPO / "lmvla/lmwm/scripts/build_pi05_r4_outcome_free_manifest.py"
+    matched_protocol = (
+        REPO / "lmvla/paper_iclr_lmvla/manifests/pi05_r4_matched_weighting_protocol_v1.json"
+    )
+    matched_spec = json.loads(matched_protocol.read_text())
+    matched_ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for section in ("file_sha256", "external_artifact_sha256")
+        for relative, expected in sorted(matched_spec[section].items())
+    ]
+    if outcome_free_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": outcome_free_id,
+                "priority": 1,
+                "description": "Remove all outcome-bearing fields before CRAVE label generation",
+                "completion_glob": str(outcome_free_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(query_dataset_marker),
+                    str(query_manifest),
+                    str(outcome_free_builder),
+                    str(matched_protocol),
+                ],
+                "ready_hashes": [
+                    *matched_ready_hashes,
+                    {"path": str(outcome_free_builder), "sha256": sha256_file(outcome_free_builder)},
+                    {"path": str(matched_protocol), "sha256": sha256_file(matched_protocol)},
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/training/outcome_free_manifest"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && rm -f "
+                            f"{shlex.quote(str(outcome_free_marker))} && python3 "
+                            f"{shlex.quote(str(outcome_free_builder))} --query-manifest "
+                            f"{shlex.quote(str(query_manifest))} --output "
+                            f"{shlex.quote(str(outcome_free_manifest))} && printf "
+                            f"'completed=%s\\nmanifest=%s\\n' \"$(date -u +%FT%TZ)\" "
+                            f"{shlex.quote(str(outcome_free_manifest))} > "
+                            f"{shlex.quote(str(outcome_free_marker))}"
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(outcome_free_id)
+
+    crave_sidecar_id = "pi05_r4_crave_sidecar_build"
+    crave_sidecar_marker = REPO / "logs/resource_markers/pi05_r4_crave_sidecar.ok"
+    crave_sidecar = REPO / "lmvla/lmwm/data/pi05_r4_training_v1/crave_weights.npz"
+    crave_report = REPO / "logs/r4/training/crave_weights_report.json"
+    crave_builder = REPO / "lmvla/lmwm/scripts/build_pi05_r4_crave_weight_sidecar.py"
+    crave_yaml = REPO / "train_scripts/kai/volc/pi05_r4_crave_sidecar_east_1h20.yaml"
+    crave_command = (
+        f"cd {shlex.quote(str(REPO))} && rm -f {shlex.quote(str(crave_sidecar_marker))} && "
+        f"{shlex.quote(str(REPO / 'kai0/.venv/bin/python'))} {shlex.quote(str(crave_builder))} "
+        f"--manifest {shlex.quote(str(outcome_free_manifest))} "
+        f"--selection {shlex.quote(str(REPO / 'lmvla/lmwm/data/pi05_crave_r0_v1/selection_manifest.json'))} "
+        f"--labels-manifest {shlex.quote(str(REPO / 'lmvla/lmwm/data/pi05_crave_r0_v1/labels_manifest.json'))} "
+        f"--reference-root {shlex.quote(str(REPO / 'lmvla/lmwm/data/robotwin_dinov3base'))} "
+        f"--chunks {shlex.quote(str(training_chunks))} --output {shlex.quote(str(crave_sidecar))} "
+        f"--report {shlex.quote(str(crave_report))} --temperature 1.0 --device cuda --batch-size 128 && "
+        f"printf 'completed=%s\\nsidecar=%s\\nreport=%s\\n' \"$(date -u +%FT%TZ)\" "
+        f"{shlex.quote(str(crave_sidecar))} {shlex.quote(str(crave_report))} > "
+        f"{shlex.quote(str(crave_sidecar_marker))}"
+    )
+    if crave_sidecar_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": crave_sidecar_id,
+                "priority": 1,
+                "description": "Build index-aligned outcome-free CRAVE weights for R4",
+                "completion_glob": str(crave_sidecar_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(outcome_free_marker),
+                    str(outcome_free_manifest),
+                    str(training_chunks_marker),
+                    str(training_chunks),
+                    str(REPO / "logs/resource_markers/pi05_crave_r0_features.ok"),
+                    str(REPO / "lmvla/lmwm/data/pi05_crave_r0_v1/selection_manifest.json"),
+                    str(REPO / "lmvla/lmwm/data/pi05_crave_r0_v1/labels_manifest.json"),
+                    str(crave_builder),
+                    str(crave_yaml),
+                    str(matched_protocol),
+                ],
+                "ready_dirs": [str(REPO / "lmvla/lmwm/data/robotwin_dinov3base")],
+                "ready_hashes": [
+                    *matched_ready_hashes,
+                    {"path": str(crave_builder), "sha256": sha256_file(crave_builder)},
+                    {"path": str(crave_yaml), "sha256": sha256_file(crave_yaml)},
+                    {"path": str(matched_protocol), "sha256": sha256_file(matched_protocol)},
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 1,
+                        "gpu_indices": [0],
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/training/crave_sidecar_local1"),
+                        "command": f"export CUDA_VISIBLE_DEVICES=0 && {crave_command}",
+                    },
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 1,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 300,
+                        "yaml": "train_scripts/kai/volc/pi05_r4_crave_sidecar_east_1h20.yaml",
+                        "task_name": "pi05-r4-crave-sidecar-east1g",
+                    },
+                ],
+            }
+        )
+
+    matched_runtime_id = "pi05_r4_matched_runtime_verify"
+    matched_runtime_marker = REPO / "logs/resource_markers/pi05_r4_matched_runtime.ok"
+    matched_runtime_report = REPO / "logs/r4/training/matched_runtime_preflight.json"
+    if matched_runtime_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": matched_runtime_id,
+                "priority": 1,
+                "description": (
+                    "Load the exact public policy and verify the index-aligned CRAVE sidecar "
+                    "against the identical R4 dataset; this still does not launch training"
+                ),
+                "completion_glob": str(matched_runtime_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(runtime_marker),
+                    str(crave_sidecar_marker),
+                    str(crave_sidecar),
+                    str(lerobot_marker),
+                    str(lerobot_root / "meta/info.json"),
+                    str(runtime_dir / "sitecustomize.py"),
+                    str(runtime_verifier),
+                    str(public_model / "model.safetensors"),
+                    str(matched_protocol),
+                ],
+                "ready_hashes": [
+                    *matched_ready_hashes,
+                    {"path": str(runtime_verifier), "sha256": sha256_file(runtime_verifier)},
+                    {"path": str(runtime_dir / "sitecustomize.py"), "sha256": sha256_file(runtime_dir / "sitecustomize.py")},
+                    {"path": str(matched_protocol), "sha256": sha256_file(matched_protocol)},
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/training/matched_runtime_verify"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && rm -f "
+                            f"{shlex.quote(str(matched_runtime_marker))} && exec env "
+                            "PI05_R4_TRAINING_RUNTIME=1 HF_HUB_OFFLINE=1 "
+                            "TRANSFORMERS_OFFLINE=1 "
+                            f"PYTHONPATH={shlex.quote(str(runtime_dir))} "
+                            f"{shlex.quote(str(lerobot_python))} {shlex.quote(str(runtime_verifier))} "
+                            f"--model {shlex.quote(str(public_model))} "
+                            f"--dataset-root {shlex.quote(str(lerobot_root))} "
+                            "--dataset-repo-id local/pi05-r4-query-train-v1 --load-policy "
+                            f"--sidecar {shlex.quote(str(crave_sidecar))} --output "
+                            f"{shlex.quote(str(matched_runtime_report))} && printf "
+                            f"'completed=%s\\nreport=%s\\n' \"$(date -u +%FT%TZ)\" "
+                            f"{shlex.quote(str(matched_runtime_report))} > "
+                            f"{shlex.quote(str(matched_runtime_marker))}"
                         ),
                     }
                 ],

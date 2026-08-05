@@ -21,6 +21,7 @@ def verify(
     dataset_root: Path | None = None,
     dataset_repo_id: str = "local/pi05-r4-query-train-v1",
     load_policy: bool = False,
+    sidecar: Path | None = None,
 ) -> dict:
     patched = {
         "make_policy": bool(getattr(policy_factory.make_policy, "_pi05_r4_runtime", False)),
@@ -43,6 +44,26 @@ def verify(
     )
     if weights.tolist() != [0.5, 1.5] or stats["type"] != "batch_field":
         raise RuntimeError("R4 batch-field weighter failed its deterministic probe")
+
+    sidecar_probe = None
+    if sidecar is not None:
+        config = sample_weighting.SampleWeightingConfig(
+            type="sidecar_index", extra_params={"path": str(sidecar), "field": "weight"}
+        )
+        sidecar_weighter = sample_weighting.make_sample_weighter(
+            config, object(), torch.device("cpu")
+        )
+        sidecar_weights, sidecar_stats = sidecar_weighter.compute_batch_weights(
+            {"index": torch.tensor([1, 0], dtype=torch.long)}
+        )
+        if sidecar_stats["type"] != "sidecar_index" or len(sidecar_weights) != 2:
+            raise RuntimeError("R4 sidecar-index weighter failed its deterministic probe")
+        sidecar_probe = {
+            "accepted": True,
+            "path": str(sidecar.resolve()),
+            "selected_weights": sidecar_weights.tolist(),
+            "count": sidecar_weighter.count,
+        }
 
     public_config = None
     processor_probe = None
@@ -108,6 +129,11 @@ def verify(
             "frames": dataset.meta.total_frames,
             "sample_weight_shape": weight_shape,
         }
+        if sidecar_probe is not None and sidecar_probe["count"] != dataset.meta.total_frames:
+            raise ValueError(
+                "R4 sidecar length does not match the direct-chunk dataset: "
+                f"{sidecar_probe['count']} != {dataset.meta.total_frames}"
+            )
         if load_policy:
             if model is None:
                 raise ValueError("--load-policy requires --model")
@@ -137,6 +163,7 @@ def verify(
         "patched": patched,
         "processor_probe": processor_probe,
         "public_config": public_config,
+        "sidecar_probe": sidecar_probe,
     }
 
 
@@ -146,6 +173,7 @@ def main() -> int:
     parser.add_argument("--dataset-root", type=Path)
     parser.add_argument("--dataset-repo-id", default="local/pi05-r4-query-train-v1")
     parser.add_argument("--load-policy", action="store_true")
+    parser.add_argument("--sidecar", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     report = verify(
@@ -153,6 +181,7 @@ def main() -> int:
         dataset_root=args.dataset_root,
         dataset_repo_id=args.dataset_repo_id,
         load_policy=args.load_policy,
+        sidecar=args.sidecar,
     )
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)

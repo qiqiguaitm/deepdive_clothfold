@@ -1,0 +1,41 @@
+TaskName: "pi05-r4-crave-sidecar-east1g"
+Description: "Outcome-free CRAVE query weights for the matched R4 policy arms"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  OUT=$REPO/lmvla/lmwm/data/pi05_r4_training_v1/crave_weights.npz
+  REPORT=$REPO/logs/r4/training/crave_weights_report.json
+  MARKER=$REPO/logs/resource_markers/pi05_r4_crave_sidecar.ok
+  rm -f "$MARKER"
+  "$REPO/kai0/.venv/bin/python" "$REPO/lmvla/lmwm/scripts/build_pi05_r4_crave_weight_sidecar.py" \
+    --manifest "$REPO/logs/r4/training/outcome_free_query_manifest.json" \
+    --selection "$REPO/lmvla/lmwm/data/pi05_crave_r0_v1/selection_manifest.json" \
+    --labels-manifest "$REPO/lmvla/lmwm/data/pi05_crave_r0_v1/labels_manifest.json" \
+    --reference-root "$REPO/lmvla/lmwm/data/robotwin_dinov3base" \
+    --chunks "$REPO/lmvla/lmwm/data/pi05_r4_training_v1/query_action_chunks.npz" \
+    --output "$OUT" --report "$REPORT" --temperature 1.0 --device cuda --batch-size 128
+  printf 'completed=%s\nsidecar=%s\nreport=%s\n' "$(date -u +%FT%TZ)" "$OUT" "$REPORT" > "$MARKER"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

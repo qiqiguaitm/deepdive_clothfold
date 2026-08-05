@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_matched_weighting_protocol_v1",
+  "created_at": "2026-08-05T14:05:00Z",
+  "status": "data_preparation_only",
+  "behavior_policy_sha256": "9a5381c3260fc58fdb4b90d17b93f9090bcbfbcd8e0287f9bf2acea2477a2bc3",
+  "dataset": {
+    "records": 600,
+    "executable_queries": 6313,
+    "action_chunk_shape": [50, 14],
+    "cameras": ["cam_high", "cam_left_wrist", "cam_right_wrist"],
+    "scene_split": "train seeds 0/1 only; evaluation seeds 2/3 remain disjoint",
+    "unexecuted_terminal_queries_excluded": 5
+  },
+  "matched_arms": {
+    "ordinary_pi05": {
+      "sample_weighting": null,
+      "description": "ordinary pi0.5 fine-tuning on every accepted query-action chunk"
+    },
+    "terminal_outcome": {
+      "sample_weighting": "embedded sample_weight",
+      "formula": "exp((terminal_success - task_mean_terminal_success) / 1.0), normalized to task mean one",
+      "claim_limit": "episode-level terminal-outcome weighting, not action advantage or Q-value"
+    },
+    "outcome_free_crave": {
+      "sample_weighting": "index-aligned sidecar weight",
+      "formula": "exp((CRAVE_progress_next_query - CRAVE_progress_current_query - task_mean_delta) / 1.0), normalized to task mean one",
+      "teacher": "frozen demonstration-derived DINOv3-base CRAVE recurrence field",
+      "outcome_access": false,
+      "terminal_query_policy": "the last query without a next observation receives neutral raw weight before task normalization"
+    }
+  },
+  "matching_invariants": [
+    "All arms start from the exact SidneyXie/pi05_robotwin public checkpoint.",
+    "All arms consume the identical ordered 6313 samples and use the same seed, optimizer, scheduler, batch size, update count, and augmentation settings.",
+    "Only the per-sample loss weighter differs across arms.",
+    "The CRAVE label process may read only the outcome-stripped query manifest, query-time cam_high images, and the frozen demonstration-derived CRAVE teacher.",
+    "Every sidecar row must exactly match task, scene_seed, query_index, and query_frame in the action-chunk artifact.",
+    "No R4 training is authorized by this data-preparation protocol alone."
+  ],
+  "screening_recipe": {
+    "seed": 1000,
+    "batch_size": 16,
+    "steps": 5000,
+    "learning_rate": 2.5e-5,
+    "optimizer": "AdamW(beta1=0.9,beta2=0.95,eps=1e-8,weight_decay=0.01,grad_clip_norm=1)",
+    "scheduler": "official warmup=1000, decay_steps=30000, decay_lr=2.5e-6",
+    "vision_encoder_frozen": false,
+    "checkpoint_selection": "fixed final step 5000; no evaluation-based checkpoint selection",
+    "replication": "seeds 1001 and 1002 only after the seed-1000 terminal-outcome arm exceeds both matched controls"
+  },
+  "file_sha256": {
+    "lmvla/lawam/results/eval_runs/robotwin/pi05_r4_query_train_v1.json": "6d130fd763c77e341336c71ad482710df686e33c4dd8add6b0c40fadad460e24",
+    "lmvla/lmwm/data/pi05_crave_r0_v1/labels_manifest.json": "8f04bb7fab01d5d1f1f432d8c2ce28dc74f34023c1be7a33ed6eb72955316273",
+    "lmvla/lmwm/data/pi05_crave_r0_v1/selection_manifest.json": "0a80dd36b99687fbe3e0baf25686e06f20816ae6f7da6c98154eb3510ba92408",
+    "lmvla/lmwm/scripts/build_pi05_crave_r0_labels.py": "7e19411e70d53e95711532366ac9886053ee4991f35e09fede40b2ad085adf1e",
+    "lmvla/lmwm/scripts/build_pi05_r4_crave_weight_sidecar.py": "459cd9af88d61352364fd03ce92a45400c2304e32194709904ec33b107b7c64f",
+    "lmvla/lmwm/scripts/build_pi05_r4_outcome_free_manifest.py": "3a109d80041142cc27ced05ea8531f7fd4daf4186607d3b088b0e3e679fc711c"
+  },
+  "external_artifact_sha256": {
+    "lmvla/lmwm/data/pi05_r4_training_v1/query_action_chunks.npz": "ef47ce3cae6449bb440db6ecd502c687205eed51364fc40574c023c01c33c966",
+    "logs/r4/training/query_action_chunks_report.json": "182179f39daf1ac17e9c1d8ee8c9e2beae0a8c405ce5c76995f1b3ef860bcf19"
+  }
+}

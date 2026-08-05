@@ -24,11 +24,9 @@ def _install() -> None:
     if getattr(sample_weighting, "_pi05_r4_runtime_installed", False):
         return
 
-    if "sample_weight" not in converters._COMPLEMENTARY_KEYS:
-        converters._COMPLEMENTARY_KEYS = (
-            *converters._COMPLEMENTARY_KEYS,
-            "sample_weight",
-        )
+    for field in ("sample_weight",):
+        if field not in converters._COMPLEMENTARY_KEYS:
+            converters._COMPLEMENTARY_KEYS = (*converters._COMPLEMENTARY_KEYS, field)
 
     original_resolve_delta_timestamps = dataset_factory.resolve_delta_timestamps
     original_make_policy = policy_factory.make_policy
@@ -127,12 +125,64 @@ def _install() -> None:
                 "samples": self._samples,
             }
 
+    class SidecarIndexWeighter(sample_weighting.SampleWeighter):
+        def __init__(self, *, device: torch.device, path: Path, field: str):
+            import numpy as np
+
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            with np.load(path, allow_pickle=False) as payload:
+                if field not in payload.files:
+                    raise KeyError(f"R4 sidecar field is absent: {field}")
+                values = np.asarray(payload[field], dtype=np.float32)
+            if values.ndim != 1 or not np.isfinite(values).all() or np.any(values <= 0):
+                raise ValueError("R4 sidecar weights must be finite positive scalars")
+            self.device = device
+            self.path = path
+            self.field = field
+            self.values = torch.from_numpy(values)
+            self.count = len(values)
+            self._batches = 0
+            self._samples = 0
+
+        def compute_batch_weights(self, batch: dict) -> tuple[torch.Tensor, dict]:
+            if "index" not in batch:
+                raise KeyError("R4 sidecar weighting requires the preserved dataset index")
+            indices = torch.as_tensor(batch["index"], dtype=torch.long).reshape(-1).cpu()
+            if torch.any(indices < 0) or torch.any(indices >= len(self.values)):
+                raise IndexError("R4 sidecar index is outside the frozen weight array")
+            weights = self.values[indices].to(self.device)
+            self._batches += 1
+            self._samples += int(weights.numel())
+            return weights, {
+                "mean_weight": float(weights.mean().detach().cpu()),
+                "min_weight": float(weights.min().detach().cpu()),
+                "max_weight": float(weights.max().detach().cpu()),
+                "type": "sidecar_index",
+            }
+
+        def get_stats(self) -> dict:
+            return {
+                "type": "sidecar_index",
+                "path": str(self.path),
+                "field": self.field,
+                "count": self.count,
+                "batches": self._batches,
+                "samples": self._samples,
+            }
+
     def make_sample_weighter(config, policy, device, dataset_root=None, dataset_repo_id=None):
         if config is not None and config.type == "batch_field":
             field = str(config.extra_params.get("field", "sample_weight"))
             if field != "sample_weight":
                 raise ValueError(f"R4 only authorizes sample_weight, got {field!r}")
             return BatchFieldWeighter(device=device, field=field)
+        if config is not None and config.type == "sidecar_index":
+            path = Path(str(config.extra_params.get("path", ""))).resolve()
+            field = str(config.extra_params.get("field", "weight"))
+            if field != "weight":
+                raise ValueError(f"R4 only authorizes sidecar field 'weight', got {field!r}")
+            return SidecarIndexWeighter(device=device, path=path, field=field)
         return original_make_weighter(
             config,
             policy,
@@ -150,6 +200,7 @@ def _install() -> None:
     policy_factory.make_pre_post_processors = make_pre_post_processors
     sample_weighting.make_sample_weighter = make_sample_weighter
     sample_weighting.BatchFieldWeighter = BatchFieldWeighter
+    sample_weighting.SidecarIndexWeighter = SidecarIndexWeighter
     sample_weighting._pi05_r4_runtime_installed = True
 
 
