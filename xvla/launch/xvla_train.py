@@ -20,7 +20,9 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from transformers import AutoTokenizer, get_cosine_schedule_with_warmup
 import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data"))
+import action_spaces  # noqa: F401,E402 — register local continuous EE6D modes
 from multi_domain_dataset import LeRobotEE6DDataset, MultiDomainDataset, XVLAHdf5Dataset
 from lerobot.policies.xvla.modeling_xvla import XVLAPolicy
 

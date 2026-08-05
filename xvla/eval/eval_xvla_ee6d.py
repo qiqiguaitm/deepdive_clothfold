@@ -32,7 +32,9 @@ import torch
 HERE = Path(__file__).resolve()
 # train_scripts/xvla/eval/eval_xvla_ee6d.py -> data dir is ../data
 sys.path.insert(0, str(HERE.parent.parent / "data"))
+sys.path.insert(0, str(HERE.parent.parent))
 from multi_domain_dataset import LeRobotEE6DDataset, XVLAHdf5Dataset  # noqa: E402
+import action_spaces  # noqa: F401,E402 — register local continuous EE6D modes
 from lerobot.policies.xvla.modeling_xvla import XVLAPolicy  # noqa: E402
 from transformers import AutoTokenizer  # noqa: E402
 

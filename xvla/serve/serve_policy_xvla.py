@@ -49,6 +49,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "kai0" / "src"))
 sys.path.insert(0, str(_REPO_ROOT / "kai0" / "packages" / "openpi-client" / "src"))
 sys.path.insert(0, str(_REPO_ROOT / "kai0" / "scripts"))
+sys.path.insert(0, str(_REPO_ROOT / "xvla"))
 sys.path.insert(0, str(_REPO_ROOT / "xvla" / "data"))
 
 import cv2  # noqa: E402
@@ -59,6 +60,7 @@ from openpi_client import base_policy as _base_policy  # noqa: E402
 from openpi.serving import websocket_policy_server  # noqa: E402
 from xvla_action_codec import interleaved_6d_to_rotation_matrix  # noqa: E402
 from joint_to_ee6d import joint_to_ee6d_row  # noqa: E402 — 与训练同一 proprio/action 编码
+import action_spaces  # noqa: F401,E402 — register local continuous EE6D modes
 
 from lerobot.configs.policies import PreTrainedConfig  # noqa: E402
 from lerobot.policies.xvla.modeling_xvla import XVLAPolicy  # noqa: E402

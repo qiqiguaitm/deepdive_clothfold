@@ -1,9 +1,11 @@
 """1-GPU smoke test: load policy, build multi-domain dataset, run 1 forward+backward."""
 import os, sys, time
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data"))
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
+import action_spaces  # noqa: F401,E402 — register local continuous EE6D modes
 from lerobot.policies.xvla.modeling_xvla import XVLAPolicy
 from multi_domain_dataset import LeRobotEE6DDataset, MultiDomainDataset, build_weighted_sampler
 

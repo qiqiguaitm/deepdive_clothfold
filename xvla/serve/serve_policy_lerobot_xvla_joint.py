@@ -27,9 +27,11 @@ from transformers import AutoTokenizer
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "kai0" / "src"))
 sys.path.insert(0, str(_REPO_ROOT / "kai0" / "packages" / "openpi-client" / "src"))
+sys.path.insert(0, str(_REPO_ROOT / "xvla"))
 
 from openpi_client import base_policy as _base_policy  # noqa: E402
 from openpi.serving import websocket_policy_server  # noqa: E402
+import action_spaces  # noqa: F401,E402 — register local continuous EE6D modes
 from lerobot.policies.xvla.modeling_xvla import XVLAPolicy  # noqa: E402
 
 logger = logging.getLogger("lerobot_xvla_joint")
