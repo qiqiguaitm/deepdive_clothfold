@@ -4322,6 +4322,31 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
             for item in accelerator["ready_hashes"]
         )
 
+    tail = tasks["pi05_p1_a0_north_tail_accelerator"]
+    assert tail["priority"] == 0
+    assert {item["label"] for item in tail["completion_locations"]} == {
+        "north",
+        "canonical",
+    }
+    tail_candidate = tail["candidates"][0]
+    assert tail_candidate["resource"] == "Robot-North-H20"
+    assert tail_candidate["gpus"] == 4
+    assert tail_candidate["max_failures"] == 1
+    assert tail_candidate["env"]["PORT_BASE_OFFSET"] == "26600"
+    assert tail_candidate["yaml"].endswith(
+        "pi05_p1_a0_tail_accelerator_north_4h20.yaml"
+    )
+    assert sum(
+        path.endswith(".task_scheduler.json")
+        for path in tail_candidate["ready_files_remote"]
+    ) == 4
+    assert any(
+        item["path"].endswith(
+            "pi05_p1_a0_north_tail_accelerator_amendment_v2.json"
+        )
+        for item in tail["ready_hashes"]
+    )
+
     a0_seed01_helper = tasks["pi05_p1_a0_seed01_east_helper"]
     assert a0_seed01_helper["priority"] == 0
     assert {

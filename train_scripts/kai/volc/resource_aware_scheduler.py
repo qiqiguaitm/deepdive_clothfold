@@ -2385,6 +2385,115 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
         )
         tasks[task_id] = queue["tasks"][-1]
 
+    tail_task_id = "pi05_p1_a0_north_tail_accelerator"
+    if tail_task_id not in tasks:
+        tail_amendment = (
+            REPO
+            / "lmvla/paper_iclr_lmvla/manifests/"
+            "pi05_p1_a0_north_tail_accelerator_amendment_v2.json"
+        )
+        tail_spec = json.loads(tail_amendment.read_text())
+        tail_hashes = [
+            {"path": str(REPO / relative), "sha256": expected}
+            for section in ("prerequisite_sha256", "file_sha256")
+            for relative, expected in sorted(tail_spec[section].items())
+        ]
+        tail_result = (
+            Path(NORTH_REPO)
+            / "lmvla/lawam/results/eval_runs/robotwin/"
+            "pi05_predictive_adapter_p1_seed1000_a0"
+        )
+        tail_scheduler_files = [
+            str(
+                tail_result
+                / f"seed{seed}"
+                / "pi05_predictive_adapter_p1_a0_exact__demo_clean"
+                / f"local-unseen-a3-seed{seed}"
+                / ".task_scheduler.json"
+            )
+            for seed in range(4)
+        ]
+        tail_checkpoint = (
+            P1_NORTH_FAILOVER_STAGE
+            / "kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/"
+            "pi05_predictive_adapter_p1_a0_seed1000/49999"
+        )
+        tail_remote_marker = (
+            Path(NORTH_REPO)
+            / "logs/resource_markers/pi05_p1_a0_north_tail_accelerator.ok"
+        )
+        tail_canonical_marker = (
+            REPO
+            / "logs/resource_markers/"
+            "pi05_predictive_adapter_p1_seed1000_a0.ok"
+        )
+        queue["tasks"].append(
+            {
+                "id": tail_task_id,
+                "priority": 0,
+                "description": (
+                    "Attach one final disjoint North worker per A0 seed after "
+                    "observing exactly one pending cell per scheduler"
+                ),
+                "completion_locations": [
+                    {
+                        "label": "north",
+                        "glob": str(tail_remote_marker),
+                        "remote": True,
+                    },
+                    {
+                        "label": "canonical",
+                        "glob": str(tail_canonical_marker),
+                        "remote": False,
+                    },
+                ],
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(P1_NORTH_EVAL_STAGE_MARKER),
+                    str(tail_amendment),
+                    *[item["path"] for item in tail_hashes],
+                ],
+                "ready_hashes": [
+                    *tail_hashes,
+                    {
+                        "path": str(tail_amendment),
+                        "sha256": sha256_file(tail_amendment),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-North-H20",
+                        "region": "cn-beijing",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 300,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 1,
+                        "yaml": (
+                            "train_scripts/kai/volc/"
+                            "pi05_p1_a0_tail_accelerator_north_4h20.yaml"
+                        ),
+                        "task_name": "pi05-p1-a0-tail-attach-north4g",
+                        "ready_files_remote": [
+                            str(P1_NORTH_EVAL_STAGE_MARKER_REMOTE),
+                            str(tail_checkpoint / "params/_METADATA"),
+                            str(
+                                tail_checkpoint
+                                / "assets/robotwin2.0_absolute_meanstd/"
+                                "norm_stats.json"
+                            ),
+                            *tail_scheduler_files,
+                        ],
+                        "env": {
+                            "CKPT": str(tail_checkpoint),
+                            "PORT_BASE_OFFSET": "26600",
+                        },
+                    }
+                ],
+            }
+        )
+        tasks[tail_task_id] = queue["tasks"][-1]
+
 
 def add_pi05_p1_a0_seed01_east_helper_task(queue: dict[str, Any]) -> None:
     """Attach four East workers to the active local A0 seed-0/1 schedulers."""

@@ -422,6 +422,14 @@ checkpoint selection, evaluation parameters, or any scientific gate. The task
 is not yet ready and therefore has not been submitted; the scheduler must run a
 fresh recommendation audit once terminal-outcome training completes.
 
+At 19:10 UTC a direct read of the North vePFS showed every A0 seed at exactly
+three completed, two active, one pending, and zero failed cells. North primary
+usage remained 8/25 GPUs, so a second hash-pinned A0-only accelerator amendment
+authorizes one worker per seed at disjoint worker offset 3000. It can claim at
+most those four observed pending cells, retains the official A0 checkpoint and
+all frozen evaluation identities, and must receive a fresh submission-target
+recommendation before dispatch. No direct submission bypass is authorized.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from

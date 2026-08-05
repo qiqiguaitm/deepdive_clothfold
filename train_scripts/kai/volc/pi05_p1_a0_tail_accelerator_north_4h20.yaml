@@ -1,0 +1,37 @@
+TaskName: "pi05-p1-a0-tail-accelerator-north4g"
+Description: "Attach one final disjoint worker per seed to the frozen P1 A0 North evaluation"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+Entrypoint: |
+  set -Eeuo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  exec env REPO="$REPO" \
+    bash "$REPO/train_scripts/kai/eval/run_pi05_p1_a0_north_tail_accelerator.sh"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"
