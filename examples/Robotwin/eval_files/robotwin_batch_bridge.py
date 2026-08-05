@@ -757,6 +757,19 @@ def _print_task_config(task_args: dict[str, Any]) -> None:
     print("\n==================================")
 
 
+def _should_issue_fresh_seed(
+    *,
+    fixed_seed_mode: bool,
+    remaining_fixed_seeds: int,
+    completed_episodes: int,
+    outstanding_episodes: int,
+    test_num: int,
+) -> bool:
+    if fixed_seed_mode:
+        return remaining_fixed_seeds > 0
+    return completed_episodes + outstanding_episodes < test_num
+
+
 def run_batched_eval(usr_args: dict[str, Any]) -> int:
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
     robotwin_path = os.environ.get("ROBOTWIN_PATH", "../RoboTwin")
@@ -1076,7 +1089,13 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
                         f"progress: \033[96m{completed_episodes}/{test_num}\033[0m, "
                         f"current seed: \033[90m{message['seed']}\033[0m\n"
                     )
-                    if completed_episodes + outstanding_episodes < test_num:
+                    if _should_issue_fresh_seed(
+                        fixed_seed_mode=fixed_episode_seeds is not None,
+                        remaining_fixed_seeds=len(fixed_seed_queue),
+                        completed_episodes=completed_episodes,
+                        outstanding_episodes=outstanding_episodes,
+                        test_num=test_num,
+                    ):
                         issue_try_seed(slot_id)
                     else:
                         retire_slot(slot_id)
