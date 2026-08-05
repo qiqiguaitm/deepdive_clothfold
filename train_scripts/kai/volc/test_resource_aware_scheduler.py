@@ -266,6 +266,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     query_balanced = tasks["pi05_r4_query_balanced_support_collection"]
     query_finalize = tasks["pi05_r4_query_dataset_finalize"]
     training_chunks = tasks["pi05_r4_training_chunks_build"]
+    lerobot_build = tasks["pi05_r4_lerobot_dataset_build"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -354,6 +355,17 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert "build_pi05_r4_training_chunks.py" in command
     assert "query_action_chunks.npz" in command
     assert "does not authorize policy training" in training_chunks["description"]
+    assert lerobot_build["candidates"][0]["resource"] == "local"
+    assert lerobot_build["candidates"][0]["gpus"] == 0
+    assert lerobot_build["completion_glob"].endswith("pi05_r4_lerobot_dataset.ok")
+    assert any(
+        path.endswith("pi05_r4_training_chunks.ok")
+        for path in lerobot_build["ready_files"]
+    )
+    lerobot_command = lerobot_build["candidates"][0]["command"]
+    assert "build_pi05_r4_lerobot_dataset.py" in lerobot_command
+    assert "lerobot_query_chunks" in lerobot_command
+    assert "does not authorize policy training" in lerobot_build["description"]
 
 
 def north_snapshot(

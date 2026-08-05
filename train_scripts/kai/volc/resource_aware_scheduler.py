@@ -2626,6 +2626,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_query_balanced_support_collection",
         "pi05_r4_query_dataset_finalize",
         "pi05_r4_training_chunks_build",
+        "pi05_r4_lerobot_dataset_build",
     }
     # Queue definitions are persisted separately from task state. Rebuild this
     # hash-pinned subgraph so an authorized amendment cannot leave stale hashes
@@ -3194,6 +3195,57 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                             f"\"$(date -u +%FT%TZ)\" {shlex.quote(str(training_chunks))} "
                             f"{shlex.quote(str(training_chunks_report))} > "
                             f"{shlex.quote(str(training_chunks_marker))}"
+                        ),
+                    }
+                ],
+            }
+        )
+
+    lerobot_id = "pi05_r4_lerobot_dataset_build"
+    lerobot_marker = REPO / "logs/resource_markers/pi05_r4_lerobot_dataset.ok"
+    lerobot_builder = REPO / "lmvla/lmwm/scripts/build_pi05_r4_lerobot_dataset.py"
+    lerobot_root = REPO / "lmvla/lmwm/data/pi05_r4_training_v1/lerobot_query_chunks"
+    lerobot_report = REPO / "logs/r4/training/lerobot_query_chunks_report.json"
+    if lerobot_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": lerobot_id,
+                "priority": 1,
+                "description": (
+                    "Materialize audited R4 direct action chunks as LeRobot data; "
+                    "this does not authorize policy training"
+                ),
+                "completion_glob": str(lerobot_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(training_chunks_marker),
+                    str(training_chunks),
+                    str(training_chunks_report),
+                    str(lerobot_builder),
+                    str(REPO / "kai0/.venv/bin/python"),
+                ],
+                "ready_hashes": [
+                    {"path": str(lerobot_builder), "sha256": sha256_file(lerobot_builder)},
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/training/lerobot_build"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && rm -f "
+                            f"{shlex.quote(str(lerobot_marker))} && "
+                            f"kai0/.venv/bin/python {shlex.quote(str(lerobot_builder))} "
+                            f"--chunks {shlex.quote(str(training_chunks))} "
+                            f"--chunks-report {shlex.quote(str(training_chunks_report))} "
+                            f"--output-root {shlex.quote(str(lerobot_root))} "
+                            f"--report {shlex.quote(str(lerobot_report))} && "
+                            f"printf 'completed=%s\\ndataset=%s\\nreport=%s\\n' "
+                            f"\"$(date -u +%FT%TZ)\" {shlex.quote(str(lerobot_root))} "
+                            f"{shlex.quote(str(lerobot_report))} > "
+                            f"{shlex.quote(str(lerobot_marker))}"
                         ),
                     }
                 ],
