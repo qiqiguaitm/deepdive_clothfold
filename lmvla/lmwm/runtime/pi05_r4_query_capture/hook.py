@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import importlib
 import os
 from pathlib import Path
 import sys
@@ -130,11 +131,22 @@ def install() -> None:
     if os.environ.get("R4_CAPTURE_QUERY_OBSERVATIONS") != "1" or _try_patch_loaded_module():
         return
     original_import = builtins.__import__
+    original_import_module = importlib.import_module
+
+    def restore_if_patched() -> None:
+        if _try_patch_loaded_module():
+            builtins.__import__ = original_import
+            importlib.import_module = original_import_module
 
     def importing(name: str, *args: Any, **kwargs: Any) -> Any:
         result = original_import(name, *args, **kwargs)
-        if _try_patch_loaded_module():
-            builtins.__import__ = original_import
+        restore_if_patched()
+        return result
+
+    def importing_module(name: str, package: str | None = None) -> Any:
+        result = original_import_module(name, package)
+        restore_if_patched()
         return result
 
     builtins.__import__ = importing
+    importlib.import_module = importing_module

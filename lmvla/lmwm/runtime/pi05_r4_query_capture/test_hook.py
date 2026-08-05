@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import importlib
+import sys
 
 import numpy as np
 
@@ -58,3 +60,32 @@ def test_query_capture_is_atomic_and_deduplicates_frames(tmp_path):
         assert payload["cam_left_wrist"].dtype == np.uint8
         assert payload["instruction"].item() == "stack the blocks"
     assert not list(tmp_path.glob("*.tmp.npz"))
+
+
+def test_install_patches_dynamic_importlib_task_load(monkeypatch):
+    import hook
+
+    class DynamicBaseTask(FakeBaseTask):
+        pass
+
+    module = SimpleNamespace(Base_Task=DynamicBaseTask)
+    original_import_module = importlib.import_module
+
+    def dynamic_import(name, package=None):
+        if name == hook._TARGET_MODULE:
+            monkeypatch.setitem(sys.modules, name, module)
+            return module
+        return original_import_module(name, package)
+
+    monkeypatch.delitem(sys.modules, hook._TARGET_MODULE, raising=False)
+    monkeypatch.setenv("R4_CAPTURE_QUERY_OBSERVATIONS", "1")
+    monkeypatch.setattr(importlib, "import_module", dynamic_import)
+    hook._PATCHED = False
+    hook.install()
+
+    imported = importlib.import_module(hook._TARGET_MODULE)
+
+    assert imported is module
+    assert hook._PATCHED
+    assert DynamicBaseTask.get_obs is not FakeBaseTask.get_obs
+    assert importlib.import_module is dynamic_import

@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 10:36 UTC
+Updated: 2026-08-05 10:50 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -264,9 +264,15 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   shared RoboTwin dependency shim's `sitecustomize.py` shadowed the capture
   hook; it was rejected with rc=14 and created no marker. A dedicated
   hash-pinned RoboTwin Python wrapper now installs the hook before running the
-  bridge and clears an inherited `OUTPUT_ROOT` that had redirected local output
-  to `lawam_local`. The corrected smoke remains pending. The focused
-  scheduler/query suite passes 118 tests. R4 policy training
+  bridge and clears an inherited `OUTPUT_ROOT`; `lawam/results` is itself the
+  intentional symlink to `lawam_local/results`, so that path is not a data
+  split. A corrected smoke reran both episodes but still emitted no query files,
+  exposing the remaining import path: RoboTwin's `class_decorator` loads task
+  modules through `importlib.import_module`, bypassing a hook that only wrapped
+  `builtins.__import__`. The hook now covers both standard import paths, restores
+  them immediately after patching `Base_Task`, and has a direct dynamic-import
+  regression test. The next corrected smoke remains pending. The focused
+  hook/query/scheduler suite passes 108 tests. R4 policy training
   remains unscheduled and unauthorized until both the combined outcome audit
   and the three-camera query audit are accepted.
 
