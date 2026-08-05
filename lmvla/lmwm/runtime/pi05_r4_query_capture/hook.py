@@ -41,6 +41,8 @@ def _record(task: Any, observation: dict[str, Any]) -> None:
     if capture is None:
         return
     frame = int(task.take_action_cnt)
+    if frame % 50 != 0:
+        return
     if capture["frame_index"] and int(capture["frame_index"][-1]) == frame:
         return
     images = observation["observation"]

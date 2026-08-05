@@ -52,6 +52,8 @@ def test_query_capture_is_atomic_and_deduplicates_frames(tmp_path):
     task.get_obs()
     task.take_action_cnt = 50
     task.get_obs()
+    task.take_action_cnt = 73
+    task.get_obs()
     task._del_eval_video_ffmpeg()
 
     output = tmp_path / "query_episode7.npz"

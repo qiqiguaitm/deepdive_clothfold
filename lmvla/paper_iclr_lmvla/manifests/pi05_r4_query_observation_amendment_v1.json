@@ -15,7 +15,7 @@
     "training_authorization": "requires both the accepted outcome audit and the accepted three-camera query audit"
   },
   "file_sha256": {
-    "lmvla/lmwm/runtime/pi05_r4_query_capture/hook.py": "dae2b87eb739de81e9850848d80f463527339951e47f077f3f4a2ea20944acd3",
+    "lmvla/lmwm/runtime/pi05_r4_query_capture/hook.py": "df0c2b044b94315cd6dbad2ef22611773fa3eae5548998aeaaf1aed13717cf9a",
     "lmvla/lmwm/runtime/pi05_r4_query_capture/robotwin_python_wrapper.sh": "5d5f05fd0a7d0ae244fa32103f53909eeada50218c3b671766f297bd97dc3a3a",
     "lmvla/lmwm/runtime/pi05_r4_query_capture/sitecustomize.py": "df42157f46c8175e7e0832f2a04da5e612502b3cb0db3c279610de608e5df18c",
     "lmvla/lmwm/scripts/build_pi05_r4_query_manifest.py": "4b992809c6e803e0fbd3d30ebb6a2a35225db44247400b93388ed6e3091ab51f",
@@ -26,6 +26,7 @@
     "train_scripts/kai/volc/pi05_r4_query_base_train_east_4h20.yaml": "e49777e8f3a6041b0ce387a4fe86f64bc8f4f5622d8525161bdc5bfa6b66c58c",
     "train_scripts/kai/volc/pi05_r4_query_balanced_support_east_4h20.yaml": "145fff8589ea7996510e77a062ba54d3e30260b6740e12403fb0e88c1a31e7b7",
     "lmvla/lmwm/data/pi05_r4_balanced_train_support_a_v1.json": "dd5ced958ba946b47ae04b9d1cb2729a9e295bccbf82615322561003225ab48a",
-    "lmvla/lmwm/data/pi05_r4_balanced_train_support_b_v1.json": "9348d352f1bbbeb47c8d2102c455200b95e5e891fe2fdcb658feda3c8b03356f"
+    "lmvla/lmwm/data/pi05_r4_balanced_train_support_b_v1.json": "9348d352f1bbbeb47c8d2102c455200b95e5e891fe2fdcb658feda3c8b03356f",
+    "lmvla/lmwm/data/pi05_r4_query_smoke_scene_seeds_v1.json": "0174fff0f4113809950d35256c0ff218bdfbf6327b058b4eda836c1ed048d237"
   }
 }

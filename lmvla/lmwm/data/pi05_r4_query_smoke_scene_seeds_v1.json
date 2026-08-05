@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_outcome_scene_seeds_v1",
+  "episodes_per_cell": 2,
+  "split_by_eval_seed": {
+    "train": [0],
+    "eval": []
+  },
+  "eval_seeds": {
+    "0": {
+      "beat_block_hammer": [100000, 100002]
+    }
+  }
+}

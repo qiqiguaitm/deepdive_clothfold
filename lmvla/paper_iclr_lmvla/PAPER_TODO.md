@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 11:03 UTC
+Updated: 2026-08-05 11:15 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -277,8 +277,16 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   directory is now first on `PYTHONPATH`; its own `sitecustomize` preserves the
   required Warp compatibility shim and installs the capture hook in every
   fresh spawn interpreter. A subprocess regression test verifies this exact
-  startup path. The next corrected v2 retry remains pending. The focused
-  spawn-hook/query tests pass. R4 policy training
+  startup path. The corrected v2 retry then produced both three-camera files.
+  One 400-step episode had exact query frames `[0,50,...,350]`; a successful
+  112-step episode also captured the terminal success refresh at frame 112.
+  That refresh is not a policy query and the strict alignment check rejected
+  it. The v3 hook now retains only frames divisible by the frozen 50-step
+  replan horizon, with a terminal-refresh regression test. A separate one-cell
+  smoke scene manifest also fixes finalization incorrectly expecting all 24
+  formal cells. The clean v3 smoke remains pending; no marker was created from
+  either rejected attempt. The focused spawn-hook/query/scheduler suite passes
+  109 tests. R4 policy training
   remains unscheduled and unauthorized until both the combined outcome audit
   and the three-camera query audit are accepted.
 
