@@ -2572,6 +2572,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_balanced_train_support_supplement",
         "pi05_r4_outcome_dataset_finalize",
         "pi05_r4_query_collection_smoke",
+        "pi05_r4_query_collection_smoke_v2",
         "pi05_r4_query_base_train_collection",
         "pi05_r4_query_beat_support_collection",
         "pi05_r4_query_balanced_support_collection",
@@ -2888,7 +2889,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
     ]
     query_wrapper = REPO / "train_scripts/kai/eval/run_pi05_r4_query_collection.sh"
     query_smoke_marker = REPO / "logs/resource_markers/pi05_r4_query_smoke.ok"
-    query_smoke_id = "pi05_r4_query_collection_smoke"
+    query_smoke_id = "pi05_r4_query_collection_smoke_v2"
     if query_smoke_id not in existing:
         queue["tasks"].append(
             {

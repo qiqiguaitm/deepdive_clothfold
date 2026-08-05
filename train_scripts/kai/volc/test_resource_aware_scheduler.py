@@ -240,7 +240,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     support = tasks["pi05_r4_beat_train_support_supplement"]
     balanced_support = tasks["pi05_r4_balanced_train_support_supplement"]
     finalize = tasks["pi05_r4_outcome_dataset_finalize"]
-    query_smoke = tasks["pi05_r4_query_collection_smoke"]
+    query_smoke = tasks["pi05_r4_query_collection_smoke_v2"]
     query_base = tasks["pi05_r4_query_base_train_collection"]
     query_support = tasks["pi05_r4_query_beat_support_collection"]
     query_balanced = tasks["pi05_r4_query_balanced_support_collection"]
