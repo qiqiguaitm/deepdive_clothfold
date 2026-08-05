@@ -2365,6 +2365,104 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
         tasks[task_id] = queue["tasks"][-1]
 
 
+def add_pi05_p1_a0_seed01_east_helper_task(queue: dict[str, Any]) -> None:
+    """Attach four East workers to the active local A0 seed-0/1 schedulers."""
+    task_id = "pi05_p1_a0_seed01_east_helper"
+    if any(task.get("id") == task_id for task in queue.get("tasks", [])):
+        return
+
+    amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_p1_a0_seed01_east_helper_amendment_v1.json"
+    )
+    spec = json.loads(amendment.read_text())
+    ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(spec["file_sha256"].items())
+    ]
+    result_name = "pi05_predictive_adapter_p1_seed1000_a0"
+    result_root = (
+        REPO / "lmvla/lawam/results/eval_runs/robotwin" / result_name
+    )
+    result_group = "pi05_predictive_adapter_p1_a0_exact__demo_clean"
+    scheduler_files = [
+        result_root
+        / f"seed{seed}"
+        / result_group
+        / f"local-unseen-a3-seed{seed}"
+        / ".task_scheduler.json"
+        for seed in (0, 1)
+    ]
+    checkpoint = (
+        REPO
+        / "kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/"
+        "pi05_predictive_adapter_p1_a0_seed1000/49999"
+    )
+    helper_marker = (
+        REPO / "logs/resource_markers/pi05_p1_a0_seed01_east_helper.ok"
+    )
+    canonical_marker = REPO / "logs/resource_markers" / f"{result_name}.ok"
+    yaml_path = (
+        "train_scripts/kai/volc/pi05_p1_a0_seed01_helper_east_4h20.yaml"
+    )
+    queue["tasks"].append(
+        {
+            "id": task_id,
+            "priority": 0,
+            "description": (
+                "Attach four East workers to active A0 seed-0/1 schedulers"
+            ),
+            "completion_locations": [
+                {
+                    "label": "helper",
+                    "glob": str(helper_marker),
+                    "remote": False,
+                },
+                {
+                    "label": "canonical",
+                    "glob": str(canonical_marker),
+                    "remote": False,
+                },
+            ],
+            "completion_min_count": 1,
+            "ready_files": [
+                str(P1_NORTH_EVAL_OVERLAY / "READY"),
+                str(checkpoint / "params/_METADATA"),
+                str(
+                    checkpoint
+                    / "assets/robotwin2.0_absolute_meanstd/norm_stats.json"
+                ),
+                str(
+                    REPO
+                    / "lmvla/lmwm/data/"
+                    "robotwin_pi05_confirmatory_scene_seeds_v1.json"
+                ),
+                *(str(path) for path in scheduler_files),
+                str(amendment),
+                str(REPO / yaml_path),
+            ],
+            "ready_hashes": [
+                *ready_hashes,
+                {"path": str(amendment), "sha256": sha256_file(amendment)},
+            ],
+            "candidates": [
+                {
+                    "kind": "platform",
+                    "resource": "Robot-East-H20",
+                    "region": "cn-shanghai",
+                    "gpus": 4,
+                    "queue_timeout_seconds": 180,
+                    "retry_cooldown_seconds": 300,
+                    "yaml": yaml_path,
+                    "task_name": "pi05-p1-a0-seed01-helper-east4g",
+                    "env": {"CKPT": str(checkpoint)},
+                }
+            ],
+        }
+    )
+
+
 def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
     """Attach four East workers when the local A0 evaluator reaches seeds 2/3."""
     task_id = "pi05_p1_a0_east_accelerator"
@@ -10691,6 +10789,7 @@ def main() -> None:
     add_pi05_mt1_8g_optimization_probes(queue)
     add_pi05_p1_north_failover_tasks(queue)
     add_pi05_p1_north_eval_tasks(queue)
+    add_pi05_p1_a0_seed01_east_helper_task(queue)
     add_pi05_p1_a0_east_accelerator_task(queue)
     add_pi05_r1_recurrence_aligned_tasks(queue)
     add_pi05_r4_outcome_collection_tasks(queue)
@@ -10720,6 +10819,7 @@ def main() -> None:
             add_pi05_mt1_8g_optimization_probes(queue)
             add_pi05_p1_north_failover_tasks(queue)
             add_pi05_p1_north_eval_tasks(queue)
+            add_pi05_p1_a0_seed01_east_helper_task(queue)
             add_pi05_p1_a0_east_accelerator_task(queue)
             add_pi05_r1_recurrence_aligned_tasks(queue)
             add_pi05_r4_outcome_collection_tasks(queue)

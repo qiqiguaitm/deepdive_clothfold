@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 16:29 UTC
+Updated: 2026-08-05 16:44 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -268,6 +268,15 @@ cells. East therefore remains 8/8 only until the two final four-cell waves
 finish; R4 smoke remains unsubmitted and has no recommendation audit yet. The
 scheduler must take a fresh resource snapshot and write that audit after East
 capacity is actually released.
+
+At 16:41 UTC A0 advanced to 6/24 with zero failures; its seed-0 and seed-1
+schedulers each have one active `handover_block` cell and two pending stacking
+cells. A hash-pinned partial-only East helper is now staged to claim those four
+pending cells with disjoint worker and port ranges once a four-GPU East slot is
+available. It cannot write the canonical A0 report or marker, and its DAG node
+also treats an already-existing canonical marker as a no-op completion. The
+helper has not been submitted and has no recommendation audit while East
+remains 8/8; dispatch requires a fresh router decision after capacity release.
 
 ## P1: seed-1000 closed-loop causal gate
 

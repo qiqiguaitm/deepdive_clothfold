@@ -4113,6 +4113,8 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
 
     scheduler.add_pi05_p1_north_eval_tasks(queue)
     scheduler.add_pi05_p1_north_eval_tasks(queue)
+    scheduler.add_pi05_p1_a0_seed01_east_helper_task(queue)
+    scheduler.add_pi05_p1_a0_seed01_east_helper_task(queue)
     scheduler.add_pi05_p1_a0_east_accelerator_task(queue)
     scheduler.add_pi05_p1_a0_east_accelerator_task(queue)
     scheduler.apply_frozen_source_readiness(queue)
@@ -4183,6 +4185,28 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
             )
             for item in accelerator["ready_hashes"]
         )
+
+    a0_seed01_helper = tasks["pi05_p1_a0_seed01_east_helper"]
+    assert a0_seed01_helper["priority"] == 0
+    assert {
+        item["label"] for item in a0_seed01_helper["completion_locations"]
+    } == {"helper", "canonical"}
+    assert sum(
+        path.endswith(".task_scheduler.json")
+        for path in a0_seed01_helper["ready_files"]
+    ) == 2
+    helper_candidate = a0_seed01_helper["candidates"][0]
+    assert helper_candidate["resource"] == "Robot-East-H20"
+    assert helper_candidate["gpus"] == 4
+    assert helper_candidate["yaml"].endswith(
+        "pi05_p1_a0_seed01_helper_east_4h20.yaml"
+    )
+    assert any(
+        item["path"].endswith(
+            "pi05_p1_a0_seed01_east_helper_amendment_v1.json"
+        )
+        for item in a0_seed01_helper["ready_hashes"]
+    )
 
     a0_accelerator = tasks["pi05_p1_a0_east_accelerator"]
     assert a0_accelerator["priority"] == 0
