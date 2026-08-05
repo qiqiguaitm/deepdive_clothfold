@@ -2627,14 +2627,17 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
 
     formal_id = "pi05_r4_outcome_collection_formal"
     if formal_id not in existing:
+        base_dataset_manifest = (
+            REPO
+            / "lmvla/lawam/results/eval_runs/robotwin/pi05_r4_outcomes_public_v1/"
+            "dataset_manifest.json"
+        )
         queue["tasks"].append(
             {
                 "id": formal_id,
                 "priority": 2,
                 "description": "Frozen 24-cell pi0.5 R4 action-bearing outcome collection",
-                "completion_glob": str(
-                    REPO / "logs/resource_markers/pi05_r4_outcome_collection.ok"
-                ),
+                "completion_glob": str(base_dataset_manifest),
                 "completion_min_count": 1,
                 "ready_files": [
                     *common_ready,
@@ -2668,21 +2671,21 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         existing.add(formal_id)
 
     support_id = "pi05_r4_beat_train_support_supplement"
+    support_manifest = (
+        REPO / "lmvla/lmwm/data/pi05_r4_beat_train_support_supplement_v1.json"
+    )
+    support_builder = (
+        REPO / "lmvla/lmwm/scripts/build_pi05_r4_support_scene_manifest.py"
+    )
+    support_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_outcome_support_amendment_v1.json"
+    )
+    support_marker = (
+        REPO / "logs/resource_markers/pi05_r4_beat_train_support_supplement.ok"
+    )
     if support_id not in existing:
-        support_manifest = (
-            REPO / "lmvla/lmwm/data/pi05_r4_beat_train_support_supplement_v1.json"
-        )
-        support_builder = (
-            REPO / "lmvla/lmwm/scripts/build_pi05_r4_support_scene_manifest.py"
-        )
-        support_amendment = (
-            REPO
-            / "lmvla/paper_iclr_lmvla/manifests/"
-            "pi05_r4_outcome_support_amendment_v1.json"
-        )
-        support_marker = (
-            REPO / "logs/resource_markers/pi05_r4_beat_train_support_supplement.ok"
-        )
         support_result = "pi05_r4_beat_train_support_supplement_v1"
         first_cell_summaries = [
             str(
@@ -2739,6 +2742,61 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                             f"R4_SCENE_MANIFEST={shlex.quote(str(support_manifest))} "
                             f"MARKER={shlex.quote(str(support_marker))} "
                             "bash train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+
+    finalize_id = "pi05_r4_outcome_dataset_finalize"
+    if finalize_id not in existing:
+        finalizer = REPO / "train_scripts/kai/analysis/finalize_pi05_r4_outcome_dataset.sh"
+        merger = REPO / "lmvla/lmwm/scripts/merge_pi05_r4_outcome_manifests.py"
+        merge_amendment = (
+            REPO
+            / "lmvla/paper_iclr_lmvla/manifests/"
+            "pi05_r4_outcome_merge_amendment_v1.json"
+        )
+        queue["tasks"].append(
+            {
+                "id": finalize_id,
+                "priority": 1,
+                "description": "Merge base and predeclared support outcomes and run the original R4 audit",
+                "completion_glob": str(
+                    REPO / "logs/resource_markers/pi05_r4_outcome_collection.ok"
+                ),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(
+                        REPO
+                        / "lmvla/lawam/results/eval_runs/robotwin/"
+                        "pi05_r4_outcomes_public_v1/dataset_manifest.json"
+                    ),
+                    str(support_marker),
+                    str(finalizer),
+                    str(merger),
+                    str(merge_amendment),
+                    str(REPO / "lmvla/lmwm/scripts/build_pi05_r4_outcome_manifest.py"),
+                    str(REPO / "lmvla/lmwm/scripts/audit_pi05_r4_outcome_dataset.py"),
+                ],
+                "ready_hashes": [
+                    {"path": str(finalizer), "sha256": sha256_file(finalizer)},
+                    {"path": str(merger), "sha256": sha256_file(merger)},
+                    {
+                        "path": str(merge_amendment),
+                        "sha256": sha256_file(merge_amendment),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/outcomes/finalize"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec bash "
+                            "train_scripts/kai/analysis/finalize_pi05_r4_outcome_dataset.sh"
                         ),
                     }
                 ],

@@ -233,16 +233,19 @@ def test_replication_launchers_keep_canonical_outputs_and_frozen_sources_separat
 def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     queue = {"tasks": []}
     scheduler.add_pi05_r4_outcome_collection_tasks(queue)
+    scheduler.add_pi05_r4_outcome_collection_tasks(queue)
     tasks = {task["id"]: task for task in queue["tasks"]}
     smoke = tasks["pi05_r4_outcome_collection_smoke"]
     formal = tasks["pi05_r4_outcome_collection_formal"]
     support = tasks["pi05_r4_beat_train_support_supplement"]
+    finalize = tasks["pi05_r4_outcome_dataset_finalize"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
     assert "R4_FINALIZE_DATASET=0" in smoke["candidates"][0]["command"]
     assert formal["candidates"][0]["resource"] == "Robot-East-H20"
     assert formal["candidates"][0]["gpus"] == 4
+    assert formal["completion_glob"].endswith("pi05_r4_outcomes_public_v1/dataset_manifest.json")
     assert formal["candidates"][0]["env"]["TORCH_CUDA_ARCH_LIST"] == "9.0"
     assert formal["candidates"][0]["env"]["TORCH_EXTENSIONS_DIR"].endswith(
         "h20_sm90_py310"
@@ -268,6 +271,14 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert any(
         item["path"].endswith("pi05_r4_outcome_support_amendment_v1.json")
         for item in support["ready_hashes"]
+    )
+    assert finalize["candidates"][0]["gpus"] == 0
+    assert finalize["candidates"][0]["resource"] == "local"
+    assert any(path.endswith("pi05_r4_beat_train_support_supplement.ok") for path in finalize["ready_files"])
+    assert finalize["completion_glob"].endswith("pi05_r4_outcome_collection.ok")
+    assert any(
+        item["path"].endswith("pi05_r4_outcome_merge_amendment_v1.json")
+        for item in finalize["ready_hashes"]
     )
 
 

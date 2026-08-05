@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_outcome_merge_amendment_v1",
+  "created_at": "2026-08-05T09:55:00Z",
+  "base_collection_completion": "The immutable 240-episode base manifest proves collection completion even when its support audit rejects.",
+  "training_authorization": "Only an accepted audit over the combined base and predeclared supplemental records may create pi05_r4_outcome_collection.ok.",
+  "merge_invariants": [
+    "Behavior-policy digests must match.",
+    "Task/scene identities cannot repeat across source manifests.",
+    "Artifact paths are resolved against each source manifest and rebased to the combined manifest.",
+    "Episode identities are deterministically reindexed per split and task.",
+    "All source records are retained."
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/scripts/merge_pi05_r4_outcome_manifests.py": "629e874688aa6c93ed9503744043c46f7fea940f82e94d072d30451bfed51413",
+    "train_scripts/kai/analysis/finalize_pi05_r4_outcome_dataset.sh": "378c9a9442ac1605fab06c7cf6b75c89842926e84759da772a1e9e7cfbc6f40a"
+  }
+}
