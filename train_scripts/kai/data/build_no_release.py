@@ -31,6 +31,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from lerobot_build import per_episode_stats
+
 # ---- constants ---- (REPO_ROOT overridable via env KAI0_REPO_ROOT for cross-cluster, e.g. cnbj)
 _REPO = os.environ.get("KAI0_REPO_ROOT", "/vePFS/tim/workspace/deepdive_kai0")
 # 2026-06-02: vis_base v2 数据归入 vis_base/v2/ 子目录; v3 (裁投放) 并列在 vis_base/v3/.
@@ -219,25 +221,6 @@ def count_video_frames(mp4: Path) -> int:
     n = sum(1 for _ in c.decode(video=0))
     c.close()
     return n
-
-
-def per_episode_stats(df: pd.DataFrame) -> dict:
-    """Build lerobot episodes_stats 'stats' dict (scalar features only; images omitted)."""
-    stats = {}
-    for col in df.columns:
-        vals = df[col].to_numpy()
-        if vals.dtype == object:  # array-valued cell (action / state)
-            arr = np.stack(vals).astype(np.float64)
-        else:
-            arr = vals.astype(np.float64).reshape(len(vals), -1)
-        stats[col] = {
-            "mean": arr.mean(0).tolist(),
-            "std": arr.std(0).tolist(),
-            "min": arr.min(0).tolist(),
-            "max": arr.max(0).tolist(),
-            "count": [len(arr)],
-        }
-    return stats
 
 
 def _maybe_norm_stats(dst, compute: bool, action_dim: int):

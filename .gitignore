@@ -29,6 +29,12 @@ kai0/cache
 *.tsbuildinfo
 .cache/
 .runtime/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.playwright-cli/
+.coverage
+htmlcov/
 
 # ===== Training artifacts =====
 logs/
@@ -52,6 +58,11 @@ datasets/
 
 # Scheduler runtime queue/state; scheduler source stays tracked.
 train_scripts/kai/volc/resource_scheduler_queue.json
+
+# One-off dataset recipes/specs stay local. Promote reusable logic or a reviewed
+# example into train_scripts/kai/data/ instead of committing every snapshot.
+/train_scripts/kai/data/local/
+/train_scripts/kai/data/local_specs/
 
 # ===== Raw data (calibration / sensor capture) =====
 calib/data/
