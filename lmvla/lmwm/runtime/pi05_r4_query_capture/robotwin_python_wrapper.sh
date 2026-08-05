@@ -4,7 +4,7 @@ set -Eeuo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
 source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
-export PYTHONPATH="/vePFS/tim/robotwin_client_deps:$SCRIPT_DIR:${PYTHONPATH:-}"
+export PYTHONPATH="$SCRIPT_DIR:/vePFS/tim/robotwin_client_deps:${PYTHONPATH:-}"
 
 script=${1:?RoboTwin Python script is required}
 shift

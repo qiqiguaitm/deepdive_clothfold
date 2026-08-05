@@ -16,8 +16,8 @@
   },
   "file_sha256": {
     "lmvla/lmwm/runtime/pi05_r4_query_capture/hook.py": "dae2b87eb739de81e9850848d80f463527339951e47f077f3f4a2ea20944acd3",
-    "lmvla/lmwm/runtime/pi05_r4_query_capture/robotwin_python_wrapper.sh": "8795e8370f0431ce54164ca9ba0f297852afc0f2b1926f9b3612abf987c9a801",
-    "lmvla/lmwm/runtime/pi05_r4_query_capture/sitecustomize.py": "13989283c7db616518b6aa1a52e4243c5eafbb9afc8524750dd0fd83be5f5769",
+    "lmvla/lmwm/runtime/pi05_r4_query_capture/robotwin_python_wrapper.sh": "5d5f05fd0a7d0ae244fa32103f53909eeada50218c3b671766f297bd97dc3a3a",
+    "lmvla/lmwm/runtime/pi05_r4_query_capture/sitecustomize.py": "df42157f46c8175e7e0832f2a04da5e612502b3cb0db3c279610de608e5df18c",
     "lmvla/lmwm/scripts/build_pi05_r4_query_manifest.py": "4b992809c6e803e0fbd3d30ebb6a2a35225db44247400b93388ed6e3091ab51f",
     "lmvla/lmwm/scripts/merge_pi05_r4_query_manifests.py": "db40412bb936a7f46fb8e97488d5860771300f948cb91e3f225c6c6eb96556ba",
     "lmvla/lmwm/scripts/audit_pi05_r4_query_dataset.py": "adea4388a687181623a0881cc803d43f0fc0600d3cfac97cbfac7a4d9d813fb6",

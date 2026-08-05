@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 10:50 UTC
+Updated: 2026-08-05 11:03 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -271,8 +271,14 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   modules through `importlib.import_module`, bypassing a hook that only wrapped
   `builtins.__import__`. The hook now covers both standard import paths, restores
   them immediately after patching `Base_Task`, and has a direct dynamic-import
-  regression test. The next corrected smoke remains pending. The focused
-  hook/query/scheduler suite passes 108 tests. R4 policy training
+  regression test. A v2 smoke confirmed that the bridge parent used the
+  dedicated wrapper, but its spawned simulator slot still loaded the shared
+  dependency `sitecustomize` first and emitted no query files. The query hook
+  directory is now first on `PYTHONPATH`; its own `sitecustomize` preserves the
+  required Warp compatibility shim and installs the capture hook in every
+  fresh spawn interpreter. A subprocess regression test verifies this exact
+  startup path. The next corrected v2 retry remains pending. The focused
+  spawn-hook/query tests pass. R4 policy training
   remains unscheduled and unauthorized until both the combined outcome audit
   and the three-camera query audit are accepted.
 

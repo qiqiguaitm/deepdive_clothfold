@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 import importlib
+import os
+from pathlib import Path
+import subprocess
 import sys
 
 import numpy as np
@@ -89,3 +92,26 @@ def test_install_patches_dynamic_importlib_task_load(monkeypatch):
     assert hook._PATCHED
     assert DynamicBaseTask.get_obs is not FakeBaseTask.get_obs
     assert importlib.import_module is dynamic_import
+
+
+def test_sitecustomize_installs_hook_in_fresh_spawn_interpreter():
+    hook_dir = Path(__file__).parent
+    environment = os.environ.copy()
+    environment["R4_CAPTURE_QUERY_OBSERVATIONS"] = "1"
+    environment["PYTHONPATH"] = str(hook_dir)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sitecustomize,hook; print(sitecustomize.__file__); "
+            "print(hook._PATCHED); print(hook._TARGET_MODULE)",
+        ],
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    lines = result.stdout.strip().splitlines()
+    assert Path(lines[0]).resolve() == (hook_dir / "sitecustomize.py").resolve()
+    assert lines[1:] == ["False", "envs._base_task"]
