@@ -546,7 +546,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         "pi05_r4_north_eval_amendment_v1.json"
     )
     assert "stage_pi05_r4_eval_to_north.sh" in north_stage["candidates"][0]["command"]
-    assert "R4_NORTH_VALIDATE_ONLY=1" in north_stage["candidates"][0]["command"]
+    assert "R4_NORTH_VALIDATE_ONLY=1" not in north_stage["candidates"][0]["command"]
     north_stage_script = (
         scheduler.REPO / "train_scripts/kai/stage_pi05_r4_eval_to_north.sh"
     ).read_text()

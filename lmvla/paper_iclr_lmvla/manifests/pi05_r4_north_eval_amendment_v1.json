@@ -29,9 +29,9 @@
     "tokenizer_model_sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
   },
   "recovery": {
-    "mode": "validate_only_after_verified_transfer",
-    "reason": "The initial transfer verified and atomically committed all component files before final validation rejected a stripped Python executable bit.",
-    "validation": "Restore executable bits, verify both exact checkpoint hashes, import the pinned runtime, and write remote and local acceptance markers."
+    "mode": "full_restage_after_root_replacement",
+    "reason": "A retry of the root code payload atomically replaced the stage root, so all model and runtime components must be transferred and verified again.",
+    "validation": "After the complete restage, restore executable bits, verify both exact checkpoint hashes, import the pinned runtime, and write remote and local acceptance markers."
   },
   "file_sha256": {
     "train_scripts/kai/eval/lerobot_pi05_action_bridge.py": "4d8c32a696ede0fb13db09242873ad9e4e8da468f01af02e81eee5d33eccdf11",

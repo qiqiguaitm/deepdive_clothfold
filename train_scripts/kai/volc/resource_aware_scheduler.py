@@ -4752,8 +4752,6 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     "status_dir": str(REPO / "logs/r4/north_eval_stage/launcher"),
                     "command": shlex.join(
                         [
-                            "env",
-                            "R4_NORTH_VALIDATE_ONLY=1",
                             "bash",
                             str(REPO / "train_scripts/kai/stage_pi05_r4_eval_to_north.sh"),
                         ]
