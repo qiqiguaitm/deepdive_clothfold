@@ -1,0 +1,112 @@
+diff --git a/examples/Robotwin/eval_files/robotwin_batch_bridge.py b/examples/Robotwin/eval_files/robotwin_batch_bridge.py
+index a205299..e6d8727 100644
+--- a/examples/Robotwin/eval_files/robotwin_batch_bridge.py
++++ b/examples/Robotwin/eval_files/robotwin_batch_bridge.py
+@@ -356,0 +357,33 @@ def _joint_vector(task_env: Any) -> np.ndarray:
++def _save_episode_trajectory(
++    output_dir: Path,
++    episode_id: int,
++    *,
++    actions: list[np.ndarray],
++    states: list[np.ndarray],
++    frame_index: list[int],
++) -> Optional[str]:
++    if len(actions) < 2:
++        return None
++    action_array = np.stack(actions).astype(np.float32, copy=False)
++    state_array = np.stack(states).astype(np.float32, copy=False)
++    frame_array = np.asarray(frame_index, dtype=np.int64)
++    if not (len(action_array) == len(state_array) == len(frame_array)):
++        raise ValueError("trajectory action/state/frame lengths differ")
++    if not np.all(np.diff(frame_array) > 0):
++        raise ValueError("trajectory frame_index must be strictly increasing")
++    if not np.isfinite(action_array).all() or not np.isfinite(state_array).all():
++        raise ValueError("trajectory action/state arrays must be finite")
++
++    output_dir.mkdir(parents=True, exist_ok=True)
++    destination = output_dir / f"episode{episode_id}.npz"
++    temporary = output_dir / f".episode{episode_id}.{os.getpid()}.npz"
++    np.savez_compressed(
++        temporary,
++        actions=action_array,
++        states=state_array,
++        frame_index=frame_array,
++    )
++    temporary.replace(destination)
++    return str(destination)
++
++
+@@ -448,0 +482,11 @@ def _slot_worker_main(
++    active_trajectory_actions: Optional[list[np.ndarray]] = None
++    active_trajectory_states: Optional[list[np.ndarray]] = None
++    active_trajectory_frames: Optional[list[int]] = None
++    save_trajectory = normalize_bool_env(
++        os.environ.get("ROBOTWIN_SAVE_TRAJECTORY"), default=False
++    )
++    trajectory_output_dir = (
++        Path(str(task_args["eval_video_save_dir"]))
++        if save_trajectory and task_args.get("eval_video_save_dir")
++        else None
++    )
+@@ -564,0 +609,3 @@ def _slot_worker_main(
++                    active_trajectory_actions = [] if trajectory_output_dir is not None else None
++                    active_trajectory_states = [] if trajectory_output_dir is not None else None
++                    active_trajectory_frames = [] if trajectory_output_dir is not None else None
+@@ -594,0 +642,3 @@ def _slot_worker_main(
++                    active_trajectory_actions = None
++                    active_trajectory_states = None
++                    active_trajectory_frames = None
+@@ -611,0 +662,3 @@ def _slot_worker_main(
++                    active_trajectory_actions = None
++                    active_trajectory_states = None
++                    active_trajectory_frames = None
+@@ -627,0 +681,4 @@ def _slot_worker_main(
++                    if active_trajectory_actions is not None:
++                        active_trajectory_actions.append(action.reshape(-1).copy())
++                        active_trajectory_states.append(_joint_vector(task_env))
++                        active_trajectory_frames.append(int(task_env.take_action_cnt))
+@@ -642,2 +699 @@ def _slot_worker_main(
+-                    conn.send(
+-                        {
++                    done_message = {
+@@ -652 +708,11 @@ def _slot_worker_main(
+-                    )
++                    if trajectory_output_dir is not None:
++                        trajectory = _save_episode_trajectory(
++                            trajectory_output_dir,
++                            active_episode_id,
++                            actions=active_trajectory_actions or [],
++                            states=active_trajectory_states or [],
++                            frame_index=active_trajectory_frames or [],
++                        )
++                        if trajectory is not None:
++                            done_message["trajectory"] = trajectory
++                    conn.send(done_message)
+@@ -655,0 +722,3 @@ def _slot_worker_main(
++                    active_trajectory_actions = None
++                    active_trajectory_states = None
++                    active_trajectory_frames = None
+@@ -667,2 +736 @@ def _slot_worker_main(
+-                    conn.send(
+-                        {
++                    done_message = {
+@@ -676 +744,11 @@ def _slot_worker_main(
+-                    )
++                    if trajectory_output_dir is not None:
++                        trajectory = _save_episode_trajectory(
++                            trajectory_output_dir,
++                            active_episode_id,
++                            actions=active_trajectory_actions or [],
++                            states=active_trajectory_states or [],
++                            frame_index=active_trajectory_frames or [],
++                        )
++                        if trajectory is not None:
++                            done_message["trajectory"] = trajectory
++                    conn.send(done_message)
+@@ -679,0 +758,3 @@ def _slot_worker_main(
++                    active_trajectory_actions = None
++                    active_trajectory_states = None
++                    active_trajectory_frames = None
+@@ -1064,0 +1146,2 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
++                    if message.get("trajectory"):
++                        record["trajectory"] = str(message["trajectory"])

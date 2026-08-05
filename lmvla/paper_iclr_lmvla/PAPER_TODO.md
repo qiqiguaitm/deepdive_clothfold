@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 08:55 UTC
+Updated: 2026-08-05 09:06 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -202,7 +202,18 @@ videos, but not aligned per-step actions and states; they support diagnosis,
 not AWBC/AWR training. R4 additionally requires a six-task, scene-disjoint
 train/eval manifest with behavior-policy identity, hashed videos, and finite,
 aligned action/state/frame trajectories with success and failure support for
-every training task. No R4 training node is scheduled.
+every training task. The historical public-policy collector produced videos but
+no trajectories and was correctly rejected. A new collector is isolated from
+the P1/P2 frozen runtime in an overlay materialized from lawam commit
+`865e0b6` plus a hash-pinned patch. It atomically records aligned action, state,
+and frame-index arrays without changing shared evaluation sources. The frozen
+scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
+2/3 form eval, with scene identities disjoint before collection. A one-task,
+two-episode local smoke is ready; only its successful trajectory audit may
+unlock the four-GPU East collection. The final builder hashes the behavior
+policy, every trajectory, and every video before running the existing R4 input
+audit. The collector and scheduler suite passes 126 tests. R4 training remains
+unscheduled and unauthorized until that final dataset audit is accepted.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary

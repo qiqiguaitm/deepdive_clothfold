@@ -1,0 +1,122 @@
+{
+  "episodes_per_cell": 2,
+  "eval_seeds": {
+    "0": {
+      "beat_block_hammer": [
+        100000,
+        100002
+      ],
+      "blocks_ranking_rgb": [
+        100000,
+        100001
+      ],
+      "blocks_ranking_size": [
+        100000,
+        100001
+      ],
+      "handover_block": [
+        100000,
+        100002
+      ],
+      "stack_blocks_three": [
+        100000,
+        100001
+      ],
+      "stack_blocks_two": [
+        100000,
+        100001
+      ]
+    },
+    "1": {
+      "beat_block_hammer": [
+        200000,
+        200001
+      ],
+      "blocks_ranking_rgb": [
+        200000,
+        200001
+      ],
+      "blocks_ranking_size": [
+        200000,
+        200002
+      ],
+      "handover_block": [
+        200000,
+        200001
+      ],
+      "stack_blocks_three": [
+        200001,
+        200002
+      ],
+      "stack_blocks_two": [
+        200000,
+        200001
+      ]
+    },
+    "2": {
+      "beat_block_hammer": [
+        300000,
+        300001
+      ],
+      "blocks_ranking_rgb": [
+        300000,
+        300001
+      ],
+      "blocks_ranking_size": [
+        300000,
+        300001
+      ],
+      "handover_block": [
+        300000,
+        300001
+      ],
+      "stack_blocks_three": [
+        300000,
+        300001
+      ],
+      "stack_blocks_two": [
+        300000,
+        300001
+      ]
+    },
+    "3": {
+      "beat_block_hammer": [
+        400001,
+        400003
+      ],
+      "blocks_ranking_rgb": [
+        400000,
+        400001
+      ],
+      "blocks_ranking_size": [
+        400000,
+        400001
+      ],
+      "handover_block": [
+        400002,
+        400004
+      ],
+      "stack_blocks_three": [
+        400000,
+        400001
+      ],
+      "stack_blocks_two": [
+        400000,
+        400001
+      ]
+    }
+  },
+  "protocol": "pi05_r4_outcome_scene_seeds_v1",
+  "schema_version": 1,
+  "source_protocol": null,
+  "split_by_eval_seed": {
+    "eval": [
+      2,
+      3
+    ],
+    "train": [
+      0,
+      1
+    ]
+  }
+}

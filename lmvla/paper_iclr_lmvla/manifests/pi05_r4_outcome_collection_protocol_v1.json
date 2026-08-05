@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_outcome_collection_v1",
+  "created_at": "2026-08-05T09:04:05Z",
+  "behavior_policy": "/vePFS/tim/hf_models/SidneyXie_pi05_robotwin/model.safetensors",
+  "lawam_commit": "865e0b631c67cc5463feab04e34056a5538186c5",
+  "collector_overlay": "logs/frozen_source_overlays/pi05_r4_collector_v1/lawam",
+  "file_sha256": {
+    "lmvla/paper_iclr_lmvla/frozen_sources/pi05_r4_collector_v1/robotwin_batch_bridge.patch": "3a39b0c77077561a85922a9aef1a9828900626557e0f7e14e48be9a58f77058b",
+    "logs/frozen_source_overlays/pi05_r4_collector_v1/lawam/COLLECTOR_READY": "4c1d99db6b05a6e3ef92819458d5df0026a541f002419db6037fe37d9788897e",
+    "logs/frozen_source_overlays/pi05_r4_collector_v1/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py": "1b3870768bce3f8e3780318beee626a5c42170bc068b8d7b2bd4eca56a9ed952",
+    "lmvla/lmwm/scripts/materialize_pi05_r4_collector_overlay.py": "fec112a31783fd42264b382d4cf15fd0ee2505cbccb965edf76feebd7d52d373",
+    "lmvla/lmwm/scripts/build_pi05_r4_scene_manifest.py": "bcb14690e38b4cfcc501de4d669c97f4aed9a2f023ec6a969a9745e874ee8944",
+    "lmvla/lmwm/scripts/build_pi05_r4_outcome_manifest.py": "a8aa3939b55ad9e0616c62654b187e3bdaab3728812c513094d858eaec1f8c4e",
+    "lmvla/lmwm/scripts/audit_pi05_r4_outcome_dataset.py": "f23ab7a91201dc8e3d31c7f95fefce9936c95dd6942fa4ab4bd863895f1ab35b",
+    "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_v1.json": "e107c10f6656bee88a05ce7d145f80a47ce04eaa6fb1a89ec4590313854762ef",
+    "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json": "3d945595eed229d81dc21c623a18b63ba112bd5085321971b1ebaf25eae13e10",
+    "train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh": "7b962a378d0ac2c688da1dc0a4901981c7f5d4126fc538f02f08ed865d3e5ea3",
+    "train_scripts/kai/volc/pi05_r4_outcome_collection_east_4h20.yaml": "6abee3288e06ea0baa5a52f75518c496f65e0bb7f511bf85618d570dde80af0d"
+  },
+  "scene_protocol": {
+    "episodes_per_cell": 10,
+    "eval_seeds": [0, 1, 2, 3],
+    "train_eval_seed_split": {
+      "train": [0, 1],
+      "eval": [2, 3]
+    },
+    "task_count": 6,
+    "cell_count": 24,
+    "episode_count": 240
+  },
+  "gates": {
+    "smoke_requires_trajectory_count": 2,
+    "formal_requires_smoke_marker": "logs/resource_markers/pi05_r4_outcome_collection_smoke.ok",
+    "training_requires_accepted_dataset_audit": true
+  },
+  "constraints": [
+    "Collection uses an isolated lawam overlay and cannot modify P1/P2 frozen evaluation sources.",
+    "Every episode must contain a video and aligned finite actions, states, and strictly increasing frame indices.",
+    "Train and eval scene identities are disjoint before collection.",
+    "The behavior policy model is hashed into every dataset record.",
+    "R4 training remains unauthorized until the final dataset audit is accepted."
+  ]
+}

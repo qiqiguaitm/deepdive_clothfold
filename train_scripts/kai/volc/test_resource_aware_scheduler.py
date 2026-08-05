@@ -230,6 +230,29 @@ def test_replication_launchers_keep_canonical_outputs_and_frozen_sources_separat
     assert 'CKPT=${CKPT:-$REPO/' in eval_launcher
 
 
+def test_r4_collection_is_smoke_gated_and_isolated() -> None:
+    queue = {"tasks": []}
+    scheduler.add_pi05_r4_outcome_collection_tasks(queue)
+    tasks = {task["id"]: task for task in queue["tasks"]}
+    smoke = tasks["pi05_r4_outcome_collection_smoke"]
+    formal = tasks["pi05_r4_outcome_collection_formal"]
+
+    assert smoke["candidates"][0]["resource"] == "local"
+    assert smoke["candidates"][0]["gpus"] == 1
+    assert "R4_FINALIZE_DATASET=0" in smoke["candidates"][0]["command"]
+    assert formal["candidates"][0]["resource"] == "Robot-East-H20"
+    assert formal["candidates"][0]["gpus"] == 4
+    assert any(path.endswith("pi05_r4_outcome_collection_smoke.ok") for path in formal["ready_files"])
+    assert all(
+        not item["path"].startswith(str(scheduler.REPO / "lmvla/lawam/"))
+        for item in formal["ready_hashes"]
+    )
+    assert any(
+        "frozen_source_overlays/pi05_r4_collector_v1" in item["path"]
+        for item in formal["ready_hashes"]
+    )
+
+
 def north_snapshot(
     *,
     primary: int = 20,

@@ -2563,6 +2563,105 @@ def add_pi05_r1_recurrence_aligned_tasks(queue: dict[str, Any]) -> None:
         )
 
 
+def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
+    """Collect action-bearing outcomes without touching frozen evaluation sources."""
+    existing = {task.get("id") for task in queue.get("tasks", [])}
+    protocol_path = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_outcome_collection_protocol_v1.json"
+    )
+    protocol = json.loads(protocol_path.read_text())
+    ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(protocol["file_sha256"].items())
+    ]
+    common_ready = [
+        str(protocol_path),
+        str(REPO / "logs/frozen_source_overlays/pi05_r4_collector_v1/lawam/COLLECTOR_READY"),
+        str(REPO / "train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh"),
+        "/vePFS/tim/hf_models/SidneyXie_pi05_robotwin/model.safetensors",
+        "/vePFS/tim/hf_models/paligemma_tokenizer/tokenizer.model",
+        "/vePFS/tim/workspace/lerobot-pi05-server-venv/bin/python",
+    ]
+    smoke_marker = REPO / "logs/resource_markers/pi05_r4_outcome_collection_smoke.ok"
+    smoke_id = "pi05_r4_outcome_collection_smoke"
+    if smoke_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": smoke_id,
+                "priority": 2,
+                "description": "One-task/two-episode isolated R4 trajectory collector smoke",
+                "completion_glob": str(smoke_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    *common_ready,
+                    str(REPO / "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json"),
+                ],
+                "ready_hashes": ready_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 1,
+                        "gpu_indices": [0],
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/outcomes/smoke_local"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec env "
+                            "ROBOTWIN_TASKS=beat_block_hammer SEEDS=0 "
+                            "ROBOTWIN_TEST_NUM=2 LOCAL_GPU_COUNT=1 "
+                            "R4_FINALIZE_DATASET=0 "
+                            "RESULT_NAME=pi05_r4_outcomes_smoke_v1 "
+                            "RUN_TAG_PREFIX=r4-outcomes-smoke "
+                            "PORT_BASE_OFFSET=26800 "
+                            f"R4_SCENE_MANIFEST={shlex.quote(str(REPO / 'lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json'))} "
+                            f"MARKER={shlex.quote(str(smoke_marker))} "
+                            "bash train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(smoke_id)
+
+    formal_id = "pi05_r4_outcome_collection_formal"
+    if formal_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": formal_id,
+                "priority": 2,
+                "description": "Frozen 24-cell pi0.5 R4 action-bearing outcome collection",
+                "completion_glob": str(
+                    REPO / "logs/resource_markers/pi05_r4_outcome_collection.ok"
+                ),
+                "completion_min_count": 1,
+                "ready_files": [
+                    *common_ready,
+                    str(smoke_marker),
+                    str(REPO / "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_v1.json"),
+                ],
+                "ready_hashes": ready_hashes,
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 300,
+                        "yaml": "train_scripts/kai/volc/pi05_r4_outcome_collection_east_4h20.yaml",
+                        "task_name": "pi05-r4-outcomes-public-v1-east4g",
+                        "env": {
+                            "RESULT_NAME": "pi05_r4_outcomes_public_v1",
+                            "PORT_BASE_OFFSET": "24800",
+                        },
+                    }
+                ],
+            }
+        )
+
+
 def add_pi05_r2_adaptive_execution_tasks(queue: dict[str, Any]) -> None:
     """Stage the causal-readout and same-scene frozen-policy R2 screen."""
     existing = {task.get("id") for task in queue.get("tasks", [])}
@@ -9090,6 +9189,7 @@ def main() -> None:
     add_pi05_mt1_8g_optimization_probes(queue)
     add_pi05_p1_north_failover_tasks(queue)
     add_pi05_r1_recurrence_aligned_tasks(queue)
+    add_pi05_r4_outcome_collection_tasks(queue)
     add_pi05_r2_adaptive_execution_tasks(queue)
     add_pi05_north_eval_attach_tasks(queue)
     add_pi05_step40000_safety_probes(queue)
@@ -9115,6 +9215,7 @@ def main() -> None:
             add_pi05_mt1_8g_optimization_probes(queue)
             add_pi05_p1_north_failover_tasks(queue)
             add_pi05_r1_recurrence_aligned_tasks(queue)
+            add_pi05_r4_outcome_collection_tasks(queue)
             add_pi05_r2_adaptive_execution_tasks(queue)
             add_pi05_north_eval_attach_tasks(queue)
             add_pi05_step40000_safety_probes(queue)
