@@ -506,6 +506,14 @@ preflight loaded the real config and unnormalizer and accepted the complete
 require that preflight marker; their checkpoints, fixed scene manifest, episode
 counts, and gate remain unchanged.
 
+At 21:06 UTC the repaired ordinary evaluation had completed its first two real
+fixed-scene cells with zero failed cells: `beat_block_hammer` reached 43/50 for
+eval seed 0 and 39/50 for eval seed 1. Together these 100 episodes exercised
+437 model queries and the complete normalized-action, checkpoint
+postprocessor, websocket, and simulator-control path. This closes the runtime
+repair check but is not an R4 method result; all 24 ordinary cells and both
+matched control arms remain required before the preregistered gate can run.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from
