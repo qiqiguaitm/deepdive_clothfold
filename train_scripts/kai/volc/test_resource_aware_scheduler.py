@@ -3768,10 +3768,18 @@ def test_r1_recurrence_aligned_dag_is_double_gated_and_disjoint() -> None:
     assert "shuffled_action=" in gate["candidates"][0]["command"]
 
     replication_gate = str(scheduler.REPO / "logs/r1/seed1000/r1_gate.accepted")
+    rejection_reason = (
+        "R1 seed-1000 necessary comparison rejected: combined is significantly "
+        "worse than CRAVE-only"
+    )
     for seed in (1001, 1002):
         for arm in ("a0", "predictive", "crave", "combined"):
             train = tasks[f"pi05_r1_{arm}_seed{seed}_train"]
             evaluate = tasks[f"pi05_r1_{arm}_seed{seed}_eval"]
+            assert train["enabled"] is False
+            assert evaluate["enabled"] is False
+            assert train["disabled_reason"] == rejection_reason
+            assert evaluate["disabled_reason"] == rejection_reason
             assert replication_gate in train["ready_files"]
             assert replication_gate in evaluate["ready_files"]
             assert [candidate["resource"] for candidate in train["candidates"]] == [
@@ -3799,6 +3807,8 @@ def test_r1_recurrence_aligned_dag_is_double_gated_and_disjoint() -> None:
                 assert p2_train["hold_retry_while_running"] == [train["id"]]
 
     final_gate = tasks["pi05_r1_three_seed_gate"]
+    assert final_gate["enabled"] is False
+    assert final_gate["disabled_reason"] == rejection_reason
     assert len(final_gate["ready_files"]) == 14
     assert "1002:combined=" in final_gate["candidates"][0]["command"]
 

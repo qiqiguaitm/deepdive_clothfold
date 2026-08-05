@@ -2593,6 +2593,22 @@ def add_pi05_r1_recurrence_aligned_tasks(queue: dict[str, Any]) -> None:
             }
         )
 
+    replication_disabled_reason = (
+        "R1 seed-1000 necessary comparison rejected: combined is significantly "
+        "worse than CRAVE-only"
+    )
+    replication_ids = {
+        f"pi05_r1_{arm}_seed{seed}_{phase}"
+        for seed in (1001, 1002)
+        for arm in ("a0", "predictive", "crave", "combined")
+        for phase in ("train", "eval")
+    }
+    replication_ids.add(final_gate_id)
+    for task in queue["tasks"]:
+        if task.get("id") in replication_ids:
+            task["enabled"] = False
+            task["disabled_reason"] = replication_disabled_reason
+
 
 def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
     """Collect action-bearing outcomes without touching frozen evaluation sources."""
