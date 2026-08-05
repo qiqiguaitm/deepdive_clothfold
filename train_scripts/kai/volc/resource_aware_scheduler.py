@@ -2655,6 +2655,11 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                         "env": {
                             "RESULT_NAME": "pi05_r4_outcomes_public_v1",
                             "PORT_BASE_OFFSET": "24800",
+                            "TORCH_CUDA_ARCH_LIST": "9.0",
+                            "TORCH_EXTENSIONS_DIR": (
+                                "/vePFS/tim/runtime/torch_extensions/"
+                                "h20_sm90_py310"
+                            ),
                         },
                     }
                 ],

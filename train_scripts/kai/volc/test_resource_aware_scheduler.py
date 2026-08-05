@@ -242,6 +242,10 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert "R4_FINALIZE_DATASET=0" in smoke["candidates"][0]["command"]
     assert formal["candidates"][0]["resource"] == "Robot-East-H20"
     assert formal["candidates"][0]["gpus"] == 4
+    assert formal["candidates"][0]["env"]["TORCH_CUDA_ARCH_LIST"] == "9.0"
+    assert formal["candidates"][0]["env"]["TORCH_EXTENSIONS_DIR"].endswith(
+        "h20_sm90_py310"
+    )
     assert any(path.endswith("pi05_r4_outcome_collection_smoke.ok") for path in formal["ready_files"])
     assert all(
         not item["path"].startswith(str(scheduler.REPO / "lmvla/lawam/"))
