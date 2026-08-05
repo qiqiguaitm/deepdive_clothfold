@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 16:56 UTC
+Updated: 2026-08-05 16:58 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -283,6 +283,18 @@ overlay. The DAG now uses the matching East path for both nodes. The seed-0/1
 helper has no missing input and reports `ready=true`; the seed-2/3 accelerator
 remains blocked only on its two not-yet-created scheduler files. This correction
 does not weaken a hash gate or alter either amendment.
+
+At 16:58 UTC normal and action-masked are both canonical 24/24 results with
+zero failed cells. Each platform parent was closed only after its shared
+artifact marker existed; no North copy was required. The first released
+four-GPU East slot produced a fresh recommendation audit selecting data-local
+Robot-East-H20 and launched the R4 exact-runtime smoke as
+`t-20260806005236-qz75g`. The second released slot independently produced a
+fresh audit and launched the partial-only A0 helper as
+`t-20260806005709-l9prw`. R4 passed dataset construction and entered policy
+initialization. The helper passed overlay/checkpoint checks and activated four
+disjoint workers; across seed 0/1, A0 now has 6 completed, 5 active, 1 pending,
+and zero failed cells. East is again 8/8 with exactly these two four-GPU jobs.
 
 ## P1: seed-1000 closed-loop causal gate
 
