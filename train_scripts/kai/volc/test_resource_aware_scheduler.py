@@ -3533,6 +3533,33 @@ def test_stop_managed_attempt_terminates_process_groups(monkeypatch) -> None:
     assert local == [(456, scheduler.signal.SIGTERM)]
 
 
+def test_launch_local_uses_non_login_shell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+
+    class FakeProcess:
+        pid = 12345
+
+    def fake_popen(args, **kwargs):
+        calls.append((args, kwargs))
+        return FakeProcess()
+
+    monkeypatch.setattr(scheduler.subprocess, "Popen", fake_popen)
+    candidate = {
+        "status_dir": str(tmp_path / "status"),
+        "command": "printf ready",
+    }
+
+    pid = scheduler.launch_local(candidate)
+
+    assert pid == "12345"
+    assert calls[0][0][:2] == ["bash", "-c"]
+    launcher_body = calls[0][0][2]
+    assert "bash -c " in launcher_body
+    assert "bash -lc " not in launcher_body
+
+
 def test_dynamic_attach_tasks_are_idempotent_and_checkpoint_gated() -> None:
     queue = json.loads(scheduler.QUEUE_PATH.read_text())
     scheduler.add_pi05_shared_eval_attach_tasks(queue)

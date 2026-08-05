@@ -9546,7 +9546,7 @@ def launch_local(candidate: dict[str, Any]) -> str:
     body = (
         "set +e; start=$(date -u +%FT%TZ); "
         f'echo "RUNNING start=$start host=$(hostname)" > {shlex.quote(str(status_path))}; '
-        f"bash -lc {shlex.quote(command)}; rc=$?; end=$(date -u +%FT%TZ); "
+        f"bash -c {shlex.quote(command)}; rc=$?; end=$(date -u +%FT%TZ); "
         f'echo "FINISHED rc=$rc start=$start end=$end host=$(hostname)" > {shlex.quote(str(status_path))}; exit $rc'
     )
     stream = (status_dir / "launcher.log").open("a", encoding="utf-8")
