@@ -103,7 +103,10 @@ def build(
     repo_id: str,
     image_writer_threads: int = 8,
 ) -> dict:
-    from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+    try:
+        from lerobot.datasets.lerobot_dataset import LeRobotDataset
+    except ImportError:  # pragma: no cover - compatibility with pre-0.4 layouts.
+        from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
     chunks_path = chunks_path.resolve()
     chunks_report_path = chunks_report_path.resolve()
@@ -182,6 +185,9 @@ def build(
                             frame[f"observation.images.{camera}"] = image
                         dataset.add_frame(frame)
                 dataset.save_episode()
+            finalize = getattr(dataset, "finalize", None)
+            if callable(finalize):
+                finalize()
         staging.rename(output_root)
     except BaseException:
         if staging.exists():

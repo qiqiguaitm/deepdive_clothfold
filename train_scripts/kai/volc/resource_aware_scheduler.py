@@ -2062,6 +2062,9 @@ def add_pi05_p1_north_failover_tasks(queue: dict[str, Any]) -> None:
         )
 
     materialize_id = "pi05_p1_north_failover_materialize"
+    materialize_marker = (
+        REPO / "logs/resource_markers/pi05_p1_north_failover_materialized.ok"
+    )
     if materialize_id not in existing:
         queue["tasks"].append(
             {
@@ -2069,8 +2072,9 @@ def add_pi05_p1_north_failover_tasks(queue: dict[str, Any]) -> None:
                 "priority": 0,
                 "description": "Atomically materialize the completed North P1 pair",
                 "materialize_north_result_for": parent_id,
-                "completion_glob": str(local_report),
+                "completion_glob": str(materialize_marker),
                 "completion_min_count": 1,
+                "produces_files": [str(local_report), str(materialize_marker)],
                 "ready_files": [
                     str(REPO / "train_scripts/kai/sync_pi05_p1_north_failover_results.sh")
                 ],
@@ -3204,6 +3208,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
     lerobot_id = "pi05_r4_lerobot_dataset_build"
     lerobot_marker = REPO / "logs/resource_markers/pi05_r4_lerobot_dataset.ok"
     lerobot_builder = REPO / "lmvla/lmwm/scripts/build_pi05_r4_lerobot_dataset.py"
+    lerobot_python = Path("/vePFS/tim/workspace/lerobot-main/.venv/bin/python")
     lerobot_root = REPO / "lmvla/lmwm/data/pi05_r4_training_v1/lerobot_query_chunks"
     lerobot_report = REPO / "logs/r4/training/lerobot_query_chunks_report.json"
     if lerobot_id not in existing:
@@ -3222,7 +3227,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     str(training_chunks),
                     str(training_chunks_report),
                     str(lerobot_builder),
-                    str(REPO / "kai0/.venv/bin/python"),
+                    str(lerobot_python),
                 ],
                 "ready_hashes": [
                     {"path": str(lerobot_builder), "sha256": sha256_file(lerobot_builder)},
@@ -3237,7 +3242,8 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                         "command": (
                             f"cd {shlex.quote(str(REPO))} && rm -f "
                             f"{shlex.quote(str(lerobot_marker))} && "
-                            f"kai0/.venv/bin/python {shlex.quote(str(lerobot_builder))} "
+                            f"{shlex.quote(str(lerobot_python))} "
+                            f"{shlex.quote(str(lerobot_builder))} "
                             f"--chunks {shlex.quote(str(training_chunks))} "
                             f"--chunks-report {shlex.quote(str(training_chunks_report))} "
                             f"--output-root {shlex.quote(str(lerobot_root))} "
@@ -5657,6 +5663,22 @@ def load_state(queue: dict[str, Any]) -> dict[str, Any]:
             task_state.pop("completed_at", None)
             task_state["waiting_reason"] = (
                 "prior platform failure was misclassified; remote 49999 outputs missing"
+            )
+            if task_state.get("attempts"):
+                task_state["attempts"][-1]["completion_misclassification_repaired"] = (
+                    utc_now()
+                )
+        if (
+            task["id"] == "pi05_p1_north_failover_materialize"
+            and task_state.get("status") == "completed"
+            and not completion_evidence(task)[0]
+        ):
+            task_state["status"] = "pending"
+            task_state["artifacts_complete"] = False
+            task_state.pop("completed_at", None)
+            task_state.pop("satisfied_by_task", None)
+            task_state["waiting_reason"] = (
+                "legacy report-only completion repaired; checkpoint marker missing"
             )
             if task_state.get("attempts"):
                 task_state["attempts"][-1]["completion_misclassification_repaired"] = (
@@ -9338,14 +9360,22 @@ def dispatch(
         if not parent_id:
             continue
         required = north_materialization_required(state["tasks"].get(parent_id, {}))
+        parent_state = state["tasks"].get(parent_id, {})
         task_state = state["tasks"][task["id"]]
         if required is None and task_state.get("status") == "pending":
             task_state["waiting_reason"] = (
                 f"waiting for North parent task to complete: {parent_id}"
             )
-        if required is True and not task_state.get("rearmed_after_parent_completion"):
+        parent_completed_at = parent_state.get("completed_at")
+        if (
+            required is True
+            and parent_completed_at
+            and task_state.get("parent_completion_failure_epoch") != parent_completed_at
+        ):
             exhausted = task_state.pop("exhausted_resources", None)
             task_state["rearmed_after_parent_completion"] = utc_now()
+            task_state["parent_completion_failure_epoch"] = parent_completed_at
+            task_state["ignore_failures_before"] = parent_completed_at
             if exhausted:
                 log(
                     f"rearmed {task['id']} after {parent_id} completed on North; "

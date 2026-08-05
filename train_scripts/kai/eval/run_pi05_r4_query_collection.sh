@@ -10,14 +10,16 @@ TEST_NUM=${ROBOTWIN_TEST_NUM:-10}
 FINAL_MARKER=${MARKER:?MARKER is required}
 INNER_MARKER=${FINAL_MARKER}.outcomes
 ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/$RESULT_NAME
-OUTCOME_MANIFEST=$ROOT/dataset_manifest.json
-QUERY_MANIFEST=$ROOT/query_manifest.json
+MANIFEST_DIR=${R4_QUERY_MANIFEST_DIR:-$REPO/logs/r4/outcomes/query_manifests}
+OUTCOME_MANIFEST=$MANIFEST_DIR/${RESULT_NAME}_outcome.json
+QUERY_MANIFEST=$MANIFEST_DIR/${RESULT_NAME}_query.json
 HOOK_DIR=$REPO/lmvla/lmwm/runtime/pi05_r4_query_capture
 QUERY_ROBOTWIN_PY=$HOOK_DIR/robotwin_python_wrapper.sh
 
 test -s "$HOOK_DIR/sitecustomize.py"
 test -s "$HOOK_DIR/hook.py"
 test -x "$QUERY_ROBOTWIN_PY"
+mkdir -p "$MANIFEST_DIR"
 rm -f "$FINAL_MARKER" "$INNER_MARKER"
 
 export R4_CAPTURE_QUERY_OBSERVATIONS=1
@@ -40,7 +42,8 @@ query_count=$(find "$ROOT" -name 'query_episode*.npz' -type f | wc -l)
 
 python3 "$REPO/lmvla/lmwm/scripts/build_pi05_r4_outcome_manifest.py" \
   --result-root "$ROOT" --scene-manifest "$R4_SCENE_MANIFEST" \
-  --behavior-policy "$MODEL/model.safetensors" --output "$OUTCOME_MANIFEST"
+  --behavior-policy "$MODEL/model.safetensors" --output "$OUTCOME_MANIFEST" \
+  --tasks "${task_list[@]}" --eval-seeds "${seed_list[@]}"
 python3 "$REPO/lmvla/lmwm/scripts/build_pi05_r4_query_manifest.py" \
   --outcome-manifest "$OUTCOME_MANIFEST" --output "$QUERY_MANIFEST"
 

@@ -27,6 +27,9 @@ def build(
     scene_manifest: dict,
     behavior_policy: Path,
     output_path: Path,
+    *,
+    tasks: set[str] | None = None,
+    eval_seeds: set[int] | None = None,
 ) -> dict:
     split_by_seed = {
         int(seed): split
@@ -35,9 +38,13 @@ def build(
     }
     expected = {
         (int(eval_seed), str(task)): [int(value) for value in values]
-        for eval_seed, tasks in scene_manifest["eval_seeds"].items()
-        for task, values in tasks.items()
+        for eval_seed, manifest_tasks in scene_manifest["eval_seeds"].items()
+        for task, values in manifest_tasks.items()
+        if (eval_seeds is None or int(eval_seed) in eval_seeds)
+        and (tasks is None or str(task) in tasks)
     }
+    if not expected:
+        raise ValueError("requested task/seed subset contains no scene-manifest cells")
     summaries = sorted(result_root.glob("seed*/**/tasks/*/summary.json"))
     if len(summaries) != len(expected):
         raise ValueError(f"expected {len(expected)} summaries, found {len(summaries)}")
@@ -88,6 +95,8 @@ def build(
         "schema_version": 1,
         "protocol": "pi05_r4_action_bearing_outcomes_v1",
         "scene_manifest_protocol": scene_manifest["protocol"],
+        "selected_tasks": sorted({task for _, task in expected}),
+        "selected_eval_seeds": sorted({seed for seed, _ in expected}),
         "behavior_policy": str(behavior_policy.resolve()),
         "behavior_policy_sha256": policy_digest,
         "records": records,
@@ -107,12 +116,25 @@ def main() -> int:
     parser.add_argument("--scene-manifest", type=Path, required=True)
     parser.add_argument("--behavior-policy", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--tasks",
+        nargs="+",
+        help="Optional explicit task subset for a predeclared collection shard",
+    )
+    parser.add_argument(
+        "--eval-seeds",
+        nargs="+",
+        type=int,
+        help="Optional explicit eval-seed subset for a predeclared collection shard",
+    )
     args = parser.parse_args()
     result = build(
         args.result_root.resolve(),
         json.loads(args.scene_manifest.read_text()),
         args.behavior_policy.resolve(),
         args.output.resolve(),
+        tasks=None if args.tasks is None else set(args.tasks),
+        eval_seeds=None if args.eval_seeds is None else set(args.eval_seeds),
     )
     atomic_json(args.output, result)
     print(json.dumps({"records": len(result["records"]), "output": str(args.output)}))

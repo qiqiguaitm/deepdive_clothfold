@@ -47,7 +47,10 @@ def test_validate_arrays_rejects_task_without_both_outcomes(tmp_path: Path) -> N
 
 def test_builds_loadable_direct_chunk_dataset(tmp_path: Path) -> None:
     pytest.importorskip("lerobot")
-    from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+    try:
+        from lerobot.datasets.lerobot_dataset import LeRobotDataset
+    except ImportError:  # pragma: no cover - compatibility with pre-0.4 layouts.
+        from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
     query = tmp_path / "query.npz"
     images = np.zeros((2, 24, 32, 3), dtype=np.uint8)

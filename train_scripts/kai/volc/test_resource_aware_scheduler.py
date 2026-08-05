@@ -1248,11 +1248,18 @@ def test_north_parent_completion_rearms_only_precompletion_failures(
         "tasks": {
             "parent": {
                 "status": "completed",
+                "completed_at": "2026-08-05T12:00:00Z",
                 "attempts": [{"resource": "Robot-North-H20"}],
             },
             "materialize": {
                 "status": "pending",
-                "attempts": [],
+                "attempts": [
+                    {
+                        "resource": "local",
+                        "failure": "old failure",
+                        "finished_at": "2026-08-05T02:00:00Z",
+                    }
+                ],
                 "exhausted_resources": {"local": {"failures": 3, "limit": 3}},
             },
         }
@@ -1263,12 +1270,22 @@ def test_north_parent_completion_rearms_only_precompletion_failures(
     materialize_state = state["tasks"]["materialize"]
     assert "exhausted_resources" not in materialize_state
     assert materialize_state["rearmed_after_parent_completion"]
+    assert materialize_state["ignore_failures_before"] == "2026-08-05T12:00:00Z"
+    assert scheduler.candidate_failure_count(
+        materialize_state, materialize["candidates"][0]
+    ) == 0
 
-    materialize_state["exhausted_resources"] = {
-        "local": {"failures": 3, "limit": 3}
-    }
+    materialize_state["attempts"].append(
+        {
+            "resource": "local",
+            "failure": "new failure",
+            "finished_at": "2026-08-05T12:01:00Z",
+        }
+    )
     scheduler.dispatch({"tasks": [parent, materialize]}, state, {"resources": {}})
-    assert materialize_state["exhausted_resources"]["local"]["failures"] == 3
+    assert scheduler.candidate_failure_count(
+        materialize_state, materialize["candidates"][0]
+    ) == 1
 
 
 def test_mt1_north_materialization_tasks_match_parent_outputs() -> None:
@@ -3969,5 +3986,49 @@ def test_p1_north_failover_pair_is_audited_and_materialized() -> None:
     ]
     materialize = tasks["pi05_p1_north_failover_materialize"]
     assert materialize["materialize_north_result_for"] == parent["id"]
+    assert materialize["completion_glob"].endswith(
+        "logs/resource_markers/pi05_p1_north_failover_materialized.ok"
+    )
+    assert materialize["completion_glob"] in materialize["produces_files"]
     assert materialize["candidates"][0]["gpus"] == 0
     assert materialize["candidates"][0]["resource"] == "local"
+
+
+def test_load_state_reopens_report_only_p1_materialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state_path = tmp_path / "state.json"
+    marker = tmp_path / "materialized.ok"
+    state_path.write_text(
+        json.dumps(
+            {
+                "tasks": {
+                    "pi05_p1_north_failover_materialize": {
+                        "status": "completed",
+                        "completed_at": "2026-08-05T13:03:17Z",
+                        "artifacts_complete": True,
+                        "attempts": [{"resource": "local"}],
+                    }
+                }
+            }
+        )
+    )
+    monkeypatch.setattr(scheduler, "STATE_PATH", state_path)
+    queue = {
+        "tasks": [
+            {
+                "id": "pi05_p1_north_failover_materialize",
+                "enabled": True,
+                "completion_glob": str(marker),
+                "completion_min_count": 1,
+            }
+        ]
+    }
+
+    state = scheduler.load_state(queue)
+
+    task_state = state["tasks"]["pi05_p1_north_failover_materialize"]
+    assert task_state["status"] == "pending"
+    assert task_state["artifacts_complete"] is False
+    assert "completed_at" not in task_state
+    assert task_state["attempts"][-1]["completion_misclassification_repaired"]

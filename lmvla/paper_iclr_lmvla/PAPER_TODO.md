@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 12:12 UTC
+Updated: 2026-08-05 13:36 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -176,9 +176,23 @@ none of those results establishes control utility.
   would consume another platform retry. Future recovery selection now prefers
   the minimum immediately runnable four-GPU shape.
 
+At 12:55 UTC the audited North recovery completed both seed-1000 arms. The
+candidate final checkpoint was already complete; A0 restored step 45000,
+reached step 49999, and completed its final Orbax save without another quota
+error. The first local materialization attempt then exposed a false completion
+contract: the training report had arrived before either checkpoint copy, so a
+failed copy was incorrectly classified as complete. Materialization now
+requires an independent marker written only after both complete checkpoint
+trees pass metadata checks. The legacy report-only state was reopened, and
+root-owned canonical directories are preserved under dated archive names
+before writable destinations are created. Six-way resumable OCDBT shard
+transfer increased measured throughput from approximately 3.5 MB/s to 16.9
+MiB/s. The A0 final checkpoint is currently being materialized; all five P1
+closed-loop conditions remain blocked until both local checkpoint trees exist.
+
 ## P1: seed-1000 closed-loop causal gate
 
-- [ ] Resume the pending current-source A0 and full candidate from
+- [x] Resume the current-source A0 and full candidate from
   official pi0.5 at seed 1000 with matched data, normalization, batch size,
   update count, and source snapshot. The accepted historical A0 is not
   reusable under the completed identity audit.
@@ -341,6 +355,24 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   17 obsolete R1 seed-1001/1002 replication/gate nodes are explicitly disabled
   because the seed-1000 necessary comparison was rejected. The scheduler suite
   passes 106 tests.
+
+  At 13:36 UTC the formal query collection has completed base (120 records),
+  hammer support (80 records), and balanced-support B (160 records). Balanced
+  A has written 208 of its required 240 query records and remains healthy on
+  four East H20 GPUs. The finalizer can now rebuild shard-local manifests from
+  immutable rollout roots when a pre-fix East process wrote derived manifests
+  into a root-owned directory. R4 data materialization is pinned to a new
+  LeRobot 0.6.1 training environment rather than the incompatible LeRobot 0.1
+  environment. A direct-chunk compatibility test found and closed three
+  launch blockers: explicit dataset finalization is required in 0.6.1, the
+  public processor must use the local PaliGemma tokenizer plus pinned
+  SentencePiece/Protobuf dependencies, and `sample_weight` must be admitted to
+  LeRobot's complementary-data contract or preprocessing silently drops it.
+  The opt-in runtime now preserves the public normalization processors and
+  verifies the weight field after the complete official pi0.5 preprocessing
+  pipeline. This runtime preparation does not authorize R4 policy training;
+  exact public-checkpoint loading and the accepted 600-record query audit are
+  still required first.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary
