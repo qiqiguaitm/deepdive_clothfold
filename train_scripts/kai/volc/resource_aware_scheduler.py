@@ -4114,6 +4114,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 ],
                 "progress_logs": [
                     {
+                        "label": "step",
                         "glob": str(
                             REPO
                             / "logs/r4/training"

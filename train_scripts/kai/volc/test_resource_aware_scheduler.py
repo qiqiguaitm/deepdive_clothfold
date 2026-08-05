@@ -466,6 +466,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
             for item in task["ready_hashes"]
         )
         assert "policy-effect claims remain blocked" in task["description"]
+        assert task["progress_logs"][0]["label"] == "step"
         assert task["progress_logs"][0]["regex"] == r"step:(\d+)"
     for arm, task in formal_eval.items():
         assert task["priority"] == 1
