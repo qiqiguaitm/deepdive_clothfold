@@ -341,6 +341,11 @@ compilation. A separate preregistered evaluation protocol now fixes final step
 an immediately available four-GPU East allocation but can use the two local
 GPUs in two seed waves after P1 releases them; either route must first produce
 a fresh recommendation audit and must pass the same 1,200-episode verifier.
+The paired gate implementation is also frozen before evaluation: it verifies
+identical task/eval-seed/scene-seed keys, reports every task delta and a paired
+task/seed/episode hierarchical bootstrap interval, and accepts seed 1000 only
+if terminal-outcome macro success exceeds both ordinary and outcome-free CRAVE.
+The intervals are descriptive and do not retroactively change that gate.
 
 At 17:47 UTC all four candidate/control evaluations are canonical 24/24
 results with zero failed cells. Their six-task macro success rates are normal

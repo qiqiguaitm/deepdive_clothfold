@@ -4255,6 +4255,82 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         )
         existing.add(eval_task_id)
 
+    gate_id = "pi05_r4_seed1000_gate"
+    if gate_id not in existing:
+        gate_output = (
+            REPO / "lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_seed1000_gate.json"
+        )
+        accepted_marker = REPO / "logs/r4/seed1000/r4_gate.accepted"
+        rejected_marker = REPO / "logs/r4/seed1000/r4_gate.rejected"
+        analyzer = REPO / "lmvla/lmwm/scripts/analyze_pi05_r4_formal.py"
+        reports = {
+            arm: REPO / "lmvla/lmwm/docs" / f"pi05_r4_{arm}_seed1000.json"
+            for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
+        }
+        eval_markers = [
+            REPO / "logs/resource_markers" / f"pi05_r4_{arm}_seed1000.ok"
+            for arm in reports
+        ]
+        gate_command = shlex.join(
+            [
+                str(REPO / "kai0/.venv/bin/python"),
+                str(analyzer),
+                "--ordinary",
+                str(reports["ordinary"]),
+                "--terminal-outcome",
+                str(reports["terminal_outcome"]),
+                "--outcome-free-crave",
+                str(reports["outcome_free_crave"]),
+                "--output",
+                str(gate_output),
+                "--accepted-marker",
+                str(accepted_marker),
+                "--rejected-marker",
+                str(rejected_marker),
+            ]
+        )
+        queue["tasks"].append(
+            {
+                "id": gate_id,
+                "priority": 1,
+                "description": (
+                    "Apply the preregistered paired R4 seed-1000 gate; replication "
+                    "remains blocked unless terminal-outcome exceeds both controls"
+                ),
+                "completion_glob": str(gate_output),
+                "completion_min_count": 1,
+                "produces_files": [
+                    str(gate_output),
+                    str(accepted_marker),
+                    str(rejected_marker),
+                ],
+                "ready_files": [
+                    str(eval_protocol),
+                    str(analyzer),
+                    *(str(path) for path in reports.values()),
+                    *(str(path) for path in eval_markers),
+                ],
+                "ready_hashes": [
+                    *eval_ready_hashes,
+                    {
+                        "path": str(eval_protocol),
+                        "sha256": sha256_file(eval_protocol),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(REPO / "logs/r4/seed1000/gate_launcher"),
+                        "command": gate_command,
+                    }
+                ],
+            }
+        )
+        existing.add(gate_id)
+
 
 def add_pi05_r4_sidecar_north_tasks(queue: dict[str, Any]) -> None:
     """Stage the exact R4 sidecar inputs to North and materialize its output."""

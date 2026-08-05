@@ -38,6 +38,7 @@
   },
   "file_sha256": {
     "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/scripts/analyze_pi05_r4_formal.py": "808e7afb0d9fa9ac35fd3f0e5d6d41f1b37b9f98392622dcf9777984c0d958a7",
     "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
     "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "020010464973474175bce94bca9ff0cc111905f180e80c4308ee0c8933a29986",
     "train_scripts/kai/eval/run_pi05_r4_formal_eval.sh": "ab92181197470906dca8914c3ea40392c4b7dfc107bad2f4e78a6a670a6a63cd",

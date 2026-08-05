@@ -284,6 +284,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         arm: tasks[f"pi05_r4_{arm}_seed1000_eval"]
         for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
     }
+    formal_gate = tasks["pi05_r4_seed1000_gate"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -483,6 +484,16 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
             for item in task["ready_hashes"]
         )
         assert task["progress_globs"][0]["expected"] == 24
+    assert formal_gate["candidates"][0]["resource"] == "local"
+    assert formal_gate["candidates"][0]["gpus"] == 0
+    assert formal_gate["completion_glob"].endswith(
+        "RESULTS_pi05_r4_seed1000_gate.json"
+    )
+    assert "--accepted-marker" in formal_gate["candidates"][0]["command"]
+    assert all(
+        f"pi05_r4_{arm}_seed1000.json" in formal_gate["candidates"][0]["command"]
+        for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
+    )
 
 
 def test_r4_sidecar_north_stage_is_exact_and_materialized() -> None:
