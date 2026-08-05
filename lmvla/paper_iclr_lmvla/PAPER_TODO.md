@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 14:50 UTC
+Updated: 2026-08-05 15:15 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -198,6 +198,28 @@ zero-gate and action-shuffled remain pending for the next eligible allocation.
 Every platform launch has a saved recommendation audit. The earlier training
 and materialization statements remain as execution provenance rather than
 current status.
+
+At 15:15 UTC all five P1 gate conditions are executing concurrently. A frozen
+North evaluation amendment versions the previously untracked P1 launchers,
+pins the North H20 YAML and supporting evaluator files, and requires both a
+75-file source-overlay inventory check and the unchanged P1 source-freeze
+verifier. The first zero-GPU stage attempt correctly rejected East-targeting
+overlay symlinks on North. The repaired stage transferred their immutable file
+contents, verified 17 runtime files, passed the source and inventory checks,
+and wrote independent local and North readiness markers. Only then did the
+scheduler run fresh recommendation audits. Both audits selected
+Robot-North-H20, after which shuffled
+(`t-20260805231243-j8c46`) and zero-gate
+(`t-20260805231248-57hn4`) started on four H20 GPUs each. Both jobs verified
+that imported `openpi` resolves inside the frozen overlay, passed checkpoint
+and normalization checks, and created four seed schedulers with four active
+cells and zero failures. At the same observation point, local A0 had completed
+2/24 cells, East normal 8/24, and East action-masked 7/24, all without failed
+cells. North results cannot satisfy the P1 gate directly: each result must be
+hash-preservingly synchronized back, pass the local fixed-scene verifier, and
+produce the canonical local report and marker. The R4 CRAVE sidecar remains
+ready but waits for a data-local East or local allocation while these higher
+priority P1 evaluations occupy all ten such GPUs.
 
 ## P1: seed-1000 closed-loop causal gate
 
