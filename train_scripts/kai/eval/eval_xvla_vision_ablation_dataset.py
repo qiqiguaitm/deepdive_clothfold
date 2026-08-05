@@ -97,10 +97,12 @@ def main():
     samples = {i: load(i) for i in pick}
     keys = list(samples)
     di, db, dst, gi, gb, gst = [], [], [], [], [], []
+    reference_actions = []
     for n, i in enumerate(keys):
         j = keys[(n + len(keys) // 2) % len(keys)]
         (imi, sti), (imj, stj) = samples[i], samples[j]
         Ar = gen(imi, sti)
+        reference_actions.append(Ar)
         Aimg = gen(imj, sti)
         Ablk = gen(black(imi), sti)
         Ast = gen(imi, stj)
@@ -119,6 +121,15 @@ def main():
     print("\n── 视觉/本体影响比 (d_img / d_state) ──")
     print(f"  xyz : {r_xyz:.3f}   grip : {r_grip:.3f}")
     print("  解读: →0 = 换图几乎不改动作, 靠 proprio 开环 (vision-blind); ~1 = 健康闭环。")
+
+    actions = np.stack(reference_actions)
+    grips = actions[..., [9, 19]]
+    xyz = actions[..., [0, 1, 2, 10, 11, 12]]
+    print("\n── 输出健全性 ──")
+    print(f"  action shape : {actions.shape}")
+    print(f"  all finite   : {bool(np.isfinite(actions).all())}")
+    print(f"  xyz range    : [{xyz.min():.5f}, {xyz.max():.5f}] m")
+    print(f"  grip alpha   : [{grips.min():.5f}, {grips.max():.5f}] (continuous, expected [0,1])")
 
 
 if __name__ == "__main__":

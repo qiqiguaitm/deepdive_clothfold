@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# 用 FastWAM(无 test-time 视频想象的双专家 WAM)跑真机 autonomy —— 与 gwp/kai0 同栈同参。
+#
+# 架构(与 gwp 一致,仅 ws-port 后面的模型不同):
+#   FastWAM 推理 = 独立 venv(gwp_eval_env)的 openpi-WebSocket server(serve_fastwam_ws.py, opt infer_action ~90ms);
+#   控制 = 现有 kai0 policy_inference_node + start_autonomy.sh(--mode websocket 连该 port),继承全套控制参数。
+#   FastWAM 的 action expert 只读首帧 KV(不 rollout 视频)→ 天然回避 gwp_ans 的闭环视频塌缩。
+#
+# 用法:
+#   ./start_scripts/kai/start_autonomy_fastwam.sh --server-gpu 2            # observe-only
+#   ./start_scripts/kai/start_autonomy_fastwam.sh --server-gpu 2 --execute  # 真机执行(手臂会动!)
+#   急停: ros2 topic pub /policy/execute std_msgs/Bool "data: false"
+#   旋钮: --nfe 4(去噪步) --opt-tier exact|fp8 --inference-rate 10 --debug-dump DIR
+#         --speed-factor 0.5 --smooth-alpha 0.3 --max-smooth-steps 12
+set -uo pipefail
+cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # repo root
+
+SERVER_GPU="${KAI0_FASTWAM_SERVER_GPU:-2}"
+WS_PORT="${KAI0_FASTWAM_WS_PORT:-8006}"
+NFE=4; OPT_TIER="exact"
+INFER_RATE=10; EXEC_HORIZON=8; PUBLISH_RATE=30
+SPEED_FACTOR=1.0; SMOOTH_ALPHA=0.7; MIN_SMOOTH_STEPS=8; MAX_SMOOTH_STEPS=12
+EXECUTE_FLAG=""
+# obs dump 默认开: 2026-07-28 复盘时因为没有 dump, "夹爪指令到底有没有要求张开"这个
+# 关键问题无法从 log 判定 (log 只打 act[0])。存 ref_*.png + io_*.npz (完整 [48,14] chunk)
+# 成本可忽略 (前 15 次推理), 但事后能一眼定位。--debug-dump '' 可关。
+DEBUG_DUMP="log/fastwam_obs_dump"; GRIP_NEUTRAL=""
+FW_VENV_PY="${FW_VENV_PY:-/home/tim/gwp_eval_env/venv/bin/python}"
+FW_REPO="${FW_REPO:-$PWD/fastwam}"
+WEIGHTS="${FASTWAM_WEIGHTS:-$FW_REPO/runs/visrobot01_v3_fold_1e-4/aihc_5n8g_v6/checkpoints/weights/step_050000.pt}"
+STATS="${FASTWAM_STATS:-$FW_REPO/data/visrobot01_v3_fold/dataset_stats.json}"
+EXTRA_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --server-gpu)     SERVER_GPU="$2"; shift 2 ;;
+    --ws-port)        WS_PORT="$2"; shift 2 ;;
+    --nfe)            NFE="$2"; shift 2 ;;
+    --opt-tier)       OPT_TIER="$2"; shift 2 ;;
+    --inference-rate) INFER_RATE="$2"; shift 2 ;;
+    --exec-horizon)   EXEC_HORIZON="$2"; shift 2 ;;
+    --publish-rate)   PUBLISH_RATE="$2"; shift 2 ;;
+    --speed-factor)   SPEED_FACTOR="$2"; shift 2 ;;
+    --smooth-alpha)   SMOOTH_ALPHA="$2"; shift 2 ;;
+    --min-smooth-steps) MIN_SMOOTH_STEPS="$2"; shift 2 ;;
+    --max-smooth-steps) MAX_SMOOTH_STEPS="$2"; shift 2 ;;
+    --weights)        WEIGHTS="$2"; shift 2 ;;
+    --debug-dump)     DEBUG_DUMP="$2"; shift 2 ;;
+    # 夹爪闩锁缓解: 仅当夹爪 proprio 卡死(硬件不动作)时才用。见 serve_fastwam_ws.py infer()
+    # 内注释 + 2026-07-28 复盘。离线最优 0.04; 夹爪硬件正常时【不要开】(真实 proprio 更好)。
+    --gripper-neutral) GRIP_NEUTRAL="$2"; shift 2 ;;
+    --execute)        EXECUTE_FLAG="--execute"; shift ;;
+    --no-execute)     EXECUTE_FLAG=""; shift ;;
+    *)                EXTRA_ARGS+=("$1"); shift ;;
+  esac
+done
+case "$INFER_RATE" in *.*) ;; *) INFER_RATE="${INFER_RATE}.0" ;; esac   # 节点声明 DOUBLE, 必须带小数
+
+# 控制参数(与 gwp/kai0 一致);enable_rtc=false(FastWAM 不消费 RTC);obs_image 近原生(server 侧拼 384x320)
+CTRL_ARGS=( "latency_k:=6" "min_smooth_steps:=${MIN_SMOOTH_STEPS}" "max_smooth_steps:=${MAX_SMOOTH_STEPS}"
+            "publish_smooth_alpha:=${SMOOTH_ALPHA}" "speed_factor:=${SPEED_FACTOR}"
+            "enable_rtc:=false" "proprio_cmd_feedback:=false"
+            "cam_fps:=30" "fast_obs_pipeline:=true" "obs_image_h:=480" "obs_image_w:=640"
+            "inference_rate:=${INFER_RATE}" "rtc_execute_horizon:=${EXEC_HORIZON}" "publish_rate:=${PUBLISH_RATE}" )
+
+echo "=========================================================="
+echo " FastWAM autonomy (同 kai0 栈): nfe=${NFE} tier=${OPT_TIER}"
+echo " 控制: infer_rate=${INFER_RATE}Hz publish_rate=${PUBLISH_RATE}Hz speed=${SPEED_FACTOR}x"
+echo " 平滑: min/max=${MIN_SMOOTH_STEPS}/${MAX_SMOOTH_STEPS} EMA-alpha=${SMOOTH_ALPHA} exec_horizon=${EXEC_HORIZON}"
+echo " ws server: GPU${SERVER_GPU} :${WS_PORT}  execute=${EXECUTE_FLAG:-observe-only}"
+echo " obs dump: ${DEBUG_DUMP:-<off>}   夹爪 proprio 中性化: ${GRIP_NEUTRAL:-<off>}"
+echo "----------------------------------------------------------"
+echo " ⚠️  上真机前 (翻 /policy/execute 之前) 请在【另一个终端】跑前置体检:"
+echo "       cd $PWD && source /opt/ros/jazzy/setup.bash && source ros2_ws/install/setup.bash"
+echo "       python3 start_scripts/kai/preflight_deploy.py"
+echo "     它只读不驱动, 检查 3 项 (相机分辨率/letterbox · 夹爪闩锁风险 · 起始位偏离)。"
+echo "     体检需要相机+臂 topic 已在跑, 所以必须等本脚本把栈起起来之后再跑。"
+echo "=========================================================="
+if [[ -n "$EXECUTE_FLAG" ]]; then
+  echo " 🔴 --execute 已开: 手臂会立即运动。强烈建议先 observe-only 起栈 → 跑 preflight"
+  echo "    → 归位 → 再带 --execute 重起 (或用 toggle_execute.sh 热翻)。"
+  echo "=========================================================="
+fi
+for p in "$FW_VENV_PY" "$WEIGHTS" "$STATS"; do [[ -e "$p" ]] || { echo "ERROR: missing $p"; exit 3; }; done
+
+SERVER_PID=""
+cleanup() { [[ -n "$SERVER_PID" ]] && kill "$SERVER_PID" 2>/dev/null; pkill -f "serve_fastwam_ws.py --.*${WS_PORT}" 2>/dev/null; }
+trap cleanup EXIT INT TERM
+
+# ---- 1. FastWAM openpi-WebSocket server ----
+mkdir -p log
+echo "[fastwam] starting ws server (compile/warmup ~1-2min)..."
+( cd "$FW_REPO" && HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 CUDA_VISIBLE_DEVICES="$SERVER_GPU" \
+    PYTHONPATH=src:scripts EVAL_DATA=visrobot01_v3_fold EVAL_TASK=visrobot01_v3_fold_1e-4 TORCHINDUCTOR_CACHE_DIR=/data2/gwp_eval/.inductor_fastwam_v6 \
+    "$FW_VENV_PY" scripts/serve_fastwam_ws.py \
+      --weights "$WEIGHTS" --stats "$STATS" --t5_cache "data/text_embeds_cache/visrobot01_v3_fold/*.pt" --nfe "$NFE" --opt_tier "$OPT_TIER" \
+      --port "$WS_PORT" --warmup 2 \
+      ${DEBUG_DUMP:+--debug_dump_dir "$DEBUG_DUMP"} \
+      ${GRIP_NEUTRAL:+--gripper_proprio_neutral "$GRIP_NEUTRAL"} \
+) > log/fastwam_server.log 2>&1 &
+SERVER_PID=$!
+echo "[fastwam] server pid=$SERVER_PID, log: log/fastwam_server.log"
+
+echo -n "[fastwam] waiting for server ready"
+for i in $(seq 1 180); do
+  grep -q "ready, listening" log/fastwam_server.log 2>/dev/null && { echo " OK"; break; }
+  kill -0 "$SERVER_PID" 2>/dev/null || { echo; echo "ERROR: server died"; tail -20 log/fastwam_server.log; exit 4; }
+  echo -n "."; sleep 2
+  [[ $i -eq 180 ]] && { echo; echo "ERROR: server not ready after 360s"; exit 4; }
+done
+
+# ---- 2. cameras + arms + kai0 policy_inference_node (websocket -> fastwam server) ----
+echo "[fastwam] launching kai0 autonomy stack (websocket :$WS_PORT)..."
+# 不 exec: 保留 cleanup trap, Ctrl-C 时杀 fastwam server 防孤儿残留
+./start_scripts/kai/start_autonomy.sh \
+    --mode websocket --ws-port "$WS_PORT" --execution-mode joint $EXECUTE_FLAG \
+    "${CTRL_ARGS[@]}" "${EXTRA_ARGS[@]}"

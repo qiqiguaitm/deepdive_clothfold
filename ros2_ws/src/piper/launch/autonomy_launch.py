@@ -202,6 +202,10 @@ def generate_launch_description():
         description='Max blend window for chunk overlap smoothing (0=uncapped/legacy). '
                     '新 chunk 内容进入下发指令的滞后 = max_smooth_steps/publish_rate 秒; '
                     '不设限时窗口≈整 chunk(~48) → 30Hz 下滞后 ~1.6s。V1(20Hz 重规划)必须设。')
+    proprio_cmd_feedback_arg = DeclareLaunchArgument('proprio_cmd_feedback',
+        default_value='true',
+        description='Use the last published command as policy proprio while executing. '
+                    'Set false for policies trained on measured robot state, including FastWAM.')
     speed_factor_arg = DeclareLaunchArgument('speed_factor',
         default_value='1.0',
         description='V2 油门: 全局速度倍率 (>1 超训练集速度; 1.0=原速回退). v1@20Hz 可 2x+, v0@3Hz 宜 ≤1.5x')
@@ -398,6 +402,8 @@ def generate_launch_description():
             # 显式 int 化 (同 publish_rate 的写法): 节点 declare 为 INTEGER, 直传
             # LaunchConfiguration 是字符串, 类型不匹配会在启动期抛 InvalidParameterType.
             'max_smooth_steps': ParameterValue(LaunchConfiguration('max_smooth_steps'), value_type=int),
+            'proprio_cmd_feedback': ParameterValue(
+                LaunchConfiguration('proprio_cmd_feedback'), value_type=bool),
             'speed_factor': ParameterValue(LaunchConfiguration('speed_factor'), value_type=float),
             'speed_factor_max': ParameterValue(LaunchConfiguration('speed_factor_max'), value_type=float),
             'throttle_factor': ParameterValue(LaunchConfiguration('throttle_factor'), value_type=float),
@@ -525,6 +531,7 @@ def generate_launch_description():
         rtc_max_guidance_weight_arg, rtc_smooth_method_arg,
         publish_smooth_alpha_arg,
         inference_rate_arg, latency_k_arg, min_smooth_steps_arg, max_smooth_steps_arg,
+        proprio_cmd_feedback_arg,
         publish_rate_arg,
         speed_factor_arg, speed_factor_max_arg, throttle_factor_arg,
         open_loop_chunk_arg, open_loop_min_remaining_arg, xvla_sequential_arg,

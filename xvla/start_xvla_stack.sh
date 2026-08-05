@@ -51,6 +51,41 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; YELLOW='\033[1;33m'; NC
 # 显式给 XVLA_TRACE_DIR 则用之; 否则 XVLA_TRACE=1 自动建带时间戳目录; 都没有则关闭。
 # 置位后 export 给 server (env) + client (经 ros2 launch 继承) → 两侧 _PipeTrace 落盘。
 PYBIN="/data1/miniconda3/bin/python"
+
+# ── sidecar → client 启动参数 (夹爪二值化 / prompt parity) ─────────────────────
+# sidecar.json 是部署单一真值源。这里把两个 client 侧关键参数从 sidecar 注入 client
+# launch args, 用户免手输、免记忆 (与 server 侧 binarize/domain 自动判定同理):
+#   • ee_gripper_binarize:=false — deploy_binarize_gripper=false (连续夹爪 ckpt
+#       ee6d_continuous/ee6d_alpha) 时必须关, 否则 client _publish_pos_cmd 把
+#       [g_close,g_open] 连续行程按 open_m/2 阈值砍成二值 → 模型渐进保持 grasp 丢成
+#       开手 → "抓了又松" (2026-07-04 v3 真机根因)。
+#   • prompt:=<deploy_prompt> — 否则 client 默认发 'Flatten and fold the cloth.'
+#       覆盖掉 sidecar prompt (server obs.get('prompt') 优先), 语言条件与训练不一致。
+_SIDECAR_CLIENT_ARGS=()
+if [ -f "$CKPT/sidecar.json" ]; then
+  while IFS= read -r _line; do
+    [ -n "$_line" ] && _SIDECAR_CLIENT_ARGS+=("$_line")
+  done < <("$PYBIN" - "$CKPT/sidecar.json" <<'PY' 2>/dev/null || true
+import json, sys
+try:
+    s = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(0)
+# 连续夹爪 ckpt → 关 client 二值化 (sidecar 显式 deploy_binarize_gripper=false,
+# 或 action_mode 属连续族)。默认不注入 → 保持 launch 默认 true (二值 ckpt 行为不变)。
+amode = str(s.get("action_mode", "")).lower()
+binz = s.get("deploy_binarize_gripper", None)
+if binz is False or amode in ("ee6d_continuous", "ee6d_alpha"):
+    print("ee_gripper_binarize:=false")
+p = s.get("deploy_prompt")
+if p:
+    print(f"prompt:={p}")
+PY
+)
+  [ "${#_SIDECAR_CLIENT_ARGS[@]}" -gt 0 ] && \
+    echo -e "\033[0;36m[xvla-stack] sidecar → client args: ${_SIDECAR_CLIENT_ARGS[*]}\033[0m"
+fi
+
 TRACE_DIR=""
 BAG_PID=""
 if [ -n "${XVLA_TRACE_DIR:-}" ]; then
@@ -186,6 +221,6 @@ fi
 CLIENT_LOG="$LOG_DIR/client.log"
 : > "$CLIENT_LOG"
 echo -e "${CYAN}[xvla-stack] 日志: server=$SERVER_LOG  client=$CLIENT_LOG${NC}"
-"$XVLA" client "$@" > >(tee -a "$CLIENT_LOG") 2>&1 &
+"$XVLA" client "$@" "${_SIDECAR_CLIENT_ARGS[@]+"${_SIDECAR_CLIENT_ARGS[@]}"}" > >(tee -a "$CLIENT_LOG") 2>&1 &
 CLIENT_PID=$!
 wait "$CLIENT_PID"

@@ -20,7 +20,7 @@ FastWAM 特性(与 gwp 不同):
       --weights runs/visrobot01_fold_uncond_1e-4/aihc_5n8g_v3/checkpoints/weights/step_025510.pt \
       --stats data/visrobot01_fold/dataset_stats.json --nfe 4 --opt_tier exact --port 8004
 """
-import argparse, asyncio, http, glob, time, traceback
+import argparse, asyncio, http, glob, logging, pathlib, sys, time, traceback
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
@@ -31,6 +31,12 @@ import websockets.frames
 
 from eval_offline_fold import build_model, prep_image   # 复用同一套 load + 像素链
 from opt_infer_action import ActionStepRunner, opt_infer_action
+
+# 夹爪 frame 重映射 (旧 0.08m frame ckpt → 官方 0-70mm 真机)。openpi 侧的同一份实现,
+# 依赖只有 numpy/os/logging, 在 gwp_eval_env 里可直接 import。KAI0_GRIPPER_DEPLOY_REMAP=0
+# (默认) 时逐比特 no-op。见 docs/deployment/data_collection/gripper_calibration.md。
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "kai0" / "src"))
+from openpi.shared.gripper_remap import remap_gripper_raw  # noqa: E402
 
 # node 发 bare 键 -> FastWAM 相机名
 KMAP = {"top_head": "cam_high", "hand_left": "cam_left_wrist", "hand_right": "cam_right_wrist"}
@@ -50,13 +56,31 @@ class FastwamPolicy:
         self.args = args
         self.model = build_model(args.weights)
         dev, dt = self.model.device, self.model.torch_dtype
-        # z-score stats
+        # z-score stats。夹爪维走 openpi 同一份仿射重映射: 按 ckpt 自身训练量程
+        # [q01,q99] 映到真机 [0,0.07]。action(反归一化) 与 state(归一化) 用同一组
+        # 系数改写 mean/std → 出入两侧一致。KAI0_GRIPPER_DEPLOY_REMAP 未开时为 no-op。
         import json
         st = json.load(open(args.stats))
-        self.a_mean = np.array(st["action"]["default"]["global_mean"], np.float32)
-        self.a_std = np.array(st["action"]["default"]["global_std"], np.float32)
-        self.s_mean = np.array(st["state"]["default"]["global_mean"], np.float32)
-        self.s_std = np.array(st["state"]["default"]["global_std"], np.float32)
+        _d = {"actions": st["action"]["default"], "state": st["state"]["default"]}
+        _norm = {k: {"mean": np.array(v["global_mean"], np.float64),
+                     "std": np.array(v["global_std"], np.float64),
+                     "q01": np.array(v["global_q01"], np.float64),
+                     "q99": np.array(v["global_q99"], np.float64)} for k, v in _d.items()}
+        _before = {k: (_norm[k]["mean"][[6, 13]].copy(), _norm[k]["std"][[6, 13]].copy()) for k in _norm}
+        remap_gripper_raw(_norm)
+        for k in ("actions", "state"):
+            m0, s0 = _before[k]
+            m1, s1 = _norm[k]["mean"][[6, 13]], _norm[k]["std"][[6, 13]]
+            if np.allclose(m0, m1) and np.allclose(s0, s1):
+                print(f"[gripper-remap] {k}: OFF (no-op) — 夹爪维保持训练 frame "
+                      f"q99={_norm[k]['q99'][[6, 13]].round(5).tolist()}", flush=True)
+            else:
+                print(f"[gripper-remap] {k}: ON  mean {m0.round(5).tolist()}→{m1.round(5).tolist()} "
+                      f"std {s0.round(5).tolist()}→{s1.round(5).tolist()}", flush=True)
+        self.a_mean = _norm["actions"]["mean"].astype(np.float32)
+        self.a_std = _norm["actions"]["std"].astype(np.float32)
+        self.s_mean = _norm["state"]["mean"].astype(np.float32)
+        self.s_std = _norm["state"]["std"].astype(np.float32)
         # cached T5 context (single fold prompt)
         t5 = torch.load(glob.glob(args.t5_cache)[0], map_location="cpu", weights_only=False)
         ctx = t5["context"]; cmask = t5["mask"].bool()
@@ -81,6 +105,17 @@ class FastwamPolicy:
     def infer(self, obs: dict) -> dict:
         a = self.args
         state = np.asarray(obs["state"], np.float32).reshape(-1)[:14]
+        # 夹爪闩锁缓解 (2026-07-28 复盘, 默认关 = 逐比特回退)。
+        # 训练数据 action[t] ≡ state[t] (relabel 约定) → 模型的夹爪输出基本是夹爪 proprio
+        # 的回读。离线实测 (val, 240 chunk): 把夹爪 proprio 冻结在 1.5mm(闭) 时输出张开率
+        # 52.6%→12.0%、与真值二值一致率 91.3%→65.5%(≈猜多数类); 冻结在 79mm(开) 时 75.6%。
+        # 闭环下这是自锁: 夹爪停在哪就继续命令哪 → 永远抓不到。
+        # 把闩锁读数换成中性常量可部分恢复视觉判别: 40mm → 张开率 50.3% / 一致率 77.3%
+        # (26mm → 26.6% / 77.0%; 0mm 无效 11.6% / 65.1%)。仍低于真实 proprio 的 91.3%,
+        # 故这是缓解而非根治 —— 根治要么让夹爪硬件真的动作(proprio 恢复真实), 要么重训。
+        if a.gripper_proprio_neutral is not None:
+            state = state.copy()
+            state[6] = state[13] = np.float32(a.gripper_proprio_neutral)
         frames = {KMAP.get(k, k): _to_hwc_u8(v) for k, v in obs["images"].items()}
         img = prep_image(frames)                              # [3,384,320] in [-1,1]
         prop = torch.from_numpy((state - self.s_mean) / (self.s_std + 1e-8)).float()
@@ -118,6 +153,12 @@ class WebsocketPolicyServer:
             await s.serve_forever()
 
     async def _handler(self, ws):
+        # A persistent inference server may be reused across real-robot trials.
+        # Reset only session-scoped policy state when a new controller connects;
+        # model weights and compiled graphs remain resident on the GPU.
+        reset = getattr(self._policy, "reset_session", None)
+        if callable(reset):
+            reset()
         packer = msgpack_numpy.Packer()
         await ws.send(packer.pack(self._metadata))
         prev = None
@@ -152,6 +193,10 @@ def main():
     ap.add_argument("--nfe", type=int, default=4)
     ap.add_argument("--opt_tier", default="exact", choices=["eager", "exact", "fp8"])
     ap.add_argument("--warmup", type=int, default=2)
+    ap.add_argument("--gripper_proprio_neutral", type=float, default=None,
+                    help="把喂给模型的夹爪 proprio (state[6],state[13]) 覆盖为该常量 (米), "
+                         "用于打破夹爪闩锁; 离线最优 0.04。缺省=不覆盖 (逐比特回退)。"
+                         "仅当夹爪 proprio 卡死(硬件不动作)时才需要 — 见 infer() 内注释。")
     ap.add_argument("--debug_dump_dir", default="")
     ap.add_argument("--debug_dump_n", type=int, default=15)
     args = ap.parse_args()

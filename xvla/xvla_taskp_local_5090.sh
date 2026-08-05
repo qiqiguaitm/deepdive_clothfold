@@ -26,6 +26,10 @@ MODE="${1:-smoke}"
 # batch6 ≈ 26G (安全余量) → 默认 6 跑无人值守 full; 想榨吞吐用 BS=8 并盯着。
 BS="${BS:-6}"
 GPUS="${GPUS:-0}"
+# 训练 config (CONFIGS 里的键) 与输出子目录; 默认二值 TaskP_local。
+# 连续 v3 例: CONFIG=TaskP_local_continuous_v3 OUTNAME=xvla_taskp_continuous_v3 ./xvla/xvla_taskp_local_5090.sh full
+CONFIG="${CONFIG:-TaskP_local}"
+OUTNAME="${OUTNAME:-xvla_taskp_local}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -43,7 +47,7 @@ export TOKENIZERS_PARALLELISM=false
 
 TASKP_RAW="/data1/DATA_IMP/KAI0/Task_P/base/2026-04-21"
 TASKP_EE6D="$XVLA_SB/TaskP_ee6d/2026-04-21"
-OUT="$REPO_ROOT/xvla/ckpts/xvla_taskp_local"
+OUT="$REPO_ROOT/xvla/ckpts/$OUTNAME"
 
 RED='\033[0;31m'; GRN='\033[0;32m'; YEL='\033[1;33m'; NC='\033[0m'
 die(){ echo -e "${RED}ERROR: $*${NC}" >&2; exit 1; }
@@ -51,12 +55,17 @@ die(){ echo -e "${RED}ERROR: $*${NC}" >&2; exit 1; }
 [ -x "$VENV_PY" ] || die "训练 env 缺失: $VENV_PY (需要 kai0/.venv_xvla)"
 
 # ── ① 数据准备: Task_P 原始 joint-14D → EE6D parquet (幂等, 已转则跳过) ───────────
-if [ ! -f "$TASKP_EE6D/meta/info.json" ]; then
-  echo -e "${YEL}[prep] Task_P 未转 EE6D, 运行 joint_to_ee6d ...${NC}"
-  [ -f "$TASKP_RAW/meta/info.json" ] || die "Task_P 原始数据缺失: $TASKP_RAW"
-  "$VENV_PY" "$CONV" --in_dir "$TASKP_RAW" --out_dir "$TASKP_EE6D" --workers 16
+# 仅二值基座 config 需现转 TaskP_ee6d; 连续 config (_continuous*) 复用已存在的 alpha 数据集。
+if [ "$CONFIG" = "TaskP_local" ]; then
+  if [ ! -f "$TASKP_EE6D/meta/info.json" ]; then
+    echo -e "${YEL}[prep] Task_P 未转 EE6D, 运行 joint_to_ee6d ...${NC}"
+    [ -f "$TASKP_RAW/meta/info.json" ] || die "Task_P 原始数据缺失: $TASKP_RAW"
+    "$VENV_PY" "$CONV" --in_dir "$TASKP_RAW" --out_dir "$TASKP_EE6D" --workers 16
+  else
+    echo -e "${GRN}[prep] EE6D 数据已存在: $TASKP_EE6D${NC}"
+  fi
 else
-  echo -e "${GRN}[prep] EE6D 数据已存在: $TASKP_EE6D${NC}"
+  echo -e "${GRN}[prep] CONFIG=$CONFIG 复用已存在数据集 (跳过 TaskP_ee6d 转换)${NC}"
 fi
 
 # ── ② preflight: init ckpt / tokenizer ──────────────────────────────────────
@@ -86,13 +95,13 @@ echo "  out=$OUT"
 if [ "$MODE" = "smoke" ] || [ "$NGPU" -eq 1 ]; then
   # 单卡 (smoke 一律单卡; full 单卡也走这里)
   CUDA_VISIBLE_DEVICES="${_G[0]}" "$VENV_PY" "$TRAIN" \
-    --config TaskP_local --output_dir "$OUT" \
+    --config "$CONFIG" --output_dir "$OUT" \
     --batch_size "$BS" --grad_checkpointing --workers 4 \
     "${SMOKE_ARGS[@]}"
 else
   # 多卡 DDP (full): 注意 GPU3 若被部署占用需先停部署
   CUDA_VISIBLE_DEVICES="$GPUS" "$VENV_PY" -m torch.distributed.run \
     --standalone --nproc_per_node="$NGPU" "$TRAIN" \
-    --config TaskP_local --output_dir "$OUT" \
+    --config "$CONFIG" --output_dir "$OUT" \
     --batch_size "$BS" --grad_checkpointing --workers 4
 fi

@@ -120,7 +120,7 @@ def _R_to_quat_wxyz(R: np.ndarray) -> np.ndarray:
 
 def _ee6d_to_world8(ee10: np.ndarray, T_world_base: np.ndarray,
                     g_open: float, g_close: float,
-                    binarize: bool, thr: float) -> np.ndarray:
+                    binarize: bool, thr: float, prob_space: bool = False) -> np.ndarray:
     xyz_b = np.asarray(ee10[:3], dtype=np.float64)
     R_b = interleaved_6d_to_rotation_matrix(np.asarray(ee10[3:9], dtype=np.float64))
     T = np.eye(4); T[:3, :3] = R_b; T[:3, 3] = xyz_b
@@ -128,6 +128,15 @@ def _ee6d_to_world8(ee10: np.ndarray, T_world_base: np.ndarray,
     xyz_w = Tw[:3, 3].astype(np.float32)
     quat = _R_to_quat_wxyz(Tw[:3, :3])
     sig = float(ee10[9])
+    # Gripper channel → sigmoid space [0,1] (0=open alpha, 1=close alpha), then linear map.
+    #   prob_space=True  (ee6d_continuous): model's action_space.postprocess ALREADY applied
+    #       sigmoid → out dim9/19 is prob [0,1]. Serve must NOT sigmoid again (double-sigmoid
+    #       crushes [0,1]→[0.5,0.72] → 7mm dead band, gripper won't open/close).
+    #   prob_space=False (agibot_ee6d, v1): postprocess is a no-op → out is logit space →
+    #       serve applies sigmoid here. binarize (ee6d) also skips: its postprocess already
+    #       sigmoid'd, so ee10[9] is prob and thr=0.5 compares directly.
+    if not binarize and not prob_space:
+        sig = float(1.0 / (1.0 + np.exp(-sig)))  # sigmoid: logit → [0,1]
     grip = (g_close if sig > thr else g_open) if binarize else g_open + sig * (g_close - g_open)
     return np.concatenate([xyz_w, quat, np.array([grip], dtype=np.float32)])
 
@@ -191,7 +200,8 @@ class XVLAServerPolicy(_base_policy.BasePolicy):
                  default_prompt, default_domain_id, T_world_baseL, T_world_baseR,
                  g_open, g_close, binarize, seed=42,
                  proprio_feedback=True, proprio_resync=0.15, imagenet_norm=False,
-                 grip_close_thr=None, grip_open_thr=None, grip_min_hold=0):
+                 grip_close_thr=None, grip_open_thr=None, grip_min_hold=0,
+                 gripper_prob_space=False):
         self._p = policy
         self._device = device
         self._dtype = dtype
@@ -211,6 +221,9 @@ class XVLAServerPolicy(_base_policy.BasePolicy):
         self._domain_id = int(default_domain_id)
         self._TL, self._TR = T_world_baseL, T_world_baseR
         self._g_open, self._g_close, self._binarize, self._thr = g_open, g_close, binarize, 0.5
+        # ee6d_continuous: model postprocess already sigmoid'd gripper → out dim9/19 是 prob [0,1],
+        # serve 端不能再 sigmoid (双 sigmoid 把 [0,1] 压成 [0.5,0.72] → 7mm 死区, 夹爪不开合)。
+        self._prob_space = bool(gripper_prob_space)
         # ② 夹爪迟滞 + 抓取保持 (Exp4): 杀掉 chunk 内/边界处夹爪在 0.5 阈值附近的抖动 (抓→松)。
         # close_thr/open_thr 形成迟滞带 (close>open → 带内维持上一态); min_hold = commit 闭合后
         # 至少强制闭合的额外 anchor 数 (防过早松手)。默认 thr=thr & hold=0 → 与逐帧二值完全一致。
@@ -341,9 +354,11 @@ class XVLAServerPolicy(_base_policy.BasePolicy):
         out16 = np.empty((H, 16), dtype=np.float32)
         for h in range(H):
             out16[h, 0:8] = _ee6d_to_world8(acts[h, 0:10], self._TL,
-                                            self._g_open, self._g_close, self._binarize, self._thr)
+                                            self._g_open, self._g_close, self._binarize, self._thr,
+                                            self._prob_space)
             out16[h, 8:16] = _ee6d_to_world8(acts[h, 10:20], self._TR,
-                                             self._g_open, self._g_close, self._binarize, self._thr)
+                                             self._g_open, self._g_close, self._binarize, self._thr,
+                                             self._prob_space)
 
         # ② Exp4 夹爪迟滞+保持: 用整-chunk sig 序列有状态地覆写 grip (out16 dim 7=L, 15=R)。
         # 仅二值模式 + latch 开启时生效; 默认关 → 维持上方逐帧二值结果不变。
@@ -422,6 +437,14 @@ def _load_policy(ckpt_dir: Path, base_cfg_dir: Path, device, dtype) -> XVLAPolic
                 logger.info("override use_proprio %s → %s (from ckpt config)",
                             getattr(config, "use_proprio", None), ckpt_cfg["use_proprio"])
                 config.use_proprio = bool(ckpt_cfg["use_proprio"])
+            # action_mode 决定 action_space → 影响 gripper postprocess (ee6d/ee6d_continuous=sigmoid,
+            # ee6d_alpha=clamp, agibot_ee6d=identity)。必须跟 CKPT 走, 否则 base_config 的 "ee6d" sigmoid
+            # 会把 ee6d_alpha 的 alpha 输出二次压缩成死区 (v3 部署静默失效)。
+            _ck_amode = ckpt_cfg.get("action_mode")
+            if _ck_amode and _ck_amode != getattr(config, "action_mode", None):
+                logger.info("override action_mode %s → %s (from ckpt config)",
+                            getattr(config, "action_mode", None), _ck_amode)
+                config.action_mode = _ck_amode
         except Exception as e:  # noqa: BLE001
             logger.warning("could not read ckpt config.json for arch override: %s", e)
     policy = XVLAPolicy(config)
@@ -462,12 +485,24 @@ def _parse_args():
     p.add_argument("--default_dataset_id", type=int, default=None)
     # 对齐 vis Piper 物理行程 [0, 0.08] m (非 SoftFold-Agilex 默认 open=0.0656/close=-0.00547):
     # open=0.0656 只到 82% 行程夹爪开不满; close 负值在 arm_reader_node 会被夹成 0。
-    p.add_argument("--gripper_open_value", type=float, default=0.08)
-    p.add_argument("--gripper_close_value", type=float, default=0.04,
-                   help="夹爪闭合目标值 (m)。0.0=全闭(0mm), 0.08=全开(~70mm)。"
-                        "pick-and-place 建议 0.03-0.05 (物体宽度 25-45mm)。"
-                        "折叠任务 0.0 可能合适 (布料薄)。")
-    p.add_argument("--binarize_gripper", action=argparse.BooleanOptionalAction, default=True)
+    p.add_argument("--gripper_open_value", type=float, default=None,
+                   help="夹爪张开目标值 (m)。默认 None=从 sidecar.deploy_gripper_open_value 或 "
+                        "sidecar.gripper_alpha_bounds.open_m 读取，均缺失时回退 0.08。")
+    p.add_argument("--gripper_close_value", type=float, default=None,
+                   help="夹爪闭合目标值 (m), alpha=1 映射到此。默认 None=从 sidecar."
+                        "deploy_gripper_close_value 读, 缺省 0.04。"
+                        "⚠️ 力闭合 (grasp): 训练动作含挤压余量 (g 可到负值), 但 alpha 公式"
+                        "clip((0.08-g)/0.04) 把 g≤0.04 全饱和到 alpha=1 → 挤压信息丢失。"
+                        "位置控制下 alpha=1 只指到物宽即零力脱手。设 0.0 让 alpha=1→全闭"
+                        "→固件顶电流出夹持力 (连续映射不变, 只是行程展到 [0,0.08])。")
+    p.add_argument("--binarize_gripper", action=argparse.BooleanOptionalAction, default=None,
+                   help="夹爪二值化 (grip=g_close/g_open 硬切) vs 连续 (线性映射)。默认 None="
+                        "从 sidecar.deploy_binarize_gripper 判定 (缺省 True)。连续 ckpt (ee6d_alpha/"
+                        "ee6d_continuous) sidecar 标 false → 免手输 --no-binarize_gripper。")
+    p.add_argument("--gripper_prob_space", action=argparse.BooleanOptionalAction, default=None,
+                   help="模型夹爪输出是否已在概率空间 [0,1] (postprocess 已 sigmoid)。"
+                        "默认 None=从 sidecar.action_mode 自动判定: ee6d_continuous→True (跳过 serve sigmoid, "
+                        "防双 sigmoid 死区); agibot_ee6d→False (serve 补 sigmoid)。仅非二值路径生效。")
     p.add_argument("--seed", type=int, default=42,
                    help="flow-matching 确定性采样种子 (固定→连续 chunk 一致, 减卡顿); -1=随机重采")
     p.add_argument("--proprio_feedback", action=argparse.BooleanOptionalAction, default=False,
@@ -522,22 +557,82 @@ def main():
             imagenet_norm, _src = True, "default(sidecar 缺 image_norm 字段)"
     logger.info("imagenet_norm=%s (来源: %s) — 必须与训练 ckpt 一致, 否则真机静默错位", imagenet_norm, _src)
 
+    # gripper_prob_space 解析: CLI 显式 > sidecar.action_mode 自动判定 > 默认 False。
+    # ee6d_continuous 的 postprocess 已 sigmoid → prob 空间, serve 不能再 sigmoid (双 sigmoid 死区)。
+    if args.gripper_prob_space is not None:
+        gripper_prob_space, _gsrc = bool(args.gripper_prob_space), "cli"
+    else:
+        _amode = str(sidecar.get("action_mode", "")).lower()
+        # 两种模型输出已在 [0,1] alpha 空间 → serve 不能再 sigmoid, 直接线性映射:
+        #   ee6d_continuous (v2): postprocess 已 sigmoid → prob [0,1]
+        #   ee6d_alpha      (v3): 纯 MSE 直接回归 alpha, postprocess clamp[0,1]
+        gripper_prob_space = _amode in ("ee6d_continuous", "ee6d_alpha")
+        _gsrc = f"sidecar.action_mode={_amode or '缺'}"
+    logger.info("gripper_prob_space=%s (来源: %s) — True 则跳过 serve sigmoid (模型已 sigmoid)",
+                gripper_prob_space, _gsrc)
+
+    # binarize 解析: CLI 显式 > sidecar.deploy_binarize_gripper > 默认 True。连续 ckpt sidecar
+    # 标 false → 用户免手输 --no-binarize_gripper (夹爪关键参数, 别靠记忆)。
+    if args.binarize_gripper is not None:
+        binarize_gripper, _bsrc = bool(args.binarize_gripper), "cli"
+    elif "deploy_binarize_gripper" in sidecar:
+        binarize_gripper, _bsrc = bool(sidecar["deploy_binarize_gripper"]), "sidecar"
+    else:
+        binarize_gripper, _bsrc = True, "default"
+    logger.info("binarize_gripper=%s (来源: %s)", binarize_gripper, _bsrc)
+
+    # gripper open/close 必须复用训练 alpha 的同一组边界。CLI 显式 > sidecar deploy 字段
+    # > sidecar.gripper_alpha_bounds > 历史默认。A1 细长夹爪是 [0,0.07]，若这里静默用
+    # 0.08 会造成整段连续动作 10mm 系统偏移。
+    _gbounds = sidecar.get("gripper_alpha_bounds", {})
+    if args.gripper_open_value is not None:
+        gripper_open_value, _gosrc = float(args.gripper_open_value), "cli"
+    elif "deploy_gripper_open_value" in sidecar:
+        gripper_open_value, _gosrc = float(sidecar["deploy_gripper_open_value"]), "sidecar"
+    elif "open_m" in _gbounds:
+        gripper_open_value, _gosrc = float(_gbounds["open_m"]), "sidecar.gripper_alpha_bounds"
+    else:
+        gripper_open_value, _gosrc = 0.08, "default"
+    logger.info("gripper_open_value=%.3f m (来源: %s) — alpha=0 映射到此张开行程",
+                gripper_open_value, _gosrc)
+
+    # gripper_close_value 解析: CLI 显式 > sidecar.deploy_gripper_close_value
+    # > sidecar.gripper_alpha_bounds.close_m > 默认 0.04。
+    # 力闭合 ckpt (连续夹爪, 需挤压出力) sidecar 标 0.0 → alpha=1 映射到全闭 0mm。
+    if args.gripper_close_value is not None:
+        gripper_close_value, _gcsrc = float(args.gripper_close_value), "cli"
+    elif "deploy_gripper_close_value" in sidecar:
+        gripper_close_value, _gcsrc = float(sidecar["deploy_gripper_close_value"]), "sidecar"
+    elif "close_m" in _gbounds:
+        gripper_close_value, _gcsrc = float(_gbounds["close_m"]), "sidecar.gripper_alpha_bounds"
+    else:
+        gripper_close_value, _gcsrc = 0.04, "default"
+    logger.info("gripper_close_value=%.3f m (来源: %s) — alpha=1 映射到此闭合行程; "
+                "0.0=力闭合(顶电流出夹持力), 0.04=仅到物宽(位置控制零力易脱手)",
+                gripper_close_value, _gcsrc)
+
     TL, TR = _load_calibration(args.calibration_yaml)
     policy = _load_policy(args.ckpt_dir, args.base_config, device, dtype)
     logger.info("XVLAPolicy loaded (%.1fM params, dtype=%s)",
                 sum(p.numel() for p in policy.parameters()) / 1e6, args.dtype)
-    tok = AutoTokenizer.from_pretrained("facebook/bart-large")
+    # Keep deployment offline and tokenizer-identical to training. Local asset is preferred;
+    # XVLA_BART_TOK remains an explicit override for other installations.
+    _local_tok = _REPO_ROOT / "xvla" / "assets" / "bart-large-tokenizer"
+    _tok_src = os.environ.get("XVLA_BART_TOK", str(_local_tok if _local_tok.is_dir()
+                                                     else "facebook/bart-large"))
+    tok = AutoTokenizer.from_pretrained(_tok_src)
+    logger.info("tokenizer=%s", _tok_src)
 
     srv_policy = XVLAServerPolicy(
         policy=policy, device=device, dtype=dtype, tokenizer=tok,
         default_prompt=default_prompt, default_domain_id=default_domain,
         T_world_baseL=TL, T_world_baseR=TR,
-        g_open=args.gripper_open_value, g_close=args.gripper_close_value,
-        binarize=args.binarize_gripper, seed=(None if args.seed < 0 else args.seed),
+        g_open=gripper_open_value, g_close=gripper_close_value,
+        binarize=binarize_gripper, seed=(None if args.seed < 0 else args.seed),
         proprio_feedback=args.proprio_feedback, proprio_resync=args.proprio_resync,
         imagenet_norm=imagenet_norm,
         grip_close_thr=args.gripper_close_thr, grip_open_thr=args.gripper_open_thr,
-        grip_min_hold=args.gripper_min_hold)
+        grip_min_hold=args.gripper_min_hold, gripper_prob_space=gripper_prob_space)
     if srv_policy._grip_latch_on:
         logger.info("[gripper] latch ON: close_thr=%.2f open_thr=%.2f min_hold=%d anchors",
                     srv_policy._g_close_thr, srv_policy._g_open_thr, srv_policy._g_min_hold)

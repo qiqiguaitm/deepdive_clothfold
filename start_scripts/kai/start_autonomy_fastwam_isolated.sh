@@ -2,4 +2,4 @@
 # Compatibility entry point. Canonical implementation: fastwam/deploy/.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-exec "$REPO_ROOT/fastwam/deploy/start_autonomy_v6.sh" "$@"
+exec "$REPO_ROOT/fastwam/deploy/start_autonomy_isolated.sh" "$@"
