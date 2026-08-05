@@ -3313,7 +3313,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                         "status_dir": str(REPO / "logs/r4/training/runtime_verify"),
                         "command": (
                             f"cd {shlex.quote(str(REPO))} && rm -f "
-                            f"{shlex.quote(str(runtime_marker))} && exec env "
+                            f"{shlex.quote(str(runtime_marker))} && env "
                             "PI05_R4_TRAINING_RUNTIME=1 HF_HUB_OFFLINE=1 "
                             "TRANSFORMERS_OFFLINE=1 "
                             f"PYTHONPATH={shlex.quote(str(runtime_dir))} "
@@ -3497,7 +3497,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                         "status_dir": str(REPO / "logs/r4/training/matched_runtime_verify"),
                         "command": (
                             f"cd {shlex.quote(str(REPO))} && rm -f "
-                            f"{shlex.quote(str(matched_runtime_marker))} && exec env "
+                            f"{shlex.quote(str(matched_runtime_marker))} && env "
                             "PI05_R4_TRAINING_RUNTIME=1 HF_HUB_OFFLINE=1 "
                             "TRANSFORMERS_OFFLINE=1 "
                             f"PYTHONPATH={shlex.quote(str(runtime_dir))} "

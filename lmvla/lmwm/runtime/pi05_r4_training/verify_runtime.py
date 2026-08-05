@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from importlib.metadata import version
 import json
 from pathlib import Path
 
@@ -23,6 +24,16 @@ def verify(
     load_policy: bool = False,
     sidecar: Path | None = None,
 ) -> dict:
+    expected_packages = {
+        "accelerate": "1.14.0",
+        "protobuf": "7.35.1",
+        "sentencepiece": "0.2.1",
+    }
+    installed_packages = {name: version(name) for name in expected_packages}
+    if installed_packages != expected_packages:
+        raise RuntimeError(
+            f"R4 training dependency drift: {installed_packages} != {expected_packages}"
+        )
     patched = {
         "make_policy": bool(getattr(policy_factory.make_policy, "_pi05_r4_runtime", False)),
         "make_pre_post_processors": bool(
@@ -165,6 +176,7 @@ def verify(
         "processor_probe": processor_probe,
         "public_config": public_config,
         "sidecar_probe": sidecar_probe,
+        "training_packages": installed_packages,
     }
 
 

@@ -1,0 +1,30 @@
+TaskName: "pi05-r4-terminal-s1000-east4g"
+Description: "Matched terminal-outcome weighted pi0.5 fine-tuning for R4"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  export REPO=/vePFS/tim/workspace/deepdive_kai0
+  export R4_ARM=terminal_outcome WORLD_SIZE=4 R4_STEPS=5000 R4_SMOKE=0
+  exec bash "$REPO/train_scripts/kai/run_pi05_r4_training.sh"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

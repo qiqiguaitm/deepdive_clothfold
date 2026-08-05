@@ -377,6 +377,8 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     runtime_command = runtime_verify["candidates"][0]["command"]
     assert "PI05_R4_TRAINING_RUNTIME=1" in runtime_command
     assert "--load-policy" in runtime_command
+    assert "&& exec env" not in runtime_command
+    assert "pi05_r4_training_runtime.ok" in runtime_command
     assert "does not authorize policy training" in runtime_verify["description"]
     assert outcome_free["candidates"][0]["resource"] == "local"
     assert outcome_free["candidates"][0]["gpus"] == 0
@@ -415,6 +417,8 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     matched_command = matched_runtime["candidates"][0]["command"]
     assert "--sidecar" in matched_command
     assert "--load-policy" in matched_command
+    assert "&& exec env" not in matched_command
+    assert "pi05_r4_matched_runtime.ok" in matched_command
 
 
 def north_snapshot(
