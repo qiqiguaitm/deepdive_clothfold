@@ -2616,7 +2616,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 "completion_min_count": 1,
                 "ready_files": [
                     *common_ready,
-                    str(REPO / "lmvla/lmwm/data/pi05_r4_query_smoke_scene_seeds_v1.json"),
+                    str(REPO / "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json"),
                 ],
                 "ready_hashes": ready_hashes,
                 "candidates": [
@@ -2635,7 +2635,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                             "RESULT_NAME=pi05_r4_outcomes_smoke_v1 "
                             "RUN_TAG_PREFIX=r4-outcomes-smoke "
                             "PORT_BASE_OFFSET=26800 "
-                            f"R4_SCENE_MANIFEST={shlex.quote(str(REPO / 'lmvla/lmwm/data/pi05_r4_query_smoke_scene_seeds_v1.json'))} "
+                            f"R4_SCENE_MANIFEST={shlex.quote(str(REPO / 'lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json'))} "
                             f"MARKER={shlex.quote(str(smoke_marker))} "
                             "bash train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh"
                         ),
@@ -2903,7 +2903,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     *common_ready,
                     str(smoke_marker),
                     str(query_amendment),
-                    str(REPO / "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json"),
+                    str(REPO / "lmvla/lmwm/data/pi05_r4_query_smoke_scene_seeds_v1.json"),
                 ],
                 "ready_hashes": query_hashes,
                 "candidates": [
@@ -2920,7 +2920,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                             "ROBOTWIN_TEST_NUM=2 LOCAL_GPU_COUNT=1 "
                             "RESULT_NAME=pi05_r4_query_smoke_v1 "
                             "RUN_TAG_PREFIX=r4-query-smoke PORT_BASE_OFFSET=27400 "
-                            f"R4_SCENE_MANIFEST={shlex.quote(str(REPO / 'lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json'))} "
+                            f"R4_SCENE_MANIFEST={shlex.quote(str(REPO / 'lmvla/lmwm/data/pi05_r4_query_smoke_scene_seeds_v1.json'))} "
                             f"MARKER={shlex.quote(str(query_smoke_marker))} "
                             "bash train_scripts/kai/eval/run_pi05_r4_query_collection.sh"
                         ),

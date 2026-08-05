@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 11:15 UTC
+Updated: 2026-08-05 11:22 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -283,10 +283,12 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   That refresh is not a policy query and the strict alignment check rejected
   it. The v3 hook now retains only frames divisible by the frozen 50-step
   replan horizon, with a terminal-refresh regression test. A separate one-cell
-  smoke scene manifest also fixes finalization incorrectly expecting all 24
-  formal cells. The clean v3 smoke remains pending; no marker was created from
-  either rejected attempt. The focused spawn-hook/query/scheduler suite passes
-  109 tests. R4 policy training
+  smoke scene manifest fixes finalization incorrectly expecting all 24 formal
+  cells. The clean v3 smoke produced two records with exact frames
+  `[0,50,100]`; all three uint8 cameras and 14-D states align with the retained
+  action trajectories, and the smoke marker was created at 11:21 UTC. Earlier
+  rejected attempts remain quarantined and produced no marker. The focused
+  spawn-hook/query/scheduler suite passes 109 tests. R4 policy training
   remains unscheduled and unauthorized until both the combined outcome audit
   and the three-camera query audit are accepted.
 

@@ -296,6 +296,8 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert query_smoke["candidates"][0]["resource"] == "local"
     assert query_smoke["candidates"][0]["gpus"] == 1
     assert "run_pi05_r4_query_collection.sh" in query_smoke["candidates"][0]["command"]
+    assert "pi05_r4_query_smoke_scene_seeds_v1.json" in query_smoke["candidates"][0]["command"]
+    assert "pi05_r4_query_smoke_scene_seeds_v1.json" not in smoke["candidates"][0]["command"]
     assert query_base["candidates"][0]["resource"] == "Robot-East-H20"
     assert query_base["candidates"][0]["gpus"] == 4
     assert query_base["completion_min_count"] == 2
