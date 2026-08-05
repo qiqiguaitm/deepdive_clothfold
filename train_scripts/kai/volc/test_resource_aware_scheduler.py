@@ -4225,9 +4225,9 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
             "command"
         ]
 
-    for order, condition in enumerate(("shuffled", "zero_gate")):
+    for condition, priority in (("a0", 0), ("shuffled", 1), ("zero_gate", 2)):
         accelerator = tasks[f"pi05_p1_{condition}_north_accelerator"]
-        assert accelerator["priority"] == order
+        assert accelerator["priority"] == priority
         assert accelerator["completion_locations"][0]["remote"] is True
         assert accelerator["completion_locations"][0]["glob"].endswith(
             f"pi05_p1_{condition}_north_accelerator.ok"
@@ -4247,6 +4247,10 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
             path.endswith(".task_scheduler.json")
             for path in candidate["ready_files_remote"]
         ) == 4
+        if condition == "a0":
+            assert "p1_a0_exact" in candidate["env"]["CKPT"]
+        else:
+            assert "p1_a0_exact" not in candidate["env"]["CKPT"]
         assert any(
             item["path"].endswith(
                 "pi05_p1_north_accelerator_amendment_v1.json"

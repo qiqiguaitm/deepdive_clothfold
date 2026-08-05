@@ -4,11 +4,13 @@
   "created_at": "2026-08-05T15:48:00Z",
   "status": "evaluation_acceleration_only",
   "conditions": [
+    "a0",
     "shuffled",
     "zero_gate"
   ],
   "invariants": [
     "Each accelerator attaches to the four existing per-seed task schedulers and never initializes a new result root.",
+    "The A0 arm uses the official public A0 config and exact recovered A0 checkpoint; intervention variables are absent.",
     "The checkpoint, frozen source overlay, fixed-scene manifest, intervention, and 50-episode cell protocol are unchanged.",
     "Only one additional worker per seed is created, with worker index offset 2000.",
     "A canonical condition marker is written only after all 24 cells pass the unchanged fixed-scene verifier."
@@ -18,6 +20,6 @@
     "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
     "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "020010464973474175bce94bca9ff0cc111905f180e80c4308ee0c8933a29986",
     "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
-    "train_scripts/kai/volc/pi05_p1_eval_accelerator_north_4h20.yaml": "6666fca87f61d372ef430a34914a6d70f4b796602a06f48364dc92471856d292"
+    "train_scripts/kai/volc/pi05_p1_eval_accelerator_north_4h20.yaml": "4282449f593efe40d481271f2c23fe4cd4fbef1048054ff48bb1f36a248b0038"
   }
 }

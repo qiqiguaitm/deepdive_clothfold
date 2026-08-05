@@ -38,7 +38,17 @@ Entrypoint: |
   REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
   VERIFY_REPO=$REPO/logs/frozen_source_overlays/pi05_r1_v1
   CONDITION=${PREDICTIVE_P1_CONDITION:?missing condition}
-  case "$CONDITION" in shuffled|zero_gate) ;; *) exit 2 ;; esac
+  case "$CONDITION" in
+    a0)
+      CONFIG_NAME=pi05_robotwin_a0_public_exact_bj
+      INTERVENTION_ENV=()
+      ;;
+    shuffled|zero_gate)
+      CONFIG_NAME=pi05_predictive_adapter_p1_eval
+      INTERVENTION_ENV=(PREDICTIVE_ACTION_INTERVENTION="$CONDITION")
+      ;;
+    *) exit 2 ;;
+  esac
   RESULT_NAME=pi05_predictive_adapter_p1_seed1000_${CONDITION}
   RESULT_ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/$RESULT_NAME
   REPORT=$REPO/lmvla/lmwm/docs/${RESULT_NAME}.json
@@ -86,9 +96,9 @@ Entrypoint: |
   PY
 
   env \
-    PI05_EVAL_CONFIG_NAME=pi05_predictive_adapter_p1_eval \
+    PI05_EVAL_CONFIG_NAME="$CONFIG_NAME" \
     PI05_ASSET_ID=robotwin2.0_absolute_meanstd \
-    PREDICTIVE_ACTION_INTERVENTION="$CONDITION" \
+    "${INTERVENTION_ENV[@]}" \
     CKPT="$CKPT" RESULT_NAME="$RESULT_NAME" \
     ROBOTWIN_TEST_NUM=50 ROBOTWIN_EPISODE_SEED_MANIFEST="$MANIFEST" \
     ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS=500 SEEDS="0 1 2 3" \

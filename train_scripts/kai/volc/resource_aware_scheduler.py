@@ -2280,8 +2280,12 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
         / "kai0/checkpoints/pi05_predictive_adapter_p1/"
         "pi05_predictive_adapter_p1_seed1000/49999"
     )
-    result_group = "pi05_predictive_adapter_p1__demo_clean"
-    for order, condition in enumerate(("shuffled", "zero_gate")):
+    conditions = (
+        ("a0", 0),
+        ("shuffled", 1),
+        ("zero_gate", 2),
+    )
+    for condition, priority in conditions:
         task_id = f"pi05_p1_{condition}_north_accelerator"
         if task_id in tasks:
             continue
@@ -2289,6 +2293,15 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
         canonical_marker = (
             REPO / "logs/resource_markers" / f"{result_name}.ok"
         )
+        condition_checkpoint = checkpoint
+        result_group = "pi05_predictive_adapter_p1__demo_clean"
+        if condition == "a0":
+            condition_checkpoint = (
+                P1_NORTH_FAILOVER_STAGE
+                / "kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/"
+                "pi05_predictive_adapter_p1_a0_seed1000/49999"
+            )
+            result_group = "pi05_predictive_adapter_p1_a0_exact__demo_clean"
         remote_result = (
             Path(NORTH_REPO)
             / "lmvla/lawam/results/eval_runs/robotwin"
@@ -2312,7 +2325,7 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
         queue["tasks"].append(
             {
                 "id": task_id,
-                "priority": order,
+                "priority": priority,
                 "description": (
                     f"Attach four frozen North workers to the active P1 {condition} arm"
                 ),
@@ -2353,9 +2366,9 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
                         "task_name": f"pi05-p1-{condition.replace('_', '-')}-attach-north4g",
                         "ready_files_remote": [
                             str(P1_NORTH_EVAL_STAGE_MARKER_REMOTE),
-                            str(checkpoint / "params/_METADATA"),
+                            str(condition_checkpoint / "params/_METADATA"),
                             str(
-                                checkpoint
+                                condition_checkpoint
                                 / "assets/robotwin2.0_absolute_meanstd/"
                                 "norm_stats.json"
                             ),
@@ -2363,8 +2376,8 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
                         ],
                         "env": {
                             "PREDICTIVE_P1_CONDITION": condition,
-                            "PORT_BASE_OFFSET": str(23800 + order * 400),
-                            "CKPT": str(checkpoint),
+                            "PORT_BASE_OFFSET": str(23800 + priority * 400),
+                            "CKPT": str(condition_checkpoint),
                         },
                     }
                 ],
