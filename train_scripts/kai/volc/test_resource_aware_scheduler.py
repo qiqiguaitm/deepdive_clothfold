@@ -482,8 +482,23 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         assert [candidate["gpus"] for candidate in task["candidates"]] == [4, 2]
         assert task["candidates"][0]["env"]["R4_ARM"] == arm
         assert f"R4_ARM={arm}" in task["candidates"][1]["command"]
+        assert "ROBOTWIN_NUM_SLOTS=2" in task["candidates"][1]["command"]
+        assert "NUM_WORKERS=2" in task["candidates"][1]["command"]
+        assert "ROBOTWIN_NUM_SLOTS" not in task["candidates"][0]["env"]
         assert any(
             item["path"].endswith("pi05_r4_formal_eval_protocol_v1.json")
+            for item in task["ready_hashes"]
+        )
+        assert any(
+            item["path"].endswith(
+                "pi05_r4_local_eval_parallelism_amendment_v1.json"
+            )
+            for item in task["ready_hashes"]
+        )
+        assert any(
+            item["path"].endswith("run_pi05_r4_formal_eval.sh")
+            and item["sha256"]
+            == "2ffc9c4fd98774a99cdfe140f88a10b14cd4152217815bcef8f9c2b704f9e97a"
             for item in task["ready_hashes"]
         )
         assert checkpoint_permissions["completion_glob"] in task["ready_files"]

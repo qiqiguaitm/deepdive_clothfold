@@ -435,6 +435,18 @@ the only queued North task; no startup evidence has been claimed, and the
 scheduler will stop it as redundant if another worker closes the canonical A0
 marker first.
 
+At 19:18 UTC the shared A0 root reached 16/24 complete: both seed-2/3
+`stack_blocks_two` cells completed, their workers atomically claimed the final
+`stack_blocks_three` cells, and all eight remaining shared cells are active
+with no pending or failed work. The local two-A100 run directly demonstrates
+two policy/renderer workers per GPU at approximately 29 GiB per GPU with zero
+worker failures. A separate R4 operational amendment therefore permits only
+the local two-A100 eval candidate to use two workers per GPU; East remains at
+one worker per GPU. The preregistered six tasks, four seeds, 50 episodes per
+cell, scene identities, checkpoints, and 24-cell/1,200-episode verifier are
+unchanged. This allows two R4 arms to use East while the third uses local GPUs
+in parallel after checkpoint permissions are normalized.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from

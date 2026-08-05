@@ -4365,11 +4365,24 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_formal_eval_protocol_v1.json"
     )
     eval_spec = json.loads(eval_protocol.read_text())
+    local_parallelism_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_local_eval_parallelism_amendment_v1.json"
+    )
+    local_parallelism_spec = json.loads(local_parallelism_amendment.read_text())
+    eval_hash_overrides = local_parallelism_spec["file_sha256_override"]
     eval_ready_hashes = [
-        {"path": str(REPO / relative), "sha256": expected}
+        {
+            "path": str(REPO / relative),
+            "sha256": eval_hash_overrides.get(relative, expected),
+        }
         for relative, expected in sorted(eval_spec["file_sha256"].items())
     ]
-    eval_ready_files = [item["path"] for item in eval_ready_hashes]
+    eval_ready_files = [
+        *[item["path"] for item in eval_ready_hashes],
+        str(local_parallelism_amendment),
+    ]
     eval_script = REPO / "train_scripts/kai/eval/run_pi05_r4_formal_eval.sh"
     eval_yaml = "train_scripts/kai/volc/pi05_r4_eval_east_4h20.yaml"
     permission_amendment = (
@@ -4463,6 +4476,8 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 f"R4_ARM={arm}",
                 "LOCAL_GPU_COUNT=2",
                 "GPU_INDEX_OFFSET=0",
+                "ROBOTWIN_NUM_SLOTS=2",
+                "NUM_WORKERS=2",
                 f"PORT_BASE_OFFSET={eval_ports[arm]}",
                 "bash",
                 str(eval_script),
@@ -4496,6 +4511,10 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     {
                         "path": str(formal_amendment),
                         "sha256": sha256_file(formal_amendment),
+                    },
+                    {
+                        "path": str(local_parallelism_amendment),
+                        "sha256": sha256_file(local_parallelism_amendment),
                     },
                 ],
                 "progress_globs": [
