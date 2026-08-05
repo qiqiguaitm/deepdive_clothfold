@@ -543,6 +543,12 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert north_stage["candidates"][0]["resource"] == "local"
     assert north_stage["candidates"][0]["gpus"] == 0
     assert "stage_pi05_r4_eval_to_north.sh" in north_stage["candidates"][0]["command"]
+    north_stage_script = (
+        scheduler.REPO / "train_scripts/kai/stage_pi05_r4_eval_to_north.sh"
+    ).read_text()
+    assert north_stage_script.index('chmod 0755 "$python"') < north_stage_script.index(
+        'test -x "$python"'
+    )
     assert any(
         item["path"].endswith("pi05_r4_eval_north_4h20.yaml")
         for item in north_stage["ready_hashes"]

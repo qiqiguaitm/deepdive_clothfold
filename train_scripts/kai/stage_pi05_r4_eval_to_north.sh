@@ -110,6 +110,7 @@ expected_crave=$4
 site=$stage/runtime/venv/lib/python3.12/site-packages
 python=$stage/runtime/python/bin/python3.12
 export PYTHONPATH="$stage/runtime/lerobot/src:$site:$stage/kai0/src:$stage/kai0/packages/openpi-client/src"
+chmod 0755 "$python"
 test -x "$python"
 test -s "$stage/runtime/tokenizer/tokenizer.model"
 echo "$expected_terminal  $stage/lmvla/lmwm/checkpoints/pi05_r4_matched_v1/terminal_outcome-seed1000/checkpoints/005000/pretrained_model/model.safetensors" | sha256sum -c -
