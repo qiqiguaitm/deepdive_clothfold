@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_sidecar_north_amendment_v1",
+  "created_at": "2026-08-05T15:20:00Z",
+  "base_protocol": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_matched_weighting_protocol_v1.json",
+  "base_protocol_sha256": "710c5c7505b86718fdfab6555b65049e8006434f5359e2332cb19ec391316a8a",
+  "north_stage": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_r4_sidecar_v1/repo",
+  "file_sha256": {
+    "lmvla/lmwm/scripts/build_pi05_crave_r0_labels.py": "7e19411e70d53e95711532366ac9886053ee4991f35e09fede40b2ad085adf1e",
+    "lmvla/lmwm/scripts/build_pi05_r4_crave_weight_sidecar.py": "b28e5a65c75618d82e70cd069d1f1d0e916baa503acc2d29871f23ee5719a801",
+    "lmvla/lmwm/scripts/build_pi05_r4_outcome_free_manifest.py": "3a109d80041142cc27ced05ea8531f7fd4daf4186607d3b088b0e3e679fc711c",
+    "lmvla/paper_iclr_lmvla/manifests/pi05_r4_matched_weighting_protocol_v1.json": "710c5c7505b86718fdfab6555b65049e8006434f5359e2332cb19ec391316a8a",
+    "train_scripts/kai/stage_pi05_r4_sidecar_to_north.sh": "7633fe836ca6a5eff88b43b4d593716a1a82043f1dc44ee4a84f3faa45a1be8a",
+    "train_scripts/kai/sync_pi05_r4_sidecar_from_north.sh": "146460033b37bd758bc2d6cce077c4950e491311b95db8596363854f60bdecc2",
+    "train_scripts/kai/sync_tree_to_north_verified_tos.sh": "1e251edb0ef0bb7af7bb9fd3a791765dfc51599d2b2d17d19595ce501a32267f",
+    "train_scripts/kai/volc/pi05_r4_crave_sidecar_north_1h20.yaml": "83ad9d58e68d531162215942f7900a4e768be1465c05b3ce465bcbacd63b2747"
+  },
+  "north_artifact_sha256": {
+    "/vePFS-North-E/vis_robot/workspace/tim/models/dinov3-vitb16-pretrain-lvd1689m/config.json": "3c9cc418f4622fd6d5587fd142b6f3cba0ba6a69f67ced907d8b7f26118451ec",
+    "/vePFS-North-E/vis_robot/workspace/tim/models/dinov3-vitb16-pretrain-lvd1689m/model.safetensors": "9a21ac3df0c63839d62612dda6f454d816c25611cc7a52966ed5a5a94921dc8b"
+  },
+  "staging_contract": {
+    "query_observation_files": 600,
+    "reference_feature_files": 1200,
+    "transfer": "content-addressed TOS copy with per-file SHA-256 verification",
+    "existing_north_reference_policy": "do not reuse same-name files unless their bytes match the local frozen source"
+  },
+  "authorization_scope": [
+    "pi05_r4_crave_sidecar_build"
+  ],
+  "constraints": [
+    "The stage contains only observation, demonstration-reference, and action-chunk inputs; it contains no outcome, reward, return, or success field beyond the already-audited outcome-free manifest.",
+    "The North output cannot satisfy the local training gate until reverse transfer, local SHA verification, and exact 6313-row chunk-key alignment pass.",
+    "This amendment authorizes sidecar construction only and cannot authorize any R4 policy training arm."
+  ]
+}

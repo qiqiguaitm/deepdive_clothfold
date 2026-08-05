@@ -1,0 +1,83 @@
+TaskName: "pi05-r4-crave-sidecar-north1g"
+Description: "Outcome-free CRAVE query weights from an exact isolated North stage"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+
+Entrypoint: |
+  set -Eeuo pipefail
+  NORTH_REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAGE=$NORTH_REPO/.staging/pi05_r4_sidecar_v1/repo
+  MODEL=/vePFS-North-E/vis_robot/workspace/tim/models/dinov3-vitb16-pretrain-lvd1689m
+  OUT=$STAGE/lmvla/lmwm/data/pi05_r4_training_v1/crave_weights.npz
+  REPORT=$STAGE/logs/r4/training/crave_weights_report.json
+  MARKER=$NORTH_REPO/logs/resource_markers/pi05_r4_crave_sidecar.ok
+  LOG=$NORTH_REPO/logs/r4/training/crave_weights_north_$(date -u +%Y%m%dT%H%M%SZ).log
+  mkdir -p "$(dirname "$LOG")" "$STAGE/temp" /vePFS/tim/workspace
+  exec > >(tee -a "$LOG") 2>&1
+  set -x
+
+  test -s "$NORTH_REPO/logs/resource_markers/pi05_r4_sidecar_north_stage.ok"
+  test -f "$MODEL/model.safetensors"
+  ln -sfn "$MODEL" "$STAGE/temp/dinov3_vitb16"
+  ln -sfnT "$STAGE" /vePFS/tim/workspace/deepdive_kai0
+  export CRAVE_REPO="$STAGE"
+  export PYTHONPATH="$STAGE/lmvla/crave/src:${PYTHONPATH:-}"
+  rm -f "$MARKER"
+
+  "$NORTH_REPO/kai0/.venv/bin/python" \
+    "$STAGE/lmvla/lmwm/scripts/build_pi05_r4_crave_weight_sidecar.py" \
+    --manifest "$STAGE/logs/r4/training/outcome_free_query_manifest.json" \
+    --selection "$STAGE/lmvla/lmwm/data/pi05_crave_r0_v1/selection_manifest.json" \
+    --labels-manifest "$STAGE/lmvla/lmwm/data/pi05_crave_r0_v1/labels_manifest.json" \
+    --reference-root "$STAGE/lmvla/lmwm/data/robotwin_dinov3base" \
+    --chunks "$STAGE/lmvla/lmwm/data/pi05_r4_training_v1/query_action_chunks.npz" \
+    --output "$OUT" --report "$REPORT" --temperature 1.0 --device cuda --batch-size 128
+
+  python3 - "$REPORT" "$OUT" <<'PY'
+  import hashlib
+  import json
+  import pathlib
+  import sys
+
+  report = json.load(open(sys.argv[1]))
+  output = pathlib.Path(sys.argv[2])
+  digest = hashlib.sha256(output.read_bytes()).hexdigest()
+  if report.get("sample_count") != 6313 or report.get("sidecar_sha256") != digest:
+      raise SystemExit(f"invalid sidecar report: count={report.get('sample_count')} hash={digest}")
+  PY
+  printf 'completed=%s\nsidecar=%s\nreport=%s\n' \
+    "$(date -u +%FT%TZ)" "$OUT" "$REPORT" >"$MARKER"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

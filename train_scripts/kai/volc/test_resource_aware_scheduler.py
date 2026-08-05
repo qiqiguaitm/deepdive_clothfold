@@ -421,6 +421,53 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert "pi05_r4_matched_runtime.ok" in matched_command
 
 
+def test_r4_sidecar_north_stage_is_exact_and_materialized() -> None:
+    queue = json.loads(scheduler.QUEUE_PATH.read_text())
+    scheduler.add_pi05_r4_outcome_collection_tasks(queue)
+
+    scheduler.add_pi05_r4_sidecar_north_tasks(queue)
+    scheduler.add_pi05_r4_sidecar_north_tasks(queue)
+    scheduler.validate_queue(queue)
+
+    tasks = {task["id"]: task for task in queue["tasks"]}
+    stage = tasks["pi05_r4_sidecar_north_stage"]
+    assert stage["candidates"][0]["resource"] == "local"
+    assert stage["candidates"][0]["gpus"] == 0
+    assert "stage_pi05_r4_sidecar_to_north.sh" in stage["candidates"][0]["command"]
+    assert any(
+        item["path"].endswith("pi05_r4_crave_sidecar_north_1h20.yaml")
+        for item in stage["ready_hashes"]
+    )
+
+    parent = tasks["pi05_r4_crave_sidecar_build"]
+    north = [
+        candidate
+        for candidate in parent["candidates"]
+        if candidate["resource"] == "Robot-North-H20"
+    ]
+    assert len(north) == 1
+    candidate = north[0]
+    assert candidate["gpus"] == 1
+    assert candidate["ready_files"] == [
+        str(scheduler.REPO / "logs/resource_markers/pi05_r4_sidecar_north_stage.ok")
+    ]
+    assert any(
+        path.endswith("pi05_r4_sidecar_north_stage.ok")
+        for path in candidate["ready_files_remote"]
+    )
+    assert {location["label"] for location in parent["completion_locations"]} == {
+        "shared",
+        "north",
+    }
+
+    materialize = tasks["pi05_r4_sidecar_materialize_north"]
+    assert materialize["materialize_north_result_for"] == parent["id"]
+    assert materialize["candidates"][0]["gpus"] == 0
+    assert "sync_pi05_r4_sidecar_from_north.sh" in materialize["candidates"][0][
+        "command"
+    ]
+
+
 def north_snapshot(
     *,
     primary: int = 20,

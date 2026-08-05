@@ -3686,6 +3686,138 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         )
 
 
+def add_pi05_r4_sidecar_north_tasks(queue: dict[str, Any]) -> None:
+    """Stage the exact R4 sidecar inputs to North and materialize its output."""
+    tasks = {task.get("id"): task for task in queue.get("tasks", [])}
+    parent_id = "pi05_r4_crave_sidecar_build"
+    parent = tasks.get(parent_id)
+    if parent is None:
+        raise ValueError(f"missing R4 sidecar parent: {parent_id}")
+
+    amendment_path = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_sidecar_north_amendment_v1.json"
+    )
+    amendment = json.loads(amendment_path.read_text())
+    stage_script = REPO / "train_scripts/kai/stage_pi05_r4_sidecar_to_north.sh"
+    sync_script = REPO / "train_scripts/kai/sync_pi05_r4_sidecar_from_north.sh"
+    north_yaml = "train_scripts/kai/volc/pi05_r4_crave_sidecar_north_1h20.yaml"
+    local_stage_marker = REPO / "logs/resource_markers/pi05_r4_sidecar_north_stage.ok"
+    remote_stage_marker = (
+        Path(NORTH_REPO) / "logs/resource_markers/pi05_r4_sidecar_north_stage.ok"
+    )
+    local_output_marker = REPO / "logs/resource_markers/pi05_r4_crave_sidecar.ok"
+    remote_output_marker = (
+        Path(NORTH_REPO) / "logs/resource_markers/pi05_r4_crave_sidecar.ok"
+    )
+    remote_stage = Path(NORTH_REPO) / ".staging/pi05_r4_sidecar_v1/repo"
+    ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(amendment["file_sha256"].items())
+    ]
+
+    stage_id = "pi05_r4_sidecar_north_stage"
+    if stage_id not in tasks:
+        queue["tasks"].append(
+            {
+                "id": stage_id,
+                "priority": 1,
+                "description": "Build and hash-verify the isolated R4 sidecar North stage",
+                "completion_glob": str(local_stage_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(amendment_path),
+                    str(stage_script),
+                    str(REPO / "logs/r4/training/outcome_free_query_manifest.json"),
+                    str(
+                        REPO
+                        / "lmvla/lmwm/data/pi05_r4_training_v1/"
+                        "query_action_chunks.npz"
+                    ),
+                ],
+                "ready_hashes": ready_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "status_dir": str(REPO / "logs/r4/north_stage/launcher"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec bash "
+                            "train_scripts/kai/stage_pi05_r4_sidecar_to_north.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+        tasks[stage_id] = queue["tasks"][-1]
+
+    parent["completion_locations"] = [
+        {"label": "shared", "glob": str(local_output_marker), "remote": False},
+        {"label": "north", "glob": str(remote_output_marker), "remote": True},
+    ]
+    if not any(
+        candidate.get("resource") == "Robot-North-H20"
+        for candidate in parent.get("candidates", [])
+    ):
+        parent["candidates"].append(
+            {
+                "kind": "platform",
+                "resource": "Robot-North-H20",
+                "region": "cn-beijing",
+                "gpus": 1,
+                "queue_timeout_seconds": 300,
+                "retry_cooldown_seconds": 300,
+                "yaml": north_yaml,
+                "task_name": "pi05-r4-crave-sidecar-north1g",
+                "ready_files": [str(local_stage_marker)],
+                "ready_files_remote": [
+                    str(remote_stage_marker),
+                    str(
+                        remote_stage
+                        / "logs/r4/training/outcome_free_query_manifest.json"
+                    ),
+                    str(
+                        remote_stage
+                        / "lmvla/lmwm/data/pi05_r4_training_v1/"
+                        "query_action_chunks.npz"
+                    ),
+                    str(
+                        remote_stage
+                        / "lmvla/lmwm/data/robotwin_dinov3base/ep872.npz"
+                    ),
+                ],
+            }
+        )
+
+    materialize_id = "pi05_r4_sidecar_materialize_north"
+    if materialize_id not in tasks:
+        queue["tasks"].append(
+            {
+                "id": materialize_id,
+                "priority": 1,
+                "description": "Verify and materialize the North R4 CRAVE sidecar",
+                "materialize_north_result_for": parent_id,
+                "completion_glob": str(local_output_marker),
+                "completion_min_count": 1,
+                "ready_files": [str(sync_script)],
+                "ready_files_remote": [str(remote_output_marker)],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(REPO / "logs/r4/north_stage/materialize"),
+                        "command": shlex.join(["bash", str(sync_script)]),
+                    }
+                ],
+            }
+        )
+
+
 def add_pi05_r2_adaptive_execution_tasks(queue: dict[str, Any]) -> None:
     """Stage the causal-readout and same-scene frozen-policy R2 screen."""
     existing = {task.get("id") for task in queue.get("tasks", [])}
@@ -10295,6 +10427,7 @@ def main() -> None:
     add_pi05_p1_north_eval_tasks(queue)
     add_pi05_r1_recurrence_aligned_tasks(queue)
     add_pi05_r4_outcome_collection_tasks(queue)
+    add_pi05_r4_sidecar_north_tasks(queue)
     add_pi05_r2_adaptive_execution_tasks(queue)
     add_pi05_north_eval_attach_tasks(queue)
     add_pi05_step40000_safety_probes(queue)
@@ -10322,6 +10455,7 @@ def main() -> None:
             add_pi05_p1_north_eval_tasks(queue)
             add_pi05_r1_recurrence_aligned_tasks(queue)
             add_pi05_r4_outcome_collection_tasks(queue)
+            add_pi05_r4_sidecar_north_tasks(queue)
             add_pi05_r2_adaptive_execution_tasks(queue)
             add_pi05_north_eval_attach_tasks(queue)
             add_pi05_step40000_safety_probes(queue)
