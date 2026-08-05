@@ -4319,6 +4319,30 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
     )
 
 
+def test_completion_locations_require_artifacts_even_without_completion_glob(
+    tmp_path: Path,
+) -> None:
+    marker = tmp_path / "accelerator.ok"
+    task = {
+        "id": "attach_only_accelerator",
+        "completion_locations": [
+            {"label": "accelerator", "glob": str(marker), "remote": False}
+        ],
+        "completion_min_count": 1,
+    }
+
+    complete, evidence = scheduler.completion_evidence(task)
+
+    assert complete is False
+    assert evidence == "completion artifacts accelerator=0/1"
+
+    marker.write_text("ok\n")
+    complete, evidence = scheduler.completion_evidence(task)
+
+    assert complete is True
+    assert evidence == "completion artifacts accelerator=1/1"
+
+
 def test_load_state_reopens_report_only_p1_materialization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

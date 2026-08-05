@@ -11,7 +11,7 @@ ACCELERATOR_MARKER=$REPO/logs/resource_markers/pi05_p1_a0_local_accelerator.ok
 MANIFEST=$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json
 CKPT=${CKPT:-$REPO/kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/pi05_predictive_adapter_p1_a0_seed1000/49999}
 STAMP=$(date -u +%Y%m%d_%H%M%SZ)
-LOG_DIR=$REPO/logs/predictive/p1_a0_local_accelerator
+LOG_DIR=$REPO/logs/p1_a0_local_accelerator
 
 mkdir -p "$LOG_DIR" "$(dirname "$ACCELERATOR_MARKER")"
 exec >>"$LOG_DIR/launcher_${STAMP}.log" 2>&1

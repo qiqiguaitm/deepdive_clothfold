@@ -2575,7 +2575,7 @@ def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
                     "retry_cooldown_seconds": 300,
                     "max_failures": 2,
                     "status_dir": str(
-                        REPO / "logs/predictive/p1_a0_local_accelerator/launcher"
+                        REPO / "logs/p1_a0_local_accelerator_launcher"
                     ),
                     "command": (
                         f"cd {shlex.quote(str(REPO))} && exec env "
@@ -7886,10 +7886,11 @@ def completion_root_from_glob(pattern: str) -> str:
 
 def completion_evidence(task: dict[str, Any]) -> tuple[bool, str]:
     pattern = task.get("completion_glob")
-    if not pattern:
+    locations = task.get("completion_locations")
+    if not pattern and not locations:
         return True, "platform terminal state"
     minimum = int(task.get("completion_min_count", 1))
-    locations = task.get("completion_locations") or [
+    locations = locations or [
         {
             "label": "remote" if task.get("completion_remote") else "local",
             "glob": pattern,
