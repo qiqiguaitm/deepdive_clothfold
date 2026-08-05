@@ -4,6 +4,7 @@
   "created_at": "2026-08-05T09:55:00Z",
   "base_collection_completion": "The immutable 240-episode base manifest proves collection completion even when its support audit rejects.",
   "training_authorization": "Only an accepted audit over the combined base and predeclared supplemental records may create pi05_r4_outcome_collection.ok.",
+  "combined_manifest_location": "logs/r4/outcomes/dataset_manifest_combined_v1.json is a writable derived artifact; immutable East base records remain under the root-owned result directory.",
   "merge_invariants": [
     "Behavior-policy digests must match.",
     "Task/scene identities cannot repeat across source manifests.",
@@ -13,6 +14,6 @@
   ],
   "file_sha256": {
     "lmvla/lmwm/scripts/merge_pi05_r4_outcome_manifests.py": "629e874688aa6c93ed9503744043c46f7fea940f82e94d072d30451bfed51413",
-    "train_scripts/kai/analysis/finalize_pi05_r4_outcome_dataset.sh": "378c9a9442ac1605fab06c7cf6b75c89842926e84759da772a1e9e7cfbc6f40a"
+    "train_scripts/kai/analysis/finalize_pi05_r4_outcome_dataset.sh": "fe71a69c208a174c2db500561c19320d083a169d873ddd14e5cf87c039228874"
   }
 }

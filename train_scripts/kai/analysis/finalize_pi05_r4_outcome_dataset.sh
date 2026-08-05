@@ -8,7 +8,7 @@ SUPPORT_ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/pi05_r4_beat_train_sup
 SUPPORT_SCENES=$REPO/lmvla/lmwm/data/pi05_r4_beat_train_support_supplement_v1.json
 BASE_MANIFEST=$BASE_ROOT/dataset_manifest.json
 SUPPORT_MANIFEST=$SUPPORT_ROOT/dataset_manifest.json
-COMBINED_MANIFEST=$BASE_ROOT/dataset_manifest_combined_v1.json
+COMBINED_MANIFEST=$REPO/logs/r4/outcomes/dataset_manifest_combined_v1.json
 AUDIT=$REPO/logs/r4/outcomes/dataset_audit_combined_v1.json
 MARKER=$REPO/logs/resource_markers/pi05_r4_outcome_collection.ok
 

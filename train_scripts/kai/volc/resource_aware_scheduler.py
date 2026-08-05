@@ -2565,6 +2565,22 @@ def add_pi05_r1_recurrence_aligned_tasks(queue: dict[str, Any]) -> None:
 
 def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
     """Collect action-bearing outcomes without touching frozen evaluation sources."""
+    managed_ids = {
+        "pi05_r4_outcome_collection_smoke",
+        "pi05_r4_outcome_collection_formal",
+        "pi05_r4_beat_train_support_supplement",
+        "pi05_r4_outcome_dataset_finalize",
+        "pi05_r4_query_collection_smoke",
+        "pi05_r4_query_base_train_collection",
+        "pi05_r4_query_beat_support_collection",
+        "pi05_r4_query_dataset_finalize",
+    }
+    # Queue definitions are persisted separately from task state. Rebuild this
+    # hash-pinned subgraph so an authorized amendment cannot leave stale hashes
+    # in the persistent queue; running/completed state remains keyed by task ID.
+    queue["tasks"] = [
+        task for task in queue.get("tasks", []) if task.get("id") not in managed_ids
+    ]
     existing = {task.get("id") for task in queue.get("tasks", [])}
     protocol_path = (
         REPO
