@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 14:12 UTC
+Updated: 2026-08-05 14:50 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -189,6 +189,15 @@ before writable destinations are created. Six-way resumable OCDBT shard
 transfer increased measured throughput from approximately 3.5 MB/s to 16.9
 MiB/s. The A0 final checkpoint is currently being materialized; all five P1
 closed-loop conditions remain blocked until both local checkpoint trees exist.
+
+At 14:50 UTC both final P1 checkpoint trees are materialized locally. The
+frozen seed-1000 gate evaluation is active without failed cells: local A0 has
+completed 2/24 task-seed cells, while the four-GPU East normal and action-masked
+arms have each completed 4/24. Those two East tasks occupy all eight H20 GPUs;
+zero-gate and action-shuffled remain pending for the next eligible allocation.
+Every platform launch has a saved recommendation audit. The earlier training
+and materialization statements remain as execution provenance rather than
+current status.
 
 ## P1: seed-1000 closed-loop causal gate
 
@@ -409,6 +418,27 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   length while loading the exact public policy. This protocol only authorizes
   data preparation; policy training remains blocked on both runtime gates and
   the accepted sidecar report.
+
+  At 14:50 UTC the atomic LeRobot build is complete: 600 episodes and 6,313
+  executable query-action samples. The strict basic runtime gate now loads the
+  exact 4,143,404,816-parameter public pi0.5 checkpoint, preserves the public
+  normalization and scalar sample-weight fields, verifies action shape
+  `(50,14)`, and pins `accelerate==1.14.0`, `protobuf==7.35.1`, and
+  `sentencepiece==0.2.1`. The first CRAVE-sidecar attempt exposed an ordering
+  error: query annotations were grouped by task while action chunks retained
+  frozen manifest order. A local exact reproduction additionally showed five
+  terminal planning observations with no executed action target. The repaired
+  builder now joins by the unique `(task, scene_seed, query_index,
+  query_frame)` key, permits dropping only those five explicitly unlabeled
+  terminal observations, and normalizes weights over the final 6,313 training
+  samples. Its focused scheduler/runtime suite passes 139 tests. The fixed
+  sidecar task is waiting for one data-local East GPU because P1 currently uses
+  8/8; it has not been moved to North or oversubscribed locally. A fail-closed
+  three-arm launcher is prepared but is not yet schedulable: it preserves
+  global batch 16 as per-process batch 4 on four GPUs, keeps the public AdamW,
+  scheduler, unfrozen vision encoder, gradient checkpointing, and
+  `max-autotune` compile settings, and requires both runtime markers plus the
+  accepted sidecar before even a two-step smoke can start.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary
