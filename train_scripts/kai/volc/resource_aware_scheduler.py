@@ -4120,7 +4120,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                             / "logs/r4/training"
                             / f"{arm}-seed1000_*.log"
                         ),
-                        "regex": r"step:(\d+)",
+                        "regex": r"step:(\d+)\s+smpl:",
                     }
                 ],
                 "candidates": [

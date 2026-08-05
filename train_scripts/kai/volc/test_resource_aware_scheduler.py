@@ -468,7 +468,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         )
         assert "policy-effect claims remain blocked" in task["description"]
         assert task["progress_logs"][0]["label"] == "step"
-        assert task["progress_logs"][0]["regex"] == r"step:(\d+)"
+        assert task["progress_logs"][0]["regex"] == r"step:(\d+)\s+smpl:"
     for arm, task in formal_eval.items():
         assert task["priority"] == 2
         assert task["prefer_max_gpus_when_immediate"] is True
