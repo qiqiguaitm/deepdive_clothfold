@@ -597,6 +597,25 @@ def test_dispatch_order_can_prefer_larger_immediate_allocation() -> None:
     assert ordered[0]["resource"] == "local"
 
 
+def test_dispatch_order_can_prefer_smaller_immediate_allocation() -> None:
+    snapshot = north_snapshot(primary=0, all_users=0)
+    snapshot["timestamp"] = "2026-08-05T11:40:00Z"
+    task = {
+        "prefer_min_gpus_when_immediate": True,
+        "candidates": [
+            {"resource": "Robot-North-H20", "kind": "platform", "gpus": 8},
+            {"resource": "Robot-North-H20", "kind": "platform", "gpus": 4},
+        ],
+    }
+
+    ordered = scheduler.ordered_dispatch_candidates(task, snapshot)
+    assert [candidate["gpus"] for candidate in ordered] == [4, 8]
+
+    task["prefer_max_gpus_when_immediate"] = True
+    with pytest.raises(ValueError, match="cannot prefer both"):
+        scheduler.ordered_dispatch_candidates(task, snapshot)
+
+
 def test_mt3_mixed_gpu_candidates_prefer_8g_only_when_all_cards_are_free() -> None:
     queue = {"tasks": []}
     scheduler.add_pi05_mt3_tracker_tasks(queue)
@@ -3830,6 +3849,7 @@ def test_p1_north_failover_pair_is_audited_and_materialized() -> None:
         "pi05_p1_north_failover_materialize",
     }
     parent = tasks["pi05_p1_north_failover_pair"]
+    assert parent["prefer_min_gpus_when_immediate"] is True
     assert parent["completion_remote"] is True
     assert parent["completion_min_count"] == 2
     assert parent["completion_glob"].endswith(

@@ -2039,6 +2039,7 @@ def add_pi05_p1_north_failover_tasks(queue: dict[str, Any]) -> None:
     # to resume A0. Candidate-specific remote readiness prevents this path from
     # being selected for a fresh two-arm recovery.
     parent = next(task for task in queue["tasks"] if task.get("id") == parent_id)
+    parent["prefer_min_gpus_when_immediate"] = True
     recovery_yaml = "train_scripts/kai/volc/pi05_p1_north_failover_a0_resume_4h20.yaml"
     if not any(candidate.get("yaml") == recovery_yaml for candidate in parent["candidates"]):
         parent["candidates"].insert(
@@ -8875,6 +8876,9 @@ def ordered_dispatch_candidates(
     ]
 
     prefer_max_gpus = bool(task.get("prefer_max_gpus_when_immediate"))
+    prefer_min_gpus = bool(task.get("prefer_min_gpus_when_immediate"))
+    if prefer_max_gpus and prefer_min_gpus:
+        raise ValueError("task cannot prefer both minimum and maximum GPU shapes")
 
     def router_key(
         item: tuple[int, dict[str, Any]],
@@ -8912,7 +8916,13 @@ def ordered_dispatch_candidates(
             return (True, 0, 10**9, 10**9, index)
         return (
             not selected.immediately_runnable,
-            -gpus if prefer_max_gpus and selected.immediately_runnable else 0,
+            (
+                -gpus
+                if prefer_max_gpus and selected.immediately_runnable
+                else gpus
+                if prefer_min_gpus and selected.immediately_runnable
+                else 0
+            ),
             selected.score,
             selected.rank,
             index,
