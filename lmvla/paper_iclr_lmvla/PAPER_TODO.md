@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 17:15 UTC
+Updated: 2026-08-05 18:08 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -357,6 +357,22 @@ frozen scene manifest. A0 seed 0/1 are also complete at 12/12 cells with zero
 failures; seed 2/3 are now active on the two local A100 GPUs. The final P1 gate
 remains blocked only on those 12 A0 cells and cannot be inferred from the four
 candidate/control macros alone.
+
+At 18:08 UTC the two local A100 evaluators remain healthy and fully occupied.
+A0 seeds 0/1 are complete; seeds 2/3 have each completed `beat_block_hammer`,
+are running `blocks_ranking_size`, retain four pending tasks, and have zero
+failed cells. The four completed candidate/control arms therefore still do not
+unlock the P1 or R1 gates. On East, matched R4 ordinary and outcome-free CRAVE
+training have both reached step 1,838/5,000 on disjoint four-H20 allocations.
+Their steady updates remain approximately 0.86--0.94 seconds with 40.25 GiB
+per process and negligible data-loader time. East is 8/8 occupied; the
+terminal-outcome arm waits for the first four-GPU release and has not been
+blindly queued. Migrating it to North was rejected after audit because that
+filesystem lacks the approximately 8.8 GB public model, 7.6 GB pinned LeRobot
+runtime, and 0.9 GB R4 dataset; staging and revalidating those dependencies
+would exceed the remaining time of the active East arms. The verified North
+failover monitor now bounds displayed progress at 100% while retaining the
+actual staged byte count.
 
 ## P1: seed-1000 closed-loop causal gate
 
