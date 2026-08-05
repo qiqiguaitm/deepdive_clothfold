@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 15:15 UTC
+Updated: 2026-08-05 16:16 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -248,6 +248,17 @@ useful work. If A0 finishes naturally first, its canonical marker makes the
 accelerator a no-op. At 16:00 UTC shuffled has advanced to 6/24; A0 remains
 4/24, normal and action-masked 12/24 each, and zero-gate 4/24, with zero failed
 cells throughout.
+
+At 16:16 UTC all five canonical schedulers still have fresh heartbeat leases
+and zero failed cells. A0 is 4/24; normal and action-masked are 16/24 each;
+action-shuffled and zero-gate are 8/24 each. The East arms are executing
+`stack_blocks_two` and have only the four per-seed `stack_blocks_three` cells
+left after the current claims. The two North accelerator jobs remain in
+`Queueing`, so they reserve submitted-job slots but consume no additional GPU.
+No Shanghai task was added while East is full and robot-task submission remains
+disabled. The resource recommendation CLI, static topology catalog, tests, and
+submission documentation are now tracked on `main`; the router/scheduler suite
+passes 123 tests from a clean Git identity.
 
 ## P1: seed-1000 closed-loop causal gate
 
