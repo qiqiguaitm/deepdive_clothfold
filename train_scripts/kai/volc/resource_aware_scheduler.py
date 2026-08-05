@@ -3685,6 +3685,76 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             }
         )
 
+    smoke_train_id = "pi05_r4_training_smoke"
+    smoke_train_marker = REPO / "logs/resource_markers/pi05_r4_smoke-ordinary-4g.ok"
+    smoke_train_script = REPO / "train_scripts/kai/run_pi05_r4_training.sh"
+    smoke_train_yaml = REPO / "train_scripts/kai/volc/pi05_r4_train_smoke_east_4h20.yaml"
+    smoke_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_training_smoke_amendment_v1.json"
+    )
+    smoke_spec = json.loads(smoke_amendment.read_text())
+    smoke_ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(smoke_spec["file_sha256"].items())
+    ]
+    smoke_gate_hashes = {
+        runtime_report: smoke_spec["accepted_gates"]["basic_runtime_report_sha256"],
+        matched_runtime_report: smoke_spec["accepted_gates"][
+            "matched_runtime_report_sha256"
+        ],
+        crave_report: smoke_spec["accepted_gates"]["crave_sidecar_report_sha256"],
+        crave_sidecar: smoke_spec["accepted_gates"]["crave_sidecar_sha256"],
+    }
+    if smoke_train_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": smoke_train_id,
+                "priority": 1,
+                "description": (
+                    "Two-step ordinary-arm runtime smoke; formal R4 training remains blocked"
+                ),
+                "completion_glob": str(smoke_train_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(runtime_marker),
+                    str(matched_runtime_marker),
+                    str(crave_sidecar_marker),
+                    str(runtime_report),
+                    str(matched_runtime_report),
+                    str(crave_report),
+                    str(crave_sidecar),
+                    str(smoke_train_script),
+                    str(smoke_train_yaml),
+                    str(smoke_amendment),
+                ],
+                "ready_hashes": [
+                    *smoke_ready_hashes,
+                    *(
+                        {"path": str(path), "sha256": expected}
+                        for path, expected in smoke_gate_hashes.items()
+                    ),
+                    {
+                        "path": str(smoke_amendment),
+                        "sha256": sha256_file(smoke_amendment),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 300,
+                        "yaml": "train_scripts/kai/volc/pi05_r4_train_smoke_east_4h20.yaml",
+                        "task_name": "pi05-r4-train-smoke-east4g",
+                    }
+                ],
+            }
+        )
+
 
 def add_pi05_r4_sidecar_north_tasks(queue: dict[str, Any]) -> None:
     """Stage the exact R4 sidecar inputs to North and materialize its output."""

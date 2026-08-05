@@ -221,6 +221,12 @@ produce the canonical local report and marker. The R4 CRAVE sidecar remains
 ready but waits for a data-local East or local allocation while these higher
 priority P1 evaluations occupy all ten such GPUs.
 
+At 15:40 UTC the five-arm evaluation remains healthy and fully parallel. Local
+A0 has completed 3/24 cells, East normal 12/24, East action-masked 11/24, and
+North action-shuffled and zero-gate 4/24 each, with zero failed cells in every
+arm. The North controls still require reverse synchronization and local
+verification before they count toward the gate.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from
@@ -453,18 +459,36 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   builder now joins by the unique `(task, scene_seed, query_index,
   query_frame)` key, permits dropping only those five explicitly unlabeled
   terminal observations, and normalizes weights over the final 6,313 training
-  samples. Its focused scheduler/runtime suite passes 139 tests. The fixed
-  sidecar task is waiting for one data-local East GPU because P1 currently uses
-  8/8; it has not been moved to North or oversubscribed locally. A fail-closed
-  three-arm launcher is prepared but is not yet schedulable: it preserves
-  global batch 16 as per-process batch 4 on four GPUs, keeps the public AdamW,
-  scheduler, unfrozen vision encoder, gradient checkpointing, and
-  `max-autotune` compile settings, and requires both runtime markers plus the
-  accepted sidecar before even a two-step smoke can start.
+  samples. Its focused scheduler/runtime suite passes 139 tests.
 
-- [ ] Do not launch until success and failure rollouts with true outcome labels
-  exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary
-  pi0.5 fine-tuning.
+  At 15:38 UTC the sidecar and matched-runtime gates are accepted. A dedicated
+  North amendment first materialized exactly 600 query images and 1,200
+  selected reference features in an isolated stage, verified all 1,920 files
+  by SHA-256, and passed the pinned DINOv3-base model check. A fresh submission
+  audit selected Robot-North-H20, and the one-H20 task
+  `t-20260805233129-dqxfd` encoded all 6,318 query observations. It emitted
+  6,313 action-aligned weights after dropping only the five predeclared
+  non-actionable terminal queries. Reverse materialization accepted sidecar
+  SHA-256 `071a926a087e73a279148b403d4607ddd9d0001b37db7466c87ea8970d181c8e`.
+  The local matched-runtime gate then loaded the exact 4,143,404,816-parameter
+  public policy and accepted the 600-episode, 6,313-sample dataset, `(50,14)`
+  actions, sample-weight processor, and sidecar indexing.
+
+  A separate hash-pinned `smoke_only` amendment now authorizes only the
+  ordinary arm for two optimizer steps on four East H20 GPUs. It preserves
+  global batch 16 as per-process batch 4, the public AdamW and scheduler,
+  unfrozen vision encoder, gradient checkpointing, and `max-autotune` compile
+  settings. The scheduler may submit it only after a fresh target audit and an
+  immediately available East allocation; it must not queue blindly in
+  Shanghai. Successful smoke execution still does not authorize the 5,000-step
+  ordinary, terminal-outcome, or outcome-free CRAVE arms. Formal three-arm
+  training requires a separate amendment after smoke acceptance.
+
+- [x] Materialize success and failure rollouts with true outcome labels before
+  authorizing any R4 policy training.
+- [ ] After the smoke-only amendment passes and a formal-training amendment is
+  accepted, compare terminal-outcome weighting against outcome-free CRAVE
+  weighting and ordinary pi0.5 fine-tuning.
 - [ ] Do not make a Q-value, advantage, world-critic, or model-predictive-control
   claim without action-diverse rollout consequences. Expert demonstrations and
   action-shuffled latent probes are insufficient.
@@ -474,8 +498,9 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
 - P1 failure closes predictive-adapter replication.
 - P2 failure retains the current negative-integration paper and archives the
   predictive-adapter branch as another bounded interface result.
-- R4 remains deferred until true rollout outcomes exist. CRAVE progress alone
-  must never be reported as reward, action advantage, or control value.
+- R4 formal training remains blocked on the smoke gate and a separate formal
+  amendment. CRAVE progress alone must never be reported as reward, action
+  advantage, or control value.
 - AHEAD-style interception and world-critic RL require new benchmarks or reward
   data and remain outside this graph.
 - LeWM/DINO visual replacement, from-PaliGemma initialization, A2/A3 variants,

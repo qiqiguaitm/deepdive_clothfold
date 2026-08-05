@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_training_smoke_amendment_v1",
+  "created_at": "2026-08-05T15:39:00Z",
+  "status": "smoke_only",
+  "authorization": {
+    "arm": "ordinary",
+    "seed": 1000,
+    "steps": 2,
+    "world_size": 4,
+    "effective_batch_size": 16,
+    "formal_training_authorized": false
+  },
+  "accepted_gates": {
+    "basic_runtime_report_sha256": "d6c765f3a6d9008953d44b5cd8e9c30c558d6855a0b14f8d70c65b126c8b1a02",
+    "matched_runtime_report_sha256": "30c7b389bd1e6e79f84485532f6107f941e0e19ee024a904be753da38d465fd4",
+    "crave_sidecar_report_sha256": "a4519ebe6b12b9bc72e73d50eb8d23cd8e2651319727e08273b9eead41376ee3",
+    "crave_sidecar_sha256": "071a926a087e73a279148b403d4607ddd9d0001b37db7466c87ea8970d181c8e"
+  },
+  "file_sha256": {
+    "lmvla/paper_iclr_lmvla/manifests/pi05_r4_matched_weighting_protocol_v1.json": "710c5c7505b86718fdfab6555b65049e8006434f5359e2332cb19ec391316a8a",
+    "train_scripts/kai/run_pi05_r4_training.sh": "3b6c6df428d66fba9c9bbc1af468dcb48a10e6b553e58b938aa0fd5f9315ac9d",
+    "train_scripts/kai/volc/pi05_r4_train_smoke_east_4h20.yaml": "87f353f04b436e181348b6baacf1bd78edf5e4fe496323de30208ab8470dc068"
+  },
+  "stop_rule": "A successful smoke proves only that the exact matched training runtime can execute two optimizer steps. It does not authorize or support a policy-effect claim, and formal three-arm training requires a separate amendment."
+}

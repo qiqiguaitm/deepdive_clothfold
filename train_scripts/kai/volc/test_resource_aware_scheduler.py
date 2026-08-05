@@ -271,6 +271,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     outcome_free = tasks["pi05_r4_outcome_free_manifest_build"]
     crave_sidecar = tasks["pi05_r4_crave_sidecar_build"]
     matched_runtime = tasks["pi05_r4_matched_runtime_verify"]
+    training_smoke = tasks["pi05_r4_training_smoke"]
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -419,6 +420,19 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert "--load-policy" in matched_command
     assert "&& exec env" not in matched_command
     assert "pi05_r4_matched_runtime.ok" in matched_command
+    assert training_smoke["candidates"][0]["resource"] == "Robot-East-H20"
+    assert training_smoke["candidates"][0]["gpus"] == 4
+    assert training_smoke["completion_glob"].endswith(
+        "pi05_r4_smoke-ordinary-4g.ok"
+    )
+    assert runtime_verify["completion_glob"] in training_smoke["ready_files"]
+    assert matched_runtime["completion_glob"] in training_smoke["ready_files"]
+    assert crave_sidecar["completion_glob"] in training_smoke["ready_files"]
+    assert "formal R4 training remains blocked" in training_smoke["description"]
+    assert any(
+        item["path"].endswith("pi05_r4_training_smoke_amendment_v1.json")
+        for item in training_smoke["ready_hashes"]
+    )
 
 
 def test_r4_sidecar_north_stage_is_exact_and_materialized() -> None:
