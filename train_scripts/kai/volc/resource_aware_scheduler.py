@@ -3317,6 +3317,9 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_crave_sidecar_build",
         "pi05_r4_matched_runtime_verify",
         "pi05_r4_checkpoint_permissions",
+        "pi05_r4_eval_north_stage",
+        "pi05_r4_terminal_outcome_eval_materialize_north",
+        "pi05_r4_outcome_free_crave_eval_materialize_north",
     }
     # Queue definitions are persisted separately from task state. Rebuild this
     # hash-pinned subgraph so an authorized amendment cannot leave stale hashes
@@ -4680,6 +4683,196 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             {"path": path, "sha256": sha256}
             for path, sha256 in hashes_by_path.items()
         ]
+
+    north_eval_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_north_eval_amendment_v1.json"
+    )
+    north_eval_spec = json.loads(north_eval_amendment.read_text())
+    north_eval_ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(north_eval_spec["file_sha256"].items())
+    ]
+    north_stage_id = "pi05_r4_eval_north_stage"
+    north_stage_marker = (
+        REPO / "logs/resource_markers/pi05_r4_eval_north_stage.ok"
+    )
+    north_stage = Path(NORTH_REPO) / ".staging/pi05_r4_eval_north_v1/repo"
+    north_stage_marker_remote = (
+        north_stage / "logs/resource_markers/pi05_r4_eval_north_stage.ok"
+    )
+    queue["tasks"].append(
+        {
+            "id": north_stage_id,
+            "priority": 0,
+            "description": (
+                "Hash-verify and stage the two pending R4 checkpoints and exact "
+                "LeRobot evaluation runtime on North"
+            ),
+            "completion_glob": str(north_stage_marker),
+            "completion_min_count": 1,
+            "ready_files": [
+                str(permission_marker),
+                str(action_bridge_marker),
+                str(north_eval_amendment),
+                str(REPO / "logs/r4/checkpoint_integrity_v1.json"),
+                *[item["path"] for item in north_eval_ready_hashes],
+                *[
+                    str(
+                        REPO
+                        / "lmvla/lmwm/checkpoints/pi05_r4_matched_v1"
+                        / f"{arm}-seed1000/checkpoints/005000/pretrained_model/"
+                        "model.safetensors"
+                    )
+                    for arm in ("terminal_outcome", "outcome_free_crave")
+                ],
+            ],
+            "ready_dirs": [
+                "/vePFS/tim/workspace/lerobot-pi05-server-venv",
+                "/vePFS/tim/.uv_python/cpython-3.12.13-linux-x86_64-gnu",
+                "/vePFS/tim/workspace/lerobot-main/src",
+                "/vePFS/tim/hf_models/paligemma_tokenizer",
+            ],
+            "ready_hashes": [
+                *north_eval_ready_hashes,
+                {
+                    "path": str(north_eval_amendment),
+                    "sha256": sha256_file(north_eval_amendment),
+                },
+            ],
+            "candidates": [
+                {
+                    "kind": "local",
+                    "resource": "local",
+                    "gpus": 0,
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 2,
+                    "status_dir": str(REPO / "logs/r4/north_eval_stage/launcher"),
+                    "command": shlex.join(
+                        [
+                            "bash",
+                            str(REPO / "train_scripts/kai/stage_pi05_r4_eval_to_north.sh"),
+                        ]
+                    ),
+                }
+            ],
+        }
+    )
+
+    north_eval_yaml = "train_scripts/kai/volc/pi05_r4_eval_north_4h20.yaml"
+    for arm in ("terminal_outcome", "outcome_free_crave"):
+        eval_task_id = f"pi05_r4_{arm}_seed1000_eval"
+        parent = next(task for task in queue["tasks"] if task.get("id") == eval_task_id)
+        result_name = f"pi05_r4_{arm}_seed1000"
+        local_marker = REPO / "logs/resource_markers" / f"{result_name}.ok"
+        remote_marker = north_stage / "logs/resource_markers" / f"{result_name}.ok"
+        remote_model = (
+            north_stage
+            / "lmvla/lmwm/checkpoints/pi05_r4_matched_v1"
+            / f"{arm}-seed1000/checkpoints/005000/pretrained_model"
+        )
+        parent["completion_locations"] = [
+            {"label": "shared", "glob": str(local_marker), "remote": False},
+            {"label": "north", "glob": str(remote_marker), "remote": True},
+        ]
+        parent_hashes = {
+            item["path"]: item["sha256"] for item in parent["ready_hashes"]
+        }
+        parent_hashes.update(
+            {item["path"]: item["sha256"] for item in north_eval_ready_hashes}
+        )
+        parent_hashes[str(north_eval_amendment)] = sha256_file(
+            north_eval_amendment
+        )
+        parent["ready_files"] = list(
+            dict.fromkeys(
+                [
+                    *parent["ready_files"],
+                    str(north_stage_marker),
+                    str(north_eval_amendment),
+                    *[item["path"] for item in north_eval_ready_hashes],
+                ]
+            )
+        )
+        parent["ready_hashes"] = [
+            {"path": path, "sha256": expected}
+            for path, expected in parent_hashes.items()
+        ]
+        if not any(
+            candidate.get("resource") == "Robot-North-H20"
+            for candidate in parent["candidates"]
+        ):
+            parent["candidates"].append(
+                {
+                    "kind": "platform",
+                    "resource": "Robot-North-H20",
+                    "region": "cn-beijing",
+                    "gpus": 4,
+                    "queue_timeout_seconds": 300,
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 4,
+                    "yaml": north_eval_yaml,
+                    "task_name": f"pi05-r4-{arm.replace('_', '-')}-eval-north4g",
+                    "ready_files": [str(north_stage_marker)],
+                    "ready_files_remote": [
+                        str(north_stage_marker_remote),
+                        str(remote_model / "model.safetensors"),
+                        str(remote_model / "config.json"),
+                    ],
+                    "env": {
+                        "R4_ARM": arm,
+                        "PORT_BASE_OFFSET": str(eval_ports[arm]),
+                    },
+                }
+            )
+
+        materialize_id = f"pi05_r4_{arm}_eval_materialize_north"
+        queue["tasks"].append(
+            {
+                "id": materialize_id,
+                "priority": 0,
+                "description": f"Verify and materialize North R4 {arm} evaluation",
+                "materialize_north_result_for": eval_task_id,
+                "completion_glob": str(local_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(north_eval_amendment),
+                    str(REPO / "train_scripts/kai/sync_pi05_r4_eval_from_north.sh"),
+                ],
+                "ready_hashes": [
+                    *north_eval_ready_hashes,
+                    {
+                        "path": str(north_eval_amendment),
+                        "sha256": sha256_file(north_eval_amendment),
+                    },
+                ],
+                "ready_files_remote": [str(remote_marker)],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(
+                            REPO / "logs/r4/north_eval_materialize" / arm
+                        ),
+                        "command": shlex.join(
+                            [
+                                "env",
+                                f"R4_ARM={arm}",
+                                "bash",
+                                str(
+                                    REPO
+                                    / "train_scripts/kai/"
+                                    "sync_pi05_r4_eval_from_north.sh"
+                                ),
+                            ]
+                        ),
+                    }
+                ],
+            }
+        )
 
     gate_id = "pi05_r4_seed1000_gate"
     if gate_id not in existing:

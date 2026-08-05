@@ -1,0 +1,66 @@
+TaskName: "pi05-r4-eval-north4g"
+Description: "Fixed-manifest closed-loop evaluation of one staged R4 seed-1000 arm"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+
+Entrypoint: |
+  set -Eeuo pipefail
+  NORTH_REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAGE=$NORTH_REPO/.staging/pi05_r4_eval_north_v1/repo
+  : "${R4_ARM:?R4_ARM must be supplied by the scheduler}"
+  case "$R4_ARM" in terminal_outcome|outcome_free_crave) ;; *) exit 2 ;; esac
+
+  export REPO=$STAGE
+  export PUBLIC_PI05_SERVER_PY=$STAGE/runtime/python/bin/python3.12
+  export PALIGEMMA_TOKENIZER_PATH=$STAGE/runtime/tokenizer
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$STAGE/train_scripts/kai/eval/robotwin_python_wrapper_north.sh
+  export PYTHONPATH=$STAGE/runtime/lerobot/src:$STAGE/runtime/venv/lib/python3.12/site-packages:$STAGE/kai0/src:$STAGE/kai0/packages/openpi-client/src:${PYTHONPATH:-}
+  export TORCH_CUDA_ARCH_LIST=9.0
+  export TORCH_EXTENSIONS_DIR=/vePFS-North-E/vis_robot/tim/runtime/torch_extensions/h20_sm90_py310
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.42
+  export LOCAL_GPU_COUNT=4 GPU_INDEX_OFFSET=0 ROBOTWIN_NUM_SLOTS=1 NUM_WORKERS=1
+  export PORT_BASE_OFFSET=${PORT_BASE_OFFSET:?missing PORT_BASE_OFFSET}
+  export R4_EVAL_LOG_DIR=$NORTH_REPO/logs/r4/north_eval/$R4_ARM
+
+  test -s "$STAGE/logs/resource_markers/pi05_r4_eval_north_stage.ok"
+  test -x "$PUBLIC_PI05_SERVER_PY"
+  test -x "$ROBOTWIN_PYTHON"
+  test -d "$ROBOTWIN_PATH/envs"
+  mkdir -p "$TORCH_EXTENSIONS_DIR" "$R4_EVAL_LOG_DIR"
+  exec bash "$STAGE/train_scripts/kai/eval/run_pi05_r4_formal_eval.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

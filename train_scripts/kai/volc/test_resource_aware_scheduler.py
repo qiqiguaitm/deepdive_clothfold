@@ -292,6 +292,11 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
     }
     formal_gate = tasks["pi05_r4_seed1000_gate"]
+    north_stage = tasks["pi05_r4_eval_north_stage"]
+    north_materializers = {
+        arm: tasks[f"pi05_r4_{arm}_eval_materialize_north"]
+        for arm in ("terminal_outcome", "outcome_free_crave")
+    }
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -481,11 +486,13 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     for arm, task in formal_eval.items():
         assert task["priority"] == 2
         assert task["prefer_max_gpus_when_immediate"] is True
-        assert [candidate["resource"] for candidate in task["candidates"]] == [
-            "Robot-East-H20",
-            "local",
-        ]
-        assert [candidate["gpus"] for candidate in task["candidates"]] == [4, 2]
+        expected_resources = ["Robot-East-H20", "local"]
+        expected_gpus = [4, 2]
+        if arm != "ordinary":
+            expected_resources.append("Robot-North-H20")
+            expected_gpus.append(4)
+        assert [candidate["resource"] for candidate in task["candidates"]] == expected_resources
+        assert [candidate["gpus"] for candidate in task["candidates"]] == expected_gpus
         assert task["candidates"][0]["env"]["R4_ARM"] == arm
         assert f"R4_ARM={arm}" in task["candidates"][1]["command"]
         assert "ROBOTWIN_NUM_SLOTS=2" in task["candidates"][1]["command"]
@@ -523,6 +530,28 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         )
         assert checkpoint_permissions["completion_glob"] in task["ready_files"]
         assert task["progress_globs"][0]["expected"] == 24
+        if arm != "ordinary":
+            assert any(
+                item["path"].endswith("pi05_r4_north_eval_amendment_v1.json")
+                for item in task["ready_hashes"]
+            )
+            assert {location["label"] for location in task["completion_locations"]} == {
+                "shared",
+                "north",
+            }
+    assert north_stage["priority"] == 0
+    assert north_stage["candidates"][0]["resource"] == "local"
+    assert north_stage["candidates"][0]["gpus"] == 0
+    assert "stage_pi05_r4_eval_to_north.sh" in north_stage["candidates"][0]["command"]
+    assert any(
+        item["path"].endswith("pi05_r4_eval_north_4h20.yaml")
+        for item in north_stage["ready_hashes"]
+    )
+    for arm, materialize in north_materializers.items():
+        assert materialize["materialize_north_result_for"] == formal_eval[arm]["id"]
+        assert materialize["candidates"][0]["gpus"] == 0
+        assert f"R4_ARM={arm}" in materialize["candidates"][0]["command"]
+        assert "sync_pi05_r4_eval_from_north.sh" in materialize["candidates"][0]["command"]
     assert checkpoint_permissions["priority"] == 0
     assert checkpoint_permissions["candidates"][0]["resource"] == "Robot-East-H20"
     assert checkpoint_permissions["candidates"][0]["gpus"] == 1
