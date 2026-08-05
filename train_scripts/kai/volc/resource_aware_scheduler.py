@@ -5764,6 +5764,34 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
         replication_amendment["authorization"]["r1_train_tasks"]
     )
     replication_train_authorized = p2_train_authorized | r1_train_authorized
+    replication_eval_amendment_path = (
+        manifests / "pi05_replication_frozen_evaluation_amendment_v1.json"
+    )
+    replication_eval_amendment = json.loads(
+        replication_eval_amendment_path.read_text()
+    )
+    p2_eval_authorized = set(
+        replication_eval_amendment["authorization"]["p2_eval_tasks"]
+    )
+    frozen_p2_eval_launcher = REPO / replication_eval_amendment[
+        "frozen_eval_launcher"
+    ]
+    replication_eval_hashes = list(replication_overlay_hashes)
+    replication_eval_hashes.append(
+        {
+            "path": str(frozen_p2_eval_launcher),
+            "sha256": replication_eval_amendment["frozen_eval_launcher_sha256"],
+        }
+    )
+    replication_eval_hashes.extend(
+        {
+            "path": str(REPO / relative),
+            "sha256": expected,
+        }
+        for relative, expected in sorted(
+            replication_eval_amendment["platform_yamls"].items()
+        )
+    )
 
     for task in queue.get("tasks", []):
         task_id = task.get("id", "")
@@ -5809,6 +5837,37 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                                 ),
                             }
                         )
+        elif task_id in p2_eval_authorized:
+            task["ready_hashes"] = replication_eval_hashes
+            for path in (
+                REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY",
+                replication_eval_amendment_path,
+                frozen_p2_eval_launcher,
+            ):
+                path_text = str(path)
+                if path_text not in task.setdefault("ready_files", []):
+                    task["ready_files"].append(path_text)
+
+            eval_env = {
+                "P2_VERIFY_REPO": str(REPLICATION_FROZEN_OVERLAY),
+                "PYTHONPATH": str(REPLICATION_FROZEN_OVERLAY / "kai0/src"),
+                "P2_EVAL_LAUNCHER": str(frozen_p2_eval_launcher),
+            }
+            assignments = " ".join(
+                f"{key}={shlex.quote(value)}" for key, value in eval_env.items()
+            )
+            for candidate in task.get("candidates", []):
+                if candidate.get("kind") == "platform":
+                    candidate.setdefault("env", {}).update(eval_env)
+                elif candidate.get("kind") in {"local", "ssh"}:
+                    candidate["command"] = candidate["command"].replace(
+                        "exec env ", f"exec env {assignments} ", 1
+                    ).replace(
+                        "bash train_scripts/kai/eval/"
+                        "run_pi05_predictive_adapter_p2_formal.sh",
+                        f"bash {shlex.quote(str(frozen_p2_eval_launcher))}",
+                        1,
+                    )
         elif task_id in replication_train_authorized:
             task["ready_hashes"] = replication_overlay_hashes
             for path in (

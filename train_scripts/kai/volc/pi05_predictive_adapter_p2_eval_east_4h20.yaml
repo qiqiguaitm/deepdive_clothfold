@@ -1,0 +1,45 @@
+TaskName: "pi05-predictive-adapter-p2-eval-east4g"
+Description: "Frozen 24-cell predictive-adapter P2 replication evaluation"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%SZ)
+  LOG_DIR=$REPO/logs/predictive/p2_platform
+  P2_EVAL_LAUNCHER=${P2_EVAL_LAUNCHER:-$REPO/train_scripts/kai/eval/run_pi05_predictive_adapter_p2_formal.sh}
+  mkdir -p "$LOG_DIR"
+  exec >>"$LOG_DIR/seed${SEED:?missing SEED}_${STAMP}_eval_east.log" 2>&1
+  set -x
+  exec env REPO="$REPO" LOCAL_GPU_COUNT=4 MAX_PARALLEL_SEEDS=4 \
+    bash "$P2_EVAL_LAUNCHER"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

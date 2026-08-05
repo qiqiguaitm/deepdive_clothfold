@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_gate_conditioned_frozen_evaluation_amendment_v1",
+  "created_at": "2026-08-05T08:47:53Z",
+  "parents": {
+    "p2_protocol": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json",
+    "p2_protocol_sha256": "52f80a75fa5ee0b3a1a74f5cd9738626dd574bc11a0fd71823f54defdac9908b",
+    "training_amendment": "lmvla/paper_iclr_lmvla/manifests/pi05_replication_frozen_training_amendment_v1.json",
+    "training_amendment_sha256": "f2daf13a1a4e036d16349edc23286f26946b41b32f602570220bba625a94bfa9"
+  },
+  "overlay": "logs/frozen_source_overlays/pi05_replication_v1",
+  "overlay_ready": "logs/frozen_source_overlays/pi05_replication_v1/REPLICATION_READY",
+  "overlay_ready_sha256": "bfa43011a4c72bbd95a396593887b5d17de869829ff2dccd8ab54c89f8235452",
+  "frozen_eval_launcher": "lmvla/paper_iclr_lmvla/frozen_sources/pi05_replication_v1/train_scripts/kai/eval/run_pi05_predictive_adapter_p2_formal.sh",
+  "frozen_eval_launcher_sha256": "929f7a44c6d8841da9f2c49a96eb392228d16afccbb3d1159469198f6c6f8470",
+  "platform_yamls": {
+    "train_scripts/kai/volc/pi05_predictive_adapter_p2_eval_east_4h20.yaml": "3550e1edde05d6ae423b52dec4a3b594f21839470eb39b21e1ff6ccdb6f33227",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p2_eval_cnsh_4a100.yaml": "d254fee40802c6c719f3e4ec99d50b6c3f9e33500097997ade4111c2b23d9149"
+  },
+  "authorization": {
+    "p2_gate": "logs/predictive/p1_eval/p1_gate.accepted",
+    "p2_eval_tasks": [
+      "pi05_predictive_adapter_p2_candidate_seed1001_eval",
+      "pi05_predictive_adapter_p2_candidate_seed1002_eval"
+    ]
+  },
+  "runtime_contract": {
+    "verification_root": "overlay",
+    "python_source_root": "overlay",
+    "data_root": "canonical repository",
+    "checkpoint_input_root": "canonical repository",
+    "result_output_root": "canonical repository",
+    "shared_source_overwrite": false
+  },
+  "constraints": [
+    "This amendment does not create or accept the prerequisite P1 gate.",
+    "An evaluation remains unready until its original gate and seed checkpoint exist.",
+    "Only the listed seed-1001/1002 P2 evaluation tasks may use this launcher.",
+    "The original frozen P2 source identities remain exact in the overlay.",
+    "No source hash check is removed or weakened."
+  ],
+  "passed": true
+}

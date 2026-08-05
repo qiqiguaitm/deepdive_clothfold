@@ -93,7 +93,37 @@ def test_frozen_source_readiness_covers_p1_p2_and_r1_gpu_jobs() -> None:
     assert p1_east["env"]["P1_VERIFY_REPO"] == str(scheduler.R1_FROZEN_OVERLAY)
     assert p1_east["env"]["ROBOTWIN_ATTACH_REQUEUE_FAILED"] == "1"
     assert p1_east["env"]["TORCH_CUDA_ARCH_LIST"] == "9.0"
-    assert p2_eval["ready_hashes"] == p1["ready_hashes"]
+    assert p2_eval["ready_hashes"] != p1["ready_hashes"]
+    assert any(
+        item["path"].startswith(str(scheduler.REPLICATION_FROZEN_OVERLAY))
+        for item in p2_eval["ready_hashes"]
+    )
+    assert any(
+        item["path"].endswith(
+            "frozen_sources/pi05_replication_v1/train_scripts/kai/eval/"
+            "run_pi05_predictive_adapter_p2_formal.sh"
+        )
+        for item in p2_eval["ready_hashes"]
+    )
+    assert "P2_VERIFY_REPO=" in p2_eval["candidates"][0]["command"]
+    assert "frozen_sources/pi05_replication_v1" in p2_eval["candidates"][0][
+        "command"
+    ]
+    p2_eval_east = next(
+        candidate
+        for candidate in p2_eval["candidates"]
+        if candidate["resource"] == "Robot-East-H20"
+    )
+    assert p2_eval_east["env"]["P2_VERIFY_REPO"] == str(
+        scheduler.REPLICATION_FROZEN_OVERLAY
+    )
+    assert p2_eval_east["env"]["PYTHONPATH"] == str(
+        scheduler.REPLICATION_FROZEN_OVERLAY / "kai0/src"
+    )
+    assert p2_eval_east["env"]["P2_EVAL_LAUNCHER"].endswith(
+        "frozen_sources/pi05_replication_v1/train_scripts/kai/eval/"
+        "run_pi05_predictive_adapter_p2_formal.sh"
+    )
     assert p2_train["ready_hashes"] != p1["ready_hashes"]
     assert any(
         item["path"].startswith(str(scheduler.REPLICATION_FROZEN_OVERLAY))
@@ -159,6 +189,7 @@ def test_frozen_source_readiness_covers_p1_p2_and_r1_gpu_jobs() -> None:
     replication_ready = str(
         scheduler.REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY"
     )
+    assert p2_eval["ready_files"].count(replication_ready) == 1
     assert p2_train["ready_files"].count(replication_ready) == 1
     assert r1_train["ready_files"].count(replication_ready) == 1
     assert "ready_hashes" not in tasks["pi05_r1_seed1000_gate"]
@@ -185,6 +216,18 @@ def test_replication_launchers_keep_canonical_outputs_and_frozen_sources_separat
         assert 'test -s "$' in text and "/REPLICATION_READY\"" in text
         for variable in required:
             assert variable in text
+
+    eval_launcher = (
+        scheduler.REPO
+        / "lmvla/paper_iclr_lmvla/frozen_sources/pi05_replication_v1/"
+        "train_scripts/kai/eval/run_pi05_predictive_adapter_p2_formal.sh"
+    ).read_text()
+    assert 'REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}' in eval_launcher
+    assert 'VERIFY_REPO=${P2_VERIFY_REPO:-$REPO}' in eval_launcher
+    assert 'test -s "$VERIFY_REPO/REPLICATION_READY"' in eval_launcher
+    assert '--repo "$VERIFY_REPO"' in eval_launcher
+    assert 'RESULT_ROOT=$REPO/' in eval_launcher
+    assert 'CKPT=${CKPT:-$REPO/' in eval_launcher
 
 
 def north_snapshot(

@@ -131,7 +131,12 @@ none of those results establishes control utility.
   The amendment authorizes only the listed seed-1001/1002 training nodes and
   cannot create either prerequisite gate. After scheduler reload, those training
   nodes have zero source-hash failures and remain unready solely because the
-  P1/R1 gate files do not exist; no hash check has been relaxed. The complete
+  P1/R1 gate files do not exist; no hash check has been relaxed. The two
+  conditional P2 evaluation nodes now also have a separate hash-pinned
+  amendment: verification and Python imports use the immutable overlay while
+  checkpoints, datasets, and reports remain in the canonical repository. Both
+  local and East launch paths have zero source-hash failures, but still require
+  the original P1 gate and their seed checkpoint before dispatch. The complete
   scheduler/router and overlay suite passes 119 tests. At 08:30 UTC the repaired
   P1 pair remained healthy at A0 step 35,300 and candidate step 35,600, both at
   approximately 1.3 steps/s. The scheduler now discards only materializer
