@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 18:08 UTC
+Updated: 2026-08-05 18:35 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -373,6 +373,34 @@ runtime, and 0.9 GB R4 dataset; staging and revalidating those dependencies
 would exceed the remaining time of the active East arms. The verified North
 failover monitor now bounds displayed progress at 100% while retaining the
 actual staged byte count.
+
+At 18:35 UTC A0 is executing through independent first-completer paths without
+changing its frozen evidence. The original local seeds 2/3 evaluator was
+cleanly interrupted after each seed completed `beat_block_hammer`; both active
+claims were released with zero failed cells. A fresh recommendation then chose
+the already verified North stage and launched the four-H20 parent as
+`t-20260806021522-2zksv`. All four remote seed schedulers have completed one
+cell and are active. In parallel, a hash-pinned v2 local accelerator received
+a separate recommendation selecting the two local A100s. Its first attempt
+failed before rollout because a root-owned log directory was not writable and
+exposed a scheduler bug that treated any task without `completion_glob` as
+complete even when explicit `completion_locations` were present. The completion
+contract now requires those declared artifacts, repairs the false historical
+state on reload, and has dedicated regression coverage. The corrected local
+attempt uses two workers per GPU with disjoint indices 4000/4001 and 5000/5001;
+it has 14/24 cells complete, four active, six pending, and zero failed. Local
+memory is approximately 28 GiB per A100 and host load is approximately 54/56,
+so further local oversubscription is not authorized. A second audited North
+attach-only helper, `t-20260806023359-ft7sh`, passed the frozen overlay,
+official A0 config, exact checkpoint, and four-scheduler preflight. It adds
+worker 2000 to each remote seed scheduler while preserving their locked task
+queues. A separate East attach node remains pending at priority 0 and will use
+the first released four-H20 slot; the R4 terminal-outcome arm remains priority
+1 for the other slot. Ordinary and outcome-free CRAVE R4 training have reached
+approximately step 3,600/5,000 with finite losses and gradients. A redundant
+zero-gate North helper submitted under the old completion contract was stopped
+and accelerator tasks now close immediately when their canonical condition
+marker already exists.
 
 ## P1: seed-1000 closed-loop causal gate
 
