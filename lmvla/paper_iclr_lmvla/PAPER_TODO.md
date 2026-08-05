@@ -227,6 +227,19 @@ North action-shuffled and zero-gate 4/24 each, with zero failed cells in every
 arm. The North controls still require reverse synchronization and local
 verification before they count toward the gate.
 
+At 15:53 UTC no arm has a failed cell; local A0 is 4/24, East normal and
+action-masked are 12/24 each, and both North controls remain 4/24. To shorten
+the North bottleneck without changing any evaluation evidence, an audited
+accelerator amendment adds one attach-only worker per existing seed scheduler.
+It preserves the frozen overlay, checkpoint, fixed-scene manifest,
+intervention, 50-episode cells, and canonical 24-cell verifier, while using a
+disjoint worker-index range. Fresh recommendation audits independently chose
+Robot-North-H20 for shuffled and zero-gate. The corresponding four-H20 tasks
+`t-20260805235042-72pqb` and `t-20260805235047-8b2kx` are queued in Beijing and
+will attach only when physical North capacity becomes available. They were not
+redirected to Shanghai and cannot write a canonical marker before all 24 cells
+pass the unchanged verifier.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from
