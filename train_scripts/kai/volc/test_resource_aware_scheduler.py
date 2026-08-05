@@ -3835,8 +3835,23 @@ def test_p1_north_failover_pair_is_audited_and_materialized() -> None:
     assert parent["completion_glob"].endswith(
         "pi05_predictive_adapter_p1*_seed1000/49999/_CHECKPOINT_METADATA"
     )
-    assert len(parent["candidates"]) == 1
-    candidate = parent["candidates"][0]
+    assert len(parent["candidates"]) == 2
+    recovery = parent["candidates"][0]
+    assert recovery["resource"] == "Robot-North-H20"
+    assert recovery["gpus"] == 4
+    assert recovery["ready_files_remote"] == [
+        str(
+            scheduler.P1_NORTH_FAILOVER_STAGE
+            / "kai0/checkpoints/pi05_predictive_adapter_p1"
+            / "pi05_predictive_adapter_p1_seed1000/49999/_CHECKPOINT_METADATA"
+        ),
+        str(
+            scheduler.P1_NORTH_FAILOVER_STAGE
+            / "kai0/checkpoints/pi05_predictive_adapter_p1"
+            / "pi05_predictive_adapter_p1_seed1000/49999/params/_METADATA"
+        ),
+    ]
+    candidate = parent["candidates"][1]
     assert candidate["resource"] == "Robot-North-H20"
     assert candidate["gpus"] == 8
     assert candidate["max_failures"] == 6

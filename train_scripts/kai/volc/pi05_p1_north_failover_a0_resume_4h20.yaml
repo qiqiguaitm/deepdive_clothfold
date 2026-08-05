@@ -1,0 +1,45 @@
+TaskName: "pi05-p1-north-failover-a0-resume"
+Description: "Resume only incomplete P1 A0 after candidate step-49999 is complete"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -Eeuo pipefail
+  STAGE_ROOT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z
+  candidate="$STAGE_ROOT/kai0/checkpoints/pi05_predictive_adapter_p1/pi05_predictive_adapter_p1_seed1000/49999"
+  test -s "$candidate/_CHECKPOINT_METADATA"
+  test -s "$candidate/params/_METADATA"
+  test "$(jq -r '.stage_verified' "$STAGE_ROOT/north_stage_report.json")" = true
+  test "$(jq -r '.runtime_preflight_passed' "$STAGE_ROOT/pi05_p1_north_runtime_preflight.json")" = true
+  exec env STAGE_ROOT="$STAGE_ROOT" \
+    bash "$STAGE_ROOT/train_scripts/kai/run_pi05_p1_north_failover_pair.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

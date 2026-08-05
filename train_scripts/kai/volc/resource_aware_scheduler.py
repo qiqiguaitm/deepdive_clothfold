@@ -1943,6 +1943,11 @@ def add_pi05_p1_north_failover_tasks(queue: dict[str, Any]) -> None:
         / "kai0/checkpoints/pi05_predictive_adapter_p1*"
         / "pi05_predictive_adapter_p1*_seed1000/49999/_CHECKPOINT_METADATA"
     )
+    candidate_final = (
+        P1_NORTH_FAILOVER_STAGE
+        / "kai0/checkpoints/pi05_predictive_adapter_p1"
+        / "pi05_predictive_adapter_p1_seed1000/49999"
+    )
 
     if parent_id not in existing:
         queue["tasks"].append(
@@ -2029,6 +2034,31 @@ def add_pi05_p1_north_failover_tasks(queue: dict[str, Any]) -> None:
             }
         )
         existing.add(parent_id)
+
+    # Once the candidate arm is complete, reserve only the four GPUs required
+    # to resume A0. Candidate-specific remote readiness prevents this path from
+    # being selected for a fresh two-arm recovery.
+    parent = next(task for task in queue["tasks"] if task.get("id") == parent_id)
+    recovery_yaml = "train_scripts/kai/volc/pi05_p1_north_failover_a0_resume_4h20.yaml"
+    if not any(candidate.get("yaml") == recovery_yaml for candidate in parent["candidates"]):
+        parent["candidates"].insert(
+            0,
+            {
+                "kind": "platform",
+                "resource": "Robot-North-H20",
+                "region": "cn-beijing",
+                "gpus": 4,
+                "max_failures": 6,
+                "queue_timeout_seconds": 300,
+                "retry_cooldown_seconds": 300,
+                "yaml": recovery_yaml,
+                "task_name": "pi05-p1-north-failover-a0-resume",
+                "ready_files_remote": [
+                    str(candidate_final / "_CHECKPOINT_METADATA"),
+                    str(candidate_final / "params/_METADATA"),
+                ],
+            },
+        )
 
     materialize_id = "pi05_p1_north_failover_materialize"
     if materialize_id not in existing:
