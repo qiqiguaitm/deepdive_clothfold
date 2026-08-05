@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_formal_training_amendment_v1",
+  "created_at": "2026-08-05T17:30:50Z",
+  "status": "seed1000_screen_authorized",
+  "authorization": {
+    "arms": [
+      "ordinary",
+      "terminal_outcome",
+      "outcome_free_crave"
+    ],
+    "seed": 1000,
+    "steps": 5000,
+    "world_size": 4,
+    "effective_batch_size": 16,
+    "checkpoint_selection": "fixed final step 5000",
+    "replication_authorized": false
+  },
+  "accepted_smoke": {
+    "completed_at": "2026-08-05T17:24:50Z",
+    "arm": "ordinary",
+    "steps": 2,
+    "world_size": 4,
+    "step_1_loss": 0.011,
+    "step_1_grad_norm": 0.367,
+    "step_2_loss": 0.013,
+    "step_2_grad_norm": 0.395,
+    "steady_state_update_seconds": 1.731,
+    "peak_memory_gib": 45.74,
+    "marker_sha256": "ad82e5f674a51615f9da4512bf62d2dea356c4e89aed446b645a206ea6b7090f",
+    "config_sha256": "2e062474b5647770b685f46dccad84c27bc3ac7a8aa74e2c3730def97ab20476",
+    "log_sha256": "4ffc39183c56029ae5b392f3239932fb492d1d15c749274dd630cb91fa82c313"
+  },
+  "file_sha256": {
+    "lmvla/lmwm/runtime/pi05_r4_training/sitecustomize.py": "5b1d5d9babc094e853027c241abc7bf26f0d37052c41aed145562d06c66002b5",
+    "lmvla/lmwm/runtime/pi05_r4_training/train_entrypoint.py": "1369dd466b97139a5f86ec5122daa799ca9e13ee7315a99bdbfd1552059f6507",
+    "lmvla/lmwm/scripts/build_pi05_r4_train_config.py": "8007d2355c6e29943e3c670849241e3ffb3c11d668a9f4b899a3090cb9f1964a",
+    "lmvla/paper_iclr_lmvla/manifests/pi05_r4_matched_weighting_protocol_v1.json": "710c5c7505b86718fdfab6555b65049e8006434f5359e2332cb19ec391316a8a",
+    "lmvla/paper_iclr_lmvla/manifests/pi05_r4_training_smoke_amendment_v1.json": "672cd72a1cae57ddf76e0e449170edcfbb065a15812125974f9197c56882e5dd",
+    "logs/r4/training/configs/smoke-ordinary-4g.json": "2e062474b5647770b685f46dccad84c27bc3ac7a8aa74e2c3730def97ab20476",
+    "logs/r4/training/smoke-ordinary-4g_20260805T171711Z.log": "4ffc39183c56029ae5b392f3239932fb492d1d15c749274dd630cb91fa82c313",
+    "logs/resource_markers/pi05_r4_smoke-ordinary-4g.ok": "ad82e5f674a51615f9da4512bf62d2dea356c4e89aed446b645a206ea6b7090f",
+    "train_scripts/kai/run_pi05_r4_training.sh": "e8ceaa3a28177f749bcdad546c1758fb0a8e36af5aa6070f73f68d41db67e031",
+    "train_scripts/kai/volc/pi05_r4_train_crave_east_4h20.yaml": "611bd7b5a32d8f09c01d391e7ad67912cd7d0ee6aa568aa5346d4bc0ffd7ab8c",
+    "train_scripts/kai/volc/pi05_r4_train_ordinary_east_4h20.yaml": "b9e71ee6a90c67cfcb5c42ab0647266fe46138a7efe4eb23756b0de4c49950cd",
+    "train_scripts/kai/volc/pi05_r4_train_terminal_east_4h20.yaml": "a02ac65fee69750f033be13a537313427ff309427ba4640d27e4ea54cba00cd0"
+  },
+  "gate": {
+    "seed1000_acceptance": "terminal_outcome must exceed both ordinary and outcome_free_crave under the frozen six-task evaluation protocol",
+    "replication": "seeds 1001 and 1002 may launch only after the seed1000 acceptance gate passes",
+    "claim_limit": "terminal-outcome weighting only; no Q-value, advantage, world-critic, or model-predictive-control claim"
+  },
+  "stop_rule": "A failed or non-improving seed-1000 screen closes R4 without replication. Training health, loss, and checkpoint existence alone cannot authorize a policy-effect claim."
+}

@@ -4050,6 +4050,95 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             }
         )
 
+    formal_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_formal_training_amendment_v1.json"
+    )
+    formal_spec = json.loads(formal_amendment.read_text())
+    formal_ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(formal_spec["file_sha256"].items())
+    ]
+    formal_ready_files = [item["path"] for item in formal_ready_hashes]
+    formal_arms = (
+        (
+            "ordinary",
+            "pi05_r4_ordinary_seed1000_train",
+            "pi05_r4_ordinary-seed1000.ok",
+            "train_scripts/kai/volc/pi05_r4_train_ordinary_east_4h20.yaml",
+            "pi05-r4-ordinary-s1000-east4g",
+        ),
+        (
+            "terminal_outcome",
+            "pi05_r4_terminal_outcome_seed1000_train",
+            "pi05_r4_terminal_outcome-seed1000.ok",
+            "train_scripts/kai/volc/pi05_r4_train_terminal_east_4h20.yaml",
+            "pi05-r4-terminal-s1000-east4g",
+        ),
+        (
+            "outcome_free_crave",
+            "pi05_r4_outcome_free_crave_seed1000_train",
+            "pi05_r4_outcome_free_crave-seed1000.ok",
+            "train_scripts/kai/volc/pi05_r4_train_crave_east_4h20.yaml",
+            "pi05-r4-crave-s1000-east4g",
+        ),
+    )
+    for arm, task_id, marker_name, yaml_path, task_name in formal_arms:
+        if task_id in existing:
+            continue
+        marker = REPO / "logs/resource_markers" / marker_name
+        queue["tasks"].append(
+            {
+                "id": task_id,
+                "priority": 1,
+                "description": (
+                    f"R4 matched seed-1000 formal training arm {arm}; policy-effect "
+                    "claims remain blocked on fixed-checkpoint closed-loop evaluation"
+                ),
+                "completion_glob": str(marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(runtime_marker),
+                    str(matched_runtime_marker),
+                    str(crave_sidecar_marker),
+                    str(formal_amendment),
+                    *formal_ready_files,
+                ],
+                "ready_hashes": [
+                    *formal_ready_hashes,
+                    {
+                        "path": str(formal_amendment),
+                        "sha256": sha256_file(formal_amendment),
+                    },
+                ],
+                "progress_logs": [
+                    {
+                        "glob": str(
+                            REPO
+                            / "logs/r4/training"
+                            / f"{arm}-seed1000_*.log"
+                        ),
+                        "regex": r"step:(\d+)",
+                    }
+                ],
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 600,
+                        "max_failures": 1,
+                        "yaml": yaml_path,
+                        "task_name": task_name,
+                    }
+                ],
+            }
+        )
+        existing.add(task_id)
+
 
 def add_pi05_r4_sidecar_north_tasks(queue: dict[str, Any]) -> None:
     """Stage the exact R4 sidecar inputs to North and materialize its output."""

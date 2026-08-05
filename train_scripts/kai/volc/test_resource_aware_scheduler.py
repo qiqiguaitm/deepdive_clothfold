@@ -272,6 +272,14 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     crave_sidecar = tasks["pi05_r4_crave_sidecar_build"]
     matched_runtime = tasks["pi05_r4_matched_runtime_verify"]
     training_smoke = tasks["pi05_r4_training_smoke"]
+    formal_training = {
+        arm: tasks[task_id]
+        for arm, task_id in {
+            "ordinary": "pi05_r4_ordinary_seed1000_train",
+            "terminal_outcome": "pi05_r4_terminal_outcome_seed1000_train",
+            "outcome_free_crave": "pi05_r4_outcome_free_crave_seed1000_train",
+        }.items()
+    }
 
     assert smoke["candidates"][0]["resource"] == "local"
     assert smoke["candidates"][0]["gpus"] == 1
@@ -436,6 +444,25 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         item["path"].endswith("pi05_r4_training_smoke_amendment_v1.json")
         for item in training_smoke["ready_hashes"]
     )
+    expected_yamls = {
+        "ordinary": "pi05_r4_train_ordinary_east_4h20.yaml",
+        "terminal_outcome": "pi05_r4_train_terminal_east_4h20.yaml",
+        "outcome_free_crave": "pi05_r4_train_crave_east_4h20.yaml",
+    }
+    for arm, task in formal_training.items():
+        candidate = task["candidates"][0]
+        assert task["priority"] == 1
+        assert candidate["resource"] == "Robot-East-H20"
+        assert candidate["gpus"] == 4
+        assert candidate["max_failures"] == 1
+        assert candidate["yaml"].endswith(expected_yamls[arm])
+        assert training_smoke["completion_glob"] in task["ready_files"]
+        assert any(
+            item["path"].endswith("pi05_r4_formal_training_amendment_v1.json")
+            for item in task["ready_hashes"]
+        )
+        assert "policy-effect claims remain blocked" in task["description"]
+        assert task["progress_logs"][0]["regex"] == r"step:(\d+)"
 
 
 def test_r4_sidecar_north_stage_is_exact_and_materialized() -> None:

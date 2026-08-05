@@ -316,6 +316,18 @@ later than both old-runtime failures, so they do not consume the repaired
 runtime's failure budget; any attempt finishing after this epoch is still
 counted normally.
 
+At 17:24 UTC the repaired R4 smoke completed two real optimizer steps on four
+East H20 GPUs. The entrypoint emitted the binding sentinel, loaded the public
+checkpoint and local tokenizer entirely offline, and ended with finite losses
+0.011/0.013 and nonzero gradient norms 0.367/0.395. The first compiled update
+took 297.228 seconds; the second steady-state update took 1.731 seconds at
+45.74 GiB peak memory. The exact marker, generated config, log, runtime patch,
+launcher, builder, matched protocol, and three formal YAMLs are pinned by a
+separate formal-training amendment. That amendment authorizes only the matched
+seed-1000, 5000-step ordinary, terminal-outcome, and outcome-free CRAVE screen;
+replication and policy-effect claims remain blocked on fixed-final-checkpoint
+closed-loop evaluation.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from
