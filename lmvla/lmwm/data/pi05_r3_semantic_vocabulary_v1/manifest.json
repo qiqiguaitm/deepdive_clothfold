@@ -1,0 +1,1504 @@
+{
+  "alignment_policy": "surjective monotonic minimum-cost assignment from segment mean CRAVE progress to source-ordered events",
+  "boundary_policy": "use CRAVE-v2 valley boundaries unchanged; no semantic model may add or move a boundary",
+  "instruction_sha256": {
+    "beat_block_hammer": "f2e419c385c80a3d8dac0bec0516b19eea6cdfa1985d754466afaff7211e8262",
+    "blocks_ranking_rgb": "7bafb690d8e02604d5726975946997d679005c655400ba48fdd46957855f19c3",
+    "blocks_ranking_size": "4ad638c230b384a1dab3e89a0f2b6f22b642ca6d78783737bbdfec6024cb47e0",
+    "handover_block": "8fed548a88ebeadc164889398e20532f622509c867c0a075653e2bf35b8daa19",
+    "stack_blocks_three": "d6b05f79328f1f9e6fd0a9a47443c1169e402a9d6d60eefbaee2ef5b2033fac6",
+    "stack_blocks_two": "76cd955187082738dcf6d89484d9c2cef531fb4b69c9a47b3ce44634705b24fc"
+  },
+  "labels_manifest_sha256": "8f04bb7fab01d5d1f1f432d8c2ce28dc74f34023c1be7a33ed6eb72955316273",
+  "naming_policy": "deterministic names from simulator source and instruction schema; no per-frame VLM prompts",
+  "protocol": "pi05_r3_source_grounded_semantic_vocabulary_v1",
+  "reference_trajectories_sha256": "7239e12bc060939d761f2d87b7b455d91ecf8e509a786c9dd36949f0e64b77cc",
+  "schema_version": 1,
+  "segment_count": 3235,
+  "segments_sha256": "630d375542cd98a3e2edb20d9d272bce63449a29c22c0cf59758ac3e7ff8cdec",
+  "semantic_event_count": 16,
+  "semantic_profile_episode_count": 867,
+  "semantic_profile_episodes_sha256": "2ac16ad6bf9d8ccd72e1cfad338e3e0b327f155c8777f17fc5c98c7fc2b4b77e",
+  "semantic_profile_frame_count": 350346,
+  "semantic_profile_pairs_sha256": "88c707ce879d186600dfb8600ac802d39e4a463d6283287c27690b12da60fcfe",
+  "source_sha256": {
+    "beat_block_hammer": "90269f15f9ce274fb5bcad703c47b0b552ff5a2f0a3ff62d12dbe9a553018014",
+    "blocks_ranking_rgb": "0e632df38d9024e7952c0df7a1f59e3d011b537724e6e6588455dee4d4e6074b",
+    "blocks_ranking_size": "18ddb8ca5465f450ef03db292bcfc22e8e795fcb397f104fc24213a5fa063696",
+    "handover_block": "5439712296d7e143d41f8e78b4ab86cd4fad7fb98f40f5f5abb067a462d17650",
+    "stack_blocks_three": "b19f1f1c5a3a2c7c7312a4e1b2e577ccd269ebb0c444c287fecbc16ff5b47fb9",
+    "stack_blocks_two": "4e92a679cb5be4ef87a1b842432c930560a2c9b539a4cbcee0161e2b2112f526"
+  },
+  "task_map_sha256": "2e169db087439659cab1088218da7e5e38d9335678beb31b3f61ff3cba950c7e",
+  "tasks": {
+    "beat_block_hammer": {
+      "accepted_episodes": 44,
+      "coverage": 0.22,
+      "episodes": 200,
+      "event_count": 2,
+      "excluded_episodes": [
+        {
+          "episode": 576,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 588,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 591,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 600,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 602,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 603,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 607,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 609,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 611,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 620,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 622,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 623,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 625,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 627,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 629,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 630,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 637,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 643,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 645,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 646,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 649,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 652,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 653,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 657,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 659,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 662,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 663,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 664,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 668,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 677,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 679,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 682,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 685,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 686,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 687,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 692,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 693,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 699,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 700,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 701,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 702,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 704,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 707,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 709,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 712,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 713,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 717,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 730,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 732,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 734,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 743,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 748,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 749,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 751,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 757,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 764,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 766,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 768,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 770,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 779,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 783,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 784,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 785,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 794,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 795,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 797,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 798,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 802,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 812,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 813,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 825,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 829,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 831,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 835,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 838,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 840,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 844,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 849,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 850,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 859,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 861,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 862,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 869,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 874,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 875,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 876,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 877,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 878,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 882,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 883,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 886,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 887,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 888,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 890,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 893,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 896,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 904,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 905,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 907,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 908,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 912,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 915,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 916,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 919,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 922,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 923,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 924,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 926,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 929,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 936,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 938,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 941,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 942,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 943,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 944,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 947,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 950,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 953,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 956,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 958,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 960,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 961,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 977,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 982,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 983,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 984,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 985,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 986,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 994,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 998,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1000,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1002,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1004,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1018,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1020,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1023,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1024,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1038,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1040,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1041,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1045,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1050,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1057,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1061,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1062,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1065,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1066,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1070,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1072,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1074,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1075,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1077,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1078,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1083,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1094,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1097,
+          "reason": "fewer_crave_segments_than_events"
+        }
+      ],
+      "segments": 90,
+      "source_trace": [
+        [
+          "grasp_actor",
+          "hammer"
+        ],
+        [
+          "place_actor",
+          "hammer"
+        ]
+      ]
+    },
+    "blocks_ranking_rgb": {
+      "accepted_episodes": 194,
+      "coverage": 0.97,
+      "episodes": 200,
+      "event_count": 3,
+      "excluded_episodes": [
+        {
+          "episode": 1293,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1295,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1323,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1362,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1418,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 1494,
+          "reason": "fewer_crave_segments_than_events"
+        }
+      ],
+      "segments": 828,
+      "source_trace": [
+        [
+          "pick_and_place_block",
+          "block1"
+        ],
+        [
+          "pick_and_place_block",
+          "block2"
+        ],
+        [
+          "pick_and_place_block",
+          "block3"
+        ]
+      ]
+    },
+    "blocks_ranking_size": {
+      "accepted_episodes": 198,
+      "coverage": 0.99,
+      "episodes": 200,
+      "event_count": 3,
+      "excluded_episodes": [
+        {
+          "episode": 1707,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 2171,
+          "reason": "fewer_crave_segments_than_events"
+        }
+      ],
+      "segments": 848,
+      "source_trace": [
+        [
+          "pick_and_place_block",
+          "block3"
+        ],
+        [
+          "pick_and_place_block",
+          "block2"
+        ],
+        [
+          "pick_and_place_block",
+          "block1"
+        ]
+      ]
+    },
+    "handover_block": {
+      "accepted_episodes": 31,
+      "coverage": 0.155,
+      "episodes": 200,
+      "event_count": 3,
+      "excluded_episodes": [
+        {
+          "episode": 4403,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4407,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4414,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4415,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4420,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4423,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4426,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4430,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4435,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4438,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4440,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4444,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4449,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4452,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4458,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4459,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4462,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4467,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4470,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4472,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4476,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4481,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4488,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4492,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4493,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4499,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4501,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4508,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4510,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4512,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4517,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4520,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4526,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4530,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4531,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4539,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4542,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4545,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4546,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4548,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4554,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4555,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4565,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4577,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4584,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4587,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4588,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4589,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4590,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4591,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4595,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4596,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4598,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4599,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4607,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4611,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4613,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4615,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4616,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4629,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4633,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4636,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4637,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4638,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4639,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4640,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4641,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4646,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4653,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4655,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4657,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4659,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4660,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4662,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4663,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4665,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4669,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4672,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4673,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4674,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4679,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4685,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4687,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4689,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4690,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4691,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4692,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4695,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4696,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4697,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4705,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4710,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4717,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4721,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4722,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4724,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4726,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4730,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4731,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4739,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4742,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4743,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4746,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4750,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4752,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4757,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4760,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4761,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4762,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4763,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4764,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4767,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4768,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4769,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4772,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4776,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4777,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4778,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4779,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4787,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4788,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4790,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4791,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4794,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4796,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4799,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4805,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4807,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4808,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4813,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4816,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4817,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4824,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4826,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4835,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4838,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4841,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4842,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4846,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4851,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4853,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4856,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4859,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4869,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4875,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4876,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4879,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4884,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4887,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4889,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4894,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4903,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4911,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4919,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4927,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4928,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4932,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4933,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4934,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4935,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4936,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4937,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4938,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4939,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4940,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4941,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4945,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4947,
+          "reason": "fewer_crave_segments_than_events"
+        },
+        {
+          "episode": 4948,
+          "reason": "fewer_crave_segments_than_events"
+        }
+      ],
+      "segments": 100,
+      "source_trace": [
+        [
+          "grasp_actor",
+          "box"
+        ],
+        [
+          "place_actor",
+          "box"
+        ],
+        [
+          "grasp_actor",
+          "box"
+        ],
+        [
+          "open_gripper",
+          "grasp_arm_tag"
+        ],
+        [
+          "place_actor",
+          "box"
+        ]
+      ]
+    },
+    "stack_blocks_three": {
+      "accepted_episodes": 200,
+      "coverage": 1.0,
+      "episodes": 200,
+      "event_count": 3,
+      "excluded_episodes": [],
+      "segments": 784,
+      "source_trace": [
+        [
+          "pick_and_place_block",
+          "block1"
+        ],
+        [
+          "pick_and_place_block",
+          "block2"
+        ],
+        [
+          "pick_and_place_block",
+          "block3"
+        ]
+      ]
+    },
+    "stack_blocks_two": {
+      "accepted_episodes": 200,
+      "coverage": 1.0,
+      "episodes": 200,
+      "event_count": 2,
+      "excluded_episodes": [],
+      "segments": 585,
+      "source_trace": [
+        [
+          "pick_and_place_block",
+          "block1"
+        ],
+        [
+          "pick_and_place_block",
+          "block2"
+        ]
+      ]
+    }
+  },
+  "vocabulary_sha256": "879638e8df4d97389cd9da41af9967f9f4fd228c423d3b9b92bd52c52b8ae126"
+}

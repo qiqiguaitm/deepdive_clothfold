@@ -1,0 +1,12 @@
+{
+  "episodes_per_cell": 1,
+  "eval_seeds": {
+    "0": {
+      "beat_block_hammer": [
+        100000
+      ]
+    }
+  },
+  "protocol": "pi05_r3_semantic_screen_runtime_preflight_v1",
+  "schema_version": 1
+}

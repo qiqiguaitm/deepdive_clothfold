@@ -26,3 +26,18 @@ outputs/**
 *.safetensors
 *.npz
 *.npy
+
+# Frozen, compact protocol inputs required by committed RoboTwin experiments.
+# Keep these reproducibility assets in Git even though generated datasets stay local.
+!data/robotwin_pi05_confirmatory_scene_seeds_v1.json
+!data/robotwin_pi05_mt_preflight_scene_seeds_v1.json
+!data/pi05_r3_preflight_scene_seed_v1.json
+!data/pi05_r3_semantic_screen_scene_seeds_v1.json
+!data/pi05_r3_semantic_vocabulary_v1/
+!data/pi05_r3_semantic_vocabulary_v1/READY
+!data/pi05_r3_semantic_vocabulary_v1/manifest.json
+!data/pi05_r3_semantic_vocabulary_v1/segments.jsonl
+!data/pi05_r3_semantic_vocabulary_v1/semantic_profile_episodes.jsonl
+!data/pi05_r3_semantic_vocabulary_v1/semantic_profile_pairs.npz
+!data/pi05_r3_semantic_vocabulary_v1/task_map.json
+!data/pi05_r3_semantic_vocabulary_v1/vocabulary.json

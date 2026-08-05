@@ -1,0 +1,19 @@
+{
+  "episodes_per_cell": 5,
+  "eval_seeds": {
+    "0": {
+      "beat_block_hammer": [
+        100000,
+        100002,
+        100003,
+        100007,
+        100008
+      ]
+    }
+  },
+  "parent_manifest": "robotwin_pi05_confirmatory_scene_seeds_v1.json",
+  "tasks": [
+    "beat_block_hammer"
+  ],
+  "version": "pi05-mt-preflight-v1"
+}

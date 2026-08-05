@@ -1,0 +1,162 @@
+[
+  {
+    "after_relation": "hammer_held_by_active_arm",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "hammer_on_table",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 0,
+    "local_id": 0,
+    "name": "acquire_hammer",
+    "task": "beat_block_hammer"
+  },
+  {
+    "after_relation": "hammer_contacts_block",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "block_unstruck",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 1,
+    "local_id": 1,
+    "name": "strike_block_with_hammer",
+    "task": "beat_block_hammer"
+  },
+  {
+    "after_relation": "red_block_leftmost",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "red_block_unranked",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 2,
+    "local_id": 0,
+    "name": "place_red_block_left",
+    "task": "blocks_ranking_rgb"
+  },
+  {
+    "after_relation": "red_left_of_green",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "green_block_unranked",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 3,
+    "local_id": 1,
+    "name": "place_green_block_middle",
+    "task": "blocks_ranking_rgb"
+  },
+  {
+    "after_relation": "red_left_of_green_left_of_blue",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "blue_block_unranked",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 4,
+    "local_id": 2,
+    "name": "place_blue_block_right",
+    "task": "blocks_ranking_rgb"
+  },
+  {
+    "after_relation": "small_block_rightmost",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "small_block_unranked",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 5,
+    "local_id": 0,
+    "name": "place_small_block_right",
+    "task": "blocks_ranking_size"
+  },
+  {
+    "after_relation": "medium_left_of_small",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "medium_block_unranked",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 6,
+    "local_id": 1,
+    "name": "place_medium_block_middle",
+    "task": "blocks_ranking_size"
+  },
+  {
+    "after_relation": "large_left_of_medium_left_of_small",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "large_block_unranked",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 7,
+    "local_id": 2,
+    "name": "place_large_block_left",
+    "task": "blocks_ranking_size"
+  },
+  {
+    "after_relation": "red_block_held_left",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "red_block_on_table",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 8,
+    "local_id": 0,
+    "name": "acquire_red_block_left",
+    "task": "handover_block"
+  },
+  {
+    "after_relation": "red_block_held_right",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "red_block_held_left",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 9,
+    "local_id": 1,
+    "name": "transfer_red_block_left_to_right",
+    "task": "handover_block"
+  },
+  {
+    "after_relation": "red_block_on_blue_pad",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "red_block_held_right",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 10,
+    "local_id": 2,
+    "name": "place_red_block_on_blue_pad",
+    "task": "handover_block"
+  },
+  {
+    "after_relation": "red_block_center_base",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "red_block_on_table",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 11,
+    "local_id": 0,
+    "name": "place_red_base_at_center",
+    "task": "stack_blocks_three"
+  },
+  {
+    "after_relation": "green_on_red",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "green_block_on_table",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 12,
+    "local_id": 1,
+    "name": "stack_green_on_red",
+    "task": "stack_blocks_three"
+  },
+  {
+    "after_relation": "blue_on_green_on_red",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "blue_block_on_table",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 13,
+    "local_id": 2,
+    "name": "stack_blue_on_green",
+    "task": "stack_blocks_three"
+  },
+  {
+    "after_relation": "red_block_center_base",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "red_block_on_table",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 14,
+    "local_id": 0,
+    "name": "place_red_base_at_center",
+    "task": "stack_blocks_two"
+  },
+  {
+    "after_relation": "green_on_red",
+    "arm_source": "per-episode 14-DoF action and gripper transitions",
+    "before_relation": "green_block_on_table",
+    "boundary_source": "CRAVE-v2 recurrence-density valleys only",
+    "id": 15,
+    "local_id": 1,
+    "name": "stack_green_on_red",
+    "task": "stack_blocks_two"
+  }
+]
