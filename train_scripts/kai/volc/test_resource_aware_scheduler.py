@@ -425,6 +425,9 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert training_smoke["completion_glob"].endswith(
         "pi05_r4_smoke-ordinary-4g.ok"
     )
+    assert training_smoke["rearm_after_ready_file"].endswith(
+        "pi05_r4_training_smoke_amendment_v1.json"
+    )
     assert runtime_verify["completion_glob"] in training_smoke["ready_files"]
     assert matched_runtime["completion_glob"] in training_smoke["ready_files"]
     assert crave_sidecar["completion_glob"] in training_smoke["ready_files"]

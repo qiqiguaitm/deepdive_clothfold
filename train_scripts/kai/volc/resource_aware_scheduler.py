@@ -4011,6 +4011,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 ),
                 "completion_glob": str(smoke_train_marker),
                 "completion_min_count": 1,
+                "rearm_after_ready_file": str(smoke_amendment),
                 "ready_files": [
                     str(runtime_marker),
                     str(matched_runtime_marker),
