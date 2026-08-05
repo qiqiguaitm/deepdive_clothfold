@@ -44,6 +44,26 @@ def test_readiness_supports_explicit_directories(tmp_path: Path) -> None:
     assert scheduler.readiness_spec_satisfied(spec)
 
 
+def test_candidate_failure_count_respects_rearm_epoch() -> None:
+    task_state = {
+        "ignore_failures_before": "2026-08-05T12:00:00Z",
+        "attempts": [
+            {
+                "resource": "local",
+                "failure": "old protocol rejection",
+                "finished_at": "2026-08-05T11:00:00Z",
+            },
+            {
+                "resource": "local",
+                "failure": "new runtime failure",
+                "finished_at": "2026-08-05T12:01:00Z",
+            },
+        ],
+    }
+
+    assert scheduler.candidate_failure_count(task_state, {"resource": "local"}) == 1
+
+
 def test_p2_frame_cache_uses_directory_readiness() -> None:
     queue = json.loads(scheduler.QUEUE_PATH.read_text())
     tasks = {task["id"]: task for task in queue["tasks"]}
@@ -288,6 +308,9 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     )
     assert finalize["candidates"][0]["gpus"] == 0
     assert finalize["candidates"][0]["resource"] == "local"
+    assert finalize["rearm_after_ready_file"].endswith(
+        "pi05_r4_balanced_support_a.ok"
+    )
     assert any(path.endswith("pi05_r4_beat_train_support_supplement.ok") for path in finalize["ready_files"])
     assert finalize["completion_glob"].endswith("pi05_r4_outcome_collection.ok")
     assert any(

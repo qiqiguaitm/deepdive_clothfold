@@ -2887,6 +2887,9 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     REPO / "logs/resource_markers/pi05_r4_outcome_collection.ok"
                 ),
                 "completion_min_count": 1,
+                "rearm_after_ready_file": str(
+                    REPO / "logs/resource_markers/pi05_r4_balanced_support_a.ok"
+                ),
                 "ready_files": [
                     str(
                         REPO
@@ -9168,12 +9171,25 @@ def candidate_failure_count(
 ) -> int:
     """Count runtime/template failures, excluding transient capacity failures."""
     transient_markers = ("reclaimed after queueing", "剩余配额不足")
+    ignore_before = task_state.get("ignore_failures_before")
+
+    def is_current_failure(attempt: dict[str, Any]) -> bool:
+        if not ignore_before:
+            return True
+        finished_at = attempt.get("finished_at")
+        if not finished_at:
+            return True
+        return datetime.fromisoformat(finished_at.replace("Z", "+00:00")) > datetime.fromisoformat(
+            ignore_before.replace("Z", "+00:00")
+        )
+
     return sum(
         1
         for attempt in task_state.get("attempts", [])
         if attempt.get("resource") == candidate["resource"]
         and attempt.get("credential_profile", "primary") == credential_profile
         and attempt.get("failure")
+        and is_current_failure(attempt)
         and not any(marker in attempt["failure"] for marker in transient_markers)
     )
 
@@ -9243,6 +9259,25 @@ def dispatch(
 ) -> None:
     tasks = sorted(queue["tasks"], key=lambda item: (item["priority"], item["id"]))
     dispatched = 0
+
+    for task in tasks:
+        ready_file = task.get("rearm_after_ready_file")
+        if not ready_file:
+            continue
+        path = Path(ready_file)
+        if not path.is_file():
+            continue
+        task_state = state["tasks"][task["id"]]
+        marker_mtime_ns = path.stat().st_mtime_ns
+        if task_state.get("rearmed_ready_file_mtime_ns") == marker_mtime_ns:
+            continue
+        marker_time = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+        task_state["ignore_failures_before"] = marker_time.isoformat().replace(
+            "+00:00", "Z"
+        )
+        task_state["rearmed_ready_file_mtime_ns"] = marker_mtime_ns
+        task_state.pop("exhausted_resources", None)
+        log(f"rearmed {task['id']} after ready file {path}")
 
     # Helpers are no longer useful once their authoritative parent task has
     # completed. Close active platform helpers and suppress marker-only retries.
