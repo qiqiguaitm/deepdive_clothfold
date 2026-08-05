@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_checkpoint_permissions_amendment_v1",
+  "created_at": "2026-08-05T19:05:00Z",
+  "status": "authorized_operational_repair",
+  "scope": {
+    "arms": [
+      "ordinary",
+      "terminal_outcome",
+      "outcome_free_crave"
+    ],
+    "training_seed": 1000,
+    "checkpoint_step": 5000,
+    "allowed_change": "add group/other read and directory traversal bits only",
+    "forbidden_changes": [
+      "model bytes",
+      "optimizer bytes",
+      "training configuration",
+      "checkpoint selection",
+      "evaluation protocol"
+    ]
+  },
+  "prerequisite_protocol_sha256": {
+    "lmvla/paper_iclr_lmvla/manifests/pi05_r4_formal_eval_protocol_v1.json": "9c0130a89e670b7e19d721f0090275d6a0d01e90e5e42fe966883652aab31b76"
+  },
+  "file_sha256": {
+    "train_scripts/kai/repair_pi05_r4_checkpoint_permissions.sh": "285fc3847cea95ffa7800fb9e750329bc3ec83f61a57f1030201c41828ceb722",
+    "train_scripts/kai/volc/pi05_r4_checkpoint_permissions_east_1h20.yaml": "b4b315981dce1729a1694a71446f30407ebbfc8fe4b52021ba06b06146f299dc"
+  },
+  "completion": {
+    "marker": "logs/resource_markers/pi05_r4_checkpoint_permissions.ok",
+    "integrity_report": "logs/r4/checkpoint_integrity_v1.json",
+    "required_checks": [
+      "all three model files are readable",
+      "all three model SHA256 digests are recorded",
+      "all three training_step values equal 5000"
+    ]
+  },
+  "claim_limit": "This amendment changes filesystem access bits only and provides no training or policy-effect evidence."
+}

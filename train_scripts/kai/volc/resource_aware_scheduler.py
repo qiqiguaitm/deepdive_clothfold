@@ -3207,6 +3207,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_outcome_free_manifest_build",
         "pi05_r4_crave_sidecar_build",
         "pi05_r4_matched_runtime_verify",
+        "pi05_r4_checkpoint_permissions",
     }
     # Queue definitions are persisted separately from task state. Rebuild this
     # hash-pinned subgraph so an authorized amendment cannot leave stale hashes
@@ -4262,6 +4263,74 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
     eval_ready_files = [item["path"] for item in eval_ready_hashes]
     eval_script = REPO / "train_scripts/kai/eval/run_pi05_r4_formal_eval.sh"
     eval_yaml = "train_scripts/kai/volc/pi05_r4_eval_east_4h20.yaml"
+    permission_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_checkpoint_permissions_amendment_v1.json"
+    )
+    permission_spec = json.loads(permission_amendment.read_text())
+    permission_ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for section in ("prerequisite_protocol_sha256", "file_sha256")
+        for relative, expected in sorted(permission_spec[section].items())
+    ]
+    permission_marker = (
+        REPO / "logs/resource_markers/pi05_r4_checkpoint_permissions.ok"
+    )
+    permission_report = REPO / "logs/r4/checkpoint_integrity_v1.json"
+    permission_task_id = "pi05_r4_checkpoint_permissions"
+    if permission_task_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": permission_task_id,
+                "priority": 0,
+                "description": (
+                    "Normalize access bits and hash the three frozen R4 seed-1000 "
+                    "checkpoints without changing checkpoint bytes"
+                ),
+                "completion_glob": str(permission_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    *[
+                        str(REPO / "logs/resource_markers" / marker_name)
+                        for _arm, _task_id, marker_name, _yaml, _name in formal_arms
+                    ],
+                    str(permission_amendment),
+                    *[item["path"] for item in permission_ready_hashes],
+                ],
+                "ready_hashes": [
+                    *permission_ready_hashes,
+                    {
+                        "path": str(permission_amendment),
+                        "sha256": sha256_file(permission_amendment),
+                    },
+                ],
+                "artifact_progress": [
+                    {
+                        "label": "integrity report",
+                        "glob": str(permission_report),
+                        "expected": 1,
+                    }
+                ],
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 1,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 2,
+                        "yaml": (
+                            "train_scripts/kai/volc/"
+                            "pi05_r4_checkpoint_permissions_east_1h20.yaml"
+                        ),
+                        "task_name": "pi05-r4-checkpoint-permissions-east1g",
+                    }
+                ],
+            }
+        )
+        existing.add(permission_task_id)
     eval_ports = {
         "ordinary": 24600,
         "terminal_outcome": 25000,
@@ -4302,6 +4371,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 "completion_min_count": 1,
                 "ready_files": [
                     str(train_marker),
+                    str(permission_marker),
                     str(model / "model.safetensors"),
                     str(model / "config.json"),
                     str(eval_protocol),

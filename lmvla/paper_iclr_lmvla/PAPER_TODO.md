@@ -402,6 +402,26 @@ zero-gate North helper submitted under the old completion contract was stopped
 and accelerator tasks now close immediately when their canonical condition
 marker already exists.
 
+At 19:06 UTC the A0 canonical result root remains healthy at 14/24 completed
+cells: seeds 0 and 1 are complete, while seeds 2 and 3 each have one completed,
+four active, one pending, and zero failed cells. The local two-A100 accelerator,
+the four-worker North attach helper, and the four-worker East attach helper
+operate on disjoint worker indices and all report fresh heartbeats. R4 ordinary
+and outcome-free CRAVE both completed the exact fixed step-5,000 checkpoint
+with finite final state. The terminal-outcome arm was selected by a fresh
+submission recommendation, launched as `t-20260806025734-dbx5h`, passed the
+unchanged runtime checks, and reached step 64 after compilation at approximately
+0.79 seconds per steady-state step. The two completed platform checkpoints
+exposed a reproducibility issue: tensor files are root-owned mode 0600 even
+though their directories and metadata are readable. A hash-pinned operational
+amendment therefore adds a priority-0 East one-H20 permission-normalization
+task after all three training markers exist. It may only add read/traverse
+bits, records all three model SHA256 digests and step values, and emits a marker
+required by every formal R4 evaluation. It cannot change checkpoint bytes,
+checkpoint selection, evaluation parameters, or any scientific gate. The task
+is not yet ready and therefore has not been submitted; the scheduler must run a
+fresh recommendation audit once terminal-outcome training completes.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from

@@ -272,6 +272,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     crave_sidecar = tasks["pi05_r4_crave_sidecar_build"]
     matched_runtime = tasks["pi05_r4_matched_runtime_verify"]
     training_smoke = tasks["pi05_r4_training_smoke"]
+    checkpoint_permissions = tasks["pi05_r4_checkpoint_permissions"]
     formal_training = {
         arm: tasks[task_id]
         for arm, task_id in {
@@ -485,7 +486,29 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
             item["path"].endswith("pi05_r4_formal_eval_protocol_v1.json")
             for item in task["ready_hashes"]
         )
+        assert checkpoint_permissions["completion_glob"] in task["ready_files"]
         assert task["progress_globs"][0]["expected"] == 24
+    assert checkpoint_permissions["priority"] == 0
+    assert checkpoint_permissions["candidates"][0]["resource"] == "Robot-East-H20"
+    assert checkpoint_permissions["candidates"][0]["gpus"] == 1
+    assert checkpoint_permissions["completion_glob"].endswith(
+        "pi05_r4_checkpoint_permissions.ok"
+    )
+    assert checkpoint_permissions["artifact_progress"][0]["glob"].endswith(
+        "checkpoint_integrity_v1.json"
+    )
+    assert all(
+        any(marker in path for path in checkpoint_permissions["ready_files"])
+        for marker in (
+            "pi05_r4_ordinary-seed1000.ok",
+            "pi05_r4_terminal_outcome-seed1000.ok",
+            "pi05_r4_outcome_free_crave-seed1000.ok",
+        )
+    )
+    assert any(
+        item["path"].endswith("pi05_r4_checkpoint_permissions_amendment_v1.json")
+        for item in checkpoint_permissions["ready_hashes"]
+    )
     assert formal_gate["candidates"][0]["resource"] == "local"
     assert formal_gate["candidates"][0]["gpus"] == 0
     assert formal_gate["priority"] == 2
