@@ -66,7 +66,9 @@ export NUMEXPR_NUM_THREADS=${NUMEXPR_NUM_THREADS:-1}
 export VECLIB_MAXIMUM_THREADS=${VECLIB_MAXIMUM_THREADS:-1}
 mkdir -p "$JAX_COMPILATION_CACHE_DIR"
 
-cd "$TRAIN_SOURCE_REPO/kai0"
+# Keep relative checkpoint paths in the canonical repository while the script
+# and imported Python modules continue to come from the frozen source overlay.
+cd "$REPO/kai0"
 exec "$PYTHON_BIN" -u "$TRAIN_SOURCE_REPO/kai0/scripts/train_pi05_robotwin_confirmatory.py" \
   --arm "$TRAIN_ARM" \
   --config-name "$CONFIG" \

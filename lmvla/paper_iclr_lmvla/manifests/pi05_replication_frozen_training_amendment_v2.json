@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_gate_conditioned_frozen_training_amendment_v2",
+  "created_at": "2026-08-05T20:14:00Z",
+  "supersedes": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_replication_frozen_training_amendment_v1.json",
+    "sha256": "f2daf13a1a4e036d16349edc23286f26946b41b32f602570220bba625a94bfa9"
+  },
+  "parents": {
+    "p2_protocol": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json",
+    "p2_protocol_sha256": "52f80a75fa5ee0b3a1a74f5cd9738626dd574bc11a0fd71823f54defdac9908b",
+    "r1_protocol": "lmvla/paper_iclr_lmvla/manifests/pi05_r1_protocol_v1.json",
+    "r1_protocol_sha256": "f9a651df824faaa14caedda7b3517fcda18e0b29fb27c611d6af6e801c29e67d"
+  },
+  "overlay": "logs/frozen_source_overlays/pi05_replication_v1",
+  "overlay_ready": "logs/frozen_source_overlays/pi05_replication_v1/REPLICATION_READY",
+  "overlay_ready_sha256": "bfa43011a4c72bbd95a396593887b5d17de869829ff2dccd8ab54c89f8235452",
+  "materializer": "lmvla/lmwm/scripts/materialize_pi05_replication_frozen_overlay.py",
+  "materializer_sha256": "ebf9329ac872db8a6a939463bef3ff1f2fed6ac46cf01cb856ed95e09158507c",
+  "frozen_p2_launcher": "lmvla/paper_iclr_lmvla/frozen_sources/pi05_replication_v1/train_scripts/kai/run_pi05_predictive_adapter_p2_train.sh",
+  "frozen_p2_launcher_sha256": "8a1a72f9a53bbe81d2fd2452337321d68daa07c9c5a78df42b9198fb09a681da",
+  "runtime_launchers": {
+    "train_scripts/kai/run_pi05_predictive_adapter_p1_train.sh": "9457de7aa4a27d5445a786c640d27fa61a937945a8728b6fad62b417126a533a",
+    "train_scripts/kai/run_pi05_predictive_adapter_p2_train.sh": "8dc89f67debefd0c9ccd945c9139f66125d21dcfeb83d5e550a7f975dde08588",
+    "train_scripts/kai/run_pi05_r1_train.sh": "e7ad5ccf72835d749404d79b5511f978b13fc7622438126bc0cdf154cb8a729d"
+  },
+  "authorization": {
+    "p2_gate": "logs/predictive/p1_eval/p1_gate.accepted",
+    "p2_train_tasks": [
+      "pi05_predictive_adapter_p2_candidate_seed1001_train",
+      "pi05_predictive_adapter_p2_candidate_seed1002_train"
+    ],
+    "r1_gate": "logs/r1/seed1000/r1_gate.accepted",
+    "r1_train_tasks": [
+      "pi05_r1_a0_seed1001_train",
+      "pi05_r1_predictive_seed1001_train",
+      "pi05_r1_crave_seed1001_train",
+      "pi05_r1_combined_seed1001_train",
+      "pi05_r1_a0_seed1002_train",
+      "pi05_r1_predictive_seed1002_train",
+      "pi05_r1_crave_seed1002_train",
+      "pi05_r1_combined_seed1002_train"
+    ]
+  },
+  "runtime_contract": {
+    "verification_root": "overlay",
+    "python_source_root": "overlay",
+    "data_root": "canonical repository",
+    "checkpoint_output_root": "canonical repository",
+    "checkpoint_cwd": "$REPO/kai0",
+    "shared_source_overwrite": false
+  },
+  "repair": {
+    "observed_job": "t-20260806040325-4fb9t",
+    "observed_before_optimizer_step": true,
+    "incorrect_checkpoint_root": "logs/frozen_source_overlays/pi05_replication_v1/kai0/checkpoints",
+    "correct_checkpoint_root": "kai0/checkpoints",
+    "scientific_configuration_changed": false
+  },
+  "constraints": [
+    "This amendment does not create or accept either prerequisite gate.",
+    "A task remains unready until its original gate file exists.",
+    "Only the listed seed-1001/1002 training tasks may use the overlay.",
+    "Evaluation and analysis remain governed by their original frozen protocols.",
+    "No source hash check is removed or weakened.",
+    "The repair changes only the process working directory used to resolve relative checkpoint output paths."
+  ],
+  "passed": true
+}

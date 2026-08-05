@@ -471,6 +471,30 @@ interval versus CRAVE-only is [-9.00, -2.50] points. It also regressed on four
 of six tasks by more than five points versus A0. R1 seeds 1001/1002 therefore
 remain permanently disabled under the predeclared stop rule.
 
+At 20:23 UTC P2 replication is fully allocated on Robot-East-H20. The first
+seed-1001 launch passed every frozen-source and artifact check, but inspection
+before its first optimizer step found that the process working directory made
+relative checkpoint paths resolve inside the source overlay. It was stopped
+without a training step or scientific result. Frozen-training amendment v2
+changes only that working directory to canonical `$REPO/kai0`; the executed
+script and imported `openpi` remain in the hash-pinned overlay. The repaired
+seed-1001 job `t-20260806041648-n4rkv` has a fresh recommendation audit and its
+Orbax manager confirms the canonical `kai0/checkpoints/...seed1001` root.
+After another fresh audit, seed 1002 launched as
+`t-20260806042252-687hd`. Together they occupy all eight East H20 GPUs; no
+data-nonlocal North or queued robot-task launch was used.
+
+R4 terminal-outcome training also completed the exact step-5,000 checkpoint.
+All three frozen models are readable, exactly 9,354,050,752 bytes, and have
+recorded SHA-256 values `ec7d3280...bb89` (ordinary),
+`0683fc07...493` (terminal-outcome), and `b2ce5a1b...af25`
+(outcome-free CRAVE). A one-H20 operational task selected by a fresh audit
+normalized only access bits and wrote the integrity report. The first formal
+ordinary evaluation then received its own recommendation selecting local two
+A100 GPUs and launched with two policy/renderer workers per GPU. The other two
+R4 evaluations remain pending for that local slot; their checkpoints, fixed
+scene manifest, and gate are unchanged.
+
 ## P1: seed-1000 closed-loop causal gate
 
 - [x] Resume the current-source A0 and full candidate from

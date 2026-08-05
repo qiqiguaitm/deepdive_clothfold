@@ -7957,7 +7957,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
     r1_eval_authorized = set(r1_amendment["authorization_scope"])
 
     replication_amendment_path = (
-        manifests / "pi05_replication_frozen_training_amendment_v1.json"
+        manifests / "pi05_replication_frozen_training_amendment_v2.json"
     )
     replication_amendment = json.loads(replication_amendment_path.read_text())
     p2_protocol = json.loads(

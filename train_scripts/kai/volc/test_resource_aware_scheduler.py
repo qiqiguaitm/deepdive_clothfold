@@ -237,6 +237,12 @@ def test_replication_launchers_keep_canonical_outputs_and_frozen_sources_separat
         for variable in required:
             assert variable in text
 
+    p1_train_launcher = (
+        scheduler.REPO / "train_scripts/kai/run_pi05_predictive_adapter_p1_train.sh"
+    ).read_text()
+    assert 'cd "$REPO/kai0"' in p1_train_launcher
+    assert 'cd "$TRAIN_SOURCE_REPO/kai0"' not in p1_train_launcher
+
     eval_launcher = (
         scheduler.REPO
         / "lmvla/paper_iclr_lmvla/frozen_sources/pi05_replication_v1/"
