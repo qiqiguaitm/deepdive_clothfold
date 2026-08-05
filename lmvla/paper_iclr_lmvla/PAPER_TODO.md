@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 16:16 UTC
+Updated: 2026-08-05 16:29 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -259,6 +259,15 @@ No Shanghai task was added while East is full and robot-task submission remains
 disabled. The resource recommendation CLI, static topology catalog, tests, and
 submission documentation are now tracked on `main`; the router/scheduler suite
 passes 123 tests from a clean Git identity.
+
+At 16:29 UTC normal and action-masked have each completed 20/24 cells; all
+four active claims in each arm are the final `stack_blocks_three` cells, with
+no pending or failed cell. Action-shuffled and zero-gate have each reached
+12/24 with four healthy active claims. A0 remains 4/24 with two active ranking
+cells. East therefore remains 8/8 only until the two final four-cell waves
+finish; R4 smoke remains unsubmitted and has no recommendation audit yet. The
+scheduler must take a fresh resource snapshot and write that audit after East
+capacity is actually released.
 
 ## P1: seed-1000 closed-loop causal gate
 
