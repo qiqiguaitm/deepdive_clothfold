@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "filesystems": {
+    "east_shared": {
+      "mount_prefixes": [
+        "/vePFS/tim"
+      ],
+      "development_hosts": [
+        "current-local",
+        "gf1"
+      ],
+      "description": "Shanghai shared vePFS mounted by local, gf1, Robot-East-H20, and robot-task"
+    },
+    "north_shared": {
+      "mount_prefixes": [
+        "/vePFS-North-E/vis_robot"
+      ],
+      "development_hosts": [
+        "gsy"
+      ],
+      "description": "Beijing vePFS mounted by gsy and Robot-North-H20"
+    }
+  },
+  "resources": {
+    "local": {
+      "kind": "direct",
+      "region": "cn-shanghai",
+      "queue": null,
+      "gpu_model": "local GPU",
+      "capacity_gpus": 2,
+      "filesystem": "east_shared",
+      "development_host": "current-local",
+      "submit_host": "current-local"
+    },
+    "gf1": {
+      "kind": "direct",
+      "region": "cn-shanghai",
+      "queue": null,
+      "gpu_model": "A100 80G",
+      "capacity_gpus": 8,
+      "filesystem": "east_shared",
+      "development_host": "gf1",
+      "submit_host": "current-local"
+    },
+    "Robot-East-H20": {
+      "kind": "platform",
+      "region": "cn-shanghai",
+      "queue": "Robot-East-H20",
+      "queue_id": "q-20260516104437-2ml4v",
+      "gpu_model": "H20",
+      "capacity_gpus": 8,
+      "filesystem": "east_shared",
+      "development_host": "current-local",
+      "submit_host": "current-local"
+    },
+    "Robot-North-H20": {
+      "kind": "platform",
+      "region": "cn-beijing",
+      "queue": "Robot-North-H20",
+      "queue_id": "q-20260516104642-khch9",
+      "gpu_model": "H20",
+      "capacity_gpus": 56,
+      "personal_limit_gpus": 25,
+      "max_submitted_jobs": 25,
+      "filesystem": "north_shared",
+      "development_host": "gsy",
+      "submit_host": "current-local"
+    },
+    "robot-task": {
+      "kind": "platform",
+      "region": "cn-shanghai",
+      "queue": "robot-task",
+      "queue_id": "q-20251204185107-fvnpx",
+      "gpu_model": "A100 80G",
+      "capacity_gpus": 32,
+      "personal_limit_gpus": 32,
+      "filesystem": "east_shared",
+      "development_host": "current-local",
+      "submit_host": "current-local"
+    }
+  },
+  "gpu_count_preferences": {
+    "1": [
+      "local",
+      "Robot-North-H20",
+      "gf1",
+      "Robot-East-H20",
+      "robot-task"
+    ],
+    "2": [
+      "local",
+      "Robot-North-H20",
+      "gf1",
+      "Robot-East-H20",
+      "robot-task"
+    ],
+    "4": [
+      "gf1",
+      "Robot-East-H20",
+      "Robot-North-H20",
+      "robot-task"
+    ],
+    "8": [
+      "gf1",
+      "Robot-East-H20",
+      "Robot-North-H20",
+      "robot-task"
+    ],
+    "16": [
+      "Robot-North-H20",
+      "robot-task"
+    ]
+  },
+  "scoring": {
+    "preference_step": 100,
+    "cross_filesystem_penalty": 250,
+    "insufficient_live_capacity_penalty": 1000,
+    "queued_penalty": 500,
+    "disabled_penalty": 100000
+  }
+}
