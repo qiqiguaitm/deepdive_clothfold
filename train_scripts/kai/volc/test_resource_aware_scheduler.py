@@ -4113,6 +4113,8 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
 
     scheduler.add_pi05_p1_north_eval_tasks(queue)
     scheduler.add_pi05_p1_north_eval_tasks(queue)
+    scheduler.add_pi05_p1_a0_east_accelerator_task(queue)
+    scheduler.add_pi05_p1_a0_east_accelerator_task(queue)
     scheduler.apply_frozen_source_readiness(queue)
     scheduler.validate_queue(queue)
 
@@ -4181,6 +4183,29 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
             )
             for item in accelerator["ready_hashes"]
         )
+
+    a0_accelerator = tasks["pi05_p1_a0_east_accelerator"]
+    assert a0_accelerator["priority"] == 0
+    assert {item["label"] for item in a0_accelerator["completion_locations"]} == {
+        "accelerator",
+        "canonical",
+    }
+    assert sum(
+        path.endswith(".task_scheduler.json")
+        for path in a0_accelerator["ready_files"]
+    ) == 2
+    candidate = a0_accelerator["candidates"][0]
+    assert candidate["resource"] == "Robot-East-H20"
+    assert candidate["gpus"] == 4
+    assert candidate["yaml"].endswith(
+        "pi05_p1_a0_accelerator_east_4h20.yaml"
+    )
+    assert any(
+        item["path"].endswith(
+            "pi05_p1_a0_east_accelerator_amendment_v1.json"
+        )
+        for item in a0_accelerator["ready_hashes"]
+    )
 
 
 def test_load_state_reopens_report_only_p1_materialization(

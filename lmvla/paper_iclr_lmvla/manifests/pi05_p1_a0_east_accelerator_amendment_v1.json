@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_p1_a0_east_accelerator_amendment_v1",
+  "created_at": "2026-08-05T15:56:00Z",
+  "status": "evaluation_acceleration_only",
+  "condition": "a0",
+  "seeds": [
+    2,
+    3
+  ],
+  "invariants": [
+    "Submission remains blocked until the original local evaluator has created the seed-2 and seed-3 task schedulers.",
+    "Four East H20 GPUs are fully used as two independent attach workers for each of seeds 2 and 3.",
+    "The public A0 checkpoint, frozen source overlay, fixed-scene manifest, and 50-episode cell protocol are unchanged.",
+    "The canonical A0 marker is written only after all 24 cells pass the unchanged fixed-scene verifier."
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "020010464973474175bce94bca9ff0cc111905f180e80c4308ee0c8933a29986",
+    "train_scripts/kai/eval/attach_pi05_a0_confirmatory_local.sh": "bb2878b90e0579d9727c61b296fdb94d070796f71e55c42b6605226096218615",
+    "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
+    "train_scripts/kai/volc/pi05_p1_a0_accelerator_east_4h20.yaml": "5ad0660e9c552557f3ff28b12b7394866b9ddaf6e35dc979d48e94a47e120980"
+  }
+}
