@@ -18,6 +18,7 @@
   "invariants": [
     "The helper attaches to the four existing North A0 schedulers and cannot initialize a result root.",
     "Worker index 3000 is disjoint from the active worker indices 0 and 2000.",
+    "The helper exits without launching workers if no pending cells remain when its queued job starts.",
     "The official public A0 config, exact recovered checkpoint, frozen source overlay, fixed scene manifest, and 50-episode cell protocol are unchanged.",
     "The helper can claim at most the one pending task in each seed scheduler.",
     "The canonical marker is written only after all 24 cells pass the unchanged fixed-scene verifier."
@@ -26,7 +27,7 @@
     "lmvla/paper_iclr_lmvla/manifests/pi05_p1_north_accelerator_amendment_v1.json": "5c1aeff3c850578ac14cb9d17a3837887dce50dc3798583be7d544ae1f2af280"
   },
   "file_sha256": {
-    "train_scripts/kai/eval/run_pi05_p1_a0_north_tail_accelerator.sh": "17ff198dacde444a47203438c3df7cae28eff0e86643598a33ede37a17b66868",
+    "train_scripts/kai/eval/run_pi05_p1_a0_north_tail_accelerator.sh": "4da3cca31eca447b690947d367ae30de1f09676f4e82bba1369211bd4c1fc14d",
     "train_scripts/kai/volc/pi05_p1_a0_tail_accelerator_north_4h20.yaml": "9549c5c5a5dc2b6c1e0a0d54dcaac7f32488b5b0e03869c63bd1e3310d71c679"
   },
   "claim_limit": "This amendment changes evaluation scheduling only and provides no independent policy-effect evidence."

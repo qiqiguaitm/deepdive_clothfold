@@ -37,6 +37,28 @@ test -f "$CKPT/params/_METADATA"
 test -f "$CKPT/assets/robotwin2.0_absolute_meanstd/norm_stats.json"
 test "$(find "$RESULT_ROOT" -name .task_scheduler.json -type f | wc -l)" -eq 4
 
+pending=$(python3 - "$RESULT_ROOT" <<'PY'
+import json
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+schedulers = sorted(root.glob("seed*/*/local-unseen-a3-seed*/.task_scheduler.json"))
+assert len(schedulers) == 4
+print(sum(len(json.loads(path.read_text()).get("pending", [])) for path in schedulers))
+PY
+)
+if (( pending == 0 )); then
+  printf 'completed=%s\ncondition=a0\nworker_offset=3000\nskipped=no_pending_cells\n' \
+    "$(date -u +%FT%TZ)" >"$ACCELERATOR_MARKER"
+  exit 0
+fi
+if (( pending < 0 || pending > 4 )); then
+  echo "unexpected pending cell count: $pending" >&2
+  exit 13
+fi
+echo "pending_cells=$pending"
+
 "$REPO/kai0/.venv/bin/python" - <<'PY'
 import pathlib
 import openpi

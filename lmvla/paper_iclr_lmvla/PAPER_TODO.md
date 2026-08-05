@@ -433,7 +433,10 @@ The recommendation audit at 19:12 UTC selected `Robot-North-H20` and launched
 the helper as `t-20260806031252-r4vzw` under the primary account. It is currently
 the only queued North task; no startup evidence has been claimed, and the
 scheduler will stop it as redundant if another worker closes the canonical A0
-marker first.
+marker first. Its root entrypoint also recounts the four scheduler queues at
+startup and exits immediately without workers if no pending cell remains, so a
+late queue allocation cannot hold four GPUs while waiting on already claimed
+work.
 
 At 19:18 UTC the shared A0 root reached 16/24 complete: both seed-2/3
 `stack_blocks_two` cells completed, their workers atomically claimed the final

@@ -4361,6 +4361,13 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
         )
         for item in tail["ready_hashes"]
     )
+    tail_script = (
+        scheduler.REPO
+        / "train_scripts/kai/eval/run_pi05_p1_a0_north_tail_accelerator.sh"
+    ).read_text()
+    assert "pending == 0" in tail_script
+    assert "skipped=no_pending_cells" in tail_script
+    assert "pending > 4" in tail_script
 
     a0_seed01_helper = tasks["pi05_p1_a0_seed01_east_helper"]
     assert a0_seed01_helper["priority"] == 0
