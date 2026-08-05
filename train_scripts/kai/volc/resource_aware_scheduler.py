@@ -2264,6 +2264,106 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
         )
         tasks[materialize_id] = queue["tasks"][-1]
 
+    accelerator_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_p1_north_accelerator_amendment_v1.json"
+    )
+    accelerator_spec = json.loads(accelerator_amendment.read_text())
+    accelerator_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(accelerator_spec["file_sha256"].items())
+    ]
+    accelerator_yaml = "train_scripts/kai/volc/pi05_p1_eval_accelerator_north_4h20.yaml"
+    checkpoint = (
+        P1_NORTH_FAILOVER_STAGE
+        / "kai0/checkpoints/pi05_predictive_adapter_p1/"
+        "pi05_predictive_adapter_p1_seed1000/49999"
+    )
+    result_group = "pi05_predictive_adapter_p1__demo_clean"
+    for order, condition in enumerate(("shuffled", "zero_gate")):
+        task_id = f"pi05_p1_{condition}_north_accelerator"
+        if task_id in tasks:
+            continue
+        result_name = f"pi05_predictive_adapter_p1_seed1000_{condition}"
+        remote_result = (
+            Path(NORTH_REPO)
+            / "lmvla/lawam/results/eval_runs/robotwin"
+            / result_name
+        )
+        remote_accelerator_marker = (
+            Path(NORTH_REPO)
+            / "logs/resource_markers"
+            / f"pi05_p1_{condition}_north_accelerator.ok"
+        )
+        scheduler_files = [
+            str(
+                remote_result
+                / f"seed{seed}"
+                / result_group
+                / f"local-unseen-a3-seed{seed}"
+                / ".task_scheduler.json"
+            )
+            for seed in range(4)
+        ]
+        queue["tasks"].append(
+            {
+                "id": task_id,
+                "priority": order,
+                "description": (
+                    f"Attach four frozen North workers to the active P1 {condition} arm"
+                ),
+                "completion_locations": [
+                    {
+                        "label": "north",
+                        "glob": str(remote_accelerator_marker),
+                        "remote": True,
+                    }
+                ],
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(P1_NORTH_EVAL_STAGE_MARKER),
+                    str(accelerator_amendment),
+                    str(REPO / accelerator_yaml),
+                ],
+                "ready_hashes": [
+                    *accelerator_hashes,
+                    {
+                        "path": str(accelerator_amendment),
+                        "sha256": sha256_file(accelerator_amendment),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-North-H20",
+                        "region": "cn-beijing",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 300,
+                        "retry_cooldown_seconds": 300,
+                        "yaml": accelerator_yaml,
+                        "task_name": f"pi05-p1-{condition.replace('_', '-')}-attach-north4g",
+                        "ready_files_remote": [
+                            str(P1_NORTH_EVAL_STAGE_MARKER_REMOTE),
+                            str(checkpoint / "params/_METADATA"),
+                            str(
+                                checkpoint
+                                / "assets/robotwin2.0_absolute_meanstd/"
+                                "norm_stats.json"
+                            ),
+                            *scheduler_files,
+                        ],
+                        "env": {
+                            "PREDICTIVE_P1_CONDITION": condition,
+                            "PORT_BASE_OFFSET": str(23800 + order * 400),
+                            "CKPT": str(checkpoint),
+                        },
+                    }
+                ],
+            }
+        )
+        tasks[task_id] = queue["tasks"][-1]
+
 
 def add_pi05_r1_recurrence_aligned_tasks(queue: dict[str, Any]) -> None:
     """Stage the double-gated R1 screen and conditional three-seed replication."""

@@ -4157,6 +4157,31 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
             "command"
         ]
 
+    for order, condition in enumerate(("shuffled", "zero_gate")):
+        accelerator = tasks[f"pi05_p1_{condition}_north_accelerator"]
+        assert accelerator["priority"] == order
+        assert accelerator["completion_locations"][0]["remote"] is True
+        assert accelerator["completion_locations"][0]["glob"].endswith(
+            f"pi05_p1_{condition}_north_accelerator.ok"
+        )
+        candidate = accelerator["candidates"][0]
+        assert candidate["resource"] == "Robot-North-H20"
+        assert candidate["gpus"] == 4
+        assert candidate["env"]["PREDICTIVE_P1_CONDITION"] == condition
+        assert candidate["yaml"].endswith(
+            "pi05_p1_eval_accelerator_north_4h20.yaml"
+        )
+        assert sum(
+            path.endswith(".task_scheduler.json")
+            for path in candidate["ready_files_remote"]
+        ) == 4
+        assert any(
+            item["path"].endswith(
+                "pi05_p1_north_accelerator_amendment_v1.json"
+            )
+            for item in accelerator["ready_hashes"]
+        )
+
 
 def test_load_state_reopens_report_only_p1_materialization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
