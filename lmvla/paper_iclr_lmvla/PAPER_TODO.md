@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 06:26 UTC
+Updated: 2026-08-05 08:20 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -123,12 +123,20 @@ none of those results establishes control utility.
   training nodes incorrectly declared the 97 GB, 36,979-file frame cache as a
   regular file. The scheduler now has an explicit `ready_dirs` contract and
   both nodes use it, preventing a permanent false-not-ready state after the P1
-  gate. The shared source still differs from the frozen P1/R1 identity, so P2
-  and R1 replication training remain intentionally blocked until a new,
-  gate-conditioned frozen-training amendment separates verification source
-  from checkpoint/data output roots; no hash check has been relaxed. The
-  scheduler was reloaded without interrupting platform work, and the complete
-  scheduler/router suite passes 115 tests. New
+  gate. The shared source still differs from the frozen P1/R1 identity. A new
+  gate-conditioned frozen-training amendment now separates the immutable
+  verification and Python source root from the canonical data and checkpoint
+  output root. Its independently materialized overlay passes the unchanged P1,
+  P2, and R1 verifiers over 25 R1 source identities and 12 P2 protocol files.
+  The amendment authorizes only the listed seed-1001/1002 training nodes and
+  cannot create either prerequisite gate. After scheduler reload, those nodes
+  have zero source-hash failures and remain unready solely because the P1/R1
+  gate files do not exist; no hash check has been relaxed. The complete
+  scheduler/router and overlay suite passes 118 tests. At 08:20 UTC the repaired
+  P1 pair remained healthy at A0 step 34,500 and candidate step 34,800. The R1
+  zero-route, shuffled, and CRAVE reports are complete; correct-combined has
+  22/24 cells complete, with the two remaining stack-three cells actively
+  rolling out at 19/50 and 21/50 episodes. New
   robot-task submissions are disabled by operator policy and that resource
   remains the final, ineligible fallback.
   The six post-readout R2 execution nodes are now explicitly disabled with the
