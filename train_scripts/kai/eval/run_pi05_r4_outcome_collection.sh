@@ -6,6 +6,7 @@ COLLECTOR_LAWAM=${R4_COLLECTOR_LAWAM:-$REPO/logs/frozen_source_overlays/pi05_r4_
 MODEL=${PUBLIC_PI05_MODEL:-/vePFS/tim/hf_models/SidneyXie_pi05_robotwin}
 TOKENIZER=${PALIGEMMA_TOKENIZER_PATH:-/vePFS/tim/hf_models/paligemma_tokenizer}
 SERVER_PY=${PUBLIC_PI05_SERVER_PY:-/vePFS/tim/workspace/lerobot-pi05-server-venv/bin/python}
+FFMPEG_DIR=${R4_FFMPEG_DIR:-/vePFS/tim/workspace/miniconda3_portable/envs/vlanext/bin}
 ROBOTWIN_PY_DEFAULT=$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh
 SCENE_MANIFEST=${R4_SCENE_MANIFEST:-$REPO/lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_v1.json}
 TASKS=${ROBOTWIN_TASKS:-"beat_block_hammer blocks_ranking_size blocks_ranking_rgb handover_block stack_blocks_two stack_blocks_three"}
@@ -23,12 +24,19 @@ STAMP=$(date -u +%Y%m%d_%H%M%S)
 LOG_DIR=$REPO/logs/r4/outcomes/collector
 
 mkdir -p "$LOG_DIR" "$(dirname "$MARKER")" "$(dirname "$AUDIT_JSON")"
-test -s "$COLLECTOR_LAWAM/COLLECTOR_READY"
-test -s "$MODEL/model.safetensors"
-test -s "$TOKENIZER/tokenizer.model"
-test -x "$SERVER_PY"
-test -s "$SCENE_MANIFEST"
-command -v ffmpeg >/dev/null
+export PATH="$FFMPEG_DIR:$PATH"
+
+require_file() {
+  local path=$1
+  [[ -s "$path" ]] || { echo "required file missing or empty: $path" >&2; exit 2; }
+}
+
+require_file "$COLLECTOR_LAWAM/COLLECTOR_READY"
+require_file "$MODEL/model.safetensors"
+require_file "$TOKENIZER/tokenizer.model"
+[[ -x "$SERVER_PY" ]] || { echo "server Python is not executable: $SERVER_PY" >&2; exit 2; }
+require_file "$SCENE_MANIFEST"
+command -v ffmpeg >/dev/null || { echo "ffmpeg unavailable under PATH=$PATH" >&2; exit 2; }
 
 python3 - "$COLLECTOR_LAWAM/COLLECTOR_READY" "$SCENE_MANIFEST" "$TEST_NUM" <<'PY'
 import json, sys

@@ -15,7 +15,7 @@
     "lmvla/lmwm/scripts/audit_pi05_r4_outcome_dataset.py": "f23ab7a91201dc8e3d31c7f95fefce9936c95dd6942fa4ab4bd863895f1ab35b",
     "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_v1.json": "e107c10f6656bee88a05ce7d145f80a47ce04eaa6fb1a89ec4590313854762ef",
     "lmvla/lmwm/data/pi05_r4_outcome_scene_seeds_smoke_v1.json": "3d945595eed229d81dc21c623a18b63ba112bd5085321971b1ebaf25eae13e10",
-    "train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh": "7b962a378d0ac2c688da1dc0a4901981c7f5d4126fc538f02f08ed865d3e5ea3",
+    "train_scripts/kai/eval/run_pi05_r4_outcome_collection.sh": "280079d9a55776c34c7dad8192159fc3475ae6473c1c06fd42fd3fd03c625d49",
     "train_scripts/kai/volc/pi05_r4_outcome_collection_east_4h20.yaml": "6abee3288e06ea0baa5a52f75518c496f65e0bb7f511bf85618d570dde80af0d"
   },
   "scene_protocol": {
