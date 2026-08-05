@@ -4184,7 +4184,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         queue["tasks"].append(
             {
                 "id": eval_task_id,
-                "priority": 1,
+                "priority": 2,
                 "description": (
                     f"Fixed-step, fixed-scene R4 closed-loop evaluation for {arm}"
                 ),
@@ -4292,7 +4292,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         queue["tasks"].append(
             {
                 "id": gate_id,
-                "priority": 1,
+                "priority": 2,
                 "description": (
                     "Apply the preregistered paired R4 seed-1000 gate; replication "
                     "remains blocked unless terminal-outcome exceeds both controls"

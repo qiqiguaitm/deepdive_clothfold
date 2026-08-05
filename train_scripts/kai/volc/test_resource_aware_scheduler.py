@@ -470,7 +470,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         assert task["progress_logs"][0]["label"] == "step"
         assert task["progress_logs"][0]["regex"] == r"step:(\d+)"
     for arm, task in formal_eval.items():
-        assert task["priority"] == 1
+        assert task["priority"] == 2
         assert task["prefer_max_gpus_when_immediate"] is True
         assert [candidate["resource"] for candidate in task["candidates"]] == [
             "Robot-East-H20",
@@ -486,6 +486,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         assert task["progress_globs"][0]["expected"] == 24
     assert formal_gate["candidates"][0]["resource"] == "local"
     assert formal_gate["candidates"][0]["gpus"] == 0
+    assert formal_gate["priority"] == 2
     assert formal_gate["completion_glob"].endswith(
         "RESULTS_pi05_r4_seed1000_gate.json"
     )
