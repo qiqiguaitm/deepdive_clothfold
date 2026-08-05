@@ -1032,6 +1032,45 @@ def test_dispatch_does_not_materialize_pending_north_parent(
     )
 
 
+def test_north_parent_completion_rearms_only_precompletion_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = {"id": "parent", "priority": 0, "enabled": False}
+    materialize = {
+        "id": "materialize",
+        "priority": 0,
+        "enabled": True,
+        "materialize_north_result_for": "parent",
+        "completion_glob": "/tmp/not-created-materializer-report.json",
+        "candidates": [{"kind": "local", "resource": "local", "gpus": 0}],
+    }
+    state = {
+        "tasks": {
+            "parent": {
+                "status": "completed",
+                "attempts": [{"resource": "Robot-North-H20"}],
+            },
+            "materialize": {
+                "status": "pending",
+                "attempts": [],
+                "exhausted_resources": {"local": {"failures": 3, "limit": 3}},
+            },
+        }
+    }
+    monkeypatch.setattr(scheduler, "ordered_dispatch_candidates", lambda *_args: [])
+
+    scheduler.dispatch({"tasks": [parent, materialize]}, state, {"resources": {}})
+    materialize_state = state["tasks"]["materialize"]
+    assert "exhausted_resources" not in materialize_state
+    assert materialize_state["rearmed_after_parent_completion"]
+
+    materialize_state["exhausted_resources"] = {
+        "local": {"failures": 3, "limit": 3}
+    }
+    scheduler.dispatch({"tasks": [parent, materialize]}, state, {"resources": {}})
+    assert materialize_state["exhausted_resources"]["local"]["failures"] == 3
+
+
 def test_mt1_north_materialization_tasks_match_parent_outputs() -> None:
     queue_path = Path(__file__).with_name("resource_scheduler_queue.json")
     tasks = {task["id"]: task for task in json.loads(queue_path.read_text())["tasks"]}

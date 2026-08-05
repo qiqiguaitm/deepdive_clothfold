@@ -8553,6 +8553,14 @@ def dispatch(
             task_state["waiting_reason"] = (
                 f"waiting for North parent task to complete: {parent_id}"
             )
+        if required is True and not task_state.get("rearmed_after_parent_completion"):
+            exhausted = task_state.pop("exhausted_resources", None)
+            task_state["rearmed_after_parent_completion"] = utc_now()
+            if exhausted:
+                log(
+                    f"rearmed {task['id']} after {parent_id} completed on North; "
+                    "discarded only pre-completion failure exhaustion"
+                )
         if required is False and task_state.get("status") != "completed":
             mark_task_completed(task, task_state)
             task_state["satisfied_by_task"] = parent_id
