@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 11:22 UTC
+Updated: 2026-08-05 11:55 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -162,6 +162,19 @@ none of those results establishes control utility.
   reason `R2 causal readout gate rejected`; they can no longer be mistaken for
   unfinished or future-runnable work. gf1 retirement is enforced at queue,
   capacity, monitor, and launcher layers.
+  At 11:37 UTC the candidate had written a complete step-49999 checkpoint, but
+  A0's final Orbax save failed with `EDQUOT` after reaching step 49999. The
+  remote gate correctly remained locked at one of two complete metadata files.
+  An audited cleanup retained candidate steps 10000/49999 and A0 steps
+  10000/45000, removed only redundant intermediate checkpoints and the failed
+  temporary save, and released 445 GB. A fresh recommendation selected North
+  for retry `t-20260805194337-htmjv`; the candidate arm is skipped because its
+  final metadata is complete, while A0 restored step 45000 and reached step
+  45400 at approximately 1.3 steps/s by 11:54 UTC, with about 59 minutes
+  remaining. The currently running platform reservation is eight GPUs although
+  only the four-GPU A0 arm is active; it will not be interrupted because that
+  would consume another platform retry. Future recovery selection now prefers
+  the minimum immediately runnable four-GPU shape.
 
 ## P1: seed-1000 closed-loop causal gate
 
@@ -291,6 +304,20 @@ scene protocol contains 24 cells and 240 episodes: eval seeds 0/1 form train,
   spawn-hook/query/scheduler suite passes 109 tests. R4 policy training
   remains unscheduled and unauthorized until both the combined outcome audit
   and the three-camera query audit are accepted.
+
+  At 11:55 UTC the balanced B shard had completed all 160 retained episodes and
+  emitted its marker. The A shard had completed both 40-episode ranking tasks
+  for both train seeds and was collecting the final `handover_block` cells at
+  episodes 21/40 and 26/40; it remained healthy on four East H20 GPUs. Once its
+  second marker appears, the scheduler will locally merge and audit exactly 720
+  outcomes before any formal query collection can start. An audited local
+  builder now converts an accepted 600-record query manifest into ordinary and
+  task-normalized terminal-outcome-weighted 50-step action chunks. It is gated
+  on both outcome and three-camera query markers, runs on zero GPUs, and cannot
+  authorize policy training. Its focused R4 suite passes seven tests and the
+  complete scheduler suite passes 105 tests. Terminal-outcome weighting remains
+  explicitly distinct from action advantage, Q-value, or world-critic
+  estimation.
 
 - [ ] Do not launch until success and failure rollouts with true outcome labels
   exist. Compare CRAVE-AWBC/AWR against outcome-free CRAVE labels and ordinary
