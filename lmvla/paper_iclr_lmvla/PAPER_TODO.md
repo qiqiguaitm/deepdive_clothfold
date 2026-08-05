@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 05:54 UTC
+Updated: 2026-08-05 06:26 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -55,7 +55,8 @@ none of those results establishes control utility.
   step-10000 Orbax train states in 24.18 and 23.35 seconds. At step 10100 both
   run near 1.3 iterations/s on disjoint four-GPU sets. At 05:50 UTC A0 reached
   step 22,800 and the candidate reached step 22,900, with approximately
-  5.7 hours remaining. A0 reports loss 0.0061--0.0066; the candidate reports
+  5.7 hours remaining. At 06:25 UTC the same repaired task remained healthy:
+  A0 reached step 25,500 and the candidate reached step 25,700. A0 reports loss 0.0061--0.0066; the candidate reports
   main loss 0.0080--0.0092 and nonzero predictive loss 0.0032--0.0033, with no
   NaN, NCCL, or data error. The recovery
   atomically exposes final checkpoints only after complete 49999 metadata and
@@ -112,11 +113,22 @@ none of those results establishes control utility.
   their claims, and exited before report finalization. Canonical scheduler state
   now monitors the East helper directly, preventing an unintended local restart
   or concurrent report write. East is now 8/8 occupied, local is 0/2 occupied,
-  and Beijing primary is 24/25 with the repaired P1 pair. Source and amendment hashes are enforced
+  and Beijing primary is 24/25 with the repaired P1 pair. At 06:25 UTC the
+  East runs remained healthy; combined had reached 15/24 cells and zero-route
+  20/24, with active scheduler heartbeats and no new failed cell. Source and amendment hashes are enforced
   before recommendation and submission; the overlay authorization is limited
   to these four seed-1000 R1 evaluations and cannot authorize R1 training or
   later seeds. P2 remains blocked until the P1 causal gate is complete and
-  accepted. The targeted scheduler/router/failover suite passes 121 tests. New
+  accepted. A separate readiness audit found that the two P2 replication
+  training nodes incorrectly declared the 97 GB, 36,979-file frame cache as a
+  regular file. The scheduler now has an explicit `ready_dirs` contract and
+  both nodes use it, preventing a permanent false-not-ready state after the P1
+  gate. The shared source still differs from the frozen P1/R1 identity, so P2
+  and R1 replication training remain intentionally blocked until a new,
+  gate-conditioned frozen-training amendment separates verification source
+  from checkpoint/data output roots; no hash check has been relaxed. The
+  scheduler was reloaded without interrupting platform work, and the complete
+  scheduler/router suite passes 115 tests. New
   robot-task submissions are disabled by operator policy and that resource
   remains the final, ineligible fallback.
   The six post-readout R2 execution nodes are now explicitly disabled with the
