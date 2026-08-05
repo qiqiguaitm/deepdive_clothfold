@@ -4322,6 +4322,21 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
         for item in a0_accelerator["ready_hashes"]
     )
 
+    east_accelerator = tasks["pi05_p1_a0_east_secondary_accelerator"]
+    assert east_accelerator["priority"] == 0
+    assert {
+        item["label"] for item in east_accelerator["completion_locations"]
+    } == {"east_accelerator", "canonical"}
+    assert sum(
+        path.endswith(".task_scheduler.json")
+        for path in east_accelerator["ready_files"]
+    ) == 2
+    assert len(east_accelerator["candidates"]) == 1
+    east_candidate = east_accelerator["candidates"][0]
+    assert east_candidate["resource"] == "Robot-East-H20"
+    assert east_candidate["gpus"] == 4
+    assert east_candidate["task_name"] == "pi05-p1-a0-secondary-attach-east4g"
+
 
 def test_completion_locations_require_artifacts_even_without_completion_glob(
     tmp_path: Path,

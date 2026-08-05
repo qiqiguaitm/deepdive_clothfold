@@ -2472,7 +2472,7 @@ def add_pi05_p1_a0_seed01_east_helper_task(queue: dict[str, Any]) -> None:
 
 
 def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
-    """Attach four East workers when the local A0 evaluator reaches seeds 2/3."""
+    """Attach local and East workers when the A0 evaluator reaches seeds 2/3."""
     task_id = "pi05_p1_a0_east_accelerator"
     if any(task.get("id") == task_id for task in queue.get("tasks", [])):
         return
@@ -2593,6 +2593,63 @@ def add_pi05_p1_a0_east_accelerator_task(queue: dict[str, Any]) -> None:
                         "run_pi05_p1_a0_local_accelerator.sh"
                     ),
                 },
+            ],
+        }
+    )
+
+    east_task_id = "pi05_p1_a0_east_secondary_accelerator"
+    queue["tasks"].append(
+        {
+            "id": east_task_id,
+            "priority": 0,
+            "description": (
+                "Attach four disjoint East workers alongside the local A0 accelerator"
+            ),
+            "completion_locations": [
+                {
+                    "label": "east_accelerator",
+                    "glob": str(accelerator_marker),
+                    "remote": False,
+                },
+                {
+                    "label": "canonical",
+                    "glob": str(canonical_marker),
+                    "remote": False,
+                },
+            ],
+            "completion_min_count": 1,
+            "ready_files": [
+                str(R1_FROZEN_OVERLAY / "READY"),
+                str(checkpoint / "params/_METADATA"),
+                str(
+                    checkpoint
+                    / "assets/robotwin2.0_absolute_meanstd/norm_stats.json"
+                ),
+                str(
+                    REPO
+                    / "lmvla/lmwm/data/"
+                    "robotwin_pi05_confirmatory_scene_seeds_v1.json"
+                ),
+                *(str(path) for path in scheduler_files),
+                str(amendment),
+                str(REPO / yaml_path),
+            ],
+            "ready_hashes": [
+                *ready_hashes,
+                {"path": str(amendment), "sha256": sha256_file(amendment)},
+            ],
+            "candidates": [
+                {
+                    "kind": "platform",
+                    "resource": "Robot-East-H20",
+                    "region": "cn-shanghai",
+                    "gpus": 4,
+                    "queue_timeout_seconds": 180,
+                    "retry_cooldown_seconds": 300,
+                    "yaml": yaml_path,
+                    "task_name": "pi05-p1-a0-secondary-attach-east4g",
+                    "env": {"CKPT": str(checkpoint)},
+                }
             ],
         }
     )

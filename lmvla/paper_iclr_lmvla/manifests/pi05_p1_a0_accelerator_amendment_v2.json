@@ -11,6 +11,7 @@
   "invariants": [
     "Execution remains blocked until the original local evaluator has created the seed-2 and seed-3 task schedulers.",
     "The local candidate uses two A100 GPUs with exactly two independent attach workers per GPU; the East candidate remains four independent H20 workers.",
+    "Local and East accelerators may execute concurrently because their worker-index and port ranges are disjoint; both use the same locked task schedulers.",
     "Every attach worker claims tasks through the existing locked scheduler and uses disjoint worker indices and ports.",
     "The public A0 checkpoint, frozen source overlay, fixed-scene manifest, and 50-episode cell protocol are unchanged.",
     "The canonical A0 marker is written only after all 24 cells pass the unchanged fixed-scene verifier."
