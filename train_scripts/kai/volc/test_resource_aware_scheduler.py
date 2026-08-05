@@ -4232,6 +4232,10 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
         assert accelerator["completion_locations"][0]["glob"].endswith(
             f"pi05_p1_{condition}_north_accelerator.ok"
         )
+        assert accelerator["completion_locations"][1]["remote"] is False
+        assert accelerator["completion_locations"][1]["glob"].endswith(
+            f"pi05_predictive_adapter_p1_seed1000_{condition}.ok"
+        )
         candidate = accelerator["candidates"][0]
         assert candidate["resource"] == "Robot-North-H20"
         assert candidate["gpus"] == 4

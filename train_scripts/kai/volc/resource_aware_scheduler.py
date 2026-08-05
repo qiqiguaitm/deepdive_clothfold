@@ -2286,6 +2286,9 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
         if task_id in tasks:
             continue
         result_name = f"pi05_predictive_adapter_p1_seed1000_{condition}"
+        canonical_marker = (
+            REPO / "logs/resource_markers" / f"{result_name}.ok"
+        )
         remote_result = (
             Path(NORTH_REPO)
             / "lmvla/lawam/results/eval_runs/robotwin"
@@ -2318,7 +2321,12 @@ def add_pi05_p1_north_eval_tasks(queue: dict[str, Any]) -> None:
                         "label": "north",
                         "glob": str(remote_accelerator_marker),
                         "remote": True,
-                    }
+                    },
+                    {
+                        "label": "canonical",
+                        "glob": str(canonical_marker),
+                        "remote": False,
+                    },
                 ],
                 "completion_min_count": 1,
                 "ready_files": [
