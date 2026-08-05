@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 08:20 UTC
+Updated: 2026-08-05 08:55 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -151,7 +151,7 @@ none of those results establishes control utility.
   fails the necessary CRAVE comparison and seed-1001/1002 R1 replication must
   not launch. The formal four-arm gate report still waits for the matched P1 A0
   and predictive reports so that the complete rejected result is archived.
-  Current owned allocation is North 8 GPUs, East 4 GPUs, and local 0/2 GPUs;
+  Current owned allocation is North 8 GPUs, East 0/8 GPUs, and local 0/2 GPUs;
   there is no gate-ready pending work for the idle devices. New robot-task
   submissions are disabled by operator policy and that resource remains the
   final, ineligible fallback.
@@ -189,9 +189,9 @@ none of those results establishes control utility.
   A0, predictive adapter, CRAVE-target auxiliary only, and predictive plus
   CRAVE targets. Evaluate zero-route and shuffled-action interventions on the
   same frozen 24-cell scene manifest and report every task.
-- [ ] Replicate seeds 1001/1002 only if the combined arm exceeds A0 and both
-  single-component arms, survives zero-route and shuffled-action interventions,
-  and has no task regression larger than 5 points.
+- [x] Close seed-1001/1002 replication without launching it: combined is
+  significantly worse than the CRAVE-only arm, so the preregistered necessary
+  condition is false regardless of the still-pending A0/predictive comparisons.
 
 ## R4: deferred outcome-calibrated improvement
 
