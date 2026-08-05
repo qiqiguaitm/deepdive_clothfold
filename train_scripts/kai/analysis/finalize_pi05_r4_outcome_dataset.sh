@@ -7,13 +7,14 @@ BASE_ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/pi05_r4_outcomes_public_v
 SUPPORT_ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/pi05_r4_beat_train_support_supplement_v1
 BALANCED_A_ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/pi05_r4_balanced_train_support_a_v1
 BALANCED_B_ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/pi05_r4_balanced_train_support_b_v1
+MANIFEST_DIR=$REPO/logs/r4/outcomes/manifests
 SUPPORT_SCENES=$REPO/lmvla/lmwm/data/pi05_r4_beat_train_support_supplement_v1.json
 BALANCED_A_SCENES=$REPO/lmvla/lmwm/data/pi05_r4_balanced_train_support_a_v1.json
 BALANCED_B_SCENES=$REPO/lmvla/lmwm/data/pi05_r4_balanced_train_support_b_v1.json
 BASE_MANIFEST=$BASE_ROOT/dataset_manifest.json
-SUPPORT_MANIFEST=$SUPPORT_ROOT/dataset_manifest.json
-BALANCED_A_MANIFEST=$BALANCED_A_ROOT/dataset_manifest.json
-BALANCED_B_MANIFEST=$BALANCED_B_ROOT/dataset_manifest.json
+SUPPORT_MANIFEST=$MANIFEST_DIR/pi05_r4_beat_train_support_v1.json
+BALANCED_A_MANIFEST=$MANIFEST_DIR/pi05_r4_balanced_train_support_a_v1.json
+BALANCED_B_MANIFEST=$MANIFEST_DIR/pi05_r4_balanced_train_support_b_v1.json
 COMBINED_MANIFEST=$REPO/logs/r4/outcomes/dataset_manifest_combined_v1.json
 AUDIT=$REPO/logs/r4/outcomes/dataset_audit_combined_v1.json
 MARKER=$REPO/logs/resource_markers/pi05_r4_outcome_collection.ok
@@ -23,6 +24,7 @@ test -s "$SUPPORT_ROOT/seed0/SidneyXie_pi05_robotwin__demo_clean/r4-beat-train-s
 test -s "$SUPPORT_ROOT/seed1/SidneyXie_pi05_robotwin__demo_clean/r4-beat-train-support-seed1/tasks/beat_block_hammer/summary.json"
 test -s "$BALANCED_B_ROOT/seed0/SidneyXie_pi05_robotwin__demo_clean/r4-balanced-train-support-b-seed0/tasks/stack_blocks_two/summary.json"
 test -s "$BALANCED_B_ROOT/seed1/SidneyXie_pi05_robotwin__demo_clean/r4-balanced-train-support-b-seed1/tasks/stack_blocks_two/summary.json"
+mkdir -p "$MANIFEST_DIR"
 
 python3 "$REPO/lmvla/lmwm/scripts/build_pi05_r4_outcome_manifest.py" \
   --result-root "$SUPPORT_ROOT" --scene-manifest "$SUPPORT_SCENES" \
