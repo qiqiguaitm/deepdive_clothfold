@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p1_north_failover_stage_v1",
+  "created_at": "2026-08-04T10:34:00Z",
+  "source_root": "/vePFS/tim/workspace/deepdive_kai0",
+  "stage_root": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z",
+  "launch_authorized": false,
+  "promotion_requirements": [
+    "all staged artifacts pass file-count, byte-count, inventory and key-checksum verification",
+    "the staged dataset, tokenizer cache, normalization assets, launcher and source-freeze preflight pass under the North runtime",
+    "the original gf1 attempts are terminal or an operator confirms that both processes are stopped",
+    "a timezone-stamped authorization binds both stopped gf1 PIDs and this exact manifest hash before any North process starts",
+    "the resumed A0 and candidate use the frozen seed-1000 recipe and restore their 10000-step optimizer states",
+    "no P1 evaluation or replication starts before both 49999 checkpoints are complete"
+  ],
+  "artifacts": [
+    {
+      "path": "kai0/checkpoints/pi05_base/params",
+      "file_count": 21,
+      "bytes": 12441722380,
+      "inventory_sha256": "dc14015984a769ef75226bd76de91ab3d05219d3532448d4f041aedaa9fa0085",
+      "key_checksums": {
+        "_METADATA": "250d0ad0f6540a5e4bdd70442d6864cef729724f2d23e2dd2cc669563a668d70"
+      }
+    },
+    {
+      "path": "kai0/checkpoints/pi05_predictive_adapter_p0/pi05_predictive_adapter_p0_seed1000_20k_w8clean_8g/19999",
+      "file_count": 28,
+      "bytes": 5433500346,
+      "inventory_sha256": "4ba2d80d179e9344d65be75f04d1443350f6aa9d6b88262a5c0499e8d4093fd3",
+      "key_checksums": {
+        "params/_METADATA": "1faabd944f840e4a10d4501f53bc53bd30a9cdedd63a27e60a1122d1c8012e44"
+      }
+    },
+    {
+      "path": "kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/pi05_predictive_adapter_p1_a0_seed1000/10000",
+      "file_count": 86,
+      "bytes": 32347540977,
+      "inventory_sha256": "86b79b2a6a2298c2f9bb1ffa0a3be4efcc651da53e90fc9254316b0ac32e79d5",
+      "key_checksums": {
+        "_CHECKPOINT_METADATA": "3f8f2789a4d041599262b6330f495a9ab9b96f057f83178e39cdbf704a1603be"
+      }
+    },
+    {
+      "path": "kai0/checkpoints/pi05_predictive_adapter_p1/pi05_predictive_adapter_p1_seed1000/10000",
+      "file_count": 74,
+      "bytes": 32570825258,
+      "inventory_sha256": "4bd1cd1f4530615e1203343924d57587daf9037d480a8f1e7658d0234b2b33b9",
+      "key_checksums": {
+        "_CHECKPOINT_METADATA": "4f1d429885866af362fec5ee595e339f0b2011a94ae12f5b0924145b5e2b2b58"
+      }
+    },
+    {
+      "path": "lmvla/lmwm/data/pi05_predictive_adapter_p0_v1/pairs.npz",
+      "file_count": 1,
+      "bytes": 963669,
+      "inventory_sha256": "f5099f2b25b120957ebc9bff92abf26e3d4d33cd0507524e845b2b8f9fc31796",
+      "key_checksums": {
+        "pairs.npz": "5f166b847dcc71af55b5af053a42fe29c740969b7a97ae0c1eaf4cb481472440"
+      }
+    },
+    {
+      "path": "datasets/robotwin2.0_official_prompts_v21",
+      "source_path": "../VLANeXt-main/datasets/robotwin2.0_official_prompts_v21",
+      "file_count": 27505,
+      "bytes": 610602887,
+      "inventory_sha256": "bde59bf3b1e1fa3e72bad895f267165a2c7eb1d8a9bf3d74ce3d96f811c4a80e",
+      "key_checksums": {
+        "meta/episodes.jsonl": "9d05f20e76cee73acc7240a5f2ed97881bb4ea621daaf64f70a5c3767d47ef8d",
+        "meta/tasks.jsonl": "181b0300d942b5e59c11ebf36816b64006e5ada072e98af17833303c928dfd3b"
+      }
+    },
+    {
+      "path": "openpi_cache",
+      "file_count": 2,
+      "bytes": 4264023,
+      "inventory_sha256": "71144e6e92fef92ac40478f538cd07d01762b8086372963957a54dd74920ccbf",
+      "key_checksums": {
+        "big_vision/paligemma_tokenizer.model": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+      }
+    },
+    {
+      "path": "kai0/assets/pi05_robotwin_a0_public_exact_bj",
+      "file_count": 1,
+      "bytes": 4095,
+      "inventory_sha256": "282df931093cc619925f2754c5444884272b72b4fb9c8a6e4ecf7fea75f0486f",
+      "key_checksums": {
+        "robotwin2.0_absolute_meanstd/norm_stats.json": "8e4894bc762100c23cd435caff20653ccb39a9614ce210971dcf4018ef0a9f09"
+      }
+    },
+    {
+      "path": "lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256",
+      "file_count": 36979,
+      "bytes": 103985465914,
+      "inventory_sha256": "2908234d9857f5b69107d773f3bb2760ea323efc46a67aac0560e0f8c968c272",
+      "key_checksums": {
+        "chunk-000/observation.images.cam_high/episode_000000.npz": "bd34c0c63ac633fa2fe8fbe0050deee3b1a8a45deaa3214c764a7e4723b252c9",
+        "chunk-009/observation.images.cam_high/episode_009010.npz": "a39be8f91b2bb18f92e88206326f01d16b7894c86c095b6768897640c483e74b",
+        "chunk-027/observation.images.cam_high/episode_027499.npz": "be3960bbc1f3c9545ff8d51740c5b4137808c89a8f47b591093c92dc03cfb3fa"
+      }
+    },
+    {
+      "path": "kai0/src/openpi",
+      "file_count": 75,
+      "bytes": 1006897,
+      "inventory_sha256": "bdf7b246da9efc35c61e3b38d0f1adf9d010f64a19f7e44311c853acf871355f",
+      "exclude_parts": ["__pycache__"]
+    }
+  ],
+  "control_files": {
+    "kai0/scripts/train.py": {
+      "bytes": 27428,
+      "sha256": "984bb046d2ea4e2e1d88d551e4367a94679ff043292166a17d65f90e85bfa0b1"
+    },
+    "kai0/scripts/train_pi05_robotwin_confirmatory.py": {
+      "bytes": 19883,
+      "sha256": "059503d2bb275f677acddbb212d7f92001ac268ba4977846e101b13052af2081"
+    },
+    "kai0/scripts/verify_pi05_predictive_adapter_source_freeze.py": {
+      "bytes": 3393,
+      "sha256": "42801ddedf7c2448757bcf90b1d2d703cd181baaf95f5ca2c45072c350467095"
+    },
+    "train_scripts/kai/run_pi05_predictive_adapter_p1_train.sh": {
+      "bytes": 2844,
+      "sha256": "0fdd0e9917824dffc5ec88dea9ebacce20f6384dda0c49a3887b632a35d2d586"
+    },
+    "lmvla/lmwm/scripts/audit_pi05_p1_failover_authorization.py": {
+      "bytes": 3631,
+      "sha256": "aa1d5879f48d207293bdb04046bf9a2fef1fdd91cc38eb795a63b10f47480ca5"
+    },
+    "train_scripts/kai/run_pi05_p1_north_failover_pair.sh": {
+      "bytes": 3967,
+      "sha256": "26257c63efaafd61b39b943a4e57ca168fc9e50e14250d23288d29056f0307ef"
+    },
+    "train_scripts/kai/sync_pi05_p1_north_failover_results.sh": {
+      "bytes": 2234,
+      "sha256": "65b906ff6046fd1b0e09976bb6a6e1ee3c75067645355de0f8430dd5083bffa9"
+    },
+    "train_scripts/kai/volc/pi05_p1_north_failover_pair_8h20.yaml": {
+      "bytes": 1165,
+      "sha256": "6728fede0552e572fa3ddd05a87aab4641475311508fd8991706dd4e9629686f"
+    },
+    "train_scripts/kai/lib/checkpoint_resume.sh": {
+      "bytes": 926,
+      "sha256": "f59d0e10fa23d0e3745994d3d5de1accfbc4bb1bdb87c5df6603d526320a6366"
+    },
+    "train_scripts/kai/preflight_pi05_p1_north_failover_stage.sh": {
+      "bytes": 4343,
+      "sha256": "bb364fcecc030d3ff201ab4f2d4deee3c832f41ef3abfcfd823b0242dc879917"
+    },
+    "train_scripts/kai/sync_pi05_p1_north_failover_stage.sh": {
+      "bytes": 3527,
+      "sha256": "40d5558603025320624f76c235106d7a69bc4a909657e81762c8015a761b4ef4"
+    },
+    "lmvla/lmwm/scripts/audit_pi05_p1_north_failover_stage.py": {
+      "bytes": 4482,
+      "sha256": "4a31d5cf181ca595d07f7145b4d977d87144ecaaa9590d8354d80a51d67a0bc7"
+    },
+    "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p1_baseline_audit.json": {
+      "bytes": 2751,
+      "sha256": "82459c52bb9b45f278bc2bc44b5a240ac2488367a54546d673be169c8cc9ef20"
+    },
+    "logs/predictive/p0_eval/p0_gate.accepted": {
+      "bytes": 19,
+      "sha256": "ac1493cdfbb3763e43f1accfce43b45e29e5e9286b3a5a65300b13b36170acee"
+    }
+  },
+  "dataset_identity": {
+    "episodes_jsonl_sha256": "9d05f20e76cee73acc7240a5f2ed97881bb4ea621daaf64f70a5c3767d47ef8d",
+    "official_episodes_sha256": "68b9d56020aa7b5317f3d6af24c487990869955b7a1213ce4f09356760578ed8",
+    "official_tasks_sha256": "db9675ee40ed5ecc8a13a89c8c6fccffecc7663e238bb4655a5ad32c68ca02a1",
+    "north_path_only_manifest_difference": true
+  }
+}

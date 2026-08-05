@@ -1,0 +1,4816 @@
+"""See _CONFIGS for the list of available configs."""
+
+import abc
+from collections.abc import Sequence
+import dataclasses
+import difflib
+import logging
+import os
+import pathlib
+from typing import Any, Literal, Protocol, TypeAlias
+
+import etils.epath as epath
+import flax.nnx as nnx
+from typing_extensions import override
+import tyro
+
+import openpi.models.model as _model
+import openpi.models.pi0_config as pi0_config
+import openpi.models.pi0_fast as pi0_fast
+import openpi.models.tokenizer as _tokenizer
+import openpi.policies.aloha_policy as aloha_policy
+import openpi.policies.droid_policy as droid_policy
+import openpi.policies.libero_policy as libero_policy
+import openpi.shared.download as _download
+import openpi.shared.nnx_utils as nnx_utils
+import openpi.shared.normalize as _normalize
+import openpi.training.droid_rlds_dataset as droid_rlds_dataset
+import openpi.training.misc.polaris_config as polaris_config
+import openpi.training.misc.roboarena_config as roboarena_config
+import openpi.training.optimizer as _optimizer
+import openpi.training.weight_loaders as weight_loaders
+import openpi.transforms as _transforms
+
+import openpi.policies.agilex_policy as agilex_policy
+import openpi.policies.arx_policy as arx_policy
+
+ModelType: TypeAlias = _model.ModelType
+# Work around a tyro issue with using nnx.filterlib.Filter directly.
+Filter: TypeAlias = nnx.filterlib.Filter
+
+# Per-host paths, configured by setup_env.sh at the repo root.
+#   KAI0_DATA_ROOT     — base dir of deepdive_kai0/kai0 (holds data/ and local checkpoints/)
+#   PYTORCH_CKPT_BASE  — root for ADVANTAGE_TORCH PyTorch pretrained weights
+# gs:// paths are resolved via OPENPI_DATA_HOME by openpi.shared.download.
+_OPENPI_DATA_HOME = os.environ.get("OPENPI_DATA_HOME", os.path.expanduser("~/workspace/openpi_cache"))
+_KAI0_LOCAL_ROOT = os.environ.get("KAI0_LOCAL_ROOT", "/home/tim/data_local")
+_KAI0_DATA_ROOT = os.environ.get("KAI0_DATA_ROOT", "/data1/tim/workspace/deepdive_kai0/kai0")
+_PYTORCH_CKPT_BASE = os.environ.get("PYTORCH_CKPT_BASE", "/path/to/pytorch_ckpt_base")
+
+
+@dataclasses.dataclass(frozen=True)
+class AssetsConfig:
+    """Determines the location of assets (e.g., norm stats) that will be used to set up the data pipeline.
+
+    These assets will be replicated inside the checkpoint under the `assets/asset_id` directory.
+
+    This can be used to load assets from a different checkpoint (e.g., base model checkpoint) or some other
+    centralized location. For example, to load the norm stats for the Trossen robot from the base model checkpoint
+    during fine-tuning, use:
+
+    ```
+    AssetsConfig(
+        assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
+        asset_id="trossen",
+    )
+    ```
+    """
+
+    # Assets directory. If not provided, the config assets_dirs will be used. This is useful to load assets from
+    # a different checkpoint (e.g., base model checkpoint) or some other centralized location.
+    assets_dir: str | None = None
+
+    # Asset id. If not provided, the repo id will be used. This allows users to reference assets that describe
+    # different robot platforms.
+    asset_id: str | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class DataConfig:
+    # LeRobot repo id. If None, fake data will be created.
+    repo_id: str | None = None
+    # Optional multi-dataset fan-out: 每个元素是一个 LeRobot repo_id (本地路径或 HF id).
+    # 当非 None 时, create_torch_dataset 会按列表逐个构造 LeRobotDataset 然后 ConcatDataset,
+    # `repo_id` 仍保留用作 asset_id 回退 / 日志显示 (可以指任一条或共同目录).
+    # 训练 CLI 侧通常不直接填这个, 用 DataConfigFactory.datasets_yaml 自动 populate.
+    repo_ids: Sequence[str] | None = None
+    # X-VLA soft prompt support: per-repo domain index, parallel to `repo_ids`.
+    # Populated when yaml entries specify `domain_id`/`dataset_id`. None disables
+    # the InjectDatasetId transform (back-compat: hard-prompt training never sets this).
+    dataset_ids: Sequence[int] | None = None
+    # Directory within the assets directory containing the data assets.
+    asset_id: str | None = None
+    # Contains precomputed normalization stats. If None, normalization will not be performed.
+    norm_stats: dict[str, _transforms.NormStats] | None = None
+    # Per-domain (per-dataset) norm for a single PRE-MERGED multi-domain dataset: {domain_id: {feature: NormStats}}.
+    # When set, transform_dataset uses DomainNormalize (picks norm by obs.dataset_id) instead of the single Normalize.
+    # This is the healthy per-DS-norm path (single LeRobotDataset, NOT the broken datasets_yaml/ConcatDataset).
+    domain_norm_stats: dict | None = None
+    # Per-domain training sample weights for a single pre-merged dataset, {domain_id: weight}. When set,
+    # create_torch_data_loader uses a domain-weighted sampler so e.g. kai:vis can be balanced to ~1:1 by
+    # probability (no disk copy). dataset_id per frame derived from task_index (ReadDatasetIdFromTaskIndex).
+    domain_sample_weights: dict | None = None
+
+    # Used to adopt the inputs from a dataset specific format to a common format
+    # which is expected by the data transforms.
+    repack_transforms: _transforms.Group = dataclasses.field(default_factory=_transforms.Group)
+    # Data transforms, typically include robot specific transformations. Will be applied
+    # before the data is normalized. See `model.Observation` and `model.Actions` to learn about the
+    # normalized data.
+    data_transforms: _transforms.Group = dataclasses.field(default_factory=_transforms.Group)
+    # Model specific transforms. Will be applied after the data is normalized.
+    model_transforms: _transforms.Group = dataclasses.field(default_factory=_transforms.Group)
+    # If true, will use quantile normalization. Otherwise, normal z-score normalization will be used.
+    use_quantile_norm: bool = False
+
+    # Names of keys that will be used by the data loader to generate the action sequence. The length of the
+    # sequence is defined by the `action_horizon` field in the model config. This should be adjusted if your
+    # LeRobot dataset is using different keys to represent the action.
+    action_sequence_keys: Sequence[str] = ("actions",)
+
+    # If true, will use the LeRobot dataset task to define the prompt.
+    prompt_from_task: bool = False
+
+    # Filter specific episodes from the dataset (None = use all).
+    episodes: list[int] | None = None
+
+    # Optional same-episode frame offsets materialized before the regular data
+    # transforms. Used by the MT3 history tracker; None keeps all existing data
+    # paths unchanged.
+    transition_history_offsets: tuple[int, ...] | None = None
+    transition_history_image_key: str = "observation.images.cam_high"
+
+    # Only used for RLDS data loader (ie currently only used for DROID).
+    rlds_data_dir: str | None = None
+    # Action space for DROID dataset.
+    action_space: droid_rlds_dataset.DroidActionSpace | None = None
+    # List of datasets to sample from: name, version, weight, and optionally filter_dict_path
+    datasets: Sequence[droid_rlds_dataset.RLDSDataset] = ()
+
+
+class GroupFactory(Protocol):
+    def __call__(self, model_config: _model.BaseModelConfig) -> _transforms.Group:
+        """Create a group."""
+
+
+@dataclasses.dataclass(frozen=True)
+class ModelTransformFactory(GroupFactory):
+    """Creates model transforms for standard pi0 models."""
+
+    # If provided, will determine the default prompt that be used by the model.
+    default_prompt: str | None = None
+
+    def __call__(self, model_config: _model.BaseModelConfig) -> _transforms.Group:
+        match model_config.model_type:
+            case _model.ModelType.PI0 | _model.ModelType.PI0_RTC:
+                return _transforms.Group(
+                    inputs=[
+                        _transforms.InjectDefaultPrompt(self.default_prompt),
+                        _transforms.ResizeImages(224, 224),
+                        _transforms.TokenizePrompt(
+                            _tokenizer.PaligemmaTokenizer(model_config.max_token_len),
+                        ),
+                        _transforms.PadStatesAndActions(model_config.action_dim),
+                    ],
+                )
+            case _model.ModelType.PI05 | _model.ModelType.PI05_RTC:
+                assert isinstance(model_config, pi0_config.Pi0Config)
+                return _transforms.Group(
+                    inputs=[
+                        _transforms.InjectDefaultPrompt(self.default_prompt),
+                        _transforms.ResizeImages(224, 224),
+                        _transforms.TokenizePrompt(
+                            _tokenizer.PaligemmaTokenizer(model_config.max_token_len),
+                            discrete_state_input=model_config.discrete_state_input,
+                        ),
+                        _transforms.PadStatesAndActions(model_config.action_dim),
+                    ],
+                )
+            case _model.ModelType.PI0_FAST:
+                tokenizer_cls = (
+                    _tokenizer.FASTTokenizer
+                    if model_config.fast_model_tokenizer is None
+                    else model_config.fast_model_tokenizer
+                )
+                tokenizer_kwargs = (
+                    {} if model_config.fast_model_tokenizer_kwargs is None else model_config.fast_model_tokenizer_kwargs
+                )
+                return _transforms.Group(
+                    inputs=[
+                        _transforms.InjectDefaultPrompt(self.default_prompt),
+                        _transforms.ResizeImages(224, 224),
+                        _transforms.TokenizeFASTInputs(
+                            tokenizer_cls(model_config.max_token_len, **tokenizer_kwargs),
+                        ),
+                    ],
+                    outputs=[
+                        _transforms.ExtractFASTActions(
+                            tokenizer_cls(model_config.max_token_len, **tokenizer_kwargs),
+                            action_horizon=model_config.action_horizon,
+                            action_dim=model_config.action_dim,
+                        )
+                    ],
+                )
+
+
+def _load_repos_and_domain_ids(path: str) -> tuple[list[str], list[int] | None]:
+    """Like _load_repo_ids_yaml but also returns per-repo domain indices when present.
+
+    Entries can be plain strings (no domain_id) or dicts with `root` + optional
+    `domain_id`/`dataset_id`. Returns (repo_ids, domain_ids). domain_ids is None
+    when no entry specified one (back-compat); otherwise it has the same length
+    as repo_ids with -1 filled for unspecified entries (caller must reject mixed).
+    """
+    import json, os
+    p = pathlib.Path(os.path.expanduser(path))
+    if not p.is_file():
+        raise FileNotFoundError(f"datasets_yaml not found: {p}")
+    ext = p.suffix.lower()
+    text = p.read_text(encoding="utf-8")
+    if ext in (".yaml", ".yml"):
+        import yaml
+        doc = yaml.safe_load(text)
+    elif ext == ".json":
+        doc = json.loads(text)
+    elif ext == ".txt":
+        doc = [ln.split("#", 1)[0].strip() for ln in text.splitlines() if ln.split("#", 1)[0].strip()]
+    else:
+        raise ValueError(f"unsupported datasets_yaml extension {ext!r}")
+    if isinstance(doc, dict):
+        doc = doc.get("roots") or doc.get("datasets") or doc.get("paths") or []
+    if not isinstance(doc, list) or not doc:
+        raise ValueError(f"{p} parsed to empty / non-list roots: {doc!r}")
+
+    repo_ids: list[str] = []
+    domain_ids: list[int] = []
+    any_domain = False
+    for entry in doc:
+        if isinstance(entry, str):
+            repo_ids.append(entry)
+            domain_ids.append(-1)
+        elif isinstance(entry, dict):
+            root = entry.get("root") or entry.get("path") or entry.get("repo_id")
+            if not root:
+                raise ValueError(f"entry in {p} has no 'root'/'path'/'repo_id' key: {entry!r}")
+            repo_ids.append(str(root))
+            did = entry.get("domain_id", entry.get("dataset_id", -1))
+            if did != -1:
+                any_domain = True
+            domain_ids.append(int(did))
+        else:
+            raise ValueError(f"unsupported entry type in {p}: {entry!r}")
+    if not any_domain:
+        return repo_ids, None
+    if any(d < 0 for d in domain_ids):
+        raise ValueError(
+            f"{p}: some entries specify domain_id/dataset_id and others don't. "
+            "Specify on every entry or none."
+        )
+    return repo_ids, domain_ids
+
+
+def _load_repo_ids_yaml(path: str) -> list[str]:
+    """Parse a YAML / JSON / TXT file listing dataset roots and return the normalized list.
+
+    支持三种格式 (按文件扩展名分派):
+      * `.yaml` / `.yml`  — top-level list 或 {"roots": [...]}
+      * `.json`           — top-level list 或 [{"root": path}, ...]
+      * `.txt`            — 一行一个路径, 允许井号 '#' 行尾/整行注释
+
+    Examples (YAML):
+        roots:
+          - /transfer-shanghai/KAI0/Task_A/2026-04-16/base
+          - /transfer-shanghai/KAI0/Task_A/2026-04-17/base
+    """
+    import json
+    import os
+
+    p = pathlib.Path(os.path.expanduser(path))
+    if not p.is_file():
+        raise FileNotFoundError(f"datasets_yaml not found: {p}")
+
+    ext = p.suffix.lower()
+    text = p.read_text(encoding="utf-8")
+
+    if ext in (".yaml", ".yml"):
+        import yaml  # lazy: yaml is already a transitive dep of openpi
+        doc = yaml.safe_load(text)
+    elif ext == ".json":
+        doc = json.loads(text)
+    elif ext == ".txt":
+        doc = []
+        for raw in text.splitlines():
+            line = raw.split("#", 1)[0].strip()
+            if line:
+                doc.append(line)
+    else:
+        raise ValueError(
+            f"unsupported datasets_yaml extension {ext!r}; use .yaml/.yml/.json/.txt"
+        )
+
+    # Normalize the various shapes into list[str]
+    if isinstance(doc, dict):
+        doc = doc.get("roots") or doc.get("datasets") or doc.get("paths") or []
+    if not isinstance(doc, list) or not doc:
+        raise ValueError(f"{p} parsed to empty / non-list roots: {doc!r}")
+
+    out: list[str] = []
+    for entry in doc:
+        if isinstance(entry, str):
+            out.append(entry)
+        elif isinstance(entry, dict):
+            root = entry.get("root") or entry.get("path") or entry.get("repo_id")
+            if not root:
+                raise ValueError(f"entry in {p} has no 'root'/'path'/'repo_id' key: {entry!r}")
+            out.append(str(root))
+        else:
+            raise ValueError(f"unsupported entry type in {p}: {entry!r}")
+
+    # Dedup in order
+    seen: set[str] = set()
+    deduped = [x for x in out if not (x in seen or seen.add(x))]
+    return deduped
+
+
+@dataclasses.dataclass(frozen=True)
+class DataConfigFactory(abc.ABC):
+    # The LeRobot repo id.
+    repo_id: str = tyro.MISSING
+    # Optional: path to a YAML/JSON/TXT listing multiple dataset roots to concat for training.
+    # 支持三种格式, 用扩展名区分:
+    #   .yaml/.yml  — {roots: [path, path, ...]}  或顶层直接 list
+    #   .json       — [{"root": path}, ...]  或顶层 list[str]
+    #   .txt        — 每行一个路径, 井号 '#' 注释与空行会被忽略
+    # 提供时 create_base_config 会把解析结果写进 DataConfig.repo_ids;
+    # data_loader.create_torch_dataset 看到 repo_ids 就 ConcatDataset 多路数据。
+    # `repo_id` 仍用作 asset_id 回退 (norm stats 所在资产目录), 所以要么显式设
+    # `assets.asset_id`, 要么让 `repo_id` 指向任一有 norm_stats 的 dataset。
+    datasets_yaml: str | None = None
+    # Determines how the assets will be loaded.
+    assets: AssetsConfig = dataclasses.field(default_factory=AssetsConfig)
+    # Base config that will be updated by the factory.
+    base_config: tyro.conf.Suppress[DataConfig | None] = None
+
+    @abc.abstractmethod
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        """Create a data config."""
+
+    def create_base_config(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        repo_id = self.repo_id if self.repo_id is not tyro.MISSING else None
+        asset_id = self.assets.asset_id or repo_id
+        repo_ids: list[str] | None = None
+        dataset_ids: list[int] | None = None
+        if self.datasets_yaml:
+            repo_ids, dataset_ids = _load_repos_and_domain_ids(self.datasets_yaml)
+        if repo_ids and not repo_id:
+            # datasets_yaml 有但 repo_id 缺失: 退而求其次用第一个作为 asset_id 锚点
+            repo_id = repo_ids[0]
+            asset_id = asset_id or repo_id
+        return dataclasses.replace(
+            self.base_config or DataConfig(),
+            repo_id=repo_id,
+            repo_ids=repo_ids,
+            dataset_ids=dataset_ids,
+            asset_id=asset_id,
+            norm_stats=self._load_norm_stats(epath.Path(self.assets.assets_dir or assets_dirs), asset_id),
+            use_quantile_norm=model_config.model_type not in (ModelType.PI0, ModelType.PI0_RTC),
+        )
+
+    def _load_norm_stats(self, assets_dir: epath.Path, asset_id: str | None) -> dict[str, _transforms.NormStats] | None:
+        if asset_id is None:
+            return None
+        try:
+            data_assets_dir = str(assets_dir / asset_id)
+            norm_stats = _normalize.load(_download.maybe_download(data_assets_dir))
+            logging.info(f"Loaded norm stats from {data_assets_dir}")
+            return norm_stats
+        except FileNotFoundError:
+            logging.info(f"Norm stats not found in {data_assets_dir}, skipping.")
+        return None
+
+
+@dataclasses.dataclass(frozen=True)
+class FakeDataConfig(DataConfigFactory):
+    repo_id: str = "fake"
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        return DataConfig(repo_id=self.repo_id)
+
+
+@dataclasses.dataclass(frozen=True)
+class SimpleDataConfig(DataConfigFactory):
+    # Factory for the data transforms.
+    data_transforms: tyro.conf.Suppress[GroupFactory] = dataclasses.field(default_factory=GroupFactory)
+    # Factory for the model transforms.
+    model_transforms: tyro.conf.Suppress[GroupFactory] = dataclasses.field(default_factory=ModelTransformFactory)
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            data_transforms=self.data_transforms(model_config),
+            model_transforms=self.model_transforms(model_config),
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotAlohaDataConfig(DataConfigFactory):
+    # If true, will convert joint dimensions to deltas with respect to the current state before passing to the model.
+    # Gripper dimensions will remain in absolute values.
+    use_delta_joint_actions: bool = True
+    # If provided, will be injected into the input data if the "prompt" key is not present.
+    default_prompt: str | None = None
+    # If true, this will convert the joint and gripper values from the standard Aloha space to
+    # the space used by the pi internal runtime which was used to train the base model. People who
+    # use standard Aloha data should set this to true.
+    adapt_to_pi: bool = True
+    # Override the model-family normalization default when reproducing an
+    # external recipe. pi0.5 normally uses quantiles in OpenPI, while the
+    # published RoboTwin checkpoint uses mean/std normalization.
+    use_quantile_norm_override: bool | None = None
+
+    # Repack transforms.
+    repack_transforms: tyro.conf.Suppress[_transforms.Group] = dataclasses.field(
+        default=_transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "images": {"cam_high": "observation.images.top"},
+                        "state": "observation.state",
+                        "actions": "action",
+                    }
+                )
+            ]
+        )
+    )
+    # Action keys that will be used to read the action sequence from the dataset.
+    action_sequence_keys: Sequence[str] = ("action",)
+
+    # pi05 × LMWM (RoboTwin hint): hint.npz 路径 (export_pi05_hint.py 产). 提供时 create() 在 repack 前
+    # prepend HintLookupTransform 按 (dataset_id缺→0, ep, frame) 注入 obs.lmwm_hint. 单套件 suite_order=("robotwin",).
+    # ⚠️ repack_transforms 里的 RepackTransform structure 须含 "lmwm_hint":"lmwm_hint" 才能保留 (a1 config 加).
+    lmwm_hint_path: str | None = None
+    lmwm_suite_order: tuple = ("robotwin",)
+    # A3 live-target LMWM: pairs.npz supplies (cur_ep, cur_fi)->tgt_fi.
+    # The transform attaches the representative target frame image before
+    # repack; the model encodes it online with the current pi05 visual encoder.
+    lmwm_target_pairs_path: str | None = None
+    lmwm_target_frame_cache_root: str | None = None
+    lmwm_transition_pairs_path: str | None = None
+    lmwm_transition_history_offsets: tuple[int, ...] | None = None
+    crave_targets_path: str | None = None
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        data_transforms = _transforms.Group(
+            inputs=[aloha_policy.AlohaInputs(adapt_to_pi=self.adapt_to_pi)],
+            outputs=[aloha_policy.AlohaOutputs(adapt_to_pi=self.adapt_to_pi)],
+        )
+        if self.use_delta_joint_actions:
+            delta_action_mask = _transforms.make_bool_mask(6, -1, 6, -1)
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
+        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(model_config)
+
+        # pi05 × LMWM: 提供 hint 时在 repack 前 prepend HintLookupTransform (读原始 ep/frame; 单-repo 无
+        # dataset_id → HintLookup 默认 did=0). a1 config 的 RepackTransform structure 须含 lmwm_hint.
+        repack_transforms = self.repack_transforms
+        prepend_transforms = []
+        if self.crave_targets_path:
+            prepend_transforms.append(
+                libero_policy.RobotwinCraveTargetLookupTransform(
+                    targets_path=self.crave_targets_path,
+                )
+            )
+        if self.lmwm_transition_pairs_path:
+            prepend_transforms.append(
+                libero_policy.RobotwinTransitionLookupTransform(
+                    pairs_path=self.lmwm_transition_pairs_path,
+                    num_tasks=model_config.lmwm_transition_num_tasks,
+                    num_stages=model_config.lmwm_transition_num_stages,
+                )
+            )
+        if self.lmwm_target_pairs_path:
+            if not self.lmwm_target_frame_cache_root:
+                raise ValueError("lmwm_target_frame_cache_root is required when lmwm_target_pairs_path is set")
+            prepend_transforms.append(
+                libero_policy.RobotwinTargetImageLookupTransform(
+                    pairs_path=self.lmwm_target_pairs_path,
+                    frame_cache_root=self.lmwm_target_frame_cache_root,
+                )
+            )
+        if self.lmwm_hint_path:
+            prepend_transforms.append(
+                libero_policy.HintLookupTransform(
+                    hint_path=self.lmwm_hint_path, suite_order=self.lmwm_suite_order
+                )
+            )
+        if prepend_transforms:
+            repack_transforms = _transforms.Group(
+                inputs=[
+                    *prepend_transforms,
+                    *self.repack_transforms.inputs,
+                ]
+            )
+
+        base_config = self.create_base_config(assets_dirs, model_config)
+        if self.use_quantile_norm_override is not None:
+            base_config = dataclasses.replace(
+                base_config, use_quantile_norm=self.use_quantile_norm_override
+            )
+
+        return dataclasses.replace(
+            base_config,
+            repack_transforms=repack_transforms,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            action_sequence_keys=self.action_sequence_keys,
+            transition_history_offsets=self.lmwm_transition_history_offsets,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotLiberoDataConfig(DataConfigFactory):
+    """
+    This config is used to configure transforms that are applied at various parts of the data pipeline.
+    For your own dataset, you can copy this class and modify the transforms to match your dataset based on the
+    comments below.
+    """
+
+    extra_delta_transform: bool = False
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        # The repack transform is *only* applied to the data coming from the dataset,
+        # and *not* during inference. We can use it to make inputs from the dataset look
+        # as close as possible to those coming from the inference environment (e.g. match the keys).
+        # Below, we match the keys in the dataset (which we defined in the data conversion script) to
+        # the keys we use in our inference pipeline (defined in the inference script for libero).
+        # For your own dataset, first figure out what keys your environment passes to the policy server
+        # and then modify the mappings below so your dataset's keys get matched to those target keys.
+        # The repack transform simply remaps key names here.
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/image": "image",
+                        "observation/wrist_image": "wrist_image",
+                        "observation/state": "state",
+                        "actions": "actions",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+
+        # The data transforms are applied to the data coming from the dataset *and* during inference.
+        # Below, we define the transforms for data going into the model (``inputs``) and the transforms
+        # for data coming out of the model (``outputs``) (the latter is only used during inference).
+        # We defined these transforms in `libero_policy.py`. You can check the detailed comments there for
+        # how to modify the transforms to match your dataset. Once you created your own transforms, you can
+        # replace the transforms below with your own.
+        data_transforms = _transforms.Group(
+            inputs=[libero_policy.LiberoInputs(model_type=model_config.model_type)],
+            outputs=[libero_policy.LiberoOutputs()],
+        )
+
+        # One additional data transform: pi0 models are trained on delta actions (relative to the first
+        # state in each action chunk). IF your data has ``absolute`` actions (e.g. target joint angles)
+        # you can uncomment the following line to convert the actions to delta actions. The only exception
+        # is for the gripper actions which are always absolute.
+        # In the example below, we would apply the delta conversion to the first 6 actions (joints) and
+        # leave the 7th action (gripper) unchanged, i.e. absolute.
+        # In Libero, the raw actions in the dataset are already delta actions, so we *do not* need to
+        # apply a separate delta conversion (that's why it's commented out). Choose whether to apply this
+        # transform based on whether your dataset uses ``absolute`` or ``delta`` actions out of the box.
+
+        # LIBERO already represents actions as deltas, but we have some old Pi0 checkpoints that are trained with this
+        # extra delta transform.
+        if self.extra_delta_transform:
+            delta_action_mask = _transforms.make_bool_mask(6, -1)
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
+        # Model transforms include things like tokenizing the prompt and action targets
+        # You do not need to change anything here for your own dataset.
+        model_transforms = ModelTransformFactory()(model_config)
+
+        # We return all data transforms for training and inference. No need to change anything here.
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotLiberoLocalDataConfig(DataConfigFactory):
+    """LIBERO config for the LOCAL v2.1 lerobot suites at /vePFS/tim/workspace/LIBERO_fastwam/.
+
+    Differs from LeRobotLiberoDataConfig (openpi example) in the repack keys: the local
+    dataset delivers FLAT dotted keys (`observation.images.image`, `observation.state`,
+    `action`, `task_index`) — openpi's flatten_dict(sep="/") keeps the dots, so the repack
+    must reference the dotted names directly (the example's `observation/image` won't match).
+    Prompt comes from task_index via prompt_from_task=True (period-separated tasks.jsonl).
+    See lmvla/lmwm/docs/DESIGN_pi05_P0_scaffolding_2026-07-21.md §1.
+
+    Used by pi05_libero_{a0,a1,a2}. lmwm_hint (A1/A2) is passed through by LiberoInputs when
+    present; A0 (model with lmwm_hint_dim=0) simply never produces the field.
+    """
+
+    # LIBERO raw actions are already deltas → no extra delta transform by default.
+    extra_delta_transform: bool = False
+
+    # pi05 × LMWM (A1/A2): hint.npz 路径 (export_pi05_hint.py 产). 提供时: HintLookupTransform 按
+    # (dataset_id, ep, frame) 注入 obs.lmwm_hint. 需 datasets_yaml 带 domain_ids (InjectDatasetId 给 dataset_id),
+    # 且 lmwm_suite_order 与 domain_ids 顺序一致. A0 (无 hint) 留 None → 行为不变.
+    lmwm_hint_path: str | None = None
+    lmwm_suite_order: tuple = ("libero_10", "libero_goal", "libero_object", "libero_spatial")
+    # eval 用: 在线算的 hint 已在 obs["lmwm_hint"] 中(HintComputer), 只需 RepackTransform 保留它,
+    # 不做离线 (ep,frame) lookup. A1/A2 在线 eval config 设 True + lmwm_hint_path=None.
+    lmwm_hint_passthrough: bool = False
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        # Map the local dataset's flat dotted keys to the keys LiberoInputs expects.
+        # RepackTransform structure is {OUTPUT_key: INPUT_source_key}. LiberoInputs reads
+        # data["observation/image"|"observation/wrist_image"|"observation/state"|"actions"|"prompt"]
+        # (slash names), so the OUTPUT keys must be those — not the short "image"/"state".
+        structure = {
+            "observation/image": "observation.images.image",
+            "observation/wrist_image": "observation.images.wrist_image",
+            "observation/state": "observation.state",
+            "actions": "action",
+        }
+        # prompt: injected from task_index when prompt_from_task is set (default here).
+        if not self.base_config or self.base_config.prompt_from_task:
+            structure["prompt"] = "prompt"
+        repack_inputs = []
+        if self.lmwm_hint_path:
+            # HintLookup 须在 RepackTransform 之前 (读原始 dataset_id/ep/frame); repack 保留 lmwm_hint.
+            structure["lmwm_hint"] = "lmwm_hint"
+            repack_inputs.append(
+                libero_policy.HintLookupTransform(
+                    hint_path=self.lmwm_hint_path, suite_order=self.lmwm_suite_order
+                )
+            )
+        elif self.lmwm_hint_passthrough:
+            # 在线 eval: 保留外部注入的 obs["lmwm_hint"], 不做 lookup.
+            structure["lmwm_hint"] = "lmwm_hint"
+        repack_inputs.append(_transforms.RepackTransform(structure))
+        repack_transform = _transforms.Group(inputs=repack_inputs)
+
+        data_transforms = _transforms.Group(
+            inputs=[libero_policy.LiberoInputs(model_type=model_config.model_type)],
+            outputs=[libero_policy.LiberoOutputs()],
+        )
+        if self.extra_delta_transform:
+            delta_action_mask = _transforms.make_bool_mask(6, -1)
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
+        model_transforms = ModelTransformFactory()(model_config)
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            # LeRobot delta_timestamps 在 repack 之前作用于**原始列名**; LIBERO 列是 "action"(单数),
+            # 而 DataConfig 默认 action_sequence_keys=("actions",) → 每帧 KeyError 跳过 → 取不到数据.
+            action_sequence_keys=("action",),
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class LerobotAgilexDataConfig(DataConfigFactory):
+    """
+    Configuration for the Agilex robot dataset.
+    This config handles the data transforms for the Agilex robot's multi-camera setup and state/action space.
+    """
+
+    # If true, will convert joint dimensions to deltas with respect to the current state before passing to the model.
+    use_delta_joint_actions: bool = True
+
+    # If provided, will be injected into the input data if the "prompt" key is not present.
+    default_prompt: str | None = None
+
+    episodes: list[int] | None = None
+
+    # Repack transforms to match the dataset keys to the expected format
+    repack_transforms: tyro.conf.Suppress[_transforms.Group] = dataclasses.field(
+        default=_transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "images": {
+                            "top_head": "observation.images.top_head",
+                            "hand_left": "observation.images.hand_left",
+                            "hand_right": "observation.images.hand_right",
+                        },
+                        "state": "observation.state",
+                        "actions": "action",
+                    }
+                )
+            ]
+        )
+    )
+
+    # Action keys that will be used to read the action sequence from the dataset
+    action_sequence_keys: Sequence[str] = ("action",)
+
+    # mask state out (set to all zeros)
+    mask_state: bool = False
+
+    # if insert progress into prompt
+    insert_advantage_into_prompt: bool = False
+
+    # π0.7-style metadata dropout: probability of stripping `prompt_suffix_marker`
+    # (and everything after) from the prompt during training. 0.0 = disabled (default).
+    # Reference: π0.7 paper Sec V-E.
+    prompt_suffix_dropout_rate: float = 0.0
+    # Suffix marker used by DropPromptSuffix transform. Text from this marker onward is dropped.
+    # Default matches "...Quality: X/5" format used by AWBC Quality-style prompts.
+    prompt_suffix_marker: str = ". Quality:"
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+
+        # Use local variables instead of modifying frozen self
+        default_prompt = self.default_prompt
+        repack_transforms = self.repack_transforms
+
+        # if prompt_from_task is True, set default_prompt to None and add prompt to data transforms
+        if self.base_config and self.base_config.prompt_from_task:
+            default_prompt = None
+            original_repack = self.repack_transforms.inputs[0]
+            new_structure = dict(original_repack.structure)
+            new_structure["prompt"] = "prompt"
+            repack_transforms = _transforms.Group(
+                inputs=[_transforms.RepackTransform(new_structure)]
+            )
+
+        # Advantage estimator: keep the per-frame 'progress' target through repack, else RepackTransform
+        # drops it (only keeps structure keys) → AgilexInputs can't pass it → obs.progress=None → forward crash.
+        if isinstance(model_config, pi0_config.AdvantageEstimatorConfig):
+            base_repack = repack_transforms.inputs[0]
+            adv_structure = dict(base_repack.structure)
+            adv_structure["progress"] = "progress"
+            repack_transforms = _transforms.Group(inputs=[_transforms.RepackTransform(adv_structure)])
+
+        # Create data transforms for inputs and outputs
+        data_transforms = _transforms.Group(
+            inputs=[
+                agilex_policy.AgilexInputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                    mask_state=self.mask_state,
+                )
+            ],
+            outputs=[agilex_policy.AgilexOutputs()],
+        )
+        if self.insert_advantage_into_prompt:
+            data_transforms.inputs.insert(0, _transforms.InsertAdvantageIntoPrompt())
+        # π0.7-style prompt-suffix dropout: only inserted when rate > 0; otherwise no-op.
+        if self.prompt_suffix_dropout_rate > 0.0:
+            data_transforms.inputs.insert(
+                0,
+                _transforms.DropPromptSuffix(
+                    dropout_rate=self.prompt_suffix_dropout_rate,
+                    suffix_marker=self.prompt_suffix_marker,
+                ),
+            )
+
+        # Apply delta action transform if enabled
+        if self.use_delta_joint_actions:
+            # Assuming first 13 dimensions are joints and last dimension is gripper
+            delta_action_mask = _transforms.make_bool_mask(6, -1, 6, -1)  # index 6, 13 is gripper
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
+        # Create model transforms
+        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(model_config)
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transforms,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            action_sequence_keys=self.action_sequence_keys,
+            episodes=self.episodes,
+        )
+
+@dataclasses.dataclass(frozen=True)
+class KaiVisMergedDataConfig(LerobotAgilexDataConfig):
+    """Per-DS-norm + domain-conditioning on a single PRE-MERGED kai+vis dataset.
+
+    Healthy single-source path (one LeRobotDataset, NOT the broken datasets_yaml/ConcatDataset).
+    Domain is carried per-frame via `task_index` (kai=0, vis=1) → ReadDatasetIdFromTaskIndex →
+    obs.dataset_id, which drives (a) DomainNormalize (per-DS norm: kai frames kai-norm, vis frames
+    vis-norm) and (b) the action-head domain token. `domain_weights` → domain_sample_weights gives a
+    probability-balanced sampler (e.g. kai:vis → 1:1) with NO disk copy.
+    """
+    domain_weights: tuple = ()  # (w_dom0, w_dom1, ...); empty → uniform (no weighted sampler)
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        base = super().create(assets_dirs, model_config)
+        root = self.repo_id
+        domain_norm_stats = {
+            0: _normalize.load(_download.maybe_download(f"{root}/norm_domain0_kai")),
+            1: _normalize.load(_download.maybe_download(f"{root}/norm_domain1_vis")),
+        }
+        # prepend ReadDatasetIdFromTaskIndex so dataset_id is set per-frame (RepackTransform then preserves it)
+        repack = _transforms.Group(
+            inputs=[_transforms.ReadDatasetIdFromTaskIndex(), *base.repack_transforms.inputs]
+        )
+        domain_sample_weights = (
+            {i: float(w) for i, w in enumerate(self.domain_weights)} if self.domain_weights else None
+        )
+        return dataclasses.replace(
+            base,
+            repack_transforms=repack,
+            domain_norm_stats=domain_norm_stats,
+            domain_sample_weights=domain_sample_weights,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class LerobotARXDataConfig(DataConfigFactory):
+    """
+    Configuration for the Agilex robot dataset.
+    This config handles the data transforms for the Agilex robot's multi-camera setup and state/action space.
+    """
+
+    # If true, will convert joint dimensions to deltas with respect to the current state before passing to the model.
+    use_delta_joint_actions: bool = True
+
+    # If provided, will be injected into the input data if the "prompt" key is not present.
+    default_prompt: str | None = None
+
+    # if insert progress into prompt
+    insert_advantage_into_prompt: bool = False
+
+    episodes: list[int] | None = None
+
+    # Repack transforms to match the dataset keys to the expected format
+    repack_transforms: tyro.conf.Suppress[_transforms.Group] = dataclasses.field(
+        default=_transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "images": {
+                            "top_head": "observation.images.top_head",
+                            "hand_left": "observation.images.hand_left",
+                            "hand_right": "observation.images.hand_right",
+                        },
+                        "state": "observation.state",
+                        "actions": "action",
+                    }
+                )
+            ]
+        )
+    )
+
+    # Action keys that will be used to read the action sequence from the dataset
+    action_sequence_keys: Sequence[str] = ("action",)
+
+    # mask state out (set to all zeros)
+    mask_state: bool = False
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+
+        # Use local variables instead of modifying frozen self
+        default_prompt = self.default_prompt
+        repack_transforms = self.repack_transforms
+
+        # if prompt_from_task is True, set default_prompt to None and add prompt to data transforms
+        if self.base_config and self.base_config.prompt_from_task:
+            default_prompt = None
+            original_repack = self.repack_transforms.inputs[0]
+            new_structure = dict(original_repack.structure)
+            new_structure["prompt"] = "prompt"
+            repack_transforms = _transforms.Group(
+                inputs=[_transforms.RepackTransform(new_structure)]
+            )
+
+        # Create data transforms for inputs and outputs
+        data_transforms = _transforms.Group(
+            inputs=[
+                arx_policy.ARXInputs(
+                    action_dim=model_config.action_dim,
+                    model_type=model_config.model_type,
+                    mask_state=self.mask_state,
+                )
+            ],
+            outputs=[arx_policy.ARXOutputs()],
+        )
+        if self.insert_advantage_into_prompt:
+            data_transforms.inputs.insert(0, _transforms.InsertAdvantageIntoPrompt())
+        # Apply delta action transform if enabled
+        if self.use_delta_joint_actions:
+            # Assuming first 13 dimensions are joints and last dimension is gripper
+            delta_action_mask = _transforms.make_bool_mask(6, -1, 6, -1)  # index 6, 13 is gripper
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
+        # Create model transforms
+        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(model_config)
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transforms,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            action_sequence_keys=self.action_sequence_keys,
+            episodes=self.episodes,
+        )
+
+@dataclasses.dataclass(frozen=True)
+class RLDSDroidDataConfig(DataConfigFactory):
+    """
+    Config for training on DROID, using RLDS data format (for efficient training on larger datasets).
+    """
+
+    rlds_data_dir: str | None = None
+    action_space: droid_rlds_dataset.DroidActionSpace | None = None
+
+    # Filtering options. Can pass a path to a dictionary that maps episodes to timestep ranges
+    # to tuples denoting ranges of time steps to keep (start, end). Episodes are uniquely identified with
+    # f"{recording_folderpath}--{file_path}", both of which are present in the RLDS episode metadata.
+
+    # List of datasets to sample from: name, version, weight, and optionally filter_dict_path
+    datasets: Sequence[droid_rlds_dataset.RLDSDataset] = (
+        droid_rlds_dataset.RLDSDataset(
+            name="droid",
+            version="1.0.1",
+            weight=1.0,
+            filter_dict_path="gs://openpi-assets/droid/droid_sample_ranges_v1_0_1.json",
+        ),
+    )
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/exterior_image_1_left": "observation/image",
+                        "observation/wrist_image_left": "observation/wrist_image",
+                        "observation/joint_position": "observation/joint_position",
+                        "observation/gripper_position": "observation/gripper_position",
+                        "actions": "actions",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+
+        data_transforms = _transforms.Group(
+            inputs=[droid_policy.DroidInputs(model_type=model_config.model_type)],
+            outputs=[droid_policy.DroidOutputs()],
+        )
+
+        if self.action_space == droid_rlds_dataset.DroidActionSpace.JOINT_POSITION:
+            # Data loader returns absolute joint position actions -- convert to delta actions for training.
+            delta_action_mask = _transforms.make_bool_mask(7, -1)
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
+        model_transforms = ModelTransformFactory()(model_config)
+
+        assert self.rlds_data_dir is not None, "Need to set rlds data dir for RLDS data loader."
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            rlds_data_dir=self.rlds_data_dir,
+            action_space=self.action_space,
+            datasets=self.datasets,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotDROIDDataConfig(DataConfigFactory):
+    """
+    Example data config for custom DROID dataset in LeRobot format.
+    To convert your custom DROID dataset (<10s of hours) to LeRobot format, see examples/droid/convert_droid_data_to_lerobot.py
+    """
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/exterior_image_1_left": "exterior_image_1_left",
+                        "observation/exterior_image_2_left": "exterior_image_2_left",
+                        "observation/wrist_image_left": "wrist_image_left",
+                        "observation/joint_position": "joint_position",
+                        "observation/gripper_position": "gripper_position",
+                        "actions": "actions",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+        # We assume joint *velocity* actions, so we should *not* apply an additional delta transform.
+        data_transforms = _transforms.Group(
+            inputs=[droid_policy.DroidInputs(model_type=model_config.model_type)],
+            outputs=[droid_policy.DroidOutputs()],
+        )
+        model_transforms = ModelTransformFactory()(model_config)
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class TrainConfig:
+    # Name of the config. Must be unique. Will be used to reference this config.
+    name: tyro.conf.Suppress[str]
+    # Project name.
+    project_name: str = "openpi"
+    # Experiment name. Will be used to name the metadata and checkpoint directories.
+    exp_name: str = tyro.MISSING
+
+    # Defines the model config. Some attributes (action_dim, action_horizon, and max_token_len) are shared by all models
+    # -- see BaseModelConfig. Specific model implementations (e.g., Pi0Config) inherit from BaseModelConfig and may
+    # define additional attributes.
+    model: _model.BaseModelConfig = dataclasses.field(default_factory=pi0_config.Pi0Config)
+
+    # A weight loader can optionally load (possibly partial) weights from disk after the model is initialized.
+    weight_loader: weight_loaders.WeightLoader = dataclasses.field(default_factory=weight_loaders.NoOpWeightLoader)
+
+    # Optional path to a PyTorch checkpoint to load weights from.
+    pytorch_weight_path: str | None = None
+
+    # Precision for PyTorch training.
+    pytorch_training_precision: Literal["bfloat16", "float32"] = "bfloat16"
+
+    lr_schedule: _optimizer.LRScheduleConfig = dataclasses.field(default_factory=_optimizer.CosineDecaySchedule)
+    optimizer: _optimizer.OptimizerConfig = dataclasses.field(default_factory=_optimizer.AdamW)
+    ema_decay: float | None = 0.99
+
+    # Specifies which weights should be frozen.
+    freeze_filter: tyro.conf.Suppress[Filter] = dataclasses.field(default_factory=nnx.Nothing)
+
+    # Determines the data to be trained on.
+    data: DataConfigFactory = dataclasses.field(default_factory=FakeDataConfig)
+
+    # Base directory for config assets (e.g., norm stats).
+    assets_base_dir: str = "./assets"
+    # Base directory for checkpoints.
+    checkpoint_base_dir: str = "./checkpoints"
+
+    # Random seed that will be used by random generators during training.
+    seed: int = 42
+    # Global batch size.
+    batch_size: int = 32
+    # Number of workers to use for the data loader. Increasing this number will speed up data loading but
+    # will increase memory and CPU usage.
+    num_workers: int = 2
+    # Number of train steps (batches) to run.
+    num_train_steps: int = 30_000
+
+    # How often (in steps) to log training metrics.
+    log_interval: int = 100
+    # How often (in steps) to save checkpoints.
+    save_interval: int = 1000
+    # Save the final step even when it is not a regular save boundary. Disable
+    # only for short diagnostics that do not need a resumable checkpoint.
+    save_final_checkpoint: bool = True
+
+    # ===== In-training eval configuration =====
+    # --- Tensor-based eval (uses train dataloader episode split) ---
+    # Fraction of episodes held out for eval (0.0 = disabled, uses all for train).
+    val_ratio: float = 0.0
+    # Early-phase eval interval (steps). 0 = disabled.
+    eval_interval_early: int = 0
+    # Late-phase eval interval (steps). 0 = disabled.
+    eval_interval_late: int = 0
+    # Number of evals at early interval before switching to late.
+    eval_early_count: int = 3
+    # Number of eval batches averaged per eval call.
+    eval_batches: int = 4
+    # Diffusion steps for eval sample_actions (fewer = faster but less accurate).
+    eval_num_diffusion_steps: int = 10
+
+    # --- Inline eval (video-based, reads mp4 frames from a standalone val/ dir) ---
+    # Path to a val dataset root (contains data/chunk-000/episode_*.parquet + videos/).
+    # None = disabled. Orthogonal to val_ratio (different val source).
+    inline_eval_val_root: str | None = None
+    # Number of query frames sampled per val episode.
+    inline_eval_n_frames: int = 20
+    # Run inline eval every Nth save_interval boundary (1 = every save).
+    inline_eval_every: int = 1
+    # X-VLA soft prompt: domain index stamped on every inline-eval sample. Required
+    # when model.soft_prompt_num_domains > 0 (the val set comes from one specific
+    # domain — pass the matching index, e.g. 1 for vis val with soft_prompt order
+    # [kai=0, vis=1]). None means "no stamping" — fine for non-soft-prompt configs.
+    inline_eval_dataset_id: int | None = None
+
+#************************advantage estimator***************************
+    advantage_estimator: bool = False
+    is_train: bool = True  # * Only use partial data in training
+    # split:    str  = None  # one of ['train_tasks', 'val_tasks', 'heldout_tasks']
+    # * Bugfix, only use train_tasks for training
+    split: str = 'all'  # * Only use training tasks for training, choose from ['train', 'val', 'all']
+    drop_last: bool = True  # If true, will drop the last incomplete batch.
+    skip_norm_stats: bool = False
+#************************advantage estimator***************************
+    # If set, any existing checkpoints matching step % keep_period == 0 will not be deleted.
+    keep_period: int | None = 5000
+
+    # If true, will overwrite the checkpoint directory if it already exists.
+    overwrite: bool = False
+    # If true, will resume training from the last checkpoint.
+    resume: bool = False
+
+    # If true, will enable wandb logging.
+    wandb_enabled: bool = True
+
+    # Used to pass metadata to the policy server.
+    policy_metadata: dict[str, Any] | None = None
+
+    # If the value is greater than 1, FSDP will be enabled and shard across number of specified devices; overall
+    # device memory will be reduced but training could potentially be slower.
+    # eg. if total device is 4 and fsdp devices is 2; then the model will shard to 2 devices and run
+    # data parallel between 2 groups of devices.
+    fsdp_devices: int = 1
+
+    @property
+    def assets_dirs(self) -> pathlib.Path:
+        """Get the assets directory for this config."""
+        return (pathlib.Path(self.assets_base_dir) / self.name).resolve()
+
+    @property
+    def checkpoint_dir(self) -> pathlib.Path:
+        """Get the checkpoint directory for this config."""
+        if not self.exp_name:
+            raise ValueError("--exp_name must be set")
+        return (pathlib.Path(self.checkpoint_base_dir) / self.name / self.exp_name).resolve()
+
+    @property
+    def trainable_filter(self) -> nnx.filterlib.Filter:
+        """Get the filter for the trainable parameters."""
+        return nnx.All(nnx.Param, nnx.Not(self.freeze_filter))
+
+    def __post_init__(self) -> None:
+        if self.resume and self.overwrite:
+            raise ValueError("Cannot resume and overwrite at the same time.")
+
+
+# Use `get_config` if you need to get a config by name in your code.
+_CONFIGS = [
+    # ===== pi05 × LMWM 同编码器实验 (PLAN_pi05_lmwm_sameencoder_2026-07-21.md) =====
+    # A0 = pi05 纯基线 (无 hint), warm-start pi05_base (集成预训练知识, 不从0训; strict=False 只有 hint_proj 新增,
+    # 但 A0 lmwm_hint_dim=0 连 hint_proj 都不建). LIBERO 四套件 v2.1 (本地现成, LeRobotLiberoLocalDataConfig 点号 repack).
+    # action_horizon=8 = sec_chunk 0.4 × fps 20 (与 lawam LIBERO 一致). action_dim=32 = pi05 native (LiberoInputs 补 7→32,
+    # 才能 warm-start pi05_base 的 action_in/out_proj). norm_stats asset_id=libero_4suites (compute_norm_states 生成).
+    # cnsh 版; 北京版见 pi05_libero_a0_bj.
+    TrainConfig(
+        name="pi05_libero_a0",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200),
+        data=LeRobotLiberoLocalDataConfig(
+            # repo_id = asset 锚点名(非真实路径; 数据走 datasets_yaml 四套件 ConcatDataset)。
+            # 使 norm_stats 存/取都对齐 assets_dirs/libero_4suites。norm 计算传 --base_dir 指父目录。
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999,
+        num_train_steps=30_000,
+        keep_period=10_000,
+        save_interval=5_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+    ),
+    # 北京(North-E)版: 同 A0, 仅数据/权重换 North-E 路径. LIBERO 数据实测同一份 v2.1 (uniVP 目录).
+    TrainConfig(
+        name="pi05_libero_a0_bj",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999,
+        num_train_steps=30_000,
+        keep_period=10_000,
+        save_interval=5_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+    ),
+    # A1 = LMWM@外挂 DINOv3 (768D) hint 注入 pi05. warm-start pi05_base. hint 离线 (export_pi05_hint.py):
+    # extract_v2p1_grid(v2.1 DINOv3 grid) → export → hint.npz. datasets_yaml 带 domain_ids → HintLookupTransform
+    # 按 (dataset_id,ep,frame) 注入. lmwm_hint_dim=768. prefix (双向可见, 仿 soft_prompt) 与 suffix (仅 action expert)
+    # 两注入点做 A/B (PLAN §6.1). 北京版; A2 待 So400m grid 抽取后加 (lmwm_hint_dim=1152, hint_path 换 so400m).
+    TrainConfig(
+        name="pi05_libero_a1_prefix_bj",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                   lmwm_hint_dim=768, lmwm_hint_len=1, lmwm_hint_target="prefix"),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint_northe.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+            lmwm_hint_path="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/libero_dino/hint.npz",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+        num_workers=8, batch_size=128, fsdp_devices=8,
+    ),
+    # A1-suffix: 同上, 注入点换 suffix (仅 action expert 见, 不扰 VLM 语言对齐).
+    TrainConfig(
+        name="pi05_libero_a1_suffix_bj",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                   lmwm_hint_dim=768, lmwm_hint_len=1, lmwm_hint_target="suffix"),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint_northe.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+            lmwm_hint_path="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/libero_dino/hint.npz",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+        num_workers=8, batch_size=128, fsdp_devices=8,
+    ),
+
+    # A1 cnsh 版 (上海 East-H20 提交; cnsh vePFS 数据+hint 原生, 零同步). prefix/suffix A/B.
+    TrainConfig(
+        name="pi05_libero_a1_prefix",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                   lmwm_hint_dim=768, lmwm_hint_len=1, lmwm_hint_target="prefix"),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+            lmwm_hint_path="/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/libero_dino/hint.npz",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+        num_workers=8, batch_size=128, fsdp_devices=8,
+    ),
+    TrainConfig(
+        name="pi05_libero_a1_suffix",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                   lmwm_hint_dim=768, lmwm_hint_len=1, lmwm_hint_target="suffix"),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+            lmwm_hint_path="/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/libero_dino/hint.npz",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+        num_workers=8, batch_size=128, fsdp_devices=8,
+    ),
+
+    # A2 = LMWM@pi05 So400m (1152D) hint — **P3 核心问句**: 换到 VLA 自身编码器空间是否进一步提升.
+    # 同 A1 但 hint 来自 So400m grid (extract_v2p1_grid --encoder so400m → export w/ lmwm_libero_so400m din=1152).
+    # cnsh (上海 East-H20). prefix/suffix A/B. datasets_yaml 复用 A1 的 (数据同, 仅 hint 不同).
+    TrainConfig(
+        name="pi05_libero_a2_prefix",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                   lmwm_hint_dim=1152, lmwm_hint_len=1, lmwm_hint_target="prefix"),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+            lmwm_hint_path="/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/libero_so400m/hint.npz",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+        num_workers=8, batch_size=128, fsdp_devices=8,
+    ),
+    TrainConfig(
+        name="pi05_libero_a2_suffix",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                   lmwm_hint_dim=1152, lmwm_hint_len=1, lmwm_hint_target="suffix"),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+            lmwm_hint_path="/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/libero_so400m/hint.npz",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+        num_workers=8, batch_size=128, fsdp_devices=8,
+    ),
+
+    # A2 北京(North-E)版: rebalance —— 上海 East-H20 4臂过载, A2 移北京 North-H20 分流.
+    # North-E 路径; hint.npz 从 cnsh 同步过来 (563M). datasets_yaml 复用 A1 的北京 domain_ids yaml.
+    TrainConfig(
+        name="pi05_libero_a2_prefix_bj",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                   lmwm_hint_dim=1152, lmwm_hint_len=1, lmwm_hint_target="prefix"),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint_northe.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+            lmwm_hint_path="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/libero_so400m/hint.npz",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+        num_workers=8, batch_size=128, fsdp_devices=8,
+    ),
+    TrainConfig(
+        name="pi05_libero_a2_suffix_bj",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                   lmwm_hint_dim=1152, lmwm_hint_len=1, lmwm_hint_target="suffix"),
+        data=LeRobotLiberoLocalDataConfig(
+            repo_id="libero_4suites",
+            datasets_yaml="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint_northe.yaml",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="libero_4suites"),
+            lmwm_hint_path="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/libero_so400m/hint.npz",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+        num_workers=8, batch_size=128, fsdp_devices=8,
+    ),
+
+    # ===== RoboTwin 2.0 基线 (aloha 双臂, 无 hint) — 复制 pi05_libero_a0 结构, 脱离 LIBERO 天花板 =====
+    # 数据 = 标准 LeRobot v2.1, robot_type=aloha, fps50, 27500 ep / 6.07M frame, 3 相机
+    #   (cam_high/cam_left_wrist/cam_right_wrist, video 480×640), state[14]/action[14], 921k 条 tasks.jsonl.
+    # 单个 LeRobotDataset: repo_id 直指本地绝对路径 → data_loader 单-repo 路径 (isabs→root=, concat 路径不支持 abs).
+    # LeRobotAlohaDataConfig: AlohaInputs(cam_high→base_0_rgb, 左右腕→wrist, cam_low 缺→零补 mask False),
+    #   AlohaOutputs, delta_action_mask=make_bool_mask(6,-1,6,-1) 双臂(delta 关节+绝对夹爪), adapt_to_pi 默认 True.
+    #   repack 覆盖默认 (默认只映 cam_high←observation.images.top), 改映 3 个 robotwin 相机 + state/action/prompt.
+    # prompt_from_task=True: PromptFromLeRobotTask 从 task_index 注入语言指令 (repack 前). model 同 a0
+    #   (pi05 action_dim=32 action_horizon=8 max_token_len=200, warm-start pi05_base). asset_id=robotwin2.0
+    #   → norm 读 assets/<name>/robotwin2.0/norm_stats.json (须走完整管线算, _fast 直读 parquet 会漏 adapt_to_pi+delta).
+    # ⚠️ adapt_to_pi=True 用真-Aloha 硬件常数(夹爪 linear→angular); RoboTwin 是 sim, 按指示保持默认, 已本机验证无 NaN.
+    # 本机版 (gf0, 用于数据验证 + 算 norm; 本机 robotwin 路径).
+    TrainConfig(
+        name="pi05_robotwin_a0",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200),
+        data=LeRobotAlohaDataConfig(
+            repo_id="/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0",
+            adapt_to_pi=True,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0"),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999,
+        num_train_steps=30_000,
+        keep_period=10_000,
+        save_interval=5_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+    ),
+    # 北京(North-E)版: 同 a0, 仅数据/权重换 North-E 路径 (训练用).
+    TrainConfig(
+        name="pi05_robotwin_a0_bj",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200),
+        data=LeRobotAlohaDataConfig(
+            # ⚠️ North-E 上 robotwin2.0 是嵌套目录 (.../robotwin2.0/robotwin2.0), 真正的 LeRobot 根在内层.
+            repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+            adapt_to_pi=True,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0"),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999,
+        num_train_steps=30_000,
+        keep_period=10_000,
+        save_interval=5_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+    ),
+    # RoboTwin official-aligned pi05 baseline. Mirrors RoboTwin/policy/pi05
+    # `pi05_aloha_full_base` except for local North-E paths and explicit asset_id.
+    # Key differences from the historical kai0 A0 above:
+    #   - adapt_to_pi=False (official RoboTwin pi05 setting for sim Aloha data)
+    #   - action_horizon=50 (Pi0Config default and deploy_policy.yml pi0_step=50)
+    #   - batch_size=64, num_train_steps=20k, fsdp_devices=1
+    # Norm stats must be recomputed for this config; do not reuse pi05_robotwin_a0_bj.
+    TrainConfig(
+        name="pi05_robotwin_a0_official_bj",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=50, max_token_len=200),
+        data=LeRobotAlohaDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0"),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        num_train_steps=20_000,
+        batch_size=64,
+        fsdp_devices=1,
+    ),
+    # Reproduction of the published LeRobot pi0.5 RoboTwin training recipe.
+    # Keep this separate from the historical "official" config because that
+    # run used delta actions, quantile normalization, 20k steps, and batch 64.
+    TrainConfig(
+        name="pi05_robotwin_a0_public_recipe_bj",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=50, max_token_len=200),
+        data=LeRobotAlohaDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+            adapt_to_pi=False,
+            use_delta_joint_actions=False,
+            use_quantile_norm_override=False,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0_absolute_meanstd"),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6
+        ),
+        optimizer=_optimizer.AdamW(weight_decay=0.01),
+        ema_decay=None,
+        num_train_steps=50_000,
+        save_interval=5_000,
+        keep_period=5_000,
+        num_workers=8,
+        batch_size=16,
+        fsdp_devices=1,
+    ),
+
+    # Exact public-recipe repair. The previous reproduction used a v2.1
+    # conversion whose task_index changed paraphrase on nearly every frame and
+    # retained OpenPI's default mild augmentation. This mirror restores the
+    # released dataset's one fixed prompt per episode while retaining the
+    # existing 50 Hz video encoding and disables image augmentation as in the
+    # released LeRobot training config.
+    TrainConfig(
+        name="pi05_robotwin_a0_public_exact_bj",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,
+            action_horizon=50,
+            max_token_len=200,
+            augment_level="none",
+        ),
+        data=LeRobotAlohaDataConfig(
+            repo_id=(
+                os.environ.get(
+                    "PI05_EXACT_DATASET",
+                    "/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/"
+                    "robotwin2.0_official_prompts_v21",
+                )
+            ),
+            adapt_to_pi=False,
+            use_delta_joint_actions=False,
+            use_quantile_norm_override=False,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0_absolute_meanstd"),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            os.environ.get(
+                "PI05_BASE_PARAMS",
+                "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params",
+            )
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6
+        ),
+        optimizer=_optimizer.AdamW(weight_decay=0.01),
+        ema_decay=None,
+        num_train_steps=50_000,
+        save_interval=5_000,
+        keep_period=5_000,
+        num_workers=8,
+        batch_size=16,
+        fsdp_devices=1,
+    ),
+
+    # ★ pi05 × LMWM RoboTwin (声明baseline上的核心正信号, task #39). = a0_bj + prefix hint 注入.
+    #   hint = export_pi05_hint.py 对 lmwm_robotwin_rvalley(din768) 跑 robotwin grid 特征产;
+    #   grid源(fastwam)与训练数据(huanqian)同一份 robotwin2.0(27500ep 逐比特一致, 已验) → (ep,frame) 对齐.
+    #   单套件 suite_order=("robotwin",); HintLookup 对单-repo 缺 dataset_id 默认 did=0.
+    TrainConfig(
+        name="pi05_robotwin_a1_prefix_bj",
+        model=pi0_config.Pi0Config(
+            pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+            lmwm_hint_dim=768, lmwm_hint_len=1, lmwm_hint_target="prefix",
+        ),
+        data=LeRobotAlohaDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+            adapt_to_pi=True,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                            "lmwm_hint": "lmwm_hint",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0"),
+            lmwm_hint_path="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/robotwin_dino/hint.npz",
+            lmwm_suite_order=("robotwin",),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+        ema_decay=0.999,
+        num_train_steps=30_000,
+        keep_period=10_000,
+        save_interval=5_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+    ),
+    # Official-aligned version of the prefix-hint RoboTwin run. Only adds LMWM
+    # hint tokens; base RoboTwin pi05 knobs match pi05_robotwin_a0_official_bj.
+    TrainConfig(
+        name="pi05_robotwin_a1_prefix_official_bj",
+        model=pi0_config.Pi0Config(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            lmwm_hint_dim=768, lmwm_hint_len=1, lmwm_hint_target="prefix",
+        ),
+        data=LeRobotAlohaDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                            "lmwm_hint": "lmwm_hint",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0"),
+            lmwm_hint_path="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/robotwin_dino/hint.npz",
+            lmwm_suite_order=("robotwin",),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        num_train_steps=20_000,
+        batch_size=64,
+        fsdp_devices=1,
+    ),
+    # RoboTwin A2-lite: same official-aligned pi05 knobs as A0/A1, but the
+    # frozen, offline LMWM hint lives in SigLIP-So400m patch-token space.
+    *[
+        TrainConfig(
+            name=_name,
+            model=pi0_config.Pi0Config(
+                pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+                lmwm_hint_dim=1152, lmwm_hint_len=1, lmwm_hint_target="prefix",
+            ),
+            data=LeRobotAlohaDataConfig(
+                repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+                adapt_to_pi=False,
+                use_delta_joint_actions=False,
+                use_quantile_norm_override=False,
+                repack_transforms=_transforms.Group(
+                    inputs=[
+                        _transforms.RepackTransform(
+                            {
+                                "images": {
+                                    "cam_high": "observation.images.cam_high",
+                                    "cam_left_wrist": "observation.images.cam_left_wrist",
+                                    "cam_right_wrist": "observation.images.cam_right_wrist",
+                                },
+                                "state": "observation.state",
+                                "actions": "action",
+                                "prompt": "prompt",
+                                "lmwm_hint": "lmwm_hint",
+                            }
+                        )
+                    ]
+                ),
+                base_config=DataConfig(prompt_from_task=True),
+                assets=AssetsConfig(asset_id="robotwin2.0"),
+                lmwm_hint_path=f"/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/{_hint_dir}/hint.npz",
+                lmwm_suite_order=("robotwin",),
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader(
+                "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+            ),
+            num_train_steps=20_000,
+            batch_size=64,
+            fsdp_devices=1,
+        )
+        for _name, _hint_dir in [
+            ("pi05_robotwin_a2_prefix_official_bj", "robotwin_so400m"),
+            ("pi05_robotwin_a2_residual_prefix_official_bj", "robotwin_so400m_residual"),
+        ]
+    ],
+    # RoboTwin A3 live-target LMWM. No offline feature hint is consumed. The
+    # dataset only provides a mined representative target frame; Pi0 encodes the
+    # target with the current visual encoder under stop-gradient and trains a
+    # small predictor from current cam_high features. This avoids stale hint
+    # spaces when pi05's visual encoder is unfrozen.
+    TrainConfig(
+        name="pi05_robotwin_a3_live_residual_prefix_official_bj",
+        model=pi0_config.Pi0Config(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            lmwm_hint_dim=1152, lmwm_hint_len=1, lmwm_hint_target="prefix",
+            lmwm_live_hint=True, lmwm_live_residual=True, lmwm_live_loss_weight=0.05,
+        ),
+        data=LeRobotAlohaDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+            adapt_to_pi=False,
+            use_delta_joint_actions=False,
+            use_quantile_norm_override=False,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                            "lmwm_target_image": "lmwm_target_image",
+                            "lmwm_target_mask": "lmwm_target_mask",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0"),
+            lmwm_target_pairs_path="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_milestone_balanced/pairs.npz",
+            lmwm_target_frame_cache_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        num_train_steps=20_000,
+        batch_size=64,
+        fsdp_devices=1,
+    ),
+    TrainConfig(
+        name="pi05_robotwin_a3_live_residual_prefix_official_east",
+        model=pi0_config.Pi0Config(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            lmwm_hint_dim=1152, lmwm_hint_len=1, lmwm_hint_target="prefix",
+            lmwm_live_hint=True, lmwm_live_residual=True, lmwm_live_loss_weight=0.05,
+        ),
+        data=LeRobotAlohaDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/lmvla/lawam/dataset/robotwin2.0",
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                            "lmwm_target_image": "lmwm_target_image",
+                            "lmwm_target_mask": "lmwm_target_mask",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0"),
+            lmwm_target_pairs_path="/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_milestone_balanced/pairs.npz",
+            lmwm_target_frame_cache_root="/vePFS/tim/workspace/deepdive_kai0/lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        num_train_steps=20_000,
+        batch_size=64,
+        fsdp_devices=1,
+    ),
+    # Inference-only counterparts for online RoboTwin evaluation. A1/A2 hints
+    # are supplied by the simulator client; A3 predicts its live hint directly
+    # from the current base-camera tokens and therefore needs no target image.
+    # These checkpoints are trained in absolute-action, mean/std space; leaving
+    # LeRobotAlohaDataConfig defaults here silently adds current qpos at output.
+    *[
+        TrainConfig(
+            name=_name,
+            model=pi0_config.Pi0Config(
+                pi05=True,
+                action_dim=32,
+                action_horizon=50,
+                max_token_len=200,
+                lmwm_hint_dim=_dim,
+                lmwm_hint_len=1,
+                lmwm_hint_target="prefix",
+            ),
+            data=LeRobotAlohaDataConfig(
+                repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+                adapt_to_pi=False,
+                use_delta_joint_actions=False,
+                use_quantile_norm_override=False,
+                repack_transforms=_transforms.Group(
+                    inputs=[
+                        _transforms.RepackTransform(
+                            {
+                                "images": {
+                                    "cam_high": "observation.images.cam_high",
+                                    "cam_left_wrist": "observation.images.cam_left_wrist",
+                                    "cam_right_wrist": "observation.images.cam_right_wrist",
+                                },
+                                "state": "observation.state",
+                                "actions": "action",
+                                "prompt": "prompt",
+                                "lmwm_hint": "lmwm_hint",
+                            }
+                        )
+                    ]
+                ),
+                base_config=DataConfig(prompt_from_task=True),
+                assets=AssetsConfig(asset_id="robotwin2.0"),
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader(
+                "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+            ),
+            num_train_steps=20_000,
+            batch_size=64,
+            fsdp_devices=1,
+        )
+        for _name, _dim in [
+            ("pi05_robotwin_a1_prefix_official_eval_bj", 768),
+            ("pi05_robotwin_a2_prefix_official_eval_bj", 1152),
+            ("pi05_robotwin_a2_residual_prefix_official_eval_bj", 1152),
+        ]
+    ],
+    TrainConfig(
+        name="pi05_robotwin_a3_live_residual_prefix_official_eval",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,
+            action_horizon=50,
+            max_token_len=200,
+            lmwm_hint_dim=1152,
+            lmwm_hint_len=1,
+            lmwm_hint_target="prefix",
+            lmwm_live_hint=True,
+            lmwm_live_residual=True,
+            lmwm_live_loss_weight=0.05,
+        ),
+        data=LeRobotAlohaDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
+            adapt_to_pi=False,
+            use_delta_joint_actions=False,
+            use_quantile_norm_override=False,
+            repack_transforms=_transforms.Group(
+                inputs=[
+                    _transforms.RepackTransform(
+                        {
+                            "images": {
+                                "cam_high": "observation.images.cam_high",
+                                "cam_left_wrist": "observation.images.cam_left_wrist",
+                                "cam_right_wrist": "observation.images.cam_right_wrist",
+                            },
+                            "state": "observation.state",
+                            "actions": "action",
+                            "prompt": "prompt",
+                        }
+                    )
+                ]
+            ),
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(asset_id="robotwin2.0"),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        num_train_steps=20_000,
+        batch_size=64,
+        fsdp_devices=1,
+    ),
+    # ── 残差 hint 训练 (P3 改进): 注入 ĝ_next − g_current(池化) 而非绝对 ĝ_next. 残差 CV≈1.1(绝对0.12),
+    #   剥离出真子目标信号(绝对 hint 86% 冗余当前态). hint_path 指残差 npz(make_residual_hint.py 产).
+    *[
+        TrainConfig(
+            name=_nm,
+            model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                       lmwm_hint_dim=_dim, lmwm_hint_len=1, lmwm_hint_target="prefix"),
+            data=LeRobotLiberoLocalDataConfig(
+                repo_id="libero_4suites",
+                datasets_yaml="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_hint_northe.yaml",
+                base_config=DataConfig(prompt_from_task=True),
+                assets=AssetsConfig(asset_id="libero_4suites"),
+                lmwm_hint_path=f"/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/pi05_hint/{_hd}_residual/hint.npz",
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader(
+                "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"),
+            lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=2.5e-5, decay_steps=30_000, decay_lr=2.5e-6),
+            ema_decay=0.999, num_train_steps=30_000, keep_period=10_000, save_interval=5_000,
+            num_workers=8, batch_size=128, fsdp_devices=8,
+        )
+        for _nm, _dim, _hd in [
+            ("pi05_libero_a1_residual_prefix_bj", 768, "libero_dino"),
+            ("pi05_libero_a2_residual_prefix_bj", 1152, "libero_so400m"),
+        ]
+    ],
+    # 残差 eval config (passthrough, 在线残差 hint 由 hint_online EVAL_HINT_RESIDUAL 产)
+    *[
+        TrainConfig(
+            name=_nm,
+            model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                       lmwm_hint_dim=_dim, lmwm_hint_len=1, lmwm_hint_target="prefix"),
+            data=LeRobotLiberoLocalDataConfig(
+                repo_id="libero_4suites", datasets_yaml=_yaml,
+                base_config=DataConfig(prompt_from_task=True),
+                assets=AssetsConfig(asset_id="libero_4suites"),
+                lmwm_hint_path=None, lmwm_hint_passthrough=True),
+            weight_loader=weight_loaders.CheckpointWeightLoader(
+                "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"),
+            num_train_steps=30_000,
+        )
+        for _nm, _dim, _yaml in [
+            ("pi05_libero_a1_residual_prefix_eval_bj", 768, "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+            ("pi05_libero_a2_residual_prefix_eval_bj", 1152, "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+            ("pi05_libero_a1_residual_prefix_eval", 768, "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a2_residual_prefix_eval", 1152, "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+        ]
+    ],
+
+    # ── A1/A2 在线 hint eval config (P3): model 同训练版, 但 lmwm_hint_passthrough=True + hint_path=None →
+    #   服务端不做离线 lookup, 保留 HintComputer 在线算并注入 obs["lmwm_hint"] 的 hint. 见 hint_online.py.
+    *[
+        TrainConfig(
+            name=_nm,
+            model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=8, max_token_len=200,
+                                       lmwm_hint_dim=_dim, lmwm_hint_len=1, lmwm_hint_target=_tgt),
+            data=LeRobotLiberoLocalDataConfig(
+                repo_id="libero_4suites",
+                datasets_yaml=_yaml,
+                base_config=DataConfig(prompt_from_task=True),
+                assets=AssetsConfig(asset_id="libero_4suites"),
+                lmwm_hint_path=None, lmwm_hint_passthrough=True,
+            ),
+            weight_loader=weight_loaders.CheckpointWeightLoader(
+                "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+            ),
+            num_train_steps=30_000,
+        )
+        for _nm, _dim, _tgt, _yaml in [
+            ("pi05_libero_a1_prefix_eval", 768, "prefix", "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a1_suffix_eval", 768, "suffix", "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a2_prefix_eval", 1152, "prefix", "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a2_suffix_eval", 1152, "suffix", "/vePFS/tim/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites.yaml"),
+            ("pi05_libero_a1_prefix_eval_bj", 768, "prefix", "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+            ("pi05_libero_a1_suffix_eval_bj", 768, "suffix", "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+            ("pi05_libero_a2_prefix_eval_bj", 1152, "prefix", "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+            ("pi05_libero_a2_suffix_eval_bj", 1152, "suffix", "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/src/openpi/training/libero_4suites_northe.yaml"),
+        ]
+    ],
+
+    # AWBC Advantage Estimator (RECAP Stage 1, PyTorch) — registered so eval.py / eval_adv_est.py can
+    # get_config() to rebuild the model arch for the trained ckpt
+    # kai0/checkpoints/ADVANTAGE_TORCH_KAI0_FLATTEN_FOLD/adv_est_v1 (metadata: pi05 / gemma_2b /
+    # action_horizon=50 / max_token_len=200 / advantage_estimator=True). Used for Stage-2 labeling +
+    # V0 sanity (PyTorch), NOT JAX training. data= is a placeholder (eval only reads cfg.model).
+    TrainConfig(
+        name="ADVANTAGE_TORCH_KAI0_FLATTEN_FOLD",
+        model=pi0_config.Pi0Config(pi05=True, action_dim=32, action_horizon=50, max_token_len=200),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_smooth800_dagger_full",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        advantage_estimator=True,
+        num_train_steps=100_000,
+    ),
+
+    # Vis-native AWBC pipeline S2 (plan: awbc_vis_task_a_full_pipeline_plan.md) — retrain AE on
+    # the freshly stage-labeled vis set (vis_awbc_merged_stage = 1699ep, stage_progress_gt∈{0.25,0.75}).
+    # model MUST be AdvantageEstimatorConfig (train_pytorch asserts it); loss_value=1/loss_action=0
+    # (only regress stage-progress diff). Init pi05_base (strict=False, value head new). PyTorch torchrun.
+    TrainConfig(
+        name="ADVANTAGE_TORCH_VIS_AWBC",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            # _interp: stage_progress_gt 段内连续插值 0→1 (旧 vis_awbc_merged_stage 是平阶跃 0.25/0.75 →
+            # AE 回归目标 94% 零 → 100k 训出 dead value, 见 memory ae-stage-label-collapse). 段内连续后 Δ50 零=0.1%.
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_awbc_merged_stage_interp",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=100_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,  # pyav 3-cam 逐帧解码 → 默认 2 worker 喂不动 8×A100 (3s↔10s 锯齿/半空转); 拉满消除 stall
+    ),
+
+    # ===== 诊断: vis AE multi-task (action+value) — 判定 vis value 弱是"配置"还是"vis感知地板" =====
+    # 唯一变量 vs ADVANTAGE_TORCH_VIS_AWBC: loss_action_weight 0.0→1.0 (加回 action flow-matching 辅助任务).
+    # 假设: value-only 把 backbone 视觉特征饿瘦 → vis value 卡在 loss 0.073 (≈常数基线). 加 action 辅助应压低.
+    # 30k 短诊断: loss<<0.073 + value corr↑ → 可修(做满100k); 仍卡 → vis 感知是地板 (退两端置信区离散).
+    # 对照锚: KAI0 AE (多任务) value-vs-GT corr=0.93 / loss=0.002; 现 vis (value-only) corr=0.67 / loss=0.073.
+    TrainConfig(
+        name="ADVANTAGE_TORCH_VIS_AWBC_MT",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=1.0, loss_value_weight=1.0,   # ⭐ 唯一变量: action loss 开
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_awbc_merged_stage_interp",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=30_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+
+    # ===== CRAVE→KAI0-AE 蒸馏 (crave_ae_distill_plan.md P1): 两种 CRAVE 逐帧 value 标签各训一个 AE, 对照 =====
+    # 现成 baseline AE-C = adv_est_v1/100000 (人工 stage_progress_gt). AE-A/AE-B = 用 CRAVE 零人工标签重训.
+    # 数据 crave_stage_{A,B} (3055ep, 以 advantage_q5 为底, stage_progress_gt 列覆盖为 CRAVE 逐帧 value 0→1,
+    # videos symlink→kai0_advantage, norm_stats copy 自 advantage_q5). model=AdvantageEstimatorConfig
+    # (train_pytorch.py 断言必须), loss_value=1/action=0 (纯回归 stage-progress). init pi05_base strict=False.
+    # 与 VIS_AWBC 同参 (batch144/worker24/save10k); 唯一变量=标签构造法 (A anchor-linear vs B viterbi+时间先验).
+    # plan §3 定 50k step (AE value 收敛快; ⚠️ AE-C baseline 是 100k, 对照取各自收敛 ckpt, 见 plan §4).
+    TrainConfig(
+        name="ADVANTAGE_TORCH_CRAVE_A",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/crave_stage_A",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+    TrainConfig(
+        name="ADVANTAGE_TORCH_CRAVE_B",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/crave_stage_B",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+
+    # ===== CRAVE polyline(去阶梯)重训 (plan: crave_polyline_kai_ae_retrain_plan.md) =====
+    # 前身 CRAVE_A/B 用已淘汰的 DINOv3-H + norm01 标签(HISTORY A1/C1/F3), 效果不理想 → 本 config 换成
+    # CRAVE 收口后的 polyline 标签: DINOv3-base img⊕proprio(142D)→ BGMM(M≈12)→ 双锚 Viterbi → 去阶梯折线
+    # (corr 0.957 vs 阶梯 0.944; 是在线 GRU 蒸馏的 teacher, gru_polyline_heldout mean corr 0.975).
+    # 数据 crave_stage_poly(3055ep, 底座 kai0_base, stage_progress_gt=polyline value 0→1, videos symlink,
+    # norm_stats copy 自 crave_stage_A). 由 lmvla/crave/experiments/{dump_polyline_labels_kai_full,
+    # write_crave_stage_poly}.py 生成. 唯一变量 vs CRAVE_A/B = 标签构造法(polyline). 其余同参.
+    # ⚠️ polyline 段内连续 → 避开阶跃标签的段内 Δ≡0 dead-value 塌缩(memory ae-stage-label-collapse).
+    TrainConfig(
+        name="ADVANTAGE_TORCH_CRAVE_POLY",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/crave_stage_poly",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+    # A线 A/B(2026-07-23): 与 CRAVE_POLY 唯一差别 = 标签来源(So400m-mean@30Hz v1读出, corr 0.909 vs polyline 0.948)
+    TrainConfig(
+        name="ADVANTAGE_TORCH_SO400M",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/so400m_stage",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+
+    # CRAVE-KAI-AE mono 消融变体 (crave_polyline_kai_ae_retrain_plan §3/§8.3): = ADVANTAGE_TORCH_CRAVE_POLY
+    # 唯一改 repo_id → crave_stage_poly_mono (cummax 单调标签, 只进不退). 作 raw-vs-mono 对照:
+    # 量化"polyline 真实回落是否干扰 advantage 符号". 其余(model/init/loss/规格)逐字段同 POLY.
+    TrainConfig(
+        name="ADVANTAGE_TORCH_CRAVE_POLY_MONO",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/crave_stage_poly_mono",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+
+    # ===== ❌❌ 以下诊断已被实验推翻 (2026-07-19), 保留仅作历史记录, 勿再据此改 config =====
+    # 【错误的旧结论】"根因: value-only (loss_action_weight=0.0) 让 Gemma-2B backbone 无视觉监督 → 输出常数 ≈0.
+    #   老 AE-C 是 JAX 多任务训的所以能用(corr=0.93). 修法 = loss_action_weight 0.0→1.0 (CRAVE_POLY_MT/_MONO_MT)."
+    #
+    # ⭐【实测真相 — 方向完全反了】同口径 eval (eval_value_quick.py seed42 同12ep):
+    #   ADVANTAGE_TORCH_KAI0_HUMAN_MT        (loss_action=1.0) → Spearman 0.019  ❌ dead(平线)
+    #   ADVANTAGE_TORCH_CRAVE_POLY_MT        (loss_action=1.0) → Spearman 0.031  ❌ dead(常数)
+    #   ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY (loss_action=0.0) → Spearman 0.800  ✅ 单调爬升
+    #   唯一变量 = loss_action_weight。**value head 必须 value-only 训 (loss_action=0.0)**; 加 action 多任务会训死它。
+    #   老 AE-C (adv_est_v1, corr 0.93) 其实也是 PyTorch **value-only** 训的(git d2d81ed 原始 FLATTEN_FOLD 配置),
+    #   不是 JAX 多任务 —— JAX 侧 pi0.py 根本没有 value head。
+    # → 因此 _MT 系列 (CRAVE_POLY_MT / CRAVE_POLY_MONO_MT / KAI0_HUMAN_MT) **全部作废, 勿用其 ckpt**;
+    #   用 CRAVE 标签重训 AE 请用 value-only (照 ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY 的 loss 配置)。
+    # 详见 memory project_pytorch_ae_deadvalue_not_code_regression + crave_polyline_kai_ae_retrain_plan.md §8.7.4.
+
+    # ===== CRAVE polyline × multi-task AE (action+value) — dead-value 修法 (2026-07-14) =====
+    # 克隆 ADVANTAGE_TORCH_CRAVE_POLY, 唯一改动: loss_action_weight 0.0→1.0 (加回 action flow-matching 辅助任务,
+    # 防 backbone 视觉特征饿瘦 → dead value). 其余逐字段同 POLY.
+    # 数据 crave_stage_poly 不变 (3055ep, polyline raw labels 0→1, videos symlink→kai0_base).
+    # ⚠️ kai0_base 数据 action==state (14D 绝对关节位置), 作为辅助任务够用 — backbone 只需从图像预测关节
+    #   位置就能得到丰富梯度, value head 搭在这个表征上学习进度.
+    TrainConfig(
+        name="ADVANTAGE_TORCH_CRAVE_POLY_MT",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=1.0, loss_value_weight=1.0,   # ⭐ 修法: action loss 开
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/crave_stage_poly",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+
+    # ===== 人工标签 baseline 对照臂 (crave_value_dagger_validation / 严格受控对照, 2026-07-15) =====
+    # 目的: 证明 CRAVE polyline 标签 vs 人工标签的 value 细致度. 与 ADVANTAGE_TORCH_CRAVE_POLY_MT
+    # **逐字段完全相同** (同 AdvantageEstimatorConfig / loss_action=1.0 / loss_value=1.0 / pi05_base init /
+    # 50k / bs144), 唯一变量 = repo_id: kai0_advantage(人工 stage_progress_gt, 接近线性时间)
+    # vs crave_stage_poly(CRAVE polyline, 视觉驱动非线性). 两者 norm_stats 完全一致(同底座 kai0_base).
+    # ⭐ 锚点意义: 若此 baseline 能训出 value corr 高(复现 AE-C 0.93) → 证明 pipeline 正确, CRAVE 若差=标签问题;
+    #   若此 baseline 也 dead → 是这套 PyTorch config 的问题, 非 CRAVE 数据, 需先修 config.
+    TrainConfig(
+        name="ADVANTAGE_TORCH_KAI0_HUMAN_MT",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=1.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_advantage",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+
+    # ===== ⭐ 复现原始 adv_est_v1 配方: value-only 人工标签 (2026-07-17) =====
+    # 从训练记录(gf2_advantage_awbc_plan + git d2d81ed FLATTEN_FOLD)反查: 正常 adv_est_v1 (corr 0.93,
+    # 官方 absolute_value 列对比) 是 **value-only** 训的 —— loss_action_weight=0.0/loss_value_weight=1.0,
+    # discrete_state_input=False, 数据 data/Task_A/advantage(=kai0_advantage, 3055ep/3.36M), 100k, bs144。
+    # ⚠️ 推翻当前 lore(config.py:1174 称"value-only→dead, 多任务修"): 事实 value-only 能训 0.93, 多任务
+    # HUMAN_MT(1/1) 反而 dead。本 config = 唯一变量 vs ADVANTAGE_TORCH_KAI0_HUMAN_MT: loss_action 1.0→0.0
+    # (回到原始 value-only)。数据/init/step/bs 逐字段同 HUMAN_MT。50k(用户定, 部署够用)。
+    TrainConfig(
+        name="ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,   # ⭐ 原始 value-only (唯一变量 vs HUMAN_MT)
+            discrete_state_input=False,                      # 忠实复现原始 adv_est_v1 (PyTorch 无用, 存档一致)
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_advantage",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000, save_interval=10_000, batch_size=144, num_workers=24,
+    ),
+
+    # ===== ⭐ CRAVE value-only 对照臂 (2026-07-19) — 本 plan 的原始问题终于可答 =====
+    # 前提: §8.7.4 已证 value head 必须 value-only(loss_action=0.0) 才活 (人工基线 Spearman 0.800)。
+    # 本 config = 克隆 ADVANTAGE_TORCH_KAI0_HUMAN_VALUEONLY, **唯一变量 = repo_id**:
+    #   kai0_advantage(人工 stage_progress_gt, 近线性时间) vs crave_stage_poly(CRAVE polyline, 视觉驱动非线性)。
+    # 两者 norm_stats 完全一致(同底座 kai0_base), loss/init/step/bs 逐字段同 → 严格单变量。
+    # 判据: CRAVE 的 Spearman/frame_discrimination 若 ≥ 人工 0.800/0.150 → CRAVE 标签带来同等或更细致的 value 信息。
+    TrainConfig(
+        name="ADVANTAGE_TORCH_CRAVE_POLY_VALUEONLY",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=0.0, loss_value_weight=1.0,   # value-only (同人工基线)
+            discrete_state_input=False,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/crave_stage_poly",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000, save_interval=10_000, batch_size=144, num_workers=24,
+    ),
+
+    # CRAVE polyline mono × multi-task AE — raw-vs-mono 对照 (MT 版)
+    # 克隆 ADVANTAGE_TORCH_CRAVE_POLY_MONO, 唯一改动: loss_action_weight 1.0. 数据 crave_stage_poly_mono.
+    TrainConfig(
+        name="ADVANTAGE_TORCH_CRAVE_POLY_MONO_MT",
+        model=pi0_config.AdvantageEstimatorConfig(
+            pi05=True, action_dim=32, action_horizon=50, max_token_len=200,
+            loss_action_weight=1.0, loss_value_weight=1.0,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/crave_stage_poly_mono",
+            default_prompt="Flatten and fold the cloth.",
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        advantage_estimator=True,
+        num_train_steps=50_000,
+        save_interval=10_000,
+        batch_size=144,
+        num_workers=24,
+    ),
+
+    # ===== Cross-embodiment: per-DS-norm + Action-Head conditioning (2026-06-05) =====
+    # Single PRE-MERGED kai+vis dataset `kai_vis_merged` (kai0_base+kai0_dagger=domain0 6512ep,
+    # A_smooth800_dagger_full=domain1/vis 1033ep) → healthy single-source path (NOT datasets_yaml).
+    #  • per-DS norm: DomainNormalize picks kai/vis norm by obs.dataset_id (task_index-derived)
+    #  • domain token: action_head_cond_num_domains=2 (infer fixed vis=1)
+    #  • 1:1 balance by probability (domain_weights), NO disk copy (DomainWeightedSampler)
+    # Health gate: vis inline MAE must be ~0.008 量级, NOT ≈0.47 (that = collapse path).
+    TrainConfig(
+        name="pi05_kaivis_perdsnorm_cond",
+        model=pi0_config.Pi0Config(pi05=True, action_head_cond_num_domains=2),
+        data=KaiVisMergedDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/kai_vis_merged",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+            domain_weights=(1.0, 3.970),  # FRAME-level 1:1: kai 5.78M frames / vis 1.46M frames = 3.970 (NOT ep ratio 6.30; kai eps longer)
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # Task_A (横向折) + Task_AV1 (竖向折 Vertical Fold v1) 混合 1:1 过采样 co-train (plan:
+    # pi05_task_a_av1_mixed_1to1_plan.md). clone of pi05_kaivis_perdsnorm_cond, cnbj 路径.
+    # domain0=A_smooth800_dagger_full (1.455M帧) / domain1=AV1 304ep snapshot (0.447M帧) → frame-1:1
+    # weight (1.0, 3.256). per-domain prompt (prompt_from_task: domain0 横向 / domain1 竖向), per-domain
+    # norm + domain token. warm-start mixed_1_clean. ⚠️ JAX-only (weighted sampler). BJ Robot-North-H20.
+    TrainConfig(
+        name="pi05_task_a_av1_mixed_1to1",
+        model=pi0_config.Pi0Config(pi05=True, action_head_cond_num_domains=2),
+        data=KaiVisMergedDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/a_av1_merged",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),  # 读 task_index→tasks.jsonl: domain0/1 各自 prompt
+            use_delta_joint_actions=False,
+            domain_weights=(1.0, 3.0115),  # FRAME-level 1:1 (norm-build 实数): Task_A 1,345,997 / AV1 446,955 = 3.0115
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=0,  # vis_v2_merged_val = 横向折 = domain0 sanity (不退化); AV1 竖向 eval 走 offline/真机
+    ),
+
+    # from-PaliGemma 自训 (pi05_from_paligemma_base_training_plan.md 路径 B1, naive-from-base):
+    # 不 warm-start PI 的 pi05_base, 改从 PaliGemma VLM base 起 (action expert 随机初始化) → 双本体
+    # co-train. 单变量 vs pi05_kaivis_perdsnorm_cond = weight_loader (PaliGemmaLocalWeightLoader, 离线
+    # 本地 npz) + LR/warmup/steps (B1: peak 3e-5 / warmup 3k / 150k step, 随机 action expert 需更激进起步)
+    # + cnbj 8卡 (fsdp8) + 路径换 /vePFS-North-E. vis = A (A_smooth800_dagger_full).
+    # 数据 kai_vis_merged (7544ep / 7.12M frames; kai 5.778M / vis 1.346M → domain_weights vis=4.2925).
+    # 提交为 cnbj 闲时任务 + 自动 resume (yaml). 收敛判据 = val MAE 曲线 (非 train loss); ~150k 看是否在轨.
+    TrainConfig(
+        name="pi05_kaivis_from_paligemma",
+        model=pi0_config.Pi0Config(pi05=True, action_head_cond_num_domains=2),
+        data=KaiVisMergedDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/kai_vis_merged",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+            domain_weights=(1.0, 4.2925),
+        ),
+        weight_loader=weight_loaders.PaliGemmaLocalWeightLoader(
+            npz_path="/vePFS-North-E/vis_robot/openpi_cache/paligemma_weights/pt_224.npz"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=3_000, peak_lr=3e-5, decay_steps=150_000, decay_lr=3e-6),
+        ema_decay=0.9999,
+        num_train_steps=150_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # EXP-2 (corrected_plan_a §7.2): isolate kai's contribution by removing vis_dagger.
+    # Single-variable change vs pi05_kaivis_perdsnorm_cond: vis source = pure smooth800
+    # (A_new_smooth_800/base, 811ep/0.93M frames) instead of A_smooth800_dagger_full.
+    # FRAME-level 1:1 weight recomputed (kai 5.777M / vis 0.930M = 6.213). 8-card cnsh (fsdp=8).
+    TrainConfig(
+        name="pi05_kaivis_cond_visS800",
+        model=pi0_config.Pi0Config(pi05=True, action_head_cond_num_domains=2),
+        data=KaiVisMergedDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/kai_vis_s800_merged",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+            domain_weights=(1.0, 6.246),  # FRAME-level 1:1: kai 5,777,710 frames / vis(pure smooth800) 925,055 = 6.246 (norm-build exact)
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # X-VLA Exp1: Hard Prompt Mixed (kai data + "kai " prefix, vis data + "vis " prefix)
+    # tasks.jsonl patched per dataset in xvla/data/mixed_hard/
+    TrainConfig(
+        name="xvla_exp1_hard_prompt_mixed",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/xvla/data/mixed_hard/kai0_base",  # norm_stats source
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/mixed_repos_hard.yaml",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Same exp1 hard prompt baseline as xvla_exp1_hard_prompt_mixed_uc but uses a single
+    # PRE-MERGED lerobot dataset instead of multi-dataset ConcatDataset. Avoids the uc02
+    # NCCL deadlock that happens when 3 LeRobotDataset instances each do slow metadata
+    # init + tolerance check. The merged dataset preserves the kai/vis hard prompt
+    # distinction via tasks.jsonl (2 entries, kai=0/vis=1) + per-row task_index column.
+    TrainConfig(
+        name="xvla_exp1_hard_prompt_merged_uc",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/data/shared/ubuntu/workspace/deepdive_kai0/kai0/data/Task_A/self_built/xvla_exp1_hard_merged",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),  # uses tasks.jsonl per-task lookup
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/data/shared/ubuntu/workspace/base_init_ckpts/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/data/shared/ubuntu/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # exp1 hard-prompt baseline, uc01+02 16-GPU version (mirrors xvla_exp1_hard_prompt_mixed
+    # but with uc-local data paths). Pairs with stage 1 on volc for full resource utilization.
+    TrainConfig(
+        name="xvla_exp1_hard_prompt_mixed_uc",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/data/shared/ubuntu/workspace/deepdive_kai0/xvla/data/mixed_hard/kai0_base",
+            datasets_yaml="/data/shared/ubuntu/workspace/deepdive_kai0/xvla/data/mixed_repos_hard_uc.yaml",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/data/shared/ubuntu/workspace/base_init_ckpts/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=64,  # uc cluster — high parallel decode
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/data/shared/ubuntu/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ──────────────────── X-VLA 3-stage curriculum (Exp2) ────────────────────
+    # Stage 1 — Warm up soft prompt + full model on official (kai) data.
+    # Both kai0_base and kai0_dagger stamped domain_id=0.
+    # Init: pi05_base ckpt. soft_prompt_hub initialized with N(0, 0.02) per X-VLA.
+    TrainConfig(
+        name="xvla_stage1_kai_warmup",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            soft_prompt_num_domains=2,
+            soft_prompt_len=32,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_base",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/stage1_kai_only.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        # Val: a small kai holdout would be more meaningful, but reuse vis_v2_merged_val
+        # for direct comparability across the 3 stages. dataset_id=1 (vis) at eval time
+        # tests how well the vis soft prompt (uninitialized in stage 1) generalizes.
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # Stage 2 — Freeze backbone, only train soft_prompt_hub on vis (~5k step, lr 5e-4).
+    # Init: Stage 1 final ckpt. Goal: align the vis soft prompt slot before unfreezing.
+    TrainConfig(
+        name="xvla_stage2_soft_prompt_only_vis",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            soft_prompt_num_domains=2,
+            soft_prompt_len=32,
+            freeze_mode="only_soft_prompt",  # documentation; the freeze_filter below enforces it
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/stage2_3_vis_only.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            # ← update to final stage 1 ckpt path once stage 1 finishes
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/xvla_stage1_kai_warmup/xvla_stage1_kai_warmup/49999/params"
+        ),
+        # Freeze everything except soft_prompt_hub (matches Pi0Config.freeze_mode but inline here).
+        freeze_filter=nnx.Not(nnx_utils.PathRegex(".*soft_prompt_hub.*")),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=200, peak_lr=5e-4, decay_steps=5_000, decay_lr=5e-5),
+        ema_decay=None,           # EMA meaningless with ~64K trainable params
+        num_train_steps=5_000,
+        keep_period=1_000,
+        save_interval=1_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=1,
+        inline_eval_dataset_id=1,
+    ),
+
+    # Stage 3 — Full unfreeze on vis (50k step, cosine 1.5e-5 → 1.5e-6).
+    # Init: Stage 2 final ckpt (soft prompt already adapted, now jointly fine-tune all params).
+    TrainConfig(
+        name="xvla_stage3_full_finetune_vis",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            soft_prompt_num_domains=2,
+            soft_prompt_len=32,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/stage2_3_vis_only.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            # ← update to final stage 2 ckpt path once stage 2 finishes
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/xvla_stage2_soft_prompt_only_vis/xvla_stage2_soft_prompt_only_vis/5000/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # ===================================================================================
+    # pi05 + delta-joint-actions on Task_A/base (kai0_base 3055 ep) from pi05_base.
+    # 2026-05-22 用户决策: 对比 absolute baseline (mixed_pure2_1800/exp1 etc) 看 delta 是否帮 cloth fold.
+    # delta_action_mask = make_bool_mask(6, -1, 6, -1) → 12 joint dims become delta, 2 gripper stay absolute.
+    # ===================================================================================
+    TrainConfig(
+        name="pi05_flatten_fold_task_a_base_delta",
+        model=pi0_config.Pi0Config(pi05=True),  # no conditioning, vanilla pi05
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_base",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=True,  # ← 关键: delta 训练
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===================================================================================
+    # E3.6 — NO conditioning, kai+vis joint via datasets_yaml (2026-05-22; renamed 2026-06-04).
+    # ⚠️ MISNOMER FIX: previously named `xvla_e3_6_per_ds_norm_no_cond`, but per-dataset
+    # norm DOES NOT EXIST in the code path. `transform_dataset` (data_loader.py:340) applies
+    # a SINGLE norm_stats (loaded from repo_id=kai0_base, config.py:351) to the whole
+    # ConcatDataset; InjectDatasetId only stamps domain_id, never switches norm. The original
+    # intent ("per-DS norm rescues cross-embodiment training") was never actually tested.
+    # Result: COLLAPSE (val MAE@1=0.4706 predict-zero), same as the conditioning cells — the
+    # culprit is the datasets_yaml/ConcatDataset path itself, NOT conditioning or norm scale.
+    # See docs/training/history/experiments/conditioning_vs_action_representation_ablation.md
+    # and docs/training/analysis/pi05_cross_embodiment_training_deep_dive.md.
+    # Old job/ckpt: t-20260522201522-s72th (traceability).
+    # ===================================================================================
+    TrainConfig(
+        name="xvla_e3_6_single_norm_no_cond",
+        model=pi0_config.Pi0Config(pi05=True),  # no soft prompt, no action cond
+        data=LerobotAgilexDataConfig(
+            # repo_id only sets the SINGLE norm_stats asset (kai0_base); data flows via datasets_yaml.
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_base",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/e3_6_no_cond_kai_vis_joint.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===================================================================================
+    # Track C: Action Head Conditioning Token (方案 A) — 2026-05-22 选定
+    # Concat 1 learnable domain token to action expert input. paligemma unaware of domain.
+    # 1:1 sparse-prefix 对照 Track B Soft Prompt (32 tokens in VLM input).
+    # See docs/deployment/strategy/cross_embodiment_strategy.md §5.3 for design rationale.
+    # ===================================================================================
+
+    # Track C single-stage (2026-05-22 决策修订): 直接 kai+vis joint 50k from pi05_base.
+    # 用户决策放弃 3-stage curriculum (经讨论 action expert 端注入 Stage 2 边际价值低,
+    # 训练时间减半且实证性价比更高). domain_id=0 (kai) / 1 (vis) 通过 datasets_yaml 区分.
+    TrainConfig(
+        name="xvla_actcond_single_stage_joint",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_head_cond_num_domains=2,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_base",
+            # Balanced sampling: vis × 7 to match kai 6512 ep, 49/51 split (避免 kai dominate)
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/stage3_kai_vis_joint_balanced.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # pi05 + TAC on A_new_pure_200 (NEW SOTA dataset, 200 ep '-new' curated).
+    # Same hparams as vis_v2_full_tac but with the pure_200 data — for direct
+    # comparison: does TAC also work on small high-quality curated dataset?
+    # vis_v2_full_tac (49999): MAE@1=0.0147, @50=0.1148 — paper RTC2 ablation
+    TrainConfig(
+        name="pi05_flatten_fold_a_new_pure_200_tac",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            tac_enabled=True,
+            tac_max_delay=6,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_pure_200",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_pure_200_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # pi05 + TAC v2 — same hparams as _tac, but trained AFTER the pi0.py:335
+    # convention bug fix (commit 5b6b75c). The _tac (no-v2) ckpt was trained on
+    # the buggy code where prefix time=1.0 fed pure noise instead of clean GT,
+    # making TAC training a no-op (verified: TAC v7 chunk |diff| = baseline).
+    # Use v2 to retain the buggy 26k ckpt as A/B baseline.
+    TrainConfig(
+        name="pi05_flatten_fold_a_new_pure_200_tac_v2",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            tac_enabled=True,
+            tac_max_delay=6,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_pure_200",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_pure_200_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # pi05 + TAC (Training-time Action Conditioning, paper 2512.05964) on vis_v2_full.
+    # Same data/hparams as pi05_flatten_fold_vis_v2_full but with tac_enabled=True.
+    # Compare paper-RTC2 (TAC fine-tune) trained from pi05_base for 50k step.
+    TrainConfig(
+        name="pi05_flatten_fold_vis_v2_full_tac",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            tac_enabled=True,
+            tac_max_delay=6,  # 30Hz × 200ms latency
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_full",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===================================================================================
+    # R1 / R2 — PyTorch DDP 原生训练 (plan §10.8, 2026-05-23 PM).
+    # 与 JAX baseline `pi05_flatten_fold_vis_v2_full` 同数据 + 同 hparams, 仅训练框架不同.
+    # 出 ckpt 用于 realtime_vla 选项 X PyTorch+Triton 5-10× 加速部署路径.
+    # 启动: torchrun --nproc_per_node=16 scripts/train_pytorch.py <name> --exp_name ...
+    # ===================================================================================
+
+    # R1: PyTorch + absolute action — cnbj paths (Robot-North-H20 16 H20).
+    TrainConfig(
+        name="pi05_pytorch_vis_v2_full_absolute",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_full",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        # PyTorch native init from converted safetensors (synced to cnbj 2026-05-23).
+        pytorch_weight_path="/vePFS-North-E/vis_robot/openpi_cache/modelscope_cache/lerobot/pi05_base",
+        pytorch_training_precision="bfloat16",
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===== LeWM 视觉前端变体 — SMOKE (pi05_from_paligemma_base_training_plan.md §9) =====
+    # 验证接线 (DINOv3-L/16 frozen + LeWM OctCompactor → 15 token → LLM → expert → flow loss →
+    # backward → loss↓). 30 步 / 小 batch, pi05_base init (验 WIRING; 正式 run 用 from-PaliGemma).
+    # vision_encoder="lewm" 触发旁路; 默认 siglip 的现有 config 全不受影响。cnbj North-E 路径。
+    TrainConfig(
+        name="pi05_lewm_smoke",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            vision_encoder="lewm",
+            lewm_ckpt_path="/vePFS-North-E/shared_data/shock/distill-wm/data/exps/lewm-kai0-3view-V1-aa27438-TS0617.0224/lewm-kai0-3view_epoch_10.pt",
+            lewm_dinov3_dir="/vePFS-North-E/shared_data/shock/.CACHE/hf_cache/hub/dinov3-vitl16-pretrain-lvd1689m",
+            lewm_freeze_compactor=False,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_full",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        pytorch_weight_path="/vePFS-North-E/vis_robot/openpi_cache/modelscope_cache/lerobot/pi05_base",
+        pytorch_training_precision="bfloat16",
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=5, peak_lr=1.5e-5, decay_steps=100, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=30,
+        save_interval=1000,   # >steps → 不存盘 (纯 smoke)
+        num_workers=4,
+        batch_size=16,
+        fsdp_devices=8,
+    ),
+
+    # R2: PyTorch + delta action — cnsh paths (robot-task 16 A100, in parallel with R1).
+    TrainConfig(
+        name="pi05_pytorch_vis_v2_full_delta",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_full",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=True,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        pytorch_training_precision="bfloat16",
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # pi05 vis-only training on vis_5day_recent (filtered 05-18~05-22 from vis_v2_full).
+    # 498 ep / 827k frames. Same hparams as pi05_flatten_fold_vis_v2_full, single-node 8 H20.
+    TrainConfig(
+        name="pi05_flatten_fold_vis_5day_recent",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_5day_recent",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===================================================================================
+    # A_mirror200_pi05_pytorch (2026-05-27, plan §1 in A_mirror200_pi05_pytorch.md)
+    # pure_200 dataset (200 ep + hflip mirror) trained via PyTorch native, 与 JAX SOTA
+    # (`task_a_new_pure_200_new_norm`, MAE@1=0.0065) 1:1 对照, 隔离 "PyTorch vs JAX 框架" 变量.
+    # 8× GPU FSDP, batch 128, 50k step, lr 1.5e-5 → 1.5e-6.
+    # ===================================================================================
+    TrainConfig(
+        name="pi05_pytorch_a_new_pure_200",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_pure_200",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        pytorch_weight_path="/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/pytorch",
+        pytorch_training_precision="bfloat16",
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_pure_200_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===================================================================================
+    # A_0423_0527 dual init JAX (2026-05-27, plan: A_0423_0527_excl_calibration_drift.md)
+    # ===================================================================================
+    # Data root-cause probe Exp-1 (走停/犹豫/cloth loop 排查):
+    #   plans/data_root_cause_probe_experiments.md — 验证 H1 "投放过程污染".
+    #   两个数据集均来自 vis_base 5-22 + 5-26 (各 100 ep, 合 200 ep):
+    #   - `_no_release`: 裁掉每个 ep 开头投放等待静止段 (~7% 帧). 313419 frames.
+    #   - `_raw`       : 同两天但不裁 (对照, 隔离 "裁投放" vs "200ep 规模"). 336917 frames.
+    #   单变量=是否裁投放. init=mixed_1_clean (与 smooth_800 work 锚点一致), 40k step.
+    #   ⚠️ norm_stats 各自重算 (compute_norm_stats.py), gripper/wrist 现状不动.
+    # ===================================================================================
+    TrainConfig(
+        name="pi05_flatten_fold_A_0522_0526_no_release",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_0522_0526_no_release",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/home/tim/local_ckpts/Task_A_init/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+    TrainConfig(
+        name="pi05_flatten_fold_A_0522_0526_raw",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_0522_0526_raw",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/home/tim/local_ckpts/Task_A_init/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===== v2v3 数据时窗实验 (data_window_scaling, plan: future_plans/plans/v2v3_data_window_scaling_experiments.md) =====
+    # Exp-A: v2/2026-05-18 单日 raw (未裁), 201 ep — cnsh 16卡
+    TrainConfig(
+        name="pi05_flatten_fold_A_0518_v2_201",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_0518_v2_201",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/home/tim/local_ckpts/Task_A_init/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Exp-B: v3 5-18~5-28 窗口 (8 日, 955 ep, 已裁 v3) — cnbj 16卡 (路径=cnbj vePFS)
+    TrainConfig(
+        name="pi05_flatten_fold_v3_0518_0528",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v3_0518_0528",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Exp-C: 全 v3 排 5-16 (1940 ep) — cnbj 16卡, Exp-B 完成后手动提交
+    TrainConfig(
+        name="pi05_flatten_fold_v3_all_no0516",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v3_all_no0516",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Exp-D: v3 排除嫌疑窗 5-19~5-27 (≤5-18 排5-16 + 5-28 = 1335 ep) — cnbj 16卡
+    # 验证用户假说: 之前 v3 训练问题源于混入 5-19~5-27 脏数据。= Exp-C 去掉嫌疑窗。
+    # plan: v2v3_data_window_scaling_experiments.md Exp-D
+    TrainConfig(
+        name="pi05_flatten_fold_v3_excl_0519_0527",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v3_excl_0519_0527",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===== dagger 有效性 + 训练方式对比 (plan: future_plans/plans/dagger_validity_and_finetune_comparison.md) =====
+    # Exp-A (D1): smooth800全量 + dagger全量 (~1033 ep, 从头重训) — cnbj 16卡
+    TrainConfig(
+        name="pi05_flatten_fold_A_smooth800_dagger_full",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_smooth800_dagger_full",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Exp-C (dagger_validity_and_finetune_comparison.md §8) — v3 早期干净 base(≤5-10,985ep)+ dagger v3
+    # 全量(513ep)自然混(1498ep,单 norm,task_index=0,单 prompt 横向折). clone of dagger_full, cnsh 路径.
+    # 验"早期 v3 base + 全量 v3 dagger" vs smooth800 锚 / Exp-A. init mixed_1_clean, 50k.
+    TrainConfig(
+        name="pi05_flatten_fold_v3early_dagger",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v3early_dagger",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # ===== Task_AV1 (Vertical Fold v1 新 SOP) 首次基线 (plan: future_plans/plans/pi05_task_av1_vertical_fold_v1_baseline.md) =====
+    # clone of pi05_flatten_fold_A_smooth800_dagger_full, cnsh 路径. 数据=Task_AV1_200 (200ep date-ordered),
+    # warm-start mixed_1_clean, prompt=B 规范 (train==deploy 一字不差), val=Task_AV1_200_val (45ep 留出). cnsh 8 A100, 50k.
+    TrainConfig(
+        name="pi05_task_av1_vfold_v1_200",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_AV1_200",
+            default_prompt="Flatten and fold the cloth. Vertical Fold v1.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_AV1_200_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Horizontal Fold v1 基线 (pi05_fold_sop_paradigm_baselines.md §2.B) — 与 pi05_task_av1_vfold_v1_200
+    # 同配方 (单变量=折法 SOP)。数据 Task_AH1_170 (单日 200ep 切前 170; v3 前裁), val Task_AH1_val (末 30)。
+    # prompt 规范化 "Horizontally"→"Horizontal" 与 Vertical Fold v1 平行 (train==deploy 一字不差)。
+    TrainConfig(
+        name="pi05_task_ah1_hfold_v1_200",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_AH1_170",
+            default_prompt="Flatten and fold the cloth. Horizontal Fold v1.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_AH1_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # 夹爪 action 裁剪实验 (gripper_action_clip_experiment.md §4) — clone of
+    # pi05_flatten_fold_A_smooth800_dagger_full, 仅数据集换成 clip 版 (action[:,[6,13]] ≤5mm→0,
+    # state/arm 不动) + cnsh 路径 + 各自 norm_stats。单变量 = 夹爪 action 裁剪。cnsh 8卡 (Robot-GPU 开发机队列)。
+    TrainConfig(
+        name="pi05_smooth800_dagger_clip_all",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_smooth800_dagger_clip_all",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # AWBC (RECAP traditional route): warm-start from smooth800 BC, fine-tune on A_smooth800_dagger_all
+    # with per-frame advantage prompt ("...Advantage: positive/negative", ra>=0 split, 75.3% positive).
+    # Same pi05 arch (advantage carried in the text prompt, NOT a domain token). Infer: always "positive".
+    # norm_stats recomputed on the AWBC dataset (incl dagger action distribution). cnsh 8卡.
+    TrainConfig(
+        name="pi05_flatten_fold_awbc",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_smooth800_dagger_all_awbc",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),  # per-frame task_index → tasks.jsonl advantage prompt
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/task_a_new_smooth_800_step49999/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # AWBC v4 验证 (pi05_v4_awbc_validation_plan §3): 全 v4 base+dagger, KAI0 AE adv_est_v1 打标+discretize top-30%.
+    # 唯一变化 vs pi05_flatten_fold_awbc: repo_id=A_v4_base_dagger (v4 action≠state gripper-from-master, 1824ep,
+    # 损坏视频尾部170已排除), init=pi05_base (plan §3 用户定, 非smooth800/mixed), v4 norm 已重算. 验 v4 夹爪约定真机更稳.
+    TrainConfig(
+        name="pi05_v4_awbc",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_base_dagger",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Mode B 排查 §8 任务② (treatment): 无 DCT × A_v4_base_dagger 全量 + 额外 fresh dagger 06-29~07-03.
+    # 克隆 pi05_v4_awbc, 只换 repo_id → A_v4_base_dagger_plus_freshdagger(2512ep: 2006 base_dagger 复用现成
+    # 标签 + 506 新dagger, 保住已证不冻配方只做加法). 无 DCT. init pi05_base. 判据: 无回折冻结 + 夹爪修复.
+    TrainConfig(
+        name="pi05_v4_awbc_plus_freshdagger",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_base_dagger_plus_freshdagger",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Mode B 排查 §8 任务① (control) 的 gf3 变体: = pi05_v4_awbc 但路径改 North-E(gf3 本地 8卡跑).
+    # repo_id/init 指 /vePFS-North-E; 无 DCT; A_v4_base_dagger(North-E 2006ep, labeled). inline_eval 关(AWBC 无 val MAE + 免路径问题).
+    TrainConfig(
+        name="pi05_v4_awbc_gf3",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_base_dagger",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+    ),
+
+    # launchpoint-trim plan §3 主实验: base(不裁) + 裁后 dagger(双向起爆点前裁: 前砍迟疑起手+后砍静止收尾).
+    # 唯一变量 vs 任务② plus_freshdagger = dagger clip 起爆点前裁; 其余逐字段同. 无 DCT. init pi05_base.
+    # 北京 Robot-North-H20 8卡 → North-E 路径; A_v4_base_dagger_launchtrim(~2511ep, AE adv_est_v1 打标+top30 discretize).
+    # inline_eval 关(val 集不在 North-E, 且 AWBC 无 val MAE), 同 pi05_v4_awbc_gf3. 判据: 真机回折不冻 + 夹爪修复.
+    TrainConfig(
+        name="pi05_v4_awbc_launchtrim",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_base_dagger_launchtrim",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+    ),
+
+    # CRAVE value 打标 × chunk-001 dagger 验证(crave_value_dagger_validation_plan §6.5).
+    # 新 chunk-001 dagger(拼接完整 ep, 不裁, CRAVE GRU stage_progress_gt→discretize top30%→task_index).
+    # vs launchtrim(已证不冻): 新格式 dagger 天然干净→不裁也天然不冻? 唯一变量=dagger 格式+标签来源.
+    # ⚠️ 此 config 用 cnsh 路径; 数据 build 在 gf3 完成后需 cp 到 cnsh vePFS 或直接在 cnsh 可访问位置 build.
+    TrainConfig(
+        name="pi05_v4_awbc_chunk001_dagger_crave",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_dagger_crave_labeled",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=256,
+        fsdp_devices=16,
+    ),
+
+    # marker 打标版: 以 pi05_v4_awbc_chunk001_dagger_crave(_labeled, 部署OK) 为基础, 唯一变量=repo_id→标签规则.
+    # 死循环根因: _dprog 的速度门控把抓取(臂静止+夹爪合拢)误标 negative(见 velocity_gate_kills_grasp 记忆).
+    # 本版不用臂速门控/不裁: 改动1 保留 intervention/dagger_frame_class 标记; 改动2 打标规则 positive⟺人在控制
+    # (base 全 positive=人遥操示范; dagger intervention=1 positive=人控纠错含抓取; intervention=0 negative=机器人自主失败).
+    # 人控帧不看臂速一律 positive → 抓取天然保住, 治死循环。其余(init pi05_base/bs256/fsdp16/50k)逐字段同 _labeled.
+    TrainConfig(
+        name="pi05_v4_awbc_chunk001_dagger_crave_human",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_dagger_crave_human",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=256,
+        fsdp_devices=16,
+    ),
+
+    # ⭐ 修复版: chunk-001 dagger 标签重现冻结的修复(dagger_launchpoint_trim_freeze_fix_plan §9).
+    # 原 `_chunk001_dagger_crave` 的 advantage≡progress(corr1.0)→top30%=高进度静止 settle 标 positive→冻结.
+    # 修: advantage=Δprogress(spg[t+50]-spg[t]) + 速度门控(臂动才可 positive)→static-positive=0% + launchtrim 裁 dagger 边界.
+    # 数据 build_chunk001_dagger_crave_dprog_launchtrim.py 产出; 逐字段同上, 唯一变量=repo_id(标签/裁剪).
+    TrainConfig(
+        name="pi05_v4_awbc_chunk001_dagger_crave_dprog",
+        model=pi0_config.Pi0Config(pi05=True),   # 无 DCT
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_dagger_crave_dprog_launchtrim",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=256,
+        fsdp_devices=16,
+    ),
+
+    # ===== AWBC 三范式对比 (awbc_three_paradigm_comparison_plan) — North-E 路径, JAX 8卡 =====
+    # 共享: chunk-001(387base+387dagger), pi05_base init, 无DCT, bs128, fsdp8, 50k, cosine1.5e-5→1.5e-6, ema0.9999.
+    # 唯一变量 = 优势/class 信号以何种机制进训练。数据由 enrich_chunk001_three_paradigm.py 产 (North-E 原生构建后)。
+    # A1 COND: 条件化 — task_index=intervention(pos={base,intv}人控 / neg={robot,preintv}机器人), prompt_from_task。
+    TrainConfig(
+        name="pi05_v4_awbc_3para_cond",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_3para_human",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999, num_train_steps=50_000, keep_period=10_000, save_interval=10_000,
+        num_workers=16, batch_size=128, fsdp_devices=8,
+    ),
+
+    # A2 WEIGHT: ②损失加权 — per-frame loss × sample_weight{base1,robot1,intv2,preintv0}; 中性 prompt。
+    #   唯一变量 vs A1 = 优势进"梯度"而非"prompt"; class2(preintv) 梯度=0, class1(抓取) 双权。
+    TrainConfig(
+        name="pi05_v4_awbc_3para_weight",
+        model=pi0_config.Pi0Config(pi05=True, awbc_loss_weight=True),   # ⭐ 开 loss 加权 (读 sample_weight 列)
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_3para_cls",
+            default_prompt="Flatten and fold the cloth.",   # 中性 (无 advantage)
+            base_config=DataConfig(prompt_from_task=False),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999, num_train_steps=50_000, keep_period=10_000, save_interval=10_000,
+        num_workers=16, batch_size=128, fsdp_devices=8,
+    ),
+
+    # A3 RESAMPLE: ③采样加权 — 帧级加权采样 domain_sample_weights{robot0:1,intv1:2,preintv2:0,base3:1};
+    #   task_index=重映射class 走现成 _DomainWeightedJAXSampler(零新代码); class2 采样率0=等效丢弃; 中性 prompt。
+    #   唯一变量 vs A2 = 优势进"采样频率"而非"梯度"(H2: 期望与 A2 等价)。
+    TrainConfig(
+        name="pi05_v4_awbc_3para_resample",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_chunk001_3para_cls",
+            default_prompt="Flatten and fold the cloth.",
+            base_config=DataConfig(prompt_from_task=False, domain_sample_weights={0: 1, 1: 2, 2: 0, 3: 1}),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999, num_train_steps=50_000, keep_period=10_000, save_interval=10_000,
+        num_workers=16, batch_size=128, fsdp_devices=8,
+    ),
+
+    # Task_A1 细长夹爪 AWBC warm-start 适配 (pi05_task_a1_awbc_gripper_adapt_plan §3.2).
+    #   任务不变(叠衣), 唯一硬件变化 = 更细长夹爪。不从 pi05_base 重训, 而在已训好的叠衣 AWBC 模型
+    #   pi05_v4_awbc/49999 上, 用 Task_A1 base(全部, 全 positive)+dagger(仅 07-24, class0 长静止已裁)
+    #   warm-start 微调 40k 验新夹爪。打标 positive⟺人控(base 全正 + dagger intervention)。
+    #   norm 在 Task_A1 重算(细长夹爪值域变, 不复用 init norm)。北京 16 卡 (bs256/fsdp16)。
+    #   lr 1e-5(略降, 防冲掉已学折叠); warmup 500; 无 DCT。inline_eval 看 warm-start×新norm 早期重对齐。
+    TrainConfig(
+        name="pi05_a1_awbc",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A1/self_built/A1_base_dagger_awbc",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/checkpoints/pi05_v4_awbc/pi05_v4_awbc/49999/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1e-5, decay_steps=40_000, decay_lr=1e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=40_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=256,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A1/self_built/A1_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Task_N 美甲(nail painting)纯 base SFT 基线 (pi05_task_n_nail_sft_plan §3.2).
+    #   全新任务(≠叠衣, 同 Agilex 本体), 只用 base 专家示范做标准 SFT, init=pi05_base(冷启动, 非 warm-start)。
+    #   ⚠️ 40k/bs128/fsdp8 = 对齐已验证快配方(~2.4s/it, ~27h); 别用脚手架 pi05_nail_painting_normal 的
+    #   bs256/fsdp8(32样本/卡→2×慢+H20易OOM)+100k步 = 慢约5×(~5.5天)。复用现成 400/97 划分
+    #   (nail_painting_normal_train/val, norm 已算)。default_prompt 已设(≠A1 的 None → inline_eval 可跑)。北京 8 H20。
+    TrainConfig(
+        name="pi05_task_n_nail_sft",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_painting_normal_train",
+            default_prompt="nail painting",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=40_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=40_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_painting_normal_val",
+        inline_eval_n_frames=100,
+        inline_eval_every=5,
+    ),
+
+    # Task_N nail painting v5 cleaned 272-episode baseline.
+    # Multi-station source is rebuilt into a globally indexed 240/32 train/val split,
+    # restricted to the common three RGB cameras and joint+gripper dims 0:14.
+    # Pure base SFT from official pi05_base; no Task_A/A1 warm-start, AWBC, DCT, or EEF loss.
+    TrainConfig(
+        name="pi05_task_n_v5_272_sft",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_v5_272_joint14_train",
+            default_prompt="nail painting",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1e-5, decay_steps=40_000, decay_lr=1e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=40_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        # Three PyAV camera seeks per sample need enough CPU decode concurrency to
+        # keep an 8-H20 bs128 step fed; 8 workers caused repeatable 32-44s stalls.
+        num_workers=24,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_v5_272_joint14_val",
+        # This value is per val episode: 3 * 32 = 96 fixed query frames per eval.
+        inline_eval_n_frames=3,
+        inline_eval_every=1,
+    ),
+
+    # Task_N nail painting v5 cleaned 343-episode retrain on Shanghai robot-task.
+    # This is the matched 272 baseline recipe with only the frozen data snapshot
+    # and Shanghai paths changed: 311 train / 32 val, joint-14, three RGB cameras.
+    TrainConfig(
+        name="pi05_task_n_v5_343_sft",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_v5_343_joint14_train",
+            default_prompt="nail painting",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1e-5, decay_steps=40_000, decay_lr=1e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=40_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=24,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_v5_343_joint14_val",
+        inline_eval_n_frames=3,
+        inline_eval_every=1,
+    ),
+
+    # VLANeXt #12 频域 DCT loss (vlanext_dct_then_soft_connection_plan.md Step 1): 与 pi05_v4_awbc 逐字段一致,
+    # 唯一变量 = model 开 use_dct_loss=True (weight/freq 用论文默认 0.1/1.0/0.2). 压动作 chunk 高频抖动 → 更平滑.
+    # DCT loss 已端到端实现 (pi0.py + train.py), 默认关 → 此 config 是唯一启用处, 不影响任何旧 config (向后兼容).
+    TrainConfig(
+        name="pi05_v4_awbc_dct",
+        model=pi0_config.Pi0Config(pi05=True, use_dct_loss=True),  # ⭐ 唯一变量: DCT 频域 loss (默认 weight 0.1/low1.0/high0.2)
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_base_dagger",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # freshdagger 续训微调 (pi05_v4_awbc_dct_freshdagger_finetune_plan §3): 在已收敛的 DCT-loss v4 AWBC
+    # ckpt(49999)上, 用最新5天 dagger(506ep,100%新语义 gripper-from-master)+ 配平最新 base(467ep)续训 30k,
+    # 修真机夹爪"微微张开". 唯一非理想=base 里旧语义 (仅夹爪维 idx6/13 不一致, 其余12维一致, 用户判定可忽略).
+    # 保留 use_dct_loss=True (继承抗抖); init=finetune-from-ckpt(49999/params, 非base); 低 LR (warmup500/peak1e-5)
+    # 避免破坏已收敛权重; norm 已对新 merged 集重算. 推理喂 positive prompt (train==deploy).
+    TrainConfig(
+        name="pi05_v4_awbc_dct_freshft",
+        model=pi0_config.Pi0Config(pi05=True, use_dct_loss=True),  # 保留 DCT 平滑
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_freshdagger_ft",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_v4_awbc_dct/pi05_v4_awbc_dct/49999/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1e-5, decay_steps=30_000, decay_lr=1e-6,   # 低 LR 续训收敛 ckpt
+        ),
+        ema_decay=0.9999,
+        num_train_steps=30_000,
+        keep_period=2_000,       # save 每 2k / keep 全程 (finetune 短, 保留所有 ckpt 供 eval 选)
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Mode B(回折过渡 20-35s 冻结)根因排查 E1 — 去 DCT 重训 (pi05_v4_awbc_modeB_freeze_diagnosis_plan §1 E1).
+    # 唯一变量 = 关 use_dct_loss (DCT 头号嫌疑: 两冻结 ckpt 唯一共有且直接压逃逸动作). 数据/LR/步数/batch
+    # 与 pi05_v4_awbc_dct_freshft 逐字段相同. init = E1b 洁净隔离: 用非-DCT 的 pi05_v4_awbc/49999/params
+    # (全链路零 DCT, DCT 归因最干净) 而非 freshft 的 pi05_v4_awbc_dct/49999. 判据=真机回折过渡是否还冻>5s.
+    TrainConfig(
+        name="pi05_v4_awbc_freshft_nodct",
+        model=pi0_config.Pi0Config(pi05=True),   # 关 DCT (vs freshft 的 use_dct_loss=True) — 唯一变量
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_freshdagger_ft",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_v4_awbc/pi05_v4_awbc/49999/params"  # E1b: 非-DCT twin
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1e-5, decay_steps=30_000, decay_lr=1e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=30_000,
+        keep_period=2_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # AWBC v4 × from-PaliGemma-base (pi05_v4_awbc_from_paligemma_plan.md §3/§7): 同 pi05_v4_awbc 的全 v4
+    # labeled 数据 (A_v4_base_dagger, AE adv_est_v1 打标 + discretize top-30%), 但 init 从 PaliGemma VLM base
+    # 冷启动 (action expert 随机) + 冷启动 LR (warmup3k/peak3e-5/decay100k/end3e-6) + 100k step.
+    # vs 姊妹 pi05_v4_awbc (warm-start pi05_base/50k) = "from-base vs warm-start" 在 v4 AWBC 上受控对照.
+    # 集群 = cnbj Robot-North-H20 8卡闲时 → 路径走 /vePFS-North-E (pt_224.npz + v4 labeled 数据已就位). 单 domain.
+    TrainConfig(
+        name="pi05_v4_awbc_from_paligemma",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_base_dagger",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.PaliGemmaLocalWeightLoader(
+            npz_path="/vePFS-North-E/vis_robot/openpi_cache/paligemma_weights/pt_224.npz"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=3_000, peak_lr=3e-5, decay_steps=100_000, decay_lr=3e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=100_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # from-PaliGemma warm14k 续训 (2026-07-03): 原 pi05_v4_awbc_from_paligemma 跑到 step 14000 后,
+    # cnbj vePFS 满盘清理时 train_state 被删 → 无法 orbax --resume (缺优化器状态). params(含已训 action
+    # expert)完好, 故用 CheckpointWeightLoader 全量 warm-start 14000/params 继续朝 100k 跑. 权重血统仍纯
+    # 由 PaliGemma init 派生(不注入任何外部机器人预训练)→ "冷启动"实验语义不污染; 唯一非理想 = 优化器/LR
+    # 在 14k 处一次重启(fresh warmup3k+cosine). 除 weight_loader 外与 from_paligemma 逐字段一致.
+    TrainConfig(
+        name="pi05_v4_awbc_from_paligemma_warm14k",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v4_base_dagger",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/checkpoints/pi05_v4_awbc_from_paligemma/v4_awbc_from_paligemma_cnbj/14000/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=3_000, peak_lr=3e-5, decay_steps=100_000, decay_lr=3e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=100_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # AWBC milestone-value A臂 (awbc_milestone_value_AB_plan.md §3): V2.4 零训练 value 直接当 advantage 源.
+    # clone of pi05_flatten_fold_awbc (C臂), 唯一变量 = 数据 (ds_A=dagger_all_mvA, V2.4-mv discretized
+    # quantile-matched 25.2%neg). 同 warm-start / config / eval → 单变量隔离 "value 来源".
+    TrainConfig(
+        name="pi05_awbc_mv_A",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/dagger_all_mvA",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/task_a_new_smooth_800_step49999/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # AWBC milestone-value A臂 · 三档 (pos/normal/neg) — CRAVE 天然形态. 论据: 二值对 CRAVE 坏
+    # (38.8% advantage 恰为 0, 无法 quantile-match 25% neg); 三档 = neg5.1%/normal48.9%/pos46.1%,
+    # 对齐 CRAVE 的 exact-zero=normal 结构. 数据集 dagger_all_mvA_3lvl 由 dagger_all_mvA 非破坏性派生
+    # (task_index 重写为 ti3=where(adv<-0.02,0(neg), where(adv>0.02,2(pos),1(normal)))). 其余逐字段同 mv_A.
+    TrainConfig(
+        name="pi05_awbc_mv_A_3lvl",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/dagger_all_mvA_3lvl",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/task_a_new_smooth_800_step49999/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # AWBC ablation (awbc_implementation_plan.md §当前执行计划 / smooth800-only): 控制变量 = 去掉 dagger,
+    # 只用 smooth800 的 advantage-labeled 帧 (806 ep, 22%neg/78%pos)。测 demo-only 数据的 advantage 信号
+    # (η²≈3% 天花板) 是否足以让 AWBC 学到东西 —— 直接对照 pi05_flatten_fold_awbc (smooth800+全dagger).
+    # 与上面 config 逐字段一致, 仅 repo_id 不同 (A_smooth800_awbc, advantage label 从 dagger_all 版按帧抽取,
+    # estimator 是 per-episode 独立 → 标签等同). default_prompt=None → inline-eval 同样会 skip, 训完离线评 MAE.
+    TrainConfig(
+        name="pi05_flatten_fold_awbc_smooth800only",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_smooth800_awbc",
+            default_prompt=None,
+            base_config=DataConfig(prompt_from_task=True),
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/task_a_new_smooth_800_step49999/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # v3.2 idle-trimming Step-2 (idle_data_trimming §3): front-trim (v3) + middle selective idle-downsample.
+    # Single-variable vs the v3 baseline. init mixed_1_clean, 50k, norm 各自重算. cnbj 8卡.
+    # Exp-1: ≤5-10 early "work" window v3.2 (985 ep).
+    TrainConfig(
+        name="pi05_flatten_fold_v32_le0510",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v32_le0510",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999, num_train_steps=50_000, keep_period=10_000, save_interval=2_000,
+        num_workers=16, batch_size=128, fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200, inline_eval_every=4,
+    ),
+    # Exp-2: full v3 (excl 5-16) v3.2 (1940 ep).
+    TrainConfig(
+        name="pi05_flatten_fold_v32_all",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_v32_all",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS-North-E/vis_robot/shared_ckpt/Task_A/mixed_1_clean/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999, num_train_steps=50_000, keep_period=10_000, save_interval=2_000,
+        num_workers=16, batch_size=128, fsdp_devices=8,
+        inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200, inline_eval_every=4,
+    ),
+
+    # Exp-B (D2): smooth800抽样 + dagger 1:1 (~454 ep), best ckpt step40000 微调 20k — cnsh 8卡
+    TrainConfig(
+        name="pi05_flatten_fold_A_smooth800_dagger_1to1_ft",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_smooth800_dagger_1to1",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/shared_ckpt/Task_A/smooth800_step40000/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=20_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=20_000,
+        keep_period=5_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # Dataset = 4-23~5-27 EXCEPT 5-16/18/19/20/21 (校准漂移期, v7 发现).
+    # 13 dates / ~1059 ep (排 Class C 107 + End-snap 5 截尾).
+    # 用 build_A_0423_0527.py 生成数据, 同 hparams 双 init 对照:
+    #   - `A_0423_0527_pi05_JAX`    (override weight_loader 用 pi05_base)
+    #   - `A_0423_0527_mixed1_JAX`  (override weight_loader 用 mixed_1_clean)
+    # 8× GPU FSDP, batch 128, 50k step, lr 1.5e-5 → 1.5e-6.
+    # 验证 v7 校准漂移假说: 排除漂移段后真机应 work (smooth-class).
+    # ===================================================================================
+    TrainConfig(
+        name="pi05_flatten_fold_A_0423_0527",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_0423_0527",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        # Default init: pi05_base (Run-A: A_0423_0527_pi05_JAX).
+        # For Run-B (mixed_1 init), override --weight-loader.params-path on CLI.
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # pi05 vis-only training on vis_v2_full (16 v2 dates 04-23 → 05-22, 1409 ep / 1.93M frames).
+    # User request 2026-05-23: train pure vis baseline (no kai mix) from pi05_base.
+    # 8 GPU, batch 128, 50k step, lr 1.5e-5 → 1.5e-6. Volc Beijing/Shanghai.
+    TrainConfig(
+        name="pi05_flatten_fold_vis_v2_full",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_full",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # pi05 vis-only training on vis_v2_merged 895 ep, 8 GPU, batch 128, 50k step.
+    # User request 2026-05-23: train pure vis baseline (no kai mix) from pi05_base.
+    TrainConfig(
+        name="pi05_flatten_fold_vis_v2_merged_only",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/vis_v2_merged",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # 同上但 use_delta_joint_actions=True (Action Cond × delta 变体, 2026-05-22 PM 决策).
+    # 与 xvla_actcond_single_stage_joint (absolute) 对比 delta 表示是否帮 Action Cond 路线。
+    TrainConfig(
+        name="xvla_actcond_single_stage_joint_delta",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_head_cond_num_domains=2,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_base",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/stage3_kai_vis_joint_balanced.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=True,  # ← 关键变化: delta joints (gripper 仍 absolute via mask)
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # ⚠️ 以下 3-stage configs (xvla_actcond_stage1/2/3) 保留作技术参考, 2026-05-22
+    # 用户决策走 single-stage joint, 不再使用 3-stage curriculum 路线。
+
+    # C-Stage 1 — kai warmup with action_head_cond_hub (50k step on kai0_base+dagger).
+    # Init: pi05_base. action_head_cond_hub[0] (kai) gets trained, slot[1] (vis) random.
+    TrainConfig(
+        name="xvla_actcond_stage1_kai_warmup",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_head_cond_num_domains=2,
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_base",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/stage1_kai_only.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # C-Stage 2 — Freeze backbone, only train action_head_cond_hub on vis (~5k step, lr 5e-4).
+    # Init: C-Stage 1 final ckpt. Goal: align vis action-cond token slot before unfreezing.
+    TrainConfig(
+        name="xvla_actcond_stage2_vis_only",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_head_cond_num_domains=2,
+            freeze_mode="only_action_head_cond",
+        ),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/stage2_3_vis_only.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            # ← update to final C-stage 1 ckpt path once it finishes
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/xvla_actcond_stage1_kai_warmup/xvla_actcond_stage1_kai_warmup/49999/params"
+        ),
+        freeze_filter=nnx.Not(nnx_utils.PathRegex(".*action_head_cond_hub.*")),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=200, peak_lr=5e-4, decay_steps=5_000, decay_lr=5e-5),
+        ema_decay=None,  # EMA meaningless with ~1K trainable params
+        num_train_steps=5_000,
+        keep_period=1_000,
+        save_interval=1_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=1,
+        inline_eval_dataset_id=1,
+    ),
+
+    # C-Stage 3 — Full unfreeze, joint finetune kai+vis (50k step).
+    # Init: C-Stage 2 final ckpt. C3.0 终态 = paper E3.8 baseline.
+    TrainConfig(
+        name="xvla_actcond_stage3_joint_finetune",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_head_cond_num_domains=2,
+        ),
+        data=LerobotAgilexDataConfig(
+            # Use the same merged kai+vis dataset as exp1 Hard Prompt baseline for direct comparability.
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/xvla_exp1_hard_merged",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/xvla/data/stage3_kai_vis_joint.yaml",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            # ← update to final C-stage 2 ckpt path once it finishes
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/xvla_actcond_stage2_vis_only/xvla_actcond_stage2_vis_only/5000/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+        inline_eval_dataset_id=1,
+    ),
+
+    # Task A: 100 ep originals (no mirror) + init from Task_A/mixed_1.
+    # Submitted as volc 8-GPU job, batch 128, 50k step, cosine LR 1.5e-5 → 1.5e-6.
+    TrainConfig(
+        name="pi05_flatten_fold_a_new_100_base_mixed1",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_100",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/Task_A/mixed_1/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_pure_200_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+
+    # Task A: 5/16-v2 (2 ep) + 5/19-v2 (46 ep) = 48 ep merged. Init from pi05_base.
+    # Dataset prepared by build_task_a_new_100_5_16_5_19.py + gen_episodes_stats.py,
+    # norm_stats recomputed via compute_norm_states_fast.py. uc-NFS shared path so
+    # uc02/03 read same. Use exp-name="task_a_new_100_new_norm_base_pi0.5" on CLI.
+    TrainConfig(
+        name="pi05_flatten_fold_a_new_100_5_16_5_18_base_pi0.5",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/data/shared/ubuntu/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_100_5_16_5_18",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/data/shared/ubuntu/workspace/base_init_ckpts/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=64,            # uc convention
+        batch_size=120,            # uc single-host 8 GPU = 15/card
+        fsdp_devices=8,
+        inline_eval_val_root="/data/shared/ubuntu/workspace/deepdive_kai0/kai0/data/Task_A/self_built/A_new_100_5_16_5_18_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+
+    # ─────────────────────────────────────────────────────────────────────
+    # X-VLA hard-prompt domain conditioning ablation (2026-05-18)
+    # Two paired experiments; same init/optim/steps, only prompt prefix + data domain differ.
+    # ─────────────────────────────────────────────────────────────────────
+
+    # 实验1: kai0 official (kai0_base + kai0_dagger), prompt prefix "kai ", 16-GPU uc01+02 cluster.
+    TrainConfig(
+        name="pi05_flatten_fold_kai0_official_kai_prompt",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/kai0_base",
+            datasets_yaml="/vePFS/tim/workspace/deepdive_kai0/train_scripts/kai/data/kai0_official_repos.yaml",
+            default_prompt="kai Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/val_kai0_official",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+    # 实验2: vis_v2_merged (10 v2 subdirs merged to 895 ep contiguous), prompt prefix "vis ", 16-GPU volc 2-host.
+    TrainConfig(
+        name="pi05_flatten_fold_vis_base_v2_all_vis_prompt",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged",
+            default_prompt="vis Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root="/vePFS/tim/workspace/deepdive_kai0/kai0/data/Task_A/self_built/vis_v2_merged_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=4,
+    ),
+
+
+    # Task E: stand up the fallen box — 73 ep, small dataset, sim01 local 5090s.
+    # Clean init from pi05_base (not Task A ckpt) — gf0 packaged and transferred via TOS to sim01.
+    # Freeze PaliGemma backbone (img + LLM main tower), train only Action Expert (llm.*_1) and top-level
+    # projections (action_in_proj, action_out_proj, time_mlp_*). Shrinks train_state from ~65 GB to ~22 GB.
+    # Single GPU batch=4 on sim01 (multi-GPU NCCL has orphan-worker pinned-memory issue; investigate in v2).
+    # See docs/training/task_e_master_plan.md.
+    TrainConfig(
+        name="pi05_stand_box_normal",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_KAI0_DATA_ROOT}/data/Task_E/base",
+            default_prompt="stand up the fallen box",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi05_base/params"  # resolves via OPENPI_DATA_HOME cache
+        ),
+        freeze_filter=nnx.All(
+            nnx_utils.PathRegex(".*PaliGemma.*"),        # freeze PaliGemma (img + llm main tower)
+            nnx.Not(nnx_utils.PathRegex(".*llm.*_1.*")), # but keep Action Expert LLM layers trainable
+        ),
+        ema_decay=None,           # EMA meaningless with frozen backbone; saves ~6.5 GB/card
+        num_train_steps=25_000,   # fewer params to learn → converges faster than full FT
+        keep_period=5_000,
+        save_interval=2_000,
+        num_workers=4,
+        batch_size=8,             # 2 GPU FSDP (GPU0+GPU3, memory-having NUMAs); per-device bs=8
+        fsdp_devices=2,
+    ),
+    # Task_A A_new_pure_1200 — gf1 #25, mixed_1 init, only -new dirs
+    TrainConfig(
+        name="pi05_flatten_fold_a_new_pure_1200",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_KAI0_DATA_ROOT}/data/Task_A/self_built/A_new_pure_1200/base",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            f"{_KAI0_DATA_ROOT}/checkpoints/Task_A/mixed_1/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=2_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root=f"{_KAI0_DATA_ROOT}/data/Task_A/self_built/A_new_pure_1200/val",
+        inline_eval_n_frames=200,
+        inline_eval_every=2,
+    ),
+    # Task_A A_new_pure_600 — uc02 50k 训练, mixed_1 init
+    # Data on local SSD /home/tim/local_ckpts/data (avoid lsyncd /data/shared bottleneck)
+    TrainConfig(
+        name="pi05_flatten_fold_a_new_pure_600",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_KAI0_LOCAL_ROOT}/data/Task_A/self_built/A_new_pure_600",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            f"{_KAI0_DATA_ROOT}/checkpoints/Task_A/mixed_1/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=2_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root=f"{_KAI0_LOCAL_ROOT}/data/Task_A/self_built/A_new_pure_600_val",
+        inline_eval_n_frames=200,
+        inline_eval_every=2,
+    ),
+    # Task_A mix_b6000_p1200 — 实验1: init from Task_A/mixed_1
+    # 14,985 train ep (5021 official + 8x 1258 self_built dup, ~1:2 batch ratio)
+    # val_official: 100 ep (held out from kai0_base+dagger)
+    # val_self_built: 30 ep (held out from -new + mirror, paired)
+    # 50k step, peak_lr=1.5e-5 cosine to 1.5e-6, warmup=1k, ema=0.9999.
+    # inline_eval_val_root: val_self_built (more sensitive to fine-tune).
+    TrainConfig(
+        name="pi05_flatten_fold_mix_b6000_p1200_init_mixed_1",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_KAI0_LOCAL_ROOT}/Task_A/self_built/mix_b6000_p1200/base",
+            default_prompt="Flatten and fold the cloth.",
+            use_delta_joint_actions=False,
+            assets=AssetsConfig(asset_id="mix_b6000_p1200"),  # ckpt-side norm_stats (sim01 inference)
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            f"{_KAI0_DATA_ROOT}/checkpoints/Task_A/mixed_1/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=1_000, peak_lr=1.5e-5, decay_steps=50_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.9999,
+        num_train_steps=50_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root=f"{_KAI0_LOCAL_ROOT}/Task_A/self_built/mix_b6000_p1200/val_self_built",
+        inline_eval_n_frames=200,
+        inline_eval_every=2,
+    ),
+    # Task P Stage 3: 20k steps long run, cosine decay full horizon, peak_lr 1.5e-5
+    # between Stage 1 (1.25e-5) and Stage 2 (2.5e-5). Observe loss trajectory + overfit onset.
+    # save_interval=2000 → 10 eval points; ETA ~22h.
+    TrainConfig(
+        name="pi05_pick_place_box_kai0_unfreeze_20k",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_KAI0_DATA_ROOT}/data/Task_P/base",
+            default_prompt="pick and place in box",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            f"{_KAI0_DATA_ROOT}/checkpoints/Task_A/mixed_1/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1.5e-5, decay_steps=20_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.999,
+        num_train_steps=20_000,
+        keep_period=2_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root=f"{_KAI0_DATA_ROOT}/data/Task_P/val",
+        inline_eval_n_frames=200,
+        inline_eval_every=1,
+    ),
+    # Task_P vis_base 2026-05-09 — uc03 (gf4) 20k 训练, mixed_1 init
+    # Data on local SSD /home/tim/local_ckpts/data
+    TrainConfig(
+        name="pi05_task_p_vis_base_20260509_unfreeze_20k",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_KAI0_LOCAL_ROOT}/data/Task_P/vis_base_2026_05_09/train",
+            default_prompt="Pick and place on blue",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            f"{_KAI0_DATA_ROOT}/checkpoints/Task_A/mixed_1/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1.5e-5, decay_steps=20_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.999,
+        num_train_steps=20_000,
+        keep_period=2_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root=f"{_KAI0_LOCAL_ROOT}/data/Task_P/vis_base_2026_05_09/val",
+        inline_eval_n_frames=200,
+        inline_eval_every=1,
+    ),
+    # Task_PS pick blue stack on red — uc03 (gf4) 2026-05-08 training, 211 ep total
+    # (180 train + 31 val random split with seed=42, frames=145k). Same hparams as unfreeze_20k_v2.
+    # mixed_1 init, action=state semantics. Sim01 inference uses sidecar JSON to override asset_id.
+    TrainConfig(
+        name="pi05_task_ps_mixed_1_unfreeze_20k",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_KAI0_DATA_ROOT}/data/Task_PS_all/train",
+            default_prompt="Pick blue block, stack on red",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            f"{_KAI0_DATA_ROOT}/checkpoints/Task_A/mixed_1/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1.5e-5, decay_steps=20_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.999,
+        num_train_steps=20_000,
+        keep_period=2_000,
+        save_interval=2_000,
+        num_workers=16,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root=f"{_KAI0_DATA_ROOT}/data/Task_PS_all/val",
+        inline_eval_n_frames=200,
+        inline_eval_every=1,
+    ),
+    # Task P unfreeze_20k v2: same hparams as unfreeze_20k, dataset = base_v2 (KAI0/Task_P/base/2026-04-21-v2,
+    # 100 ep / 30,175 frames). Control variable vs original = dataset version (v2 has 100 ep vs original 84 ep).
+    TrainConfig(
+        name="pi05_pick_place_box_kai0_unfreeze_20k_v2",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_KAI0_DATA_ROOT}/data/Task_P/v2",
+            default_prompt="pick and place in box",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            f"{_KAI0_DATA_ROOT}/checkpoints/Task_A/mixed_1/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1.5e-5, decay_steps=20_000, decay_lr=1.5e-6
+        ),
+        ema_decay=0.999,
+        num_train_steps=20_000,
+        keep_period=2_000,
+        save_interval=2_000,
+        num_workers=8,
+        batch_size=128,
+        fsdp_devices=8,
+        inline_eval_val_root=f"{_KAI0_DATA_ROOT}/data/Task_P/val",
+        inline_eval_n_frames=200,
+        inline_eval_every=1,
+    ),
+
+    #************************advantage estimator***************************
+
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Inference-only entries for gf3-trained delta ckpts (2026-05-23, sim01).
+    # Paths reference gf3 vePFS; not loaded at inference (sidecar overrides
+    # asset_id, datasets_yaml as needed). Kept here so the bundle's
+    # base_config_name resolves.
+    # ─────────────────────────────────────────────────────────────────────
+
+    # RoboArena & PolaRiS configs.
+    *roboarena_config.get_roboarena_configs(),
+    *polaris_config.get_polaris_configs(),
+]
+
+# Milestone-transition training configs are assembled dynamically by the
+# confirmatory launcher. Register matched inference configs here so every
+# numeric checkpoint can be served without reconstructing the training data
+# transform or changing the accepted A0 action/normalization protocol.
+_robotwin_transition_base = next(
+    config for config in _CONFIGS if config.name == "pi05_robotwin_a0_public_exact_bj"
+)
+_CONFIGS.append(
+    dataclasses.replace(
+        _robotwin_transition_base,
+        name="pi05_predictive_adapter_p1_eval",
+        model=dataclasses.replace(
+            _robotwin_transition_base.model,
+            predictive_adapter_mode="joint",
+            predictive_adapter_intervention="normal",
+        ),
+    )
+)
+_CONFIGS.append(
+    dataclasses.replace(
+        _robotwin_transition_base,
+        name="pi05_r1_crave_eval",
+        model=dataclasses.replace(
+            _robotwin_transition_base.model,
+            recurrence_adapter_mode="joint",
+            recurrence_adapter_intervention="normal",
+        ),
+    )
+)
+_CONFIGS.append(
+    dataclasses.replace(
+        _robotwin_transition_base,
+        name="pi05_r1_combined_eval",
+        model=dataclasses.replace(
+            _robotwin_transition_base.model,
+            predictive_adapter_mode="joint",
+            predictive_adapter_intervention="normal",
+            recurrence_adapter_mode="joint",
+            recurrence_adapter_intervention="normal",
+        ),
+    )
+)
+for _name, _condition in (
+    ("pi05_robotwin_mt1_oracle_exact", "oracle"),
+    ("pi05_robotwin_mt2_null_exact", "null"),
+):
+    _CONFIGS.append(
+        dataclasses.replace(
+            _robotwin_transition_base,
+            name=_name,
+            model=dataclasses.replace(
+                _robotwin_transition_base.model,
+                lmwm_transition_condition=_condition,
+            ),
+        )
+    )
+
+for _tracker in ("current_frame", "history_proprio"):
+    _CONFIGS.append(
+        dataclasses.replace(
+            _robotwin_transition_base,
+            name=f"pi05_robotwin_mt3_learned_{_tracker}_exact",
+            model=dataclasses.replace(
+                _robotwin_transition_base.model,
+                lmwm_transition_condition="learned",
+                lmwm_transition_tracker=_tracker,
+            ),
+        )
+    )
+
+_CONFIGS.append(
+    dataclasses.replace(
+        _robotwin_transition_base,
+        name="pi05_robotwin_mt5_local_exact",
+        model=dataclasses.replace(
+            _robotwin_transition_base.model,
+            lmwm_local_dynamics=True,
+        ),
+    )
+)
+for _tracker in ("current_frame", "history_proprio"):
+    _CONFIGS.append(
+        dataclasses.replace(
+            _robotwin_transition_base,
+            name=f"pi05_robotwin_mt5_combined_{_tracker}_exact",
+            model=dataclasses.replace(
+                _robotwin_transition_base.model,
+                lmwm_local_dynamics=True,
+                lmwm_transition_condition="learned",
+                lmwm_transition_tracker=_tracker,
+            ),
+        )
+    )
+
+if len({config.name for config in _CONFIGS}) != len(_CONFIGS):
+    raise ValueError("Config names must be unique.")
+_CONFIGS_DICT = {config.name: config for config in _CONFIGS}
+
+
+def _load_extra_config_from_env() -> None:
+    """Apply per-ckpt config override if OPENPI_EXTRA_CONFIG is set.
+
+    Sidecar contract — JSON file at <ckpt>/train_config.json:
+      {
+        "base_config_name": "<TrainConfig.name from main config.py>",
+        "override_asset_id": "<asset_id used in <ckpt>/assets/<asset_id>/norm_stats.json>",
+        "override_use_delta_joint_actions": false,
+        "override_use_quantile_norm": false
+      }
+
+    Behavior: clones _CONFIGS_DICT[base_config_name] and applies the requested
+    inference data-transform overrides. This lets a packed checkpoint preserve
+    its training-time action and normalization protocol without per-run edits.
+    """
+    extra = os.environ.get("OPENPI_EXTRA_CONFIG")
+    if not extra:
+        return
+    p = pathlib.Path(extra)
+    if not p.is_file():
+        raise FileNotFoundError(f"OPENPI_EXTRA_CONFIG points to missing file: {extra}")
+    import json as _json
+    spec = _json.loads(p.read_text())
+    base_name = spec["base_config_name"]
+    if base_name not in _CONFIGS_DICT:
+        raise ValueError(
+            f"{extra}: base_config_name {base_name!r} not in _CONFIGS_DICT (size={len(_CONFIGS_DICT)})."
+            " Sync src/openpi/training/config.py first."
+        )
+    base = _CONFIGS_DICT[base_name]
+    data_kw: dict = {}
+    new_asset_id = spec.get("override_asset_id")
+    if new_asset_id is not None:
+        data_kw["assets"] = AssetsConfig(asset_id=new_asset_id)
+    new_delta_actions = spec.get("override_use_delta_joint_actions")
+    if new_delta_actions is not None:
+        if not isinstance(new_delta_actions, bool):
+            raise TypeError("override_use_delta_joint_actions must be a boolean")
+        data_kw["use_delta_joint_actions"] = new_delta_actions
+    new_quantile_norm = spec.get("override_use_quantile_norm")
+    if new_quantile_norm is not None:
+        if not isinstance(new_quantile_norm, bool):
+            raise TypeError("override_use_quantile_norm must be a boolean")
+        data_kw["use_quantile_norm_override"] = new_quantile_norm
+    new_yaml = spec.get("override_datasets_yaml")
+    if new_yaml is not None:
+        new_yaml_path = pathlib.Path(new_yaml)
+        if not new_yaml_path.is_absolute():
+            new_yaml_path = p.parent / new_yaml_path
+        data_kw["datasets_yaml"] = str(new_yaml_path)
+    if data_kw:
+        new_data = dataclasses.replace(base.data, **data_kw)
+        new_cfg = dataclasses.replace(base, data=new_data)
+        _CONFIGS_DICT[base_name] = new_cfg
+
+
+_load_extra_config_from_env()
+
+
+def cli() -> TrainConfig:
+    return tyro.extras.overridable_config_cli({k: (k, v) for k, v in _CONFIGS_DICT.items()})
+
+
+def get_config(config_name: str) -> TrainConfig:
+    """Get a config by name."""
+    if config_name not in _CONFIGS_DICT:
+        closest = difflib.get_close_matches(config_name, _CONFIGS_DICT.keys(), n=1, cutoff=0.0)
+        closest_str = f" Did you mean '{closest[0]}'? " if closest else ""
+        raise ValueError(f"Config '{config_name}' not found.{closest_str}")
+
+    return _CONFIGS_DICT[config_name]

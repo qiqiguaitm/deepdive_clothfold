@@ -1,0 +1,51 @@
+{
+  "arm": "mt1_oracle",
+  "attempt": {
+    "backend": "ssh",
+    "gpu_indices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "gpus": 4,
+    "job_id": null,
+    "pid": "3946546",
+    "resource": "gf1",
+    "started_at": "2026-08-03T05:37:41Z"
+  },
+  "capture_source": "resource_aware_scheduler dispatch",
+  "captured_at": "2026-08-03T05:37:42Z",
+  "config_name": "pi05_robotwin_mt1_oracle_exact",
+  "experiment_name": "pi05_robotwin_mt1_oracle_seed1001",
+  "protocol": {
+    "action_representation": "absolute joint actions",
+    "batch_size": 16,
+    "checkpoint_interval": 5000,
+    "dataset_episodes": 27500,
+    "image_augmentation": "none",
+    "initialization": "raw pi05_base",
+    "normalization": "mean/std",
+    "num_workers": 8,
+    "transition_input": "oracle",
+    "updates": 50000
+  },
+  "sha256": {
+    "base_checkpoint_metadata": "250d0ad0f6540a5e4bdd70442d6864cef729724f2d23e2dd2cc669563a668d70",
+    "dataset_manifest_raw": "53c48ffc359b36536e73a42a660a250fd9db95ce577f720d0155231ed85cafa3",
+    "dataset_manifest_semantic": "5d6f61377ca6f1a469d949f7b687c9ab0a99aadf5e88117978cc6758c5d100cf",
+    "execution_sources": {
+      "kai0/scripts/train_pi05_robotwin_confirmatory.py": "d9f9ec59de8eaf7ae76b451e083cc201761f25fdcdc6ab55f0f0e3064406e063",
+      "kai0/src/openpi/models/pi0.py": "0df8349a7fdb165b5c04e721f341628b67b8d55e41f8f5a1f7aab8acf29224ee",
+      "kai0/src/openpi/policies/aloha_policy.py": "74240595c0da9647b28194a73a7d5f1e39aafc0eb4f15db5709fde29e372c6b2",
+      "kai0/src/openpi/training/config.py": "89c09b0c4ce2a3aa5ac403fa4068768730c1202bbf816d6ef4eebc8ac6ccdc1b",
+      "kai0/src/openpi/training/data_loader.py": "affb51a3b073fb51505f427518b1c27d58f403beb537033919451e1d58e00025",
+      "train_scripts/kai/run_pi05_mt_transition_train.sh": "a3fd2ebde5fc402f5af619e8fd6c8b3b1a33c284c29a00256d9f600ea1762a98"
+    },
+    "launch_command": "f4ecafd7aaac68b3f439fd536d1d3b20a71efcf71e43120a24ced678ced5ecfb",
+    "normalization": "8e4894bc762100c23cd435caff20653ccb39a9614ce210971dcf4018ef0a9f09",
+    "transition_pairs": "592f1e739105951e927ab5f3afdd022a68aad31d779382ea760a4b1f4842a2a0"
+  },
+  "task_id": "pi05_mt1_oracle_seed1001_train",
+  "training_seed": 1001
+}

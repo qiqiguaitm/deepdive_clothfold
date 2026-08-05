@@ -1,0 +1,27 @@
+{
+  "accepted_for_replication": true,
+  "checks": {
+    "at_least_two_multistage_tasks_beat_a0": true,
+    "correct_beats_a0": true,
+    "correct_beats_null_input": true,
+    "correct_beats_null_trained": true,
+    "correct_beats_within_task": true
+  },
+  "improved_multistage_tasks": [
+    "handover_block",
+    "stack_blocks_three",
+    "stack_blocks_two"
+  ],
+  "pooled_success_rate_delta": {
+    "a0": 0.022499999999999964,
+    "null_input": 0.004166666666666652,
+    "null_trained": 0.008333333333333304,
+    "within_task": 0.021666666666666612
+  },
+  "predeclared_multistage_delta_vs_a0": {
+    "handover_block": 0.08499999999999996,
+    "stack_blocks_three": 0.06000000000000005,
+    "stack_blocks_two": 0.04500000000000004
+  },
+  "scope": "pilot launch gate only; final claim requires the frozen three-seed hierarchical interval"
+}

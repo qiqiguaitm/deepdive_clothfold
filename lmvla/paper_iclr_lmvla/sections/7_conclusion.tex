@@ -1,43 +1,55 @@
 \section{Discussion and Conclusion}\label{sec:conclusion}
-The current results distinguish a useful visual interface from useful future
-content.  Adding a nonzero visual token improved the fixed A2 checkpoint over a
-zero token by 3.50 percentage points on the three-task panel.  Replacing the
-predicted future with the current feature changed success by only 0.33 points
-in the opposite direction.  The intervention therefore supports use of the
-visual token, but not a claim that the predicted milestone improves control
-across tasks or task categories.  Hammering showed the expected ordering, whereas ranking-RGB
-and Stack-2 did not.  This heterogeneity is a result to explain, not variation
-to hide in a macro average.
+The current results expose a gap between future-state predictability and
+control utility.  MINT-VLA predicts held-out milestone representations better
+than persistence, yet correct future content does not outperform five control
+conditions at fixed $\pi_{0.5}$ checkpoints on 518 common scenes.  Nine
+supporting six-task LaWAM comparisons are also null, and their only
+multiplicity-corrected task-level difference is adverse.  Better retrieval
+content leaves control unchanged.  These interventions therefore reject the
+claim that the tested one-token policies improve because they use the correct
+predicted future.
 
-MINT-VLA addresses two concrete representation problems.  Re-encoding stored
-frames prevents target features from becoming outdated as the policy encoder
-changes, while a small policy-specific adapter avoids deploying a second visual
-stack.  The evaluated $\pi_{0.5}$ adapter uses one prefix token.
-The design does not by itself solve auxiliary-objective interference: the
-target branch is stopped, but the milestone loss can still update the encoder
-through the current feature.  Nor does residual parameterization guarantee a
-useful policy input.  The legacy comparison changed target computation, capacity,
-loss, and parameterization together, so only the factorized controls can assign
-credit to an individual mechanism.
+Changing the representation alone does not repair this gap.  Explicit correct
+next-subtask prompts reach 77.08\% on a fixed public $\pi_{0.5}$ checkpoint,
+below no subtask at 80.83\% and indistinguishable from within-task shuffled
+semantics; a 12.5-point Stack-3 gain is accompanied by a 25.0-point Handover
+regression.  One-token compression is also not a sufficient explanation.  A
+topology-preserving privileged $4\!\times\!4$ milestone fails to beat both
+no-goal and current-image controls on Stack-3 and significantly increases
+Hammer endpoint error.  Because this probe supplies the true future target, it
+removes predictor error from the comparison.  Its failure points to a deeper
+action-sufficiency problem: a later visual state can identify a task stage
+without specifying the path, contact transition, arm assignment, or timing
+needed for the next action.  This interpretation is consistent with the
+Handover result, where a same-task foreign hint is less harmful than the
+correct future.
 
-The pilot has three further limitations.  Its no-hint policy used a weak
-joint-delta, quantile-normalized 20k-step recipe, and every arm used one training
-seed.  The milestone-pair artifact also omitted Stack-3; on that task the
-predictor was trained through the action loss without milestone auxiliary
-supervision.  Finally, the observation-only predictor cannot distinguish two
-instructions that require different futures from the same scene.  These
-limitations rule out claims of broad superiority, recurrence-based gains on
-Stack-3, or instruction-aware milestone selection.
+These findings have a deliberately bounded scope.  The spatial probe is a
+1,000-update offline action-flow experiment on two tasks, not a closed-loop
+test of every spatial or generative subgoal interface.  Methods that generate
+instruction-aligned subgoals, condition predictions on candidate actions, or
+refresh targets online pose different hypotheses.  Our results instead show
+that representation alignment, prediction accuracy, and low deployment cost
+are individually insufficient evidence for control benefit.
 
-The central hypothesis remains precise: a future condition is useful when its
-content adds decision-relevant information beyond the current visual feature,
-and when the interface preserves that information in the policy's changing
-representation space.  MINT-VLA supplies one implementation of this hypothesis;
-the corrected multi-seed matrix, content interventions, and one-factor
-ablations determine whether its predicted milestone satisfies it.  This framing
-turns future conditioning from an architectural label into a claim that can be
-tested against current-state, instance-shuffled, capacity-matched, and gradient-route
-controls.
-\exptodo{T0--T6,E1--E2}{Rewrite the discussion around the corrected multi-seed
-effect, completed content interventions, isolated mechanism, predefined task panel,
-and measured deployment cost.}
+Outcome-linked recurrence statistics sharpen this interpretation without
+changing it.  In a frozen 120-episode rollout panel, progress, regression, and
+stall statistics separate successful and failed trajectories, but the
+regression, stall, and low-density alarms have success false-positive rates of
+38.4\%, 89.9\%, and 99.0\%.  The representation therefore contains diagnostic
+information, but neither this correlation nor the semantic prompt screen
+establishes a usable value function or control interface.
+
+The corrected three-seed comparison supports the diagnostic branch.  Across
+10,800 frozen-scene rollouts, A0 reaches 79.39\%, A2-Abs 75.44\%, and A3
+70.81\%.  Relative to matched A0 seeds, the paired hierarchical differences
+are $-3.94$ points for A2-Abs (95\% CI [$-6.58$,$-0.97$]) and $-8.58$ points for
+A3 ([$-11.47$,$-5.75$]).  A3 regresses on all six tasks and A2-Abs improves
+only Stack-2 by 0.50 points.  The tested native-space milestone interfaces
+therefore do not improve control under the corrected $\pi_{0.5}$ recipe.  A
+separate privileged oracle-transition arm also fails its predeclared gate:
+its difference from A0 is $+0.53$ points (95\% CI [$-2.06$,$+3.00$]), seed
+1002 reverses direction, and three task means regress despite positive results
+on the three multistage tasks.  We close the tracker, selector,
+mature-initialization, task-expansion, and second-VLA gates rather than tune
+them against these replicated negative results.

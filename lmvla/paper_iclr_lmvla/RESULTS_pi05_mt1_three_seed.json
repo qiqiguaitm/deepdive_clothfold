@@ -1,0 +1,90 @@
+{
+  "complete": true,
+  "contrast": {
+    "available": true,
+    "bootstrap_samples": 10000,
+    "bootstrap_seed": 20260802,
+    "ci95": [
+      -0.020555555555555556,
+      0.03
+    ],
+    "common_training_seeds": [
+      1000,
+      1001,
+      1002
+    ],
+    "hierarchy": "resample training seeds, then paired episodes within each task",
+    "paired_episode_count": 3600,
+    "per_training_seed_macro_delta": {
+      "1000": 0.0225,
+      "1001": 0.01,
+      "1002": -0.016666666666666666
+    },
+    "point_estimate_macro_delta": 0.005277777777777778,
+    "unmatched_episode_key_count": 0
+  },
+  "gate": {
+    "accepted": false,
+    "checks": {
+      "at_least_two_multistage_tasks_improve": true,
+      "ci95_excludes_zero": false,
+      "point_estimate_positive": true,
+      "three_seed_contrast_available": true
+    },
+    "improved_multistage_tasks": [
+      "handover_block",
+      "stack_blocks_three",
+      "stack_blocks_two"
+    ]
+  },
+  "pilot_gate": "/vePFS/tim/workspace/deepdive_kai0/logs/resource_markers/pi05_mt1_seed1000_replication_gate.ok",
+  "predeclared_multistage_mean_delta": {
+    "handover_block": 0.01666666666666672,
+    "stack_blocks_three": 0.03166666666666673,
+    "stack_blocks_two": 0.021666666666666723
+  },
+  "protocol_audits": {
+    "baseline:seed1000": {
+      "accepted": true,
+      "checked_cells": 24,
+      "episodes_per_cell": 50,
+      "errors": [],
+      "expected_cells": 24
+    },
+    "baseline:seed1001": {
+      "accepted": true,
+      "checked_cells": 24,
+      "episodes_per_cell": 50,
+      "errors": [],
+      "expected_cells": 24
+    },
+    "baseline:seed1002": {
+      "accepted": true,
+      "checked_cells": 24,
+      "episodes_per_cell": 50,
+      "errors": [],
+      "expected_cells": 24
+    },
+    "candidate:seed1000": {
+      "accepted": true,
+      "checked_cells": 24,
+      "episodes_per_cell": 50,
+      "errors": [],
+      "expected_cells": 24
+    },
+    "candidate:seed1001": {
+      "accepted": true,
+      "checked_cells": 24,
+      "episodes_per_cell": 50,
+      "errors": [],
+      "expected_cells": 24
+    },
+    "candidate:seed1002": {
+      "accepted": true,
+      "checked_cells": 24,
+      "episodes_per_cell": 50,
+      "errors": [],
+      "expected_cells": 24
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "acceptance_gate": {
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20260804,
+    "max_task_regression_vs_a0": -0.05,
+    "required_ci_lower_positive_vs": [
+      "a0",
+      "predictive",
+      "crave",
+      "zero_route",
+      "shuffled_action"
+    ]
+  },
+  "causal_interventions": [
+    "combined_zero_gate",
+    "combined_shuffled"
+  ],
+  "checkpoint_reuse": {
+    "a0": "matched P1 current-source A0",
+    "predictive": "matched P1 normal predictive adapter"
+  },
+  "conditional_replication": {
+    "analysis": "hierarchical paired bootstrap over training seed and episode",
+    "arms_per_seed": [
+      "a0",
+      "predictive",
+      "crave",
+      "combined"
+    ],
+    "required_gate": "seed1000 accepted",
+    "training_seeds": [
+      1001,
+      1002
+    ]
+  },
+  "immutable_artifact_sha256": {
+    "base_params_metadata": "250d0ad0f6540a5e4bdd70442d6864cef729724f2d23e2dd2cc669563a668d70",
+    "dense_targets": "d795596174d5280f61e09274cd57c3930ba604fa77b130ea714ee97efbc23119",
+    "dense_targets_manifest": "a4b4e8307c449f222ff28ef5917ad06b7606f53bb7d4761f75b3b9c06eadb2e0",
+    "norm_stats": "8e4894bc762100c23cd435caff20653ccb39a9614ce210971dcf4018ef0a9f09"
+  },
+  "protocol": "pi05_r1_recurrence_aligned_four_arm_v1",
+  "route": "zero-initialized per-action-token route into action expert only",
+  "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+  "scene_manifest_sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+  "schema_version": 1,
+  "seed1000_arms": [
+    "a0",
+    "predictive",
+    "crave",
+    "combined"
+  ],
+  "source_sha256": {
+    "kai0/scripts/train.py": "984bb046d2ea4e2e1d88d551e4367a94679ff043292166a17d65f90e85bfa0b1",
+    "kai0/scripts/train_pi05_robotwin_confirmatory.py": "059503d2bb275f677acddbb212d7f92001ac268ba4977846e101b13052af2081",
+    "kai0/src/openpi/models/model.py": "b0fb24725306bfee613e72fd797ba40da8bfde729fb26cc9c4c4b443f50ece5e",
+    "kai0/src/openpi/models/pi0.py": "5fb265292ab9a1109003e567e684ce130ff0e9ece3e18e48dba057d7285bc22f",
+    "kai0/src/openpi/models/pi0_config.py": "24d3a8474266eb24b1b224a894a0f53aa9917956e37a28289098666b89047c53",
+    "kai0/src/openpi/policies/aloha_policy.py": "88be8760b9f356e2ca5db2aa18644d6803a236335346123159cee527d3af8299",
+    "kai0/src/openpi/policies/libero_policy.py": "dfb909a546450c4a421b52a335c3d04c8af3ad239035024aebc44a031f6aa9c2",
+    "kai0/src/openpi/training/config.py": "eac7a10bdfd1ecc2a5d6679e78f1f45965bc833cc471594abba8374790e133f1",
+    "kai0/src/openpi/training/weight_loaders.py": "a38a5d9cd73d91c54ff376233fdcc51d61fad3bc9005b88ff3b312cd7627c79f",
+    "lmvla/lmwm/scripts/analyze_pi05_r1_seed1000.py": "bde460513ed468205a38fa08c622cd4a76d9783cd723c804c58182a9fe2da9eb",
+    "lmvla/lmwm/scripts/analyze_pi05_r1_three_seed.py": "6857893f3e1feb8db00393f0e26ecc6a7f15f77ad19a424f5d21fa9779038bda",
+    "lmvla/lmwm/scripts/build_pi05_r1_dense_targets.py": "a18ce33c2f15dc0a7bc10b340c7dadd8cc6cd069591f719f6be737d8c1164bec",
+    "lmvla/lmwm/scripts/build_pi05_r1_protocol.py": "db454ee635c2e24856a8609ca6b1a52c68bb670ebff3646767b1b5aed677c558",
+    "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
+    "lmvla/lmwm/scripts/verify_pi05_r1_protocol.py": "e8a86860ca210f261bbee76596a6e273d2ac813157b348c886e4e25d97c89464",
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "020010464973474175bce94bca9ff0cc111905f180e80c4308ee0c8933a29986",
+    "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p1_formal.sh": "01d3f91f6e13c79f3fef3183af3aeeea871218193d915c07980cfb15a1ee7dfc",
+    "train_scripts/kai/eval/run_pi05_r1_formal.sh": "eda2f3b7568a16c1e482c95b84c4da80b49d4b9272b486a9d85674441bf0ccdd",
+    "train_scripts/kai/run_pi05_predictive_adapter_p1_train.sh": "f52fa26d554c890746818d849059ceaa11de7262299f16970a630a6e111e2534",
+    "train_scripts/kai/run_pi05_r1_train.sh": "75a30aeb26dc0a8a02e26515451d6a7f15f09cbcd69f65c701eaa6430cad40ac",
+    "train_scripts/kai/volc/pi05_r1_eval_cnsh_4a100.yaml": "62aeb978f9aeb08ceb9b8ff25f54d787db932d7e540f61c20f6745ce822728c4",
+    "train_scripts/kai/volc/pi05_r1_eval_east_4h20.yaml": "1dc4761a84c1f7020bce6072d075baa9200b023a0e254131dc913f9813a2180a",
+    "train_scripts/kai/volc/pi05_r1_train_cnsh_4a100.yaml": "d69276e0862bce01927f134b7c9d3b0b2143a16268b5053b780ea095ee8fd8fb",
+    "train_scripts/kai/volc/pi05_r1_train_east_4h20.yaml": "2a45919743f463183f57b9c75d950f98526e4da9681dd2b9e238c0b91746ff50"
+  },
+  "teacher": {
+    "artifact": "lmvla/lmwm/data/pi05_crave_r0_v1/r1_dense_targets.npz",
+    "artifact_manifest": "lmvla/lmwm/data/pi05_crave_r0_v1/r1_dense_targets_manifest.json",
+    "source": "CRAVE-v2 R0 dense reference-trajectory targets",
+    "targets": [
+      "fixed-horizon progress-change distribution",
+      "future recurrence-density distribution",
+      "phase-boundary crossing"
+    ],
+    "visual_gradient": "stop before native pi0.5 visual tokens"
+  }
+}

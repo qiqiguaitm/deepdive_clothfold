@@ -1,0 +1,45 @@
+{
+  "accepted_reference": "clean pi0.5 A0 three-seed matrix",
+  "action_condition": {
+    "action_horizon_steps": 50,
+    "summary": [
+      "mean",
+      "last-minus-first",
+      "standard-deviation"
+    ]
+  },
+  "arms": [
+    "A0",
+    "fixed_horizon_local",
+    "selected_milestone_transition",
+    "fixed_horizon_plus_selected_milestone_transition"
+  ],
+  "combined_rule": "exact union of the frozen local and selected MT3 routes",
+  "data": "/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21",
+  "fixed_target": {
+    "fps": 50,
+    "horizon_frames": 50,
+    "horizon_seconds": 1.0,
+    "tail_policy": "retain policy sample with auxiliary mask false"
+  },
+  "gradient_routing": {
+    "action_expert_receives_local_route": true,
+    "current_visual_feature": "stop-gradient current pi0.5 encoder feature",
+    "target_visual_feature": "stop-gradient current pi0.5 encoder feature"
+  },
+  "local_predictor": {
+    "hidden_dim": 512,
+    "prediction": "residual future pooled base-camera feature",
+    "route": "gated projection added only to action-expert tokens"
+  },
+  "replication": {
+    "evaluation_cells_per_arm_seed": 24,
+    "training_seeds": [
+      1000,
+      1001,
+      1002
+    ]
+  },
+  "selection_rule": "claim complementarity only if combined exceeds both single-factor arms under paired hierarchical inference",
+  "version": 1
+}

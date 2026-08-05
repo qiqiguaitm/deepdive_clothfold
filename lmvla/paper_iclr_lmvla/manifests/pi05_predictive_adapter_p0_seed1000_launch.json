@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_action_adapter_p0_v1",
+  "launched_at": "2026-08-04T02:22:08Z",
+  "resource": "gf1",
+  "host": "di-20260625234105-jcdrs",
+  "pid": 3469052,
+  "gpus": 8,
+  "cuda_visible_devices": "0,1,2,3,4,5,6,7",
+  "recommendation": "logs/submission_recommendations/pi05_predictive_adapter_p0_seed1000_20k_w8clean_8g_20260804T022151Z.json",
+  "config_name": "pi05_predictive_adapter_p0",
+  "exp_name": "pi05_predictive_adapter_p0_seed1000_20k_w8clean_8g",
+  "seed": 1000,
+  "global_batch_size": 16,
+  "num_workers": 8,
+  "fsdp_devices": 1,
+  "num_train_steps": 20000,
+  "save_interval": 5000,
+  "checkpoint_root": "kai0/checkpoints/pi05_predictive_adapter_p0/pi05_predictive_adapter_p0_seed1000_20k_w8clean_8g",
+  "log": "logs/predictive/pi05_predictive_adapter_p0_seed1000_20k_w8clean_8g.log",
+  "base_params": "kai0/checkpoints/pi05_base/params",
+  "base_metadata_sha256": "250d0ad0f6540a5e4bdd70442d6864cef729724f2d23e2dd2cc669563a668d70",
+  "data_artifact": "lmvla/lmwm/data/pi05_predictive_adapter_p0_v1/audit.json",
+  "heldout_eval": "lmvla/lmwm/data/pi05_predictive_adapter_p0_v1/heldout_eval.npz",
+  "implementation_audit": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p0_implementation_audit.json",
+  "execution_sources_at_launch": {
+    "config.py": "ff48f8db8f532df9bd94d545475c1d5b8b9f25e0e76441e77cefc13afde2932f",
+    "pi0.py": "d8b23fb2ba1c8f1a5dcf53fc22d6b8ba2ec0d643043129d6c68814bf085a43ac"
+  },
+  "runtime_thread_limits": {
+    "OMP_NUM_THREADS": 1,
+    "OPENBLAS_NUM_THREADS": 1,
+    "MKL_NUM_THREADS": 1,
+    "NUMEXPR_NUM_THREADS": 1,
+    "VECLIB_MAXIMUM_THREADS": 1
+  },
+  "superseded_attempts": [
+    {
+      "pid": 4010692,
+      "exp_name": "pi05_predictive_adapter_p0_seed1000_20k_8g",
+      "reason": "workers=8 throughput probe stopped before a checkpoint"
+    },
+    {
+      "pid": 2815599,
+      "exp_name": "pi05_predictive_adapter_p0_seed1000_20k_w16_8g",
+      "reason": "orphan workers and approximately 2000 loader threads invalidated startup timing; stopped before a checkpoint"
+    },
+    {
+      "pid": 3366099,
+      "exp_name": "pi05_predictive_adapter_p0_seed1000_20k_w16t1_8g",
+      "reason": "spawned JAX workers still created hundreds of native threads each; stopped before a checkpoint"
+    }
+  ]
+}

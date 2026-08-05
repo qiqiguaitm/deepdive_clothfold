@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r1_frozen_overlay_amendment_v1",
+  "parent_protocol": "lmvla/paper_iclr_lmvla/manifests/pi05_r1_protocol_v1.json",
+  "parent_protocol_sha256": "f9a651df824faaa14caedda7b3517fcda18e0b29fb27c611d6af6e801c29e67d",
+  "purpose": "Run closed-loop evaluation from the exact frozen R1 source identity without overwriting unrelated concurrent changes in the shared checkout.",
+  "overlay": "logs/frozen_source_overlays/pi05_r1_v1",
+  "frozen_config_sha256": "eac7a10bdfd1ecc2a5d6679e78f1f45965bc833cc471594abba8374790e133f1",
+  "frozen_eval_launcher_sha256": "eda2f3b7568a16c1e482c95b84c4da80b49d4b9272b486a9d85674441bf0ccdd",
+  "runtime_eval_launcher_sha256": "d72129bd3b5a62bf389d5c6ccced7093ef304db7215d7be3f9eb053236b786df",
+  "runtime_amendment": [
+    "accept R1_VERIFY_REPO with the canonical repository as the default",
+    "require the overlay READY marker when an alternate verifier root is used",
+    "run the unchanged v1 verifier against the selected verifier root",
+    "write per-run protocol audits to a caller-writable directory without changing evaluation behavior"
+  ],
+  "runtime_source": {
+    "pythonpath_prefix": "logs/frozen_source_overlays/pi05_r1_v1/kai0/src",
+    "required_markers": [
+      "logs/frozen_source_overlays/pi05_r1_v1/READY",
+      "logs/frozen_source_overlays/pi05_r1_v1/CPU_PREFLIGHT"
+    ]
+  },
+  "cpu_preflight": "logs/frozen_overlay_cpu_preflight.json",
+  "cpu_preflight_sha256": "564de4e3d185c7978bf2a796e11634490480fcaa582214a3ac7c960df3587f18",
+  "authorization_scope": [
+    "pi05_r1_crave_seed1000_eval",
+    "pi05_r1_combined_seed1000_eval",
+    "pi05_r1_combined_zero_gate_seed1000_eval",
+    "pi05_r1_combined_shuffled_seed1000_eval"
+  ],
+  "training_authorized": false,
+  "passed": true
+}

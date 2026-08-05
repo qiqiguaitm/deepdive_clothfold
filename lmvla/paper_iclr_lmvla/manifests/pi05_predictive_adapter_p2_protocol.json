@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_action_adapter_p2_hierarchical_gate_v1",
+  "created_at": "2026-08-04T02:54:00Z",
+  "prerequisite": "logs/predictive/p1_eval/p1_gate.accepted",
+  "training": {
+    "candidate_seeds": [1001, 1002],
+    "seed1000_source": "P1 accepted candidate",
+    "config": "pi05_predictive_adapter_p1",
+    "updates": 50000,
+    "global_batch_size": 16,
+    "save_interval": 5000,
+    "fsdp_devices": 1,
+    "initialization": "official pi0.5 plus the accepted P0 adapter overlay",
+    "source_freeze_audit": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p1_baseline_audit.json"
+  },
+  "evaluation": {
+    "condition": "normal",
+    "tasks": 6,
+    "eval_seeds": [0, 1, 2, 3],
+    "episodes_per_cell": 50,
+    "cells_per_training_seed": 24,
+    "episodes_per_training_seed": 1200,
+    "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "requires_exact_scene_pairing": true
+  },
+  "analysis": {
+    "candidate_training_seeds": [1000, 1001, 1002],
+    "baseline": "current-source A0 seed 1000 from P1",
+    "bootstrap_levels": ["candidate_training_seed", "paired_episode_within_task"],
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20260804,
+    "acceptance": "lower endpoint of the paired hierarchical 95% interval is greater than zero",
+    "report_all_seed_and_task_effects": true
+  },
+  "efficiency": {
+    "prerequisite": "logs/predictive/p2_eval/p2_gate.accepted",
+    "inference": {
+      "hardware": "same allocated 80-GiB GPU",
+      "warmups": 5,
+      "trials": 30,
+      "metrics": ["parameters", "XLA FLOPs", "direct latency", "WebSocket latency", "WebSocket throughput"]
+    },
+    "training_memory": {
+      "hardware": "same allocated four-GPU worker",
+      "global_batch_size": 16,
+      "fsdp_devices": 1,
+      "updates": 10,
+      "sample_interval_seconds": 0.2
+    }
+  },
+  "file_sha256": {
+    "kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py": "8537f5f39f9dbb30647e65ce33cb51edfdba1d505aa01cd4b7743835302e7678",
+    "kai0/scripts/verify_pi05_predictive_adapter_source_freeze.py": "42801ddedf7c2448757bcf90b1d2d703cd181baaf95f5ca2c45072c350467095",
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/scripts/analyze_pi05_predictive_adapter_p2.py": "c3ec4364ce2f78835392bff33bc71e7c884f58611e68f26947f99ce43544e21d",
+    "train_scripts/kai/analysis/benchmark_pi05_policy_latency.py": "019bfc4bc0b4022493cbedc05dd0a10694faad46efe54d1435c0a634d2f022c6",
+    "train_scripts/kai/analysis/finalize_pi05_predictive_adapter_efficiency.sh": "cbb5ffb51c2e7e4c4d968cde10ec06284a272a67d29e1bff8c48e190b35ac365",
+    "train_scripts/kai/analysis/finalize_pi05_predictive_adapter_p2.sh": "7815cc1653fe2806d0900aff0928be961c93069287236d8d2195bd965528f06a",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_efficiency_1gpu.sh": "fbd2b5c5edaf812ba702fd6fea32657e32aff9a3c8062c525eba364e99d71646",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p2_formal.sh": "33d4e4c87606f5394340be908d05faa92ab22f101204e6c43166b40b6e2db63c",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_train_memory_4gpu.sh": "d41923e3163cbac8cd254c04b7074002df8fa1b4294002f8cdde1950d17c9b89",
+    "train_scripts/kai/run_pi05_predictive_adapter_p1_train.sh": "f52fa26d554c890746818d849059ceaa11de7262299f16970a630a6e111e2534",
+    "train_scripts/kai/run_pi05_predictive_adapter_p2_train.sh": "8a1a72f9a53bbe81d2fd2452337321d68daa07c9c5a78df42b9198fb09a681da"
+  }
+}

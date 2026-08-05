@@ -1,0 +1,72 @@
+{
+  "base_identity": {
+    "current_metadata_sha256": "250d0ad0f6540a5e4bdd70442d6864cef729724f2d23e2dd2cc669563a668d70",
+    "exact_match_proven": false,
+    "historical_metadata_sha256": null,
+    "historical_official_base_verified": true
+  },
+  "decision": "retrain_current_source_a0",
+  "historical_a0": {
+    "accepted": true,
+    "checkpoint": "kai0/checkpoints/pi05_robotwin_a0_public_exact_bj/pi05_robotwin_a0_public_exact_seed1000/49999",
+    "gate_sha256": "d3398dd60edcf8d1dd99eff70409bd34075845b2cb10b40b0f6be55a2078f607",
+    "launch_manifest_sha256": "07d8ea8d29ce5b9124fe29a4954a5db13998368dde115494df3e468af03f2b73",
+    "macro_success_rate": 0.755
+  },
+  "historical_a0_reusable": false,
+  "matched_recipe": {
+    "candidate_only_differences": [
+      "/data/lmwm_target_frame_cache_root",
+      "/data/lmwm_target_pairs_path",
+      "/data/repack_outputs",
+      "/exp_name",
+      "/initialization/adapter_params",
+      "/initialization/loader",
+      "/model/predictive_adapter_mode",
+      "/name"
+    ],
+    "expected_candidate_only_differences": [
+      "/data/lmwm_target_frame_cache_root",
+      "/data/lmwm_target_pairs_path",
+      "/data/repack_outputs",
+      "/exp_name",
+      "/initialization/adapter_params",
+      "/initialization/loader",
+      "/model/predictive_adapter_mode",
+      "/name"
+    ],
+    "missing_expected_differences": [],
+    "passed": true,
+    "unexpected_differences": []
+  },
+  "normalization_identity": {
+    "current_sha256": "8e4894bc762100c23cd435caff20653ccb39a9614ce210971dcf4018ef0a9f09",
+    "exact_match": true,
+    "historical_sha256": "8e4894bc762100c23cd435caff20653ccb39a9614ce210971dcf4018ef0a9f09"
+  },
+  "protocol": "pi05_predictive_action_adapter_p1_baseline_audit_v1",
+  "reasons": [
+    "current execution sources are not byte-identical to accepted A0",
+    "historical launch lacks the base metadata hash required for exact identity"
+  ],
+  "schema_version": 1,
+  "source_identity": {
+    "current": {
+      "config.py": "eac7a10bdfd1ecc2a5d6679e78f1f45965bc833cc471594abba8374790e133f1",
+      "pi0.py": "5fb265292ab9a1109003e567e684ce130ff0e9ece3e18e48dba057d7285bc22f",
+      "train_pi05_robotwin_confirmatory.py": "059503d2bb275f677acddbb212d7f92001ac268ba4977846e101b13052af2081",
+      "weight_loaders.py": "a38a5d9cd73d91c54ff376233fdcc51d61fad3bc9005b88ff3b312cd7627c79f"
+    },
+    "exact_match": false,
+    "historical": {
+      "config.py": "81a149b061e7e6b9cd914ff301d62fb79fe26812c34aaad2964147ecb32a60aa",
+      "pi0.py": "b44e5e5c562d406fa0c5c868446634ce9c84f5e0cc5f3c09497a6bff2bcedf74"
+    },
+    "matches": {
+      "config.py": false,
+      "pi0.py": false,
+      "train_pi05_robotwin_confirmatory.py": false,
+      "weight_loaders.py": false
+    }
+  }
+}

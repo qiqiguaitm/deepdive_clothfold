@@ -1,0 +1,32 @@
+{
+  "arm": "a0",
+  "capture_source": "resource_aware_scheduler evaluator dispatch",
+  "captured_at": "2026-08-02T10:31:46Z",
+  "checkpoint": {
+    "metadata_path": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_a0_public_exact_bj/pi05_robotwin_a0_public_exact_seed1001/49999/params/_METADATA",
+    "metadata_sha256": "86ce212e30e542d8511900e28943a1aa6a4c2626d2ec8ced1543b368605e5a62"
+  },
+  "job_id": "t-20260802183143-b7wqt",
+  "job_name": "pi05-a0-public-exact-s1001-eval-east4g",
+  "resource": {
+    "backend": "platform",
+    "gpu_indices": null,
+    "gpus": 4,
+    "name": "Robot-East-H20",
+    "queue_id": "q-20260516104437-2ml4v"
+  },
+  "runtime_env": {
+    "PI05_ASSET_ID": "robotwin2.0_absolute_meanstd",
+    "PI05_EVAL_CONFIG_NAME": "pi05_robotwin_a0_public_exact_bj",
+    "ROBOTWIN_EPISODE_SEED_MANIFEST": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "ROBOTWIN_EVAL_CKPT_ROOT": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_a0_public_exact_bj/pi05_robotwin_a0_public_exact_seed1001",
+    "ROBOTWIN_EVAL_RESULT_NAME": "pi05_rt_a0_public_exact_seed1001",
+    "ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS": "500"
+  },
+  "sha256": {
+    "evaluation_protocol": "dffbf847f942da2abf6d38d9e1af5f325774612ea65435aee38f46ae8430f74c",
+    "submitted_yaml": "7c8e2c896fc9ba6a44e73642b98e56fcd1de8283ed57e352b9aefdcbe95fb624",
+    "training_launch_manifest": "976aa39fa2497fe82bd53a01a045e773e599b05019fc56f6015a2e329e6e3913"
+  },
+  "training_seed": 1001
+}

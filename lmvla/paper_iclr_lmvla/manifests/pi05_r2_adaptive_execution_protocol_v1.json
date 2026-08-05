@@ -1,0 +1,97 @@
+{
+  "acceptance_gate": {
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20260804,
+    "compute": "adaptive aggregate policy-query count <= 1.05 times fixed4",
+    "primary": "paired episode-bootstrap 95% lower bound for adaptive - fixed4 success > 0",
+    "task_safety": "no per-task regression below -0.05"
+  },
+  "action_horizon": 8,
+  "checkpoint": "SidneyXie/pi05_robotwin public A0, unchanged in both arms",
+  "conditions": {
+    "adaptive": {
+      "execution_horizons": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "future_observation_used": false,
+      "online_dino": true
+    },
+    "fixed4": {
+      "execution_horizon": 4,
+      "online_dino": false
+    }
+  },
+  "episodes_per_cell": 10,
+  "eval_seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "protocol": "pi05_r2_adaptive_execution_same_scene_v1",
+  "public_artifact_sha256": {
+    "config.json": "e6ce5bd5aef6640db61f2dbe41178a1aa669821c403b0b1f3cc34fe48bbc83a6",
+    "model.safetensors": "9a5381c3260fc58fdb4b90d17b93f9090bcbfbcd8e0287f9bf2acea2477a2bc3",
+    "tokenizer.model": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+  },
+  "query_budget": "fixed-four allowance with at most one borrowed event query; stable eight-step chunks repay debt",
+  "readout_sources": {
+    "labels": "lmvla/lmwm/data/pi05_crave_r0_v1/labels.npz",
+    "labels_manifest": "lmvla/lmwm/data/pi05_crave_r0_v1/labels_manifest.json",
+    "probe_labels": "lmvla/lmwm/data/pi05_crave_r0_v1/probe_train.npz",
+    "reference_trajectories": "lmvla/lmwm/data/pi05_crave_r0_v1/reference_trajectories.npz",
+    "selection": "lmvla/lmwm/data/pi05_crave_r0_v1/selection_manifest.json"
+  },
+  "scene_cells": 24,
+  "scene_manifest": "lmvla/lmwm/data/pi05_r3_semantic_screen_scene_seeds_v1.json",
+  "scene_manifest_sha256": "c2e6cd934ea694465913e40e14ccc487094b8af162d8b3c5e8cb07784ee0eb2a",
+  "schema_version": 1,
+  "source_sha256": {
+    "lmvla/crave/src/crave/config/__init__.py": "9845f1b51836e6dc48e9e003868431dc91db5ed5779ef3dfd0c96368afd874af",
+    "lmvla/crave/src/crave/config/datasets.py": "fa0d718a79b9c583369fdfd047ab72c2324f337051902103f194a2a70cedc4b6",
+    "lmvla/crave/src/crave/config/encoders.py": "1b2bbbc31973191fea8c76f18984ed246f4a47959913ffa1d2e0d9ba5d9d3347",
+    "lmvla/crave/src/crave/config/paths.py": "8902312db717efc1fd925500c44c6408605af4e03005655ba768aefe2ffac011",
+    "lmvla/crave/src/crave/encoders/__init__.py": "feeb0651d29b88abc08f303d284fbc0527fb9dcbce8a9d2fffad00c211fe8cc3",
+    "lmvla/crave/src/crave/encoders/_dino_vit_standalone.py": "d8b5833219e412ef1580e7dd35aba18df5a3dff0f030e3cec38b31ad5e7861f2",
+    "lmvla/crave/src/crave/encoders/base.py": "2cb3f9fd5987759a7cd5d5f432d01000ee2fb31ecafcda47ae49ed4639bb9f00",
+    "lmvla/crave/src/crave/encoders/hf_dino.py": "c694f47a6a9f215a371e69487ad0fb6dd48939873a2fd46cba310a2767032974",
+    "lmvla/crave/src/crave/encoders/wan_vae.py": "d61f101b50972e79133539dbb1d06a7f6b6185c0e7372d8e15f6bb0af156198c",
+    "lmvla/lawam/examples/Robotwin/eval_files/batched_eval_runner.py": "1bd7cc518588aff27e3c0afd3368be99cf162b09f61f62b3ec028a5faffe3940",
+    "lmvla/lawam/examples/Robotwin/eval_files/model2robotwin_openpi.py": "2ae5c4483c8f2db21f02bb9ff3b1b98378123a899bcd2cdad980c13dfafb7f4d",
+    "lmvla/lawam/examples/Robotwin/eval_files/model2robotwin_openpi_r2.py": "48b60fa47de40aa97c98a87b189c1119e13bdcfdd46e0248cac945b85d43baa5",
+    "lmvla/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py": "8ae453cce53c5e2516dd8e4d0f9204ce789c61ba26704a27869fd0165fc8a167",
+    "lmvla/lmwm/scripts/analyze_pi05_r2_adaptive_screen.py": "bf146d0b25eefdee3420be5e7e6be5dc2c663e7468d7cd6dfd7c1519d80b2bed",
+    "lmvla/lmwm/scripts/build_pi05_r2_causal_readout.py": "8229334646f81450cd58c4df3b9085bfce2f8a3d53af65480c2dbd0228aa330a",
+    "lmvla/lmwm/scripts/pi05_r2_adaptive_execution.py": "08d4b70af83d97e9b3ddd53b6fdfa3961be9680115ba45ca6838d5c80cfbc7e5",
+    "lmvla/lmwm/scripts/summarize_pi05_r2_eval.py": "fa8c6655553dcdeba40743801668a37b30cba2e126f2101d39b2449106a6c2ec",
+    "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
+    "lmvla/lmwm/scripts/verify_pi05_r2_protocol.py": "58bb0f67f175c5eb8387d679f7871e9a70d26cdad98651555329b4481589ca65",
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "020010464973474175bce94bca9ff0cc111905f180e80c4308ee0c8933a29986",
+    "train_scripts/kai/eval/pi05_r2_python_wrapper.sh": "81cdfe04b475adfb87fe2a181521dc3ed3e7bd1b82a68c486584585a2f7b05d2",
+    "train_scripts/kai/eval/run_pi05_r2_adaptive_screen.sh": "c5a7f579c238b996a23314c740b17506934c97a328e88522400da188345b8c3f",
+    "train_scripts/kai/eval/run_pi05_r2_batched_eval_runner.py": "be30dc22ca7ed4bb7f4a900d8a08ce922664384b9d1a4952b38fed5c4f112784",
+    "train_scripts/kai/eval/serve_lerobot_pi05.py": "e742d6d18cc3eee1235809f41fe4fc591851f701eac6bd64da238500d411a041",
+    "train_scripts/kai/run_pi05_r2_causal_readout.sh": "cdcd62b5450df1ed50db89a3730bf242758b95e73a4c1cd5af198111a3762f0c",
+    "train_scripts/kai/sync_pi05_r2_report_from_north.sh": "5889f78606e3476cfdc0874b63bcc2d5eb6a3374be933fcfe728d0ae8251b729",
+    "train_scripts/kai/sync_pi05_r2_to_north_verified.sh": "412205d6772ee4eecb4db6fc8ffb707424e9f6131660e9cd627ed9033b048702",
+    "train_scripts/kai/volc/pi05_r2_adaptive_cnsh_4a100.yaml": "b5d4c677856f370ba84b28a7b2e94da75601dc10c7aa7a5e8bd23604e927c01a",
+    "train_scripts/kai/volc/pi05_r2_adaptive_east_4h20.yaml": "3085ec39f9ba5ea4cd843bbfa6f0162af2ee45bf9a555d2edf089427e7e75be7",
+    "train_scripts/kai/volc/pi05_r2_adaptive_north_4h20.yaml": "37c3346f1939747437236bfe54cb3133cfce37dd6396623f98762d17ee6210e8",
+    "train_scripts/kai/volc/pi05_r2_fixed4_cnsh_4a100.yaml": "0f7564dd880d7bf8e584d26a752c1f61a19e03e24469c60733195988dcd972b5",
+    "train_scripts/kai/volc/pi05_r2_fixed4_east_4h20.yaml": "73e71152c03bfd2cc0cf1d13535eed88243f507f063c3c942432f763e857e0e4",
+    "train_scripts/kai/volc/pi05_r2_fixed4_north_4h20.yaml": "aacecf2ff0607c47ffba1a753c09c2d5d3bca4bbff626241b191eab22ac1119c",
+    "train_scripts/kai/volc/pi05_r2_readout_cnsh_1a100.yaml": "85416fda46308aacd96a433684d484a22ca8ba8c2dceedc92b1a1cef7f561ceb",
+    "train_scripts/kai/volc/pi05_r2_readout_east_1h20.yaml": "5fdffa97a6fce3b2df4d6438dc13ba071cab52536d26f84108c5a52a73afd7ed"
+  },
+  "tasks": [
+    "beat_block_hammer",
+    "blocks_ranking_rgb",
+    "blocks_ranking_size",
+    "handover_block",
+    "stack_blocks_three",
+    "stack_blocks_two"
+  ]
+}

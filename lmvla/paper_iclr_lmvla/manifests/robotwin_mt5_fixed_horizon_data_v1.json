@@ -1,0 +1,15 @@
+{
+  "dataset": "/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21",
+  "dataset_frames": 6075103,
+  "dataset_info_sha256": "86bf6916d4c452014c3c72335d4af62e211fb666950a2a9b9a5a5dc9d05899da",
+  "episodes": 27500,
+  "episodes_sha256": "9d05f20e76cee73acc7240a5f2ed97881bb4ea621daaf64f70a5c3767d47ef8d",
+  "fps": 50,
+  "horizon_frames": 50,
+  "horizon_seconds": 1.0,
+  "pairs": "lmvla/lmwm/data/robotwin_fixed_horizon_1s_v1/pairs.npz",
+  "pairs_sha256": "d62f9b7c2f4b2e38b64bc106ed07c1c1b70cc7210b728b379dd0ec759cd0295e",
+  "protocol": "robotwin_pi05_mt5_fixed_physical_horizon_v1",
+  "tail_policy": "retain policy sample; auxiliary target mask is false",
+  "valid_pairs": 4700103
+}

@@ -1,0 +1,286 @@
+{
+  "adapter_leaf_count": 15,
+  "base_cast_to_checkpoint_dtype_tree_sha256": "982d53a37ab7af6fc9be7e40ca588c20d41199ea051bd2db38d00497bbd2b567",
+  "base_leaf_count": 51,
+  "base_metadata_sha256": "250d0ad0f6540a5e4bdd70442d6864cef729724f2d23e2dd2cc669563a668d70",
+  "base_params": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_base/params",
+  "checkpoint": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_predictive_adapter_p0/pi05_predictive_adapter_p0_smoke8g_v3/1",
+  "checkpoint_inherited_tree_sha256": "982d53a37ab7af6fc9be7e40ca588c20d41199ea051bd2db38d00497bbd2b567",
+  "checkpoint_leaf_count": 66,
+  "checkpoint_metadata_sha256": "1faabd944f840e4a10d4501f53bc53bd30a9cdedd63a27e60a1122d1c8012e44",
+  "data_audit_sha256": "e2e05a255819fa046af758c7b26ec4c7eeb5283a688bf006a7060eecc429c9a5",
+  "exact_zero_policy_route": true,
+  "gradient_route_test": {
+    "command": "pytest -q src/openpi/models/pi0_test.py",
+    "test": "test_predictive_adapter_stops_visual_gradients_and_updates_adapter"
+  },
+  "inherited_dtype_casts": [
+    {
+      "name": "PaliGemma/img/Transformer/encoder_norm/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoder_norm/scale",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/LayerNorm_0/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/LayerNorm_0/scale",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/LayerNorm_1/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/LayerNorm_1/scale",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MlpBlock_0/Dense_0/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MlpBlock_0/Dense_0/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MlpBlock_0/Dense_1/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MlpBlock_0/Dense_1/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MultiHeadDotProductAttention_0/key/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MultiHeadDotProductAttention_0/key/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MultiHeadDotProductAttention_0/out/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MultiHeadDotProductAttention_0/out/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MultiHeadDotProductAttention_0/query/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MultiHeadDotProductAttention_0/query/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MultiHeadDotProductAttention_0/value/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/Transformer/encoderblock/MultiHeadDotProductAttention_0/value/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/embedding/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/embedding/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/head/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/head/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/img/pos_embedding",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/embedder/input_embedding",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/final_norm/scale",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/final_norm_1/Dense_0/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/final_norm_1/Dense_0/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/attn/attn_vec_einsum/w",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/attn/attn_vec_einsum_1/w",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/attn/kv_einsum/w",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/attn/kv_einsum_1/w",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/attn/q_einsum/w",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/attn/q_einsum_1/w",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/mlp/gating_einsum",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/mlp/linear",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/mlp_1/gating_einsum",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/mlp_1/linear",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/pre_attention_norm/scale",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/pre_attention_norm_1/Dense_0/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/pre_attention_norm_1/Dense_0/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/pre_ffw_norm/scale",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/pre_ffw_norm_1/Dense_0/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "PaliGemma/llm/layers/pre_ffw_norm_1/Dense_0/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "action_in_proj/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "action_in_proj/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "action_out_proj/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "action_out_proj/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "time_mlp_in/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "time_mlp_in/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "time_mlp_out/bias",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    },
+    {
+      "name": "time_mlp_out/kernel",
+      "source_dtype": "float32",
+      "trained_dtype": "bfloat16"
+    }
+  ],
+  "inherited_leaf_count": 51,
+  "missing_base_leaves": [],
+  "modified_inherited_leaves": [],
+  "norm_stats_sha256": "8e4894bc762100c23cd435caff20653ccb39a9614ce210971dcf4018ef0a9f09",
+  "passed": true,
+  "protocol": "pi05_predictive_action_adapter_p0_v1",
+  "route_output_max_abs": {
+    "predictive_action_adapter/route_out/bias": 0.0,
+    "predictive_action_adapter/route_out/kernel": 0.0
+  },
+  "schema_version": 1,
+  "unexpected_new_leaves": []
+}

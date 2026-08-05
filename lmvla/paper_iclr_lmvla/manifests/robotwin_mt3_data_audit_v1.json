@@ -1,0 +1,52 @@
+{
+  "cache_root": "lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256",
+  "checks": {
+    "base_history_cache_complete": true,
+    "episode_frame_unique": true,
+    "episode_split_leakage": false,
+    "frame_within_episode_length": true,
+    "parquet_complete": true,
+    "three_view_video_complete": true
+  },
+  "data_root": "/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21",
+  "episodes": {
+    "total": 1200,
+    "train": 960,
+    "validation": 240
+  },
+  "history_offsets_at_50hz": [
+    -15,
+    -7,
+    0
+  ],
+  "pairs": "lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/pairs.npz",
+  "pairs_sha256": "592f1e739105951e927ab5f3afdd022a68aad31d779382ea760a4b1f4842a2a0",
+  "rows": {
+    "history_frame_references": 1260714,
+    "total": 420238,
+    "train": 336124,
+    "validation": 84114
+  },
+  "split": "lmvla/lmwm/data/robotwin_mt_stage_tracker_split_v1.json",
+  "split_sha256": "92bf2f85d12a3645964881213143a451eefbdd345a3831131f612944d657bbb1",
+  "stage_row_counts": {
+    "0": 170743,
+    "1": 118591,
+    "2": 75241,
+    "3": 35327,
+    "4": 13593,
+    "5": 4824,
+    "6": 1567,
+    "7": 316,
+    "8": 36
+  },
+  "task_row_counts": {
+    "0": 22820,
+    "1": 62647,
+    "2": 94141,
+    "3": 91836,
+    "4": 91932,
+    "5": 56862
+  },
+  "version": "robotwin-mt3-data-audit-v1"
+}

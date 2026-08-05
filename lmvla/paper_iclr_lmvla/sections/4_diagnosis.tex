@@ -75,10 +75,8 @@ shared across implementations.  The visual encoder and adapter come from the
 target VLA, and the predictor is sized to that encoder's feature width.  This
 separation makes MINT-VLA compatible by design with multiple VLA interfaces,
 but the present experiments establish performance only for the $\pi_{0.5}$
-instantiation.
-\exptodo{T6}{Train and evaluate the same milestone-selection and native-space
-prediction protocol on at least one additional VLA using its own feature width
-and conditioning adapter.}
+instantiation.  We do not claim empirical transfer to a second architecture;
+that expansion was closed after the primary positive-utility gate failed.
 
 \subsection{$\pi_{0.5}$ instantiation}
 $\pi_{0.5}$ contains a PaliGemma visual-language prefix and an action expert.

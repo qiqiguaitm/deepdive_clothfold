@@ -1,0 +1,118 @@
+{
+  "version": "robotwin-mt3-protocol-v1",
+  "frozen_at": "2026-08-02T19:43:00Z",
+  "launch_gate": "logs/resource_markers/pi05_mt1_three_seed_gate.ok",
+  "sources": {
+    "base_checkpoint": "kai0/checkpoints/pi05_base/params",
+    "base_checkpoint_metadata_sha256": "250d0ad0f6540a5e4bdd70442d6864cef729724f2d23e2dd2cc669563a668d70",
+    "normalization": "kai0/assets/pi05_robotwin_a0_public_exact_bj/robotwin2.0_absolute_meanstd/norm_stats.json",
+    "normalization_sha256": "8e4894bc762100c23cd435caff20653ccb39a9614ce210971dcf4018ef0a9f09",
+    "transition_pairs": "lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/pairs.npz",
+    "transition_pairs_sha256": "592f1e739105951e927ab5f3afdd022a68aad31d779382ea760a4b1f4842a2a0",
+    "tracker_split": "lmvla/lmwm/data/robotwin_mt_stage_tracker_split_v1.json",
+    "tracker_split_sha256": "92bf2f85d12a3645964881213143a451eefbdd345a3831131f612944d657bbb1",
+    "data_audit": "lmvla/paper_iclr_lmvla/manifests/robotwin_mt3_data_audit_v1.json",
+    "data_audit_sha256": "101e76980ba5cb5f5f06787538d7960a10cb155262f31c68250184e696c61b19"
+  },
+  "labels": {
+    "task_count": 6,
+    "stage_vocabulary_size": 10,
+    "current_stage": "cur_ms",
+    "next_stage": "cur_ms + 1",
+    "null_stage_id": 10,
+    "manual_stage_prompts": false
+  },
+  "shared_encoder": {
+    "name": "pi0.5 PaliGemma.img SigLIP",
+    "tracker_only_checkpoint": "same raw pi05_base used to initialize joint policy training",
+    "token_shape_per_view": [256, 2048],
+    "pooling": "mean over 256 tokens in float32",
+    "external_encoder": null
+  },
+  "tracker_candidates": {
+    "current_frame": {
+      "visual_inputs": ["base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb"],
+      "proprioception": false,
+      "fusion": "concatenate three pooled 2048D view features",
+      "hidden_width": 512,
+      "hidden_layers": 2,
+      "activation": "GELU",
+      "dropout": 0.0,
+      "heads": ["current_stage", "next_stage"]
+    },
+    "history_proprio": {
+      "visual_inputs": ["base_0_rgb"],
+      "history_frame_offsets_at_50hz": [-15, -7, 0],
+      "history_seconds": [-0.30, -0.14, 0.0],
+      "proprioception_width": 14,
+      "temporal_model": "GRU",
+      "hidden_width": 256,
+      "recurrent_layers": 1,
+      "heads": ["current_stage", "next_stage"]
+    }
+  },
+  "tracker_only_training": {
+    "vision_encoder_frozen": true,
+    "train_episodes_per_task": 160,
+    "validation_episodes_per_task": 40,
+    "batch_size": 64,
+    "updates": 10000,
+    "optimizer": "AdamW",
+    "peak_learning_rate": 0.0003,
+    "weight_decay": 0.01,
+    "random_seed": 1000,
+    "precision": "bfloat16 autocast with float32 master parameters",
+    "class_weighting": "inverse-sqrt training frequency clipped to [0.25, 4.0]",
+    "class_weight_formula": "over observed target classes, w_k=(count_k/sum_j count_j)^-0.5, normalized to frequency-weighted mean 1, then clipped to [0.25,4.0]; structurally absent head classes receive weight 0",
+    "loss": "weighted current-stage CE + weighted next-stage CE",
+    "selection_uses_closed_loop_success": false
+  },
+  "selection": {
+    "primary": "task-macro current-stage F1",
+    "f1_tie_margin": 0.005,
+    "secondary": "task-macro next-transition accuracy",
+    "next_accuracy_tie_margin": 0.005,
+    "tertiary": "pooled 15-bin current-stage ECE, lower is better",
+    "exact_tie": "current_frame"
+  },
+  "joint_policy_training": {
+    "policy_initialization": "same raw pi05_base as A0",
+    "tracker_initialization": "selected tracker-only checkpoint",
+    "vision_encoder_frozen": false,
+    "tracker_receives_live_current_encoder_features": true,
+    "tracker_gradient_into_vision_encoder": false,
+    "transition_representation": "soft expected task/current/next embeddings",
+    "transition_dropout_probability": 0.2,
+    "tracker_auxiliary_loss_weight": 0.1,
+    "routing_scope": {
+      "derivation": "per-task inclusive episode intervals from frozen transition pairs; intervals must not overlap",
+      "episode_ranges_by_task_id": {
+        "0": [550, 1099],
+        "1": [24750, 25299],
+        "2": [24200, 24749],
+        "3": [1100, 1649],
+        "4": [1650, 2199],
+        "5": [4400, 4949]
+      },
+      "covered_episodes": 3300,
+      "covered_rows": 1154875,
+      "full_dataset_rows": 6075103,
+      "covered_row_fraction": 0.19009965756959182,
+      "outside_scope_transition": "null"
+    },
+    "policy_updates": 50000,
+    "policy_batch_size": 16,
+    "policy_num_workers": 8,
+    "policy_optimizer_schedule": "identical to corrected A0",
+    "action_representation": "absolute joint actions",
+    "normalization": "mean/std",
+    "image_augmentation": "none"
+  },
+  "frozen_evaluation": {
+    "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "conditions": ["oracle", "predicted", "within_task", "null"],
+    "primary_condition": "predicted",
+    "primary_baseline": "matched pi0.5 A0",
+    "content_controls": ["within_task", "null"]
+  }
+}

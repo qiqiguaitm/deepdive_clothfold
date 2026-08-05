@@ -1,6 +1,6 @@
 # MINT-VLA Scientific-Writing Audit
 
-Updated: 2026-08-01
+Updated: 2026-08-03
 
 Target venue: ICLR 2027. The review applies the installed `scientific-writing`
 skill's ICLR conventions and borrows Nature's claim-first, accessible prose.
@@ -8,8 +8,9 @@ Nature layout rules are not applied when they conflict with ICLR.
 
 ## Pass
 
-- **Abstract structure:** 198 words; standard world-model terminology, integration gap, method, numerical
-  findings, and a bounded interpretation are all present.
+- **Abstract structure:** 200 source words; standard world-model terminology,
+  integration gap, method, numerical findings, and a bounded interpretation
+  are present.
 - **Introduction CARS moves:** territory, specific niche, and "Here we present"
   response appear in that order.
 - **Contribution statement:** three concrete contributions now end the
@@ -36,41 +37,64 @@ Nature layout rules are not applied when they conflict with ICLR.
 - **AI-pattern scan:** no blocklisted promotional vocabulary remains.
 - **Reproducibility prose:** configuration hashes, artifact coverage, software
   versions, seeds, parameter counts, and AI-use disclosure are present.
+- **Content causality:** the primary $\pi_{0.5}$ intervention uses a common
+  518-scene intersection for all A2/A3 conditions. A separate supporting LaWAM
+  analysis reports nine six-task method--control comparisons with 1,200 paired
+  episodes each. Both use exact McNemar tests and Holm correction; their
+  architectures and evidence roles remain explicit.
+- **Spatial-interface boundary:** the privileged 4x4 probe reports its frozen
+  two-task, 1,000-update scope, paired episode interval, metric direction, and
+  offline rather than closed-loop status.
+- **Efficiency boundary:** measured memory and latency are stated relative to
+  A0 and are not presented as a speed ranking against other WAMs.
+- **Oracle-transition boundary:** the direct three-seed closed-loop follow-up
+  reports its crossing-zero interval, the negative seed-1002 effect, and all
+  six task differences. Positive multistage means are not promoted over the
+  three task regressions.
+- **Semantic-interface boundary:** the fixed-checkpoint five-arm screen reports
+  no-subtask and within-task shuffled controls, paired intervals, and all six
+  task effects. The rejected prompt gate is not generalized to learned latent
+  or semantic-prediction interfaces.
+- **Outcome-diagnostic boundary:** the 120-rollout recurrence panel reports
+  outcome separation together with 38.4--99.0% success false-positive rates.
+  It is described as diagnostic information, not reward, value, failure
+  detection, or control utility.
 
-## Fail: requires new evidence
+## Closed evidence verdict
 
-1. **The primary result is absent.** The corrected A0/A2-Abs/A3 table is still
-   pending. A submission abstract cannot rely on the legacy weak-baseline pilot.
-2. **Optimization uncertainty is absent.** Each primary arm needs at least three
-   independent training seeds, seed-level values, and intervals.
-3. **The contribution of predicted future content is unresolved.** A2 correct is tied with current
-   in aggregate; within-task instance-shuffled and cross-task controls and the full A3 intervention
-   panel are incomplete. Holm-adjusted paired tests are also absent.
-4. **The mechanism is not factorized.** Target computation, predictor form, forward
-   prefix, auxiliary loss, gradient route, and capacity change together between
-   the main pilot arms.
-5. **The task-specific claim is post hoc.** Block and bowl stacking plus reactive
-   and geometric controls have not been tested under a predeclared protocol.
-6. **A3 milestone supervision is incomplete.** The audited pilot artifact omits
-   Stack-3, so its A3 result cannot support a benefit from recurrence-based milestones.
-7. **Use with a second VLA is untested.** The adapter is separated from
-   the $\pi_{0.5}$ prefix in the method, but T6 must test a second VLA before the
-   abstract can claim empirical transfer across architectures.
+1. **The primary result is complete.** All nine corrected A0/A2-Abs/A3 rows
+   pass the frozen 24-cell audit. Across three training seeds, A0 is 79.39%,
+   A2-Abs 75.44%, and A3 70.81%.
+2. **Optimization uncertainty is reported.** The paired hierarchical
+   differences versus A0 are -3.94 pp for A2-Abs (95% CI [-6.58,-0.97]) and
+   -8.58 pp for A3 ([-11.47,-5.75]).
+3. **A positive method claim is rejected.** Content causality is null, the
+   privileged spatial gate is adverse, and both conditioned arms regress in
+   the corrected matrix. The manuscript is framed as a negative integration
+   result.
+4. **Scope expansions are closed.** The task-selector, mature-initialization,
+   and second-VLA extensions required a positive primary utility gate. They are
+   not used to recover a post-hoc positive claim.
+5. **Legacy limitations remain explicit.** The pilot artifact omits Stack-3
+   milestone supervision and is retained only as exploratory evidence.
+6. **The oracle-transition follow-up is closed.** Its +0.53-point difference
+   from A0 has 95% CI [-2.06,+3.00]; MT1 fails, and MT3--MT6 remain unlaunched.
+7. **The privileged semantic screen is closed.** Correct next-subtask prompts
+   score 77.08% versus 80.83% without a subtask and 77.50% with shuffled
+   semantics. The primary interval and task-safety gates fail.
 
 ## Warning: manuscript closure
 
-- The confirmatory and intervention tables contain `pending` cells. Keep them
-  in an internal draft only; remove incomplete tables from a submitted PDF.
-- The abstract is at the upper edge of the skill's 150--200-word ICLR range.
-  Replace pilot values with the final matrix rather than adding more sentences.
+- The abstract is at the upper edge of the skill's 150--200-word ICLR range;
+  any further result sentence requires a compensating cut.
 - The method describes recurrence mining as numbered prose. Convert it to an
   algorithm environment once the final six-task artifact fixes the definitive
   implementation.
-- Figure 2 reports point estimates from one trained checkpoint. Its final form
-  needs training-seed uncertainty rather than only rollout counts.
-- Peak memory, paired inference latency, and action-server throughput remain
-  unmeasured. Do not use `lightweight` as an empirical speed claim before those
-  measurements are available.
+- Figure 2 remains explicitly labelled as the one-seed legacy pilot; the
+  claim-bearing table reports all three corrected training seeds.
+- The current main text is 15 pages including references and appendix. Final
+  submission length must be checked against the ICLR 2027 main-text limit after
+  the confirmatory table and figure replace internal TODO blocks.
 - The observation-only predictor cannot resolve instruction-dependent futures.
   The limitation is now explicit, but an instruction-aware control is needed
   before claiming general milestone selection.

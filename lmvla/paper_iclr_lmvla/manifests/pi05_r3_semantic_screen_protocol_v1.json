@@ -1,0 +1,98 @@
+{
+  "acceptance_gate": {
+    "bootstrap_resamples": 20000,
+    "bootstrap_seed": 20260804,
+    "controls": "semantic_next point estimate exceeds generic_stage, semantic_current, and shuffled_semantic",
+    "primary": "paired episode-bootstrap 95% lower bound for semantic_next - no_subtask > 0",
+    "task_safety": "no per-task semantic_next - no_subtask regression below -0.05"
+  },
+  "checkpoint": "SidneyXie/pi05_robotwin public A0, unchanged for all arms",
+  "conditions": {
+    "generic_stage": {
+      "prompt_mode": "generic-stage",
+      "tracker_intervention": "correct"
+    },
+    "no_subtask": {
+      "prompt_mode": "none",
+      "tracker_intervention": "correct"
+    },
+    "semantic_current": {
+      "prompt_mode": "semantic-current",
+      "tracker_intervention": "correct"
+    },
+    "semantic_next": {
+      "prompt_mode": "semantic-next",
+      "tracker_intervention": "correct"
+    },
+    "shuffled_semantic": {
+      "prompt_mode": "semantic-next",
+      "tracker_intervention": "within-task"
+    }
+  },
+  "episodes_per_cell": 10,
+  "eval_seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "matched_controls": [
+    "identical public A0 weights and tokenizer",
+    "identical fixed scene seeds",
+    "identical replan horizon and action budget",
+    "identical oracle tracker execution in all five arms"
+  ],
+  "oracle_scope": "same-scene expert joint trace supplies monotonic phase only; no future policy rollout state",
+  "prompt_template": {
+    "generic_stage": "<official instruction> Current stage ID: <i>. Next stage ID: <j>.",
+    "no_subtask": "<official instruction>",
+    "semantic_current": "<official instruction> Current subtask: <source-grounded event>.",
+    "semantic_next": "<official instruction> Next subtask: <source-grounded event>."
+  },
+  "protocol": "pi05_r3_semantic_screen_same_scene_v1",
+  "public_artifact_sha256": {
+    "config.json": "e6ce5bd5aef6640db61f2dbe41178a1aa669821c403b0b1f3cc34fe48bbc83a6",
+    "model.safetensors": "9a5381c3260fc58fdb4b90d17b93f9090bcbfbcd8e0287f9bf2acea2477a2bc3",
+    "tokenizer.model": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6"
+  },
+  "scene_cells": 24,
+  "scene_manifest_sha256": "c2e6cd934ea694465913e40e14ccc487094b8af162d8b3c5e8cb07784ee0eb2a",
+  "schema_version": 1,
+  "source_scene_manifest": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+  "source_scene_manifest_sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+  "source_sha256": {
+    "lmvla/lawam/examples/Robotwin/eval_files/milestone_transition_oracle.py": "c202906b79b916a967768bee52c859ccc27177d0bd3d33a216417b52f433ae27",
+    "lmvla/lawam/examples/Robotwin/eval_files/model2robotwin_openpi.py": "2ae5c4483c8f2db21f02bb9ff3b1b98378123a899bcd2cdad980c13dfafb7f4d",
+    "lmvla/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py": "8ae453cce53c5e2516dd8e4d0f9204ce789c61ba26704a27869fd0165fc8a167",
+    "lmvla/lmwm/scripts/analyze_pi05_r3_semantic_screen.py": "bcab8f3eab9b6ec9b8eb7df8bd18a1d79a0ca77031527c7cd460581e602c45dd",
+    "lmvla/lmwm/scripts/build_pi05_r3_semantic_vocabulary.py": "08a0c2134c2ce5ffc13c7f9b1686ed94c636f47c9eb962d7f3ecd55bd5a8016b",
+    "lmvla/lmwm/scripts/verify_pi05_r3_screen_protocol.py": "9c4f33678bcdb70fdf0eda88a8afffc5294fc91f3138c28bde8827b112c3bfcb",
+    "train_scripts/kai/eval/pi05_r3_semantic_prompt.py": "274cdc9f55aaf250425b19e4cd396726ab27c9daa89f65a277a16710954d4835",
+    "train_scripts/kai/eval/run_pi05_r3_semantic_screen.sh": "fcc2e1b6ea5c59ef9513e8b29bb8d7b4af4766f52f3641a625b69163e84d638f",
+    "train_scripts/kai/eval/serve_lerobot_pi05.py": "e742d6d18cc3eee1235809f41fe4fc591851f701eac6bd64da238500d411a041",
+    "train_scripts/kai/eval/serve_lerobot_pi05_r3.py": "363292bc1318d9b4cf95b7512860a648d039595caf204e60be6aa9458a8792e7",
+    "train_scripts/kai/volc/pi05_r3_generic_stage_cnsh_4a100.yaml": "04fc3c20f56d3c372b43e6de0aa2e344395d51d34584003be6ad88b929ae6ce8",
+    "train_scripts/kai/volc/pi05_r3_generic_stage_east_4h20.yaml": "d5512ddf3c0ffe191b188d212db01e1392a684ffda322e740cb1953d5d309d79",
+    "train_scripts/kai/volc/pi05_r3_generic_stage_north_4h20.yaml": "c64b97facb53993d4c34e8cf7fbe1ec9e997ed80932642ecd431e39da16aa9d3",
+    "train_scripts/kai/volc/pi05_r3_no_subtask_cnsh_4a100.yaml": "deaaf0f1e5e2927d6aefc3f3dbfb20794a7a6cd2fd9c4cb0c0f55a2835080974",
+    "train_scripts/kai/volc/pi05_r3_no_subtask_east_4h20.yaml": "7548603c9025f1b3705eec14ef2fe522927fa9e596dd33b1c9ce8fb188d0a8e7",
+    "train_scripts/kai/volc/pi05_r3_no_subtask_north_4h20.yaml": "b33042c3146b5ea7409eeb4053fa08158ed83f4f999eeb3c0a48be768ae6779a",
+    "train_scripts/kai/volc/pi05_r3_semantic_current_cnsh_4a100.yaml": "fb3a1a91f53de59d2e4fb705b0cf42882fbfcd42bd69eda56ef105c85c1f6535",
+    "train_scripts/kai/volc/pi05_r3_semantic_current_east_4h20.yaml": "dd8f0525969acb202714d74ad1f96e4a1c78afd5aa8189289ef3537a224c7c1a",
+    "train_scripts/kai/volc/pi05_r3_semantic_current_north_4h20.yaml": "a752c7ef03877147625fec894a3405d918952c9a8c6f08f589fa674fd4fa5f06",
+    "train_scripts/kai/volc/pi05_r3_semantic_next_cnsh_4a100.yaml": "3626a3ff7fb43b01de45e5a167815e41d9177e87dd16de9259d5f9e1c874bb19",
+    "train_scripts/kai/volc/pi05_r3_semantic_next_east_4h20.yaml": "82b49487be4c23b09b9b1c5aba452aa326eec513bbac960b8430b791e0bcc1d0",
+    "train_scripts/kai/volc/pi05_r3_semantic_next_north_4h20.yaml": "a90cc8a7f579c47a900c4016f278fb9d5aec5047d1d48045dd78da45b7d28710",
+    "train_scripts/kai/volc/pi05_r3_shuffled_semantic_cnsh_4a100.yaml": "d291f50bc833c59c3cd3aeefed4e10a495d8e3ad5bd7dc3bcc1958101b79b80b",
+    "train_scripts/kai/volc/pi05_r3_shuffled_semantic_east_4h20.yaml": "57eec5f6f03ee3976d6f984e6b97e09e39ee2911ae341f0542919075435934cc",
+    "train_scripts/kai/volc/pi05_r3_shuffled_semantic_north_4h20.yaml": "ec16f384b7174a480983f445270b8ed7ae2c7593da99ab1c75e7e054d1fcfb62"
+  },
+  "tasks": [
+    "beat_block_hammer",
+    "blocks_ranking_rgb",
+    "blocks_ranking_size",
+    "handover_block",
+    "stack_blocks_three",
+    "stack_blocks_two"
+  ]
+}

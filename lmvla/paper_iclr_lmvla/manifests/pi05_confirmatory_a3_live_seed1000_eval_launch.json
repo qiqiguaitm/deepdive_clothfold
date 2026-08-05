@@ -1,0 +1,34 @@
+{
+  "arm": "a3_live",
+  "capture_source": "resource_aware_scheduler evaluator dispatch",
+  "captured_at": "2026-08-02T09:48:01Z",
+  "checkpoint": {
+    "metadata_path": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_a3_live_confirmatory/pi05_robotwin_a3_live_seed1000/49999/params/_METADATA",
+    "metadata_sha256": "bc8f31fd7d6779b8a2649374bd9b78590761260a1addc5cddb74e79f444fc63a"
+  },
+  "job_id": "t-20260802174759-849qx",
+  "job_name": "pi05-a3-live-confirmatory-s1000-eval-east4g",
+  "resource": {
+    "backend": "platform",
+    "gpu_indices": null,
+    "gpus": 4,
+    "name": "Robot-East-H20",
+    "queue_id": "q-20260516104437-2ml4v"
+  },
+  "runtime_env": {
+    "OPENPI_EXTRA_CONFIG": "/vePFS/tim/workspace/deepdive_kai0/train_scripts/kai/volc/config_overrides/pi05_a3_live_confirmatory_eval.json",
+    "PI05_ASSET_ID": "robotwin2.0_absolute_meanstd",
+    "PI05_EVAL_CONFIG_NAME": "pi05_robotwin_a3_live_residual_prefix_official_eval",
+    "ROBOTWIN_EPISODE_SEED_MANIFEST": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "ROBOTWIN_EVAL_CKPT_ROOT": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_a3_live_confirmatory/pi05_robotwin_a3_live_seed1000",
+    "ROBOTWIN_EVAL_RESULT_NAME": "pi05_rt_a3_live_confirmatory_s1000",
+    "ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS": "500",
+    "ROBOTWIN_NUM_SLOTS": "1"
+  },
+  "sha256": {
+    "evaluation_protocol": "dffbf847f942da2abf6d38d9e1af5f325774612ea65435aee38f46ae8430f74c",
+    "submitted_yaml": "7c8e2c896fc9ba6a44e73642b98e56fcd1de8283ed57e352b9aefdcbe95fb624",
+    "training_launch_manifest": "5443fb4dd2f52092ff35deffd9d353482a37f92677a1801af47fc7c126643df6"
+  },
+  "training_seed": 1000
+}

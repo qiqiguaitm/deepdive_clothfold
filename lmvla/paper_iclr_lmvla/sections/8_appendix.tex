@@ -12,25 +12,78 @@ published optimizer schedule.  The audited configuration source has SHA-256
 \texttt{fe9377c2b93f2428...4dd7264}; the corrected A0 config is
 \texttt{pi05\_robotwin\_a0\_public\_recipe\_bj}.  It disables joint deltas and
 quantile normalization, uses the \texttt{robotwin2.0\_absolute\_meanstd}
-statistics, AdamW weight decay 0.01, batch 16, and 50k updates.  Each future
-confirmatory arm must record its resolved config and dataset-manifest hash next
-to its checkpoint rather than relying on the mutable source file.
-\exptodo{T0--T2}{Insert immutable resolved configs, checkpoint IDs, training
-seeds, and dataset manifests for every confirmatory arm.}
+statistics, AdamW weight decay 0.01, batch 16, and 50k updates.  Every
+confirmatory arm records its resolved config and dataset-manifest hash next to
+its checkpoint rather than relying on the mutable source file.  All nine
+A0/A2-Abs/A3 checkpoints at training seeds 1000--1002 finalize step 49,999 and
+pass immutable launch, source, checkpoint, dataset, and evaluator audits.  The
+accepted scene-manifest SHA-256 is
+\texttt{08ed8eb7fa7e166e...9418b820d17}; all protocol checks pass with no
+failures.
 
 \subsection{Evaluation and statistics}
 Pilot simulator seed groups begin at 100k, 200k, 300k, and 400k.  Candidate
 initializations are retained only when the expert planner and benchmark success
 check both pass.  Each accepted cohort has 50 episodes per task and seed group.
 Because filtering can produce different accepted scenes, intervention tests
-use the intersection of scene identifiers.  Existing A2 report aggregates are
-archived under \texttt{logs/eval\_reports}; the evaluation script emits the
-accepted IDs used for each paired intersection.  Confirmatory reports will
-include seed-level task cells, hierarchical bootstrap intervals, exact paired
-tests, and Holm-adjusted $p$-values.  Independently filtered cohorts are never
-treated as matched observations.
-\exptodo{E1}{Publish accepted-scene intersections, per-seed task cells,
-hierarchical intervals, discordant counts, and Holm-adjusted tests.}
+use the intersection of scene identifiers.  The completed six-task diagnosis
+contains 1,200 paired scenes per method--control comparison and records
+discordant counts, exact McNemar tests, and Holm-adjusted $p$-values in
+\texttt{logs/l2\_six\_task\_intervention\_analysis.json}.  Confirmatory
+training reports include seed-level task cells and hierarchical bootstrap
+intervals.  Independently filtered cohorts are never treated as matched
+observations.
+
+Each of the nine accepted evaluations uses the frozen confirmatory manifest
+and contains all 24 task--evaluation-seed cells.  Seed-level macros are A0:
+75.50/80.00/82.67\%, A2-Abs: 70.00/74.67/81.67\%, and A3:
+66.92/68.92/76.58\%.  Across training seeds, A0 task means are 89.50 Hammer,
+95.00 ranking-RGB, 61.83 ranking-size, 59.83 Handover, 92.83 Stack-2, and 77.33
+Stack-3.  A2-Abs changes these by $-3.17$, $-5.83$, $-6.00$, $-5.50$, $+0.50$,
+and $-3.67$ points; A3 changes them by $-8.67$, $-6.50$, $-13.00$, $-8.83$,
+$-2.83$, and $-11.67$ points.  The paired hierarchical macro differences are
+$-3.94$ points for A2-Abs (95\% CI [$-6.58$,$-0.97$]) and $-8.58$ points for A3
+([$-11.47$,$-5.75$]), each over 3,600 paired episodes with zero unmatched
+episode keys.
+
+The oracle-transition follow-up uses the same three A0 reports and adds three
+audited MT1 reports, each with 24 cells and 1,200 episodes.  Oracle macros are
+77.75/81.00/81.00\%; paired differences from A0 are
+$+2.25$/$+1.00$/$-1.67$ points.  Across training seeds, task differences are
+$-1.50$ Hammer, $-0.83$ ranking-RGB, $-1.50$ ranking-size, $+1.67$ Handover,
+$+2.17$ Stack-2, and $+3.17$ Stack-3.  The paired hierarchical macro
+difference is $+0.53$ points (95\% CI [$-2.06$,$+3.00$]) over 3,600 paired
+episodes with zero unmatched keys.  The interval crosses zero, so the
+predeclared MT1 gate rejects the oracle-transition branch.
+
+\subsection{Outcome-linked recurrence diagnostics}
+The frozen recurrence-diagnostic panel contains 120 public-$\pi_{0.5}$
+rollouts: 99 successes and 21 failures across the six RoboTwin tasks.  All 12
+task--simulator-seed summaries and 120 videos pass the artifact audit.
+Successful-minus-failed terminal progress is 0.11129 (episode-bootstrap 95\%
+CI [0.04397,0.18444]) and progress gain is 0.16166
+([0.08935,0.24513]).  Failed-minus-successful stall fraction is 0.34827
+([0.30419,0.39356]) and regression fraction is 0.12523
+([0.02950,0.22978]).  These separations authorize a causal readout test, not a
+reward or value claim.  Low density, stall, and regression have success
+false-positive rates of 98.99\%, 89.90\%, and 38.38\%, respectively; ranking
+RGB has no failed rollout in this panel.  The canonical record is
+\texttt{logs/crave\_r0/rollout\_analysis/report.json}.
+
+\subsection{Privileged semantic-subtask protocol}
+The semantic screen keeps the public $\pi_{0.5}$ checkpoint, tokenizer,
+24-cell scene manifest, replan horizon, and action budget fixed across five
+conditions.  Four evaluation seeds contribute 10 episodes per task, for 240
+paired episodes per condition.  The primary gate requires the paired 95\%
+lower bound for semantic-next minus no-subtask to exceed zero; semantic next
+must also exceed generic-stage, semantic-current, and within-task shuffled
+semantics in point estimate, with no task regression below $-5$ points.  The
+observed semantic-next minus no-subtask difference is $-3.75$ points (95\% CI
+[$-10.42$,$+2.92$]), and semantic-next minus shuffled is $-0.42$ points
+([$-7.08$,$+6.25$]).  Handover regresses by 25.0 points.  The gate is rejected;
+the protocol and final analysis are recorded in
+\texttt{manifests/pi05\_r3\_semantic\_screen\_protocol\_v1.json} and
+\texttt{logs/r3\_semantic\_screen/report.json}.
 
 \subsection{Recurrence mining}
 The mining script (SHA-256 \texttt{d05eefc2f9690163...62c}) applies the following
@@ -76,36 +129,26 @@ pairs; its \texttt{pairs.npz} SHA-256 begins
 \texttt{4353c725f7e55f9c}.  It passes nonzero coverage, monotone-target,
 selection-manifest, and source-hash checks and is the only recurrence artifact
 allowed for confirmatory A3 training.  Threshold sensitivity and alternative
-selectors remain training experiments because their effect must be assessed
-through newly trained policies.
-\exptodo{T4}{Report mining-threshold sensitivity and alternative-selector
-comparisons from newly trained, protocol-matched policies.}
+selectors would require newly trained policies, but the positive-utility
+prerequisite failed and these expansions are closed.
 
 \subsection{LaWAM mechanism probe}
 All diagnostic variants inherit \texttt{lawam\_pretrain}, which contains future
 prediction and distillation, and retain current DINO conditioning.  The former
 ``no-WM'' row is therefore \emph{LaWAM-init/Future-off}, not a clean VLA
-baseline.  In the six-task matrix, Future-off, Local future, Dual absolute,
-Dual residual, Absolute+stop-grad, and Residual+stop-grad obtain 91.1, 86.6,
-89.2, 87.9, 89.4, and 89.2\%, respectively.
+baseline.  Across replicated training seeds, Future-off averages 90.83\%
+(three seeds), whereas Local future, Absolute, Residual,
+Absolute+stop-gradient, and Residual+stop-gradient obtain 86.67, 89.21, 87.50,
+89.04, and 88.78\%, respectively.  The latter values use two seeds except
+Residual+stop-gradient, which uses three.  Future-off inherits LaWAM-aware
+pretraining and therefore does not identify a clean VLA pretraining effect.
 
-At fixed checkpoints, paired three-task interventions produce the following
-deltas relative to correct content:
-\begin{center}
-\small
-\begin{tabular}{lrrrr}
-\toprule
-Checkpoint & Correct & Zero $\Delta$ & Shuffle $\Delta$ & Cross-task $\Delta$ \\
-\midrule
-Absolute & 96.47 & -0.93 & +0.93 & +0.19 \\
-Residual & 91.64 & +1.27 & +2.00 & +2.18 \\
-Residual + stop-grad & 98.33 & -1.49 & -0.93 & -1.12 \\
-\bottomrule
-\end{tabular}
-\end{center}
-The previously reported exact tests are unadjusted; multiplicity-aware results
-must replace them before submission.  These data motivate $\pi_{0.5}$ content
-controls but do not answer Q2 for MINT-VLA.
+At fixed checkpoints, all nine pooled correct-versus-zero, within-task, and
+cross-task comparisons have Holm-adjusted $p{=}1$.  The adverse Handover
+contrast for Residual+stop-gradient is 72.5\% correct versus 82.5\% with a
+same-task foreign-instance hint (Holm-adjusted $p{=}0.0337$).  These data
+diagnose downstream future conditioning but do not replace the corrected
+$\pi_{0.5}$ A0/A2/A3 comparison.
 
 \subsection{Exploratory task groups and LIBERO boundary}
 In the legacy Stack-2/3 subset, A0, A2-Abs, A2-Res, and A3 average 29.75, 49.75,
@@ -153,22 +196,20 @@ A3 & 3,361,826,576 & 8,392,704 & 0.250\% \\
 \bottomrule
 \end{tabular}
 \end{center}
-Production legacy A0, A1, and A3 runs each stabilized near 2.6 seconds per
-optimizer step with eight data workers; this coarse observation does not
-identify a model-specific throughput difference.  A controlled one-GPU data
-path check measured 2.279 s/update for batch 16 with two accumulation steps and
-2.142 s/update for batch 32 without accumulation.  Peak memory and end-to-end
-action-server latency have not yet been measured under a paired protocol and
-are therefore not reported as advantages.
-\exptodo{E2}{Measure A0/A2/A3 peak train and inference memory, model latency,
-and end-to-end action-server throughput under one paired hardware protocol.}
+Under the matched four-A100 training protocol, A0, A2-Abs, and A3 peak at
+67,247, 67,247, and 67,265 MiB, respectively; A3 adds 18 MiB (0.027\%).  Their
+paired core inference latencies are 57.19, 58.35, and 57.99 ms, and end-to-end
+WebSocket latencies are 107.20, 108.91, and 107.01 ms.  Corresponding
+throughputs are 9.33, 9.18, and 9.34 requests/s.  These measurements show no
+material A3 deployment penalty relative to A0; they do not establish a speed
+advantage over other world-model-augmented policies.
 
 The implementation environment pins Python 3.11, JAX 0.5.3 with CUDA 12,
 Flax 0.10.2, and PyTorch 2.7.1.  The audited workspace revision is
 \texttt{8d28087d2f69d063...2d01270e}; because the experiment tree contains
 uncommitted research changes, file hashes above are the authoritative
-identifiers.  Pilot rollout seed groups start at 100k, 200k, 300k, and 400k;
-independent training seeds and paired scene manifests will be attached to the
-confirmatory checkpoints.  The AI-use disclosure appears in the main paper.
-\exptodo{T0--T6,E1}{Replace provisional identifiers with released checkpoint,
-scene-manifest, and per-episode artifact hashes.}
+identifiers.  Pilot rollout seed groups start at 100k, 200k, 300k, and 400k.
+The confirmatory launch manifests, reports, and paired scene audit are recorded
+with the accepted checkpoints and summarized in
+\texttt{RESULTS\_pi05\_confirmatory\_3seed\_2026-08-02.md}.  The AI-use
+disclosure appears in the main paper.

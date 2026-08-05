@@ -1,0 +1,37 @@
+{
+  "arm": "a2_abs",
+  "capture_source": "resource_aware_scheduler evaluator dispatch",
+  "captured_at": "2026-08-02T10:14:38Z",
+  "checkpoint": {
+    "metadata_path": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_a2_abs_confirmatory/pi05_robotwin_a2_abs_seed1001/49999/params/_METADATA",
+    "metadata_sha256": "3733b77808e67d82b6906d365bb5409e460f2fc3a458e6367647ae0e406377c7"
+  },
+  "job_id": "t-20260802181435-cw4kb",
+  "job_name": "pi05-a2-abs-confirmatory-s1001-eval-bj4g",
+  "resource": {
+    "backend": "platform",
+    "gpu_indices": null,
+    "gpus": 4,
+    "name": "Robot-North-H20",
+    "queue_id": "q-20260516104642-khch9"
+  },
+  "runtime_env": {
+    "EVAL_HINT_RESIDUAL": "0",
+    "OPENPI_EXTRA_CONFIG": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/train_scripts/kai/volc/config_overrides/pi05_a2_abs_confirmatory_eval.json",
+    "OPENPI_SERVER_HINT_ENCODER": "so400m",
+    "PI05_ASSET_ID": "robotwin2.0_absolute_meanstd",
+    "ROBOTWIN_EPISODE_SEED_MANIFEST": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "ROBOTWIN_EVAL_CKPT_ROOT": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_a2_abs_confirmatory/pi05_robotwin_a2_abs_seed1001",
+    "ROBOTWIN_EVAL_CONFIG": "pi05_robotwin_a2_prefix_official_eval_bj",
+    "ROBOTWIN_EVAL_RESULT_NAME": "pi05_rt_a2_abs_confirmatory_s1001",
+    "ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS": "500",
+    "ROBOTWIN_HINT_ENCODER": "so400m",
+    "ROBOTWIN_NUM_SLOTS": "1"
+  },
+  "sha256": {
+    "evaluation_protocol": "dffbf847f942da2abf6d38d9e1af5f325774612ea65435aee38f46ae8430f74c",
+    "submitted_yaml": "4078d9d67c18304fa4524efee746c5a2bd94531ef5464d882adbb948876675bf",
+    "training_launch_manifest": "9afc4a9ac5b60bb9c247ce3d6cd02d2ac1e9ffd0c29de9aab1335f7ea6f9cfdc"
+  },
+  "training_seed": 1001
+}

@@ -1,0 +1,33 @@
+{
+  "arm": "a2_abs",
+  "capture_source": "resource_aware_scheduler evaluator dispatch",
+  "captured_at": "2026-08-02T09:45:02Z",
+  "checkpoint": {
+    "metadata_path": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_a2_abs_confirmatory/pi05_robotwin_a2_abs_seed1000/49999/params/_METADATA",
+    "metadata_sha256": "3733b77808e67d82b6906d365bb5409e460f2fc3a458e6367647ae0e406377c7"
+  },
+  "job_id": "gf1-2487278",
+  "job_name": "pi05-a2-abs-confirmatory-s1000-eval-gf1-4g",
+  "resource": {
+    "backend": "ssh",
+    "gpu_indices": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "gpus": 4,
+    "name": "gf1",
+    "queue_id": null
+  },
+  "runtime_env": {
+    "ROBOTWIN_EPISODE_SEED_MANIFEST": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS": "500"
+  },
+  "sha256": {
+    "evaluation_protocol": "dffbf847f942da2abf6d38d9e1af5f325774612ea65435aee38f46ae8430f74c",
+    "launch_command": "979bc36cd7845251c75387e880d06060587c5694b251f9f5f0638ee24322b734",
+    "training_launch_manifest": "3f8e21d0c9afb0f607e81fb245a898f85c0a1c519611b2a3adcefd80c2e0f2bd"
+  },
+  "training_seed": 1000
+}

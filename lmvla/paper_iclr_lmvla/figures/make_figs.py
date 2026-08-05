@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the three main-paper figures from the current evidence table."""
+"""Generate the main-paper figures from the current evidence tables."""
 
 import matplotlib
 
@@ -166,4 +166,101 @@ fig.tight_layout(pad=0.45)
 fig.savefig("fig3_t5.pdf")
 plt.close(fig)
 
-print("Wrote fig1_tension.pdf, fig2_redundancy.pdf, and fig3_t5.pdf")
+
+# Figure 4: claim-bearing corrected three-seed control result.
+train_seeds = np.array([1000, 1001, 1002])
+seed_macros = {
+    "A0 no hint": np.array([75.50, 80.00, 82.67]),
+    "A2 offline absolute": np.array([70.00, 74.67, 81.67]),
+    "A3 MINT-VLA": np.array([66.92, 68.92, 76.58]),
+}
+series_style = {
+    "A0 no hint": (palette.GREY_700, "o", "-"),
+    "A2 offline absolute": (palette.NAT_BLUE, "^", "--"),
+    "A3 MINT-VLA": (palette.NAT_RED, "s", ":"),
+}
+task_names = ["Hammer", "Rank RGB", "Rank size", "Handover", "Stack-2", "Stack-3"]
+a2_task_delta = np.array([-3.17, -5.83, -6.00, -5.50, 0.50, -3.67])
+a3_task_delta = np.array([-8.67, -6.50, -13.00, -8.83, -2.83, -11.67])
+
+fig, axes = plt.subplots(
+    1,
+    2,
+    figsize=(5.45, 2.35),
+    gridspec_kw={"width_ratios": [0.92, 1.25]},
+    constrained_layout=True,
+)
+
+ax = axes[0]
+for label, values in seed_macros.items():
+    color, marker, linestyle = series_style[label]
+    ax.plot(
+        train_seeds,
+        values,
+        color=color,
+        marker=marker,
+        linestyle=linestyle,
+        linewidth=palette.LW_SECONDARY,
+        markersize=3.8,
+        markerfacecolor=palette.CANVAS,
+        markeredgewidth=palette.LW_BASELINE,
+        label=label,
+    )
+ax.set_xticks(train_seeds)
+ax.set_xlabel("Training seed")
+ax.set_ylabel("Macro success (%)")
+ax.set_ylim(64, 85)
+ax.grid(axis="y")
+ax.legend(loc="lower right", frameon=False, handlelength=2.4)
+palette.despine(ax)
+palette.panel_label(ax, -0.18, 1.02, "a")
+
+ax = axes[1]
+y = np.arange(len(task_names))
+ax.axvline(0, color=palette.INK, linewidth=palette.LW_BASELINE)
+ax.scatter(
+    a2_task_delta,
+    y - 0.12,
+    s=18,
+    facecolors=palette.CANVAS,
+    edgecolors=palette.NAT_BLUE,
+    linewidths=palette.LW_SECONDARY,
+    marker="^",
+    label="A2 offline absolute",
+    zorder=3,
+)
+ax.scatter(
+    a3_task_delta,
+    y + 0.12,
+    s=17,
+    facecolors=palette.CANVAS,
+    edgecolors=palette.NAT_RED,
+    linewidths=palette.LW_SECONDARY,
+    marker="s",
+    label="A3 MINT-VLA",
+    zorder=3,
+)
+for yi, v2, v3 in zip(y, a2_task_delta, a3_task_delta):
+    ax.plot([v2, 0], [yi - 0.12, yi - 0.12], color=palette.NAT_BLUE,
+            linewidth=palette.LW_FINE, linestyle="--", alpha=0.65)
+    ax.plot([v3, 0], [yi + 0.12, yi + 0.12], color=palette.NAT_RED,
+            linewidth=palette.LW_FINE, linestyle=":", alpha=0.65)
+ax.set_yticks(y, task_names)
+ax.invert_yaxis()
+ax.set_xlim(-14.5, 2)
+ax.set_xlabel("Mean success change vs. A0 (pp)")
+ax.grid(axis="x")
+palette.despine(ax)
+palette.panel_label(ax, -0.20, 1.02, "b")
+
+fig.savefig("fig4_confirmatory.pdf")
+fig.savefig(
+    "../../../web/showcase/reports/mint_vla_report/assets/confirmatory_three_seed.png",
+    dpi=300,
+)
+plt.close(fig)
+
+print(
+    "Wrote fig1_tension.pdf, fig2_redundancy.pdf, fig3_t5.pdf, "
+    "and fig4_confirmatory.pdf"
+)

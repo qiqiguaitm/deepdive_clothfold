@@ -1,0 +1,28 @@
+{
+  "version": "robotwin-mt6-scope-v1",
+  "frozen_at": "2026-08-02T23:08:00Z",
+  "launch_gate": "logs/resource_markers/pi05_mt4_three_seed_content.ok",
+  "candidate_condition": "MT3 learned predicted transition",
+  "baseline_condition": "matched clean pi0.5 A0",
+  "groups": {
+    "multistage_aliasing": [
+      "handover_block",
+      "stack_blocks_two",
+      "stack_blocks_three"
+    ],
+    "reactive_geometric_control": [
+      "beat_block_hammer",
+      "blocks_ranking_rgb",
+      "blocks_ranking_size"
+    ]
+  },
+  "primary_estimand": "candidate-minus-A0 macro success delta on multistage_aliasing minus the same delta on reactive_geometric_control",
+  "statistics": {
+    "training_seeds": [1000, 1001, 1002],
+    "hierarchy": "resample training seeds, then paired episodes within each task",
+    "bootstrap_samples": 10000,
+    "bootstrap_seed": 20260802,
+    "interval": "two-sided percentile 95%"
+  },
+  "interpretation": "A positive interaction supports a scoped event-level transition claim; it does not establish universal VLA improvement."
+}

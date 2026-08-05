@@ -1,0 +1,50 @@
+{
+  "arm": "mt1_oracle",
+  "capture_source": "resource_aware_scheduler P0 evaluator dispatch",
+  "captured_at": "2026-08-03T02:41:05Z",
+  "checkpoint": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_mt1_oracle_exact/pi05_robotwin_mt1_oracle_seed1000/49999",
+  "intervention": "cross_task",
+  "job_id": "t-20260803104103-fp4zt",
+  "job_name": "pi05-mt1-cross-s1000-eval-cnsh4g",
+  "protocol": {
+    "action_representation": "absolute joint actions",
+    "episodes_per_cell": 50,
+    "fixed_seed_max_attempts": 500,
+    "normalization": "mean/std",
+    "oracle_trajectory_enabled": true,
+    "scene_cells": 24
+  },
+  "resource": {
+    "backend": "platform",
+    "gpu_indices": null,
+    "gpus": 4,
+    "name": "robot-task",
+    "queue_id": "q-20251204185107-fvnpx"
+  },
+  "runtime_env": {
+    "CKPT": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_mt1_oracle_exact/pi05_robotwin_mt1_oracle_seed1000/49999",
+    "MARKER": "/vePFS/tim/workspace/deepdive_kai0/logs/resource_markers/pi05_mt1_oracle_seed1000_cross_task.ok",
+    "PI05_EVAL_CONFIG_NAME": "pi05_robotwin_mt1_oracle_exact",
+    "PORT_BASE_OFFSET": "19400",
+    "RESULT_NAME": "pi05_mt1_oracle_seed1000_cross_task",
+    "ROBOTWIN_TRANSITION_INTERVENTION": "cross-task"
+  },
+  "sha256": {
+    "checkpoint_metadata": "71dddc4e3b8fb5d60e4335b020b1f114f78cf9ee1bc64832716a6d2e16aa461a",
+    "execution_sources": {
+      "kai0/scripts/serve_policy.py": "d4a3281afbaef8db2c117566c1ca6ee3231a51fda14377de60917af24789c53e",
+      "kai0/src/openpi/models/pi0.py": "0df8349a7fdb165b5c04e721f341628b67b8d55e41f8f5a1f7aab8acf29224ee",
+      "lmvla/lawam/examples/Robotwin/eval_files/model2robotwin_openpi.py": "2ae5c4483c8f2db21f02bb9ff3b1b98378123a899bcd2cdad980c13dfafb7f4d",
+      "lmvla/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py": "8ae453cce53c5e2516dd8e4d0f9204ce789c61ba26704a27869fd0165fc8a167",
+      "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "f120c953e13b686a23079a2f482b8f9fcfe1536ad9e2d1d9b09099f5050b2dab",
+      "train_scripts/kai/eval/run_pi05_mt_transition_formal.sh": "255537258dcb4c744acbdc9b1471d7fabebdaa1c877082f39111d37db4853479"
+    },
+    "normalization": "3237aa80efffe01d811b5fd0b1bf70668a713cf66dea9e6fbe839cb76515ef25",
+    "scene_manifest": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "submitted_yaml": "8074fed55393654901e4dc5a98cd04e94e7fc9cbc7ae701c011042607c569a37",
+    "training_launch_manifest": "b1b70e19184121f72be5287dfa4145430c2a21c7f07abe05c42afb542af42d79",
+    "transition_pairs": "592f1e739105951e927ab5f3afdd022a68aad31d779382ea760a4b1f4842a2a0",
+    "transition_task_map": "57e07ef5072a46b5d2869008385297724c68841a45e2f249ce5786e3972ba2ee"
+  },
+  "training_seed": 1000
+}
