@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 06:00 UTC
+Updated: 2026-08-06 07:12 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -28,31 +28,39 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 06:00 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seeds 1001 and 1002 have passed approximately step 45,300 and
-45,400 of 50,000; both have complete committed step-45,000 Orbax checkpoints.
-Training loss and intermediate checkpoints are health telemetry only.
+Both frozen seed replications completed the exact final step 49,999 on
+Robot-East-H20. Their committed Orbax checkpoints independently passed the
+source, dataset, frame-cache, normalization, parameter-tree, optimizer-state,
+payload, and atomic-commit audits. Training loss and intermediate checkpoints
+remain health telemetry only.
 
 The final-checkpoint gate is now explicit rather than inferred from
 `params/_METADATA`. Integrity amendment
-`pi05_predictive_adapter_p2_integrity_amendment_v1` pins the clarified
+`pi05_predictive_adapter_p2_integrity_amendment_v2` pins the clarified
 scene-seed verifier and evaluation launcher, records exact training metadata,
 target-pair, frame-cache index, and normalization identities, and requires an
 atomic step-49,999 checkpoint with a parameter tree matching the step-25,000
 reference and complete first- and second-moment optimizer state. The scheduler
 contains one zero-GPU audit node per replication seed. Each formal evaluation
 requires that seed's independent audit marker and reruns the audit at launch.
+The v2 clarification records both raw normalization hashes and a frozen
+canonical JSON hash: checkpoint serialization bytes differ from the frozen
+source, while the parsed values and canonical hashes match exactly. No
+checkpoint byte was changed, and regression tests reject any value or declared
+canonical-hash drift.
 The frozen postprocessing overlay also restores the exact preregistered source
 versions while allowing canonical reports to be written outside that immutable
 tree. Its hashes, platform launchers, and protocol verification are pinned in
 the same amendment. The amendment changes no training or evaluation condition.
 
-- [ ] Finish seed-1001 and seed-1002 training at the frozen final step 49,999
+- [x] Finish seed-1001 and seed-1002 training at the frozen final step 49,999
   and pass the source, dataset, normalization, parameter-tree, optimizer-state,
   and checkpoint audits.
 - [ ] Evaluate both final candidates on all 24 frozen task-by-evaluation-seed
   cells (1,200 episodes per training seed). Do not evaluate an intermediate
-  checkpoint.
+  checkpoint. Formal East jobs `t-20260806150858-dxb7c` and
+  `t-20260806150902-68x9j` are running four H20 GPUs each; all eight evaluation
+  workers have passed protocol verification and entered the first frozen task.
 - [ ] Run the preregistered hierarchical paired analysis over training seeds
   and paired episode keys within each of the six fixed tasks, with task effects
   averaged equally. A replicated utility claim requires the 95% interval for
@@ -101,9 +109,10 @@ freezes seeds 1001/1002, the same three arms and 5,000-step recipe, the same
 gate over training seed, task, evaluation seed, and scene. Acceptance requires
 the 95% interval lower bound to exceed zero against both controls and forbids
 any seed/task regression larger than five points. The scheduler contains six
-training, six evaluation, and one final gate node. The accepted marker now
-makes training eligible subject to a fresh resource recommendation and a
-verified environment; evaluations and the final gate remain dependency-blocked.
+training, six evaluation, and one final gate node. All six seed-1001/1002
+training arms have completed step 5,000. Six audited North evaluation jobs are
+running; the final gate remains dependency-blocked until all six verified
+reports materialize locally.
 
 - [x] Complete all 24 cells and 1,200 episodes for ordinary, outcome-free
   CRAVE-weighted, and terminal-outcome-weighted seed-1000 checkpoints.
@@ -133,10 +142,13 @@ verified environment; evaluations and the final gate remain dependency-blocked.
 
 ## Current scheduler gates
 
-Canonical snapshot at 06:00 UTC: the two P2 training tasks occupy all eight
-East H20 GPUs and have passed approximately step 45,300/49,999 and
-45,400/49,999 with stable finite losses. Their exact final-checkpoint audits
-remain dependency-blocked until step 49,999 exists.
+Canonical snapshot at 07:12 UTC: both P2 final checkpoints and independent v2
+integrity audits are complete. Fresh recommendation audits selected
+Robot-East-H20 for seed-1001 evaluation `t-20260806150858-dxb7c` and seed-1002
+evaluation `t-20260806150902-68x9j`. Both jobs are running four H20 GPUs; all
+eight fixed-seed workers have created their frozen task trees and entered
+`beat_block_hammer`. The P2 hierarchical gate and conditional efficiency branch
+remain correctly dependency-blocked on both complete 24-cell reports.
 
 R4 replication training has moved to a separately frozen North operational
 amendment without changing the scientific protocol. The staged runtime passed
@@ -145,16 +157,28 @@ and binding check. The East and North public-model directories matched over all
 29 files (9,354,105,778 bytes; aggregate manifest SHA-256
 `1ed525630ca0b88ac8bad1f7e57732153b1639cfee724ca7096c38dd67947770`). A
 single-task container smoke then passed step 100 before concurrency expanded.
-Fresh recommendation audits selected Robot-North-H20 for all six jobs:
+Fresh recommendation audits selected Robot-North-H20 for all six training jobs:
 ordinary seed 1001 `t-20260806131842-nbqkd`, ordinary seed 1002
 `t-20260806133116-vb7lj`, outcome-free CRAVE seeds 1001/1002
 `t-20260806133121-7qxml` and `t-20260806133125-t49f6`, and terminal-outcome
 seeds 1001/1002 `t-20260806133130-zcvnz` and
-`t-20260806133135-qqwz7`. All six are running and occupy 24/25 North H20 GPUs.
-The ordinary seed-1001 arm has passed step 2,200; the five later jobs have
-passed approximately step 1,350--1,410 with matched throughput. Evaluations and
-the final gate remain correctly dependency-blocked. gf1 remains permanently
-retired and robot-task new submissions remain disabled.
+`t-20260806133135-qqwz7`. All six completed the frozen step-5,000 recipe and
+wrote their completion markers. After a pre-rollout protocol-staging failure,
+the immutable North repair copied and verified the omitted protocol JSON and
+passed all 17 referenced-file checks. Fresh recommendation audits then selected
+North for ordinary evaluations `t-20260806144923-b5lhp` and
+`t-20260806145450-49fg7`, outcome-free CRAVE evaluations
+`t-20260806145558-ppshq` and `t-20260806145603-5k5dr`, and terminal-outcome
+evaluations `t-20260806145457-7zvfd` and `t-20260806145502-cslx9`. All six are
+running four H20 GPUs each. The four ordinary seed-1001 workers have each
+completed their first task; the remaining workers are active in their first
+task with no traceback. The final gate remains correctly dependency-blocked.
+gf1 remains permanently retired and robot-task new submissions remain disabled.
+
+Current highest-priority utilization is East 8/8 H20 GPUs plus North 24 H20
+GPUs (16 under the primary quota and 8 under the enabled backup identity), all
+on formal P2/R4 evaluations. No eligible downstream gate can run before its
+verified reports exist.
 
 The snapshot queue inventory reports 335 completed and 120 disabled, whereas a
 direct aggregation of historical state objects reports 348 completed and 107
@@ -163,7 +187,7 @@ disabled. The 13-task difference is audited: one retired local-assist task and
 are administratively disabled in the current queue policy. The snapshot uses
 the current effective status; the state file preserves execution history.
 Running, pending, and total counts agree, and this dual accounting does not
-change the four running task identities or any scientific result.
+change any running task identity or scientific result.
 
 ## Stop rules
 
