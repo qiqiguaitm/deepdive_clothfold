@@ -12,6 +12,9 @@ import subprocess
 import threading
 import time
 
+import flax.nnx as nnx
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 
@@ -53,7 +56,9 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def make_observation(hint_dim: int) -> dict:
+def make_observation(
+    hint_dim: int, *, transition_task_id: int | None = None, history_steps: int = 0
+) -> dict:
     # RoboTwin's OpenPI bridge sends client images in CHW layout.
     image = np.zeros((3, 480, 640), dtype=np.uint8)
     observation = {
@@ -67,7 +72,49 @@ def make_observation(hint_dim: int) -> dict:
     }
     if hint_dim:
         observation["lmwm_hint"] = np.zeros((1, hint_dim), dtype=np.float32)
+    if transition_task_id is not None:
+        observation["lmwm_transition_task"] = np.asarray(
+            transition_task_id, dtype=np.int32
+        )
+        observation["lmwm_transition_mask"] = np.asarray(True)
+    if history_steps:
+        observation["lmwm_transition_history_images"] = np.zeros(
+            (history_steps, 3, 480, 640), dtype=np.uint8
+        )
+        observation["lmwm_transition_history_state"] = np.zeros(
+            (history_steps, 14), dtype=np.float32
+        )
     return observation
+
+
+def parameter_count(model) -> int:
+    state = nnx.state(model, nnx.Param)
+    return int(sum(np.prod(value.shape) for value in jax.tree.leaves(state)))
+
+
+def lowered_cost_analysis(policy, observation: dict) -> dict[str, float]:
+    inputs = policy._input_transform(jax.tree.map(lambda value: value, observation))
+    inputs = jax.tree.map(lambda value: jnp.asarray(value)[np.newaxis, ...], inputs)
+    from openpi.models import model as model_module
+    from openpi.shared import array_typing
+
+    model_observation = model_module.Observation.from_dict(inputs)
+    with array_typing.disable_typechecking():
+        executable = policy._sample_actions.lower(
+            jax.random.key(0), model_observation, **dict(policy._sample_kwargs)
+        ).compile()
+    raw = executable.cost_analysis()
+    if isinstance(raw, list):
+        raw = raw[0]
+    reported_costs = {"flops", "transcendentals", "bytes accessed"}
+    result = {
+        str(key): float(value)
+        for key, value in raw.items()
+        if key in reported_costs and isinstance(value, (int, float))
+    }
+    if not result.get("flops", 0.0) > 0.0:
+        raise RuntimeError(f"XLA cost analysis did not report positive FLOPs: {result}")
+    return result
 
 
 def main() -> None:
@@ -76,6 +123,8 @@ def main() -> None:
     parser.add_argument("--config", required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--hint-dim", type=int, default=0)
+    parser.add_argument("--transition-task-id", type=int)
+    parser.add_argument("--history-steps", type=int, default=0)
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--trials", type=int, default=30)
     parser.add_argument("--output", type=Path, required=True)
@@ -96,11 +145,17 @@ def main() -> None:
     )
     load_seconds = time.perf_counter() - load_started
     memory_loaded = gpu_memory_mib()
-    observation = make_observation(args.hint_dim)
+    observation = make_observation(
+        args.hint_dim,
+        transition_task_id=args.transition_task_id,
+        history_steps=args.history_steps,
+    )
 
     for _ in range(args.warmup):
         policy.infer(observation)
     memory_warm = gpu_memory_mib()
+    model_parameter_count = parameter_count(policy._model)
+    xla_cost = lowered_cost_analysis(policy, observation)
 
     direct_wall_ms: list[float] = []
     direct_model_ms: list[float] = []
@@ -136,11 +191,15 @@ def main() -> None:
             "camera_count": 3,
             "state_dim": 14,
             "hint_dim": args.hint_dim,
+            "transition_task_id": args.transition_task_id,
+            "history_steps": args.history_steps,
             "warmup": args.warmup,
             "trials": args.trials,
             "input": "deterministic synthetic uint8 images and zero state/hint",
         },
         "load_seconds": load_seconds,
+        "model_parameter_count": model_parameter_count,
+        "xla_cost_analysis": xla_cost,
         "gpu_memory_mib": {
             "before_load": memory_before,
             "after_load": memory_loaded,
@@ -153,7 +212,9 @@ def main() -> None:
         "websocket_throughput_requests_per_second": 1000.0 / float(websocket_summary["mean_ms"]),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    temporary = args.output.with_suffix(args.output.suffix + ".tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    temporary.replace(args.output)
     print(json.dumps(report, indent=2, sort_keys=True))
 
 
