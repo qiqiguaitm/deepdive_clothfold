@@ -4380,9 +4380,16 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_action_bridge_amendment_v1.json"
     )
     action_bridge_spec = json.loads(action_bridge_amendment.read_text())
+    manifest_verifier_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_manifest_set_verifier_amendment_v1.json"
+    )
+    manifest_verifier_spec = json.loads(manifest_verifier_amendment.read_text())
     eval_hash_overrides = {
         **local_parallelism_spec["file_sha256_override"],
         **action_bridge_spec["file_sha256_override"],
+        **manifest_verifier_spec["file_sha256_override"],
     }
     eval_ready_hashes = [
         {
@@ -4395,6 +4402,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         *[item["path"] for item in eval_ready_hashes],
         str(local_parallelism_amendment),
         str(action_bridge_amendment),
+        str(manifest_verifier_amendment),
     ]
     action_bridge_ready_hashes = [
         {"path": str(REPO / relative), "sha256": expected}
@@ -4606,6 +4614,10 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     {
                         "path": str(action_bridge_amendment),
                         "sha256": sha256_file(action_bridge_amendment),
+                    },
+                    {
+                        "path": str(manifest_verifier_amendment),
+                        "sha256": sha256_file(manifest_verifier_amendment),
                     },
                 ],
                 "progress_globs": [
@@ -4885,6 +4897,65 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         }
     )
 
+    north_manifest_verifier_marker = (
+        REPO / "logs/resource_markers/pi05_r4_north_manifest_verifier.ok"
+    )
+    north_manifest_verifier_marker_remote = (
+        north_stage / "logs/resource_markers/pi05_r4_north_manifest_verifier.ok"
+    )
+    north_manifest_verifier_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for section in ("file_sha256_override", "file_sha256")
+        for relative, expected in sorted(manifest_verifier_spec[section].items())
+    ]
+    queue["tasks"].append(
+        {
+            "id": "pi05_r4_north_manifest_verifier_repair",
+            "priority": 0,
+            "description": (
+                "Install the byte-verified order-independent scene-seed identity "
+                "verifier in the active North R4 stage"
+            ),
+            "completion_glob": str(north_manifest_verifier_marker),
+            "completion_min_count": 1,
+            "rearm_after_ready_file": str(manifest_verifier_amendment),
+            "ready_files": [
+                str(north_triton_marker),
+                str(manifest_verifier_amendment),
+                *[item["path"] for item in north_manifest_verifier_hashes],
+            ],
+            "ready_hashes": [
+                *north_manifest_verifier_hashes,
+                {
+                    "path": str(manifest_verifier_amendment),
+                    "sha256": sha256_file(manifest_verifier_amendment),
+                },
+            ],
+            "candidates": [
+                {
+                    "kind": "local",
+                    "resource": "local",
+                    "gpus": 0,
+                    "retry_cooldown_seconds": 120,
+                    "max_failures": 3,
+                    "status_dir": str(
+                        REPO / "logs/r4/north_manifest_verifier/launcher"
+                    ),
+                    "command": shlex.join(
+                        [
+                            "bash",
+                            str(
+                                REPO
+                                / "train_scripts/kai/"
+                                "repair_pi05_r4_north_manifest_verifier.sh"
+                            ),
+                        ]
+                    ),
+                }
+            ],
+        }
+    )
+
     north_eval_yaml = "train_scripts/kai/volc/pi05_r4_eval_north_4h20.yaml"
     for arm in ("terminal_outcome", "outcome_free_crave"):
         eval_task_id = f"pi05_r4_{arm}_seed1000_eval"
@@ -4913,12 +4984,21 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         parent_hashes.update(
             {item["path"]: item["sha256"] for item in north_triton_ready_hashes}
         )
+        parent_hashes.update(
+            {
+                item["path"]: item["sha256"]
+                for item in north_manifest_verifier_hashes
+            }
+        )
         parent_hashes[str(north_eval_amendment)] = sha256_file(
             north_eval_amendment
         )
         parent_hashes[str(north_abi_repair)] = sha256_file(north_abi_repair)
         parent_hashes[str(north_triton_repair)] = sha256_file(
             north_triton_repair
+        )
+        parent_hashes[str(manifest_verifier_amendment)] = sha256_file(
+            manifest_verifier_amendment
         )
         parent["ready_files"] = list(
             dict.fromkeys(
@@ -4927,12 +5007,15 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     str(north_stage_marker),
                     str(north_abi_marker),
                     str(north_triton_marker),
+                    str(north_manifest_verifier_marker),
+                    str(manifest_verifier_amendment),
                     str(north_eval_amendment),
                     str(north_abi_repair),
                     str(north_triton_repair),
                     *[item["path"] for item in north_eval_ready_hashes],
                     *[item["path"] for item in north_abi_ready_hashes],
                     *[item["path"] for item in north_triton_ready_hashes],
+                    *[item["path"] for item in north_manifest_verifier_hashes],
                 ]
             )
         )
@@ -4972,11 +5055,13 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                         str(north_stage_marker),
                         str(north_abi_marker),
                         str(north_triton_marker),
+                        str(north_manifest_verifier_marker),
                     ],
                     "ready_files_remote": [
                         str(north_stage_marker_remote),
                         str(north_abi_marker_remote),
                         str(north_triton_marker_remote),
+                        str(north_manifest_verifier_marker_remote),
                         str(remote_model / "model.safetensors"),
                         str(remote_model / "config.json"),
                     ],
@@ -4998,13 +5083,20 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 "completion_min_count": 1,
                 "ready_files": [
                     str(north_eval_amendment),
+                    str(manifest_verifier_amendment),
+                    str(north_manifest_verifier_marker),
                     str(REPO / "train_scripts/kai/sync_pi05_r4_eval_from_north.sh"),
                 ],
                 "ready_hashes": [
                     *north_eval_ready_hashes,
+                    *north_manifest_verifier_hashes,
                     {
                         "path": str(north_eval_amendment),
                         "sha256": sha256_file(north_eval_amendment),
+                    },
+                    {
+                        "path": str(manifest_verifier_amendment),
+                        "sha256": sha256_file(manifest_verifier_amendment),
                     },
                 ],
                 "ready_files_remote": [str(remote_marker)],

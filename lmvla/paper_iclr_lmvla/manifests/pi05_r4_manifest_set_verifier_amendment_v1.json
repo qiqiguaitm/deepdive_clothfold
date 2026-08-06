@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_manifest_set_verifier_amendment_v1",
+  "created_at": "2026-08-06T01:40:00Z",
+  "status": "authorized_protocol_clarification",
+  "base_protocol": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_formal_eval_protocol_v1.json",
+  "base_protocol_sha256": "9c0130a89e670b7e19d721f0090275d6a0d01e90e5e42fe966883652aab31b76",
+  "failure": {
+    "scope": "ordinary seed-1000 fixed-checkpoint evaluation finalization",
+    "symptom": "All 24 cells and 1200 episodes completed with empty failed sets, but the final verifier rejected parallel completion order as a scene-seed identity mismatch.",
+    "evidence": "For every rejected cell, the observed unique scene-seed set equals the frozen manifest set; only list order differs because two simulator slots finish asynchronously."
+  },
+  "clarification": {
+    "identity_rule": "Each cell must contain exactly the frozen set of unique scene seeds, independent of episode completion order.",
+    "rejections_preserved": [
+      "manifest SHA mismatch",
+      "missing or extra task-by-evaluation-seed cell",
+      "duplicate result cell",
+      "duplicate expected or observed scene seed",
+      "missing or extra scene seed",
+      "wrong episode count"
+    ],
+    "north_acceptance_marker": "logs/resource_markers/pi05_r4_north_manifest_verifier.ok"
+  },
+  "file_sha256_override": {
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861"
+  },
+  "file_sha256": {
+    "train_scripts/kai/repair_pi05_r4_north_manifest_verifier.sh": "5c0dfcb928a5fc150269faadd93966e374f7105e52cdd51539fdfacb5ed979a9"
+  },
+  "invariants": [
+    "Checkpoint bytes, policy code, model outputs, task list, evaluation seeds, scene-seed membership, and episodes per cell are unchanged.",
+    "The clarification changes only post-hoc identity verification from completion-order equality to unique-set equality.",
+    "No rollout is added, removed, repeated, or relabelled by this amendment.",
+    "North staging replaces only the byte-verified verifier and does not reset or mutate active result trees."
+  ]
+}

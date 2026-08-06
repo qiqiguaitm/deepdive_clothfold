@@ -55,7 +55,13 @@ def main() -> None:
         raise SystemExit("result cell mismatch: no manifest cells were observed")
     for key, (actual_seeds, summary_path) in observed.items():
         expected_seeds = expected[key]
-        if actual_seeds != expected_seeds:
+        expected_set = set(expected_seeds)
+        actual_set = set(actual_seeds)
+        if len(expected_set) != len(expected_seeds):
+            raise SystemExit(f"manifest contains duplicate scene seeds for {key}")
+        if len(actual_set) != len(actual_seeds):
+            raise SystemExit(f"{summary_path}: result contains duplicate scene seeds for {key}")
+        if len(actual_seeds) != len(expected_seeds) or actual_set != expected_set:
             raise SystemExit(
                 f"{summary_path}: scene seeds differ for {key}; "
                 f"expected={expected_seeds}, actual={actual_seeds}"

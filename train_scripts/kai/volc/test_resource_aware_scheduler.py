@@ -304,6 +304,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     }
     north_abi_repair = tasks["pi05_r4_north_python_abi_repair"]
     north_triton_repair = tasks["pi05_r4_north_triton_exec_repair"]
+    north_manifest_verifier = tasks["pi05_r4_north_manifest_verifier_repair"]
     formal_gate = tasks["pi05_r4_seed1000_gate"]
     north_stage = tasks["pi05_r4_eval_north_stage"]
     north_materializers = {
@@ -543,6 +544,18 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         )
         assert checkpoint_permissions["completion_glob"] in task["ready_files"]
         assert task["progress_globs"][0]["expected"] == 24
+        assert any(
+            item["path"].endswith(
+                "pi05_r4_manifest_set_verifier_amendment_v1.json"
+            )
+            for item in task["ready_hashes"]
+        )
+        assert any(
+            item["path"].endswith("verify_robotwin_fixed_seed_eval.py")
+            and item["sha256"]
+            == "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861"
+            for item in task["ready_hashes"]
+        )
         if arm != "ordinary":
             assert task["progress_globs_remote"][0]["expected"] == 24
             assert (
@@ -567,6 +580,15 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
             assert any(
                 item["path"].endswith("pi05_r4_north_triton_exec_repair_v1.json")
                 for item in task["ready_hashes"]
+            )
+            north_candidate = next(
+                candidate
+                for candidate in task["candidates"]
+                if candidate["resource"] == "Robot-North-H20"
+            )
+            assert any(
+                path.endswith("pi05_r4_north_manifest_verifier.ok")
+                for path in north_candidate["ready_files_remote"]
             )
     assert north_stage["priority"] == 0
     assert north_stage["candidates"][0]["resource"] == "local"
@@ -594,6 +616,16 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert north_abi_repair["candidates"][0]["gpus"] == 0
     assert "repair_pi05_r4_north_python_abi.sh" in (
         north_abi_repair["candidates"][0]["command"]
+    )
+    assert north_manifest_verifier["priority"] == 0
+    assert north_manifest_verifier["candidates"][0]["resource"] == "local"
+    assert north_manifest_verifier["candidates"][0]["gpus"] == 0
+    assert "repair_pi05_r4_north_manifest_verifier.sh" in (
+        north_manifest_verifier["candidates"][0]["command"]
+    )
+    assert any(
+        item["path"].endswith("verify_robotwin_fixed_seed_eval.py")
+        for item in north_manifest_verifier["ready_hashes"]
     )
     wrapper = (
         scheduler.REPO / "train_scripts/kai/eval/robotwin_python_wrapper_north.sh"
