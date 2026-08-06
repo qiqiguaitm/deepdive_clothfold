@@ -109,6 +109,17 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
                 "local",
             }
 
+    evidence = tasks["pi05_r4_seed1000_evidence_finalize"]
+    assert evidence["candidates"][0]["gpus"] == 0
+    assert evidence["completion_glob"].endswith(
+        "RESULTS_pi05_r4_seed1000_complete.json"
+    )
+    assert all(
+        str(tasks[f"pi05_r4_{arm}_seed1000_eval"]["completion_glob"])
+        in evidence["ready_files"]
+        for arm in ("ordinary", "outcome_free_crave", "terminal_outcome")
+    )
+
 
 def test_frozen_source_readiness_covers_p1_p2_and_r1_gpu_jobs() -> None:
     queue = json.loads(scheduler.QUEUE_PATH.read_text())

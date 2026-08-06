@@ -5265,6 +5265,84 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
         for seed in (1000, 1001, 1002)
         for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
     }
+    evidence_id = "pi05_r4_seed1000_evidence_finalize"
+    if evidence_id not in existing:
+        evidence_script = (
+            REPO / "lmvla/lmwm/scripts/finalize_pi05_r4_seed1000_evidence.py"
+        )
+        gate_output = (
+            REPO / "lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_seed1000_gate.json"
+        )
+        evidence_json = (
+            REPO / "lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_seed1000_complete.json"
+        )
+        evidence_md = (
+            REPO / "lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_seed1000_complete.md"
+        )
+        queue["tasks"].append(
+            {
+                "id": evidence_id,
+                "priority": 1,
+                "description": "Materialize complete task-level R4 seed-1000 evidence",
+                "completion_glob": str(evidence_json),
+                "completion_min_count": 1,
+                "produces_files": [str(evidence_json), str(evidence_md)],
+                "ready_files": [
+                    str(gate_output),
+                    str(evidence_script),
+                    *[
+                        str(reports[(1000, arm)])
+                        for arm in (
+                            "ordinary",
+                            "outcome_free_crave",
+                            "terminal_outcome",
+                        )
+                    ],
+                    *[
+                        str(
+                            REPO
+                            / "logs/resource_markers"
+                            / f"pi05_r4_{arm}_seed1000.ok"
+                        )
+                        for arm in ("ordinary", "outcome_free_crave", "terminal_outcome")
+                    ],
+                ],
+                "ready_hashes": [
+                    {
+                        "path": str(evidence_script),
+                        "sha256": "5ae903da60ffc8e8bb1dec4efc8d6ef3b4aae1484c7eb91849a9e6ad5d2d22ea",
+                    }
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(REPO / "logs/r4/seed1000/evidence_finalize"),
+                        "command": shlex.join(
+                            [
+                                str(REPO / "kai0/.venv/bin/python"),
+                                str(evidence_script),
+                                "--ordinary",
+                                str(reports[(1000, "ordinary")]),
+                                "--outcome-free-crave",
+                                str(reports[(1000, "outcome_free_crave")]),
+                                "--terminal-outcome",
+                                str(reports[(1000, "terminal_outcome")]),
+                                "--gate",
+                                str(gate_output),
+                                "--output-json",
+                                str(evidence_json),
+                                "--output-md",
+                                str(evidence_md),
+                            ]
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(evidence_id)
     port_bases = {
         "ordinary": 26200,
         "terminal_outcome": 26600,
