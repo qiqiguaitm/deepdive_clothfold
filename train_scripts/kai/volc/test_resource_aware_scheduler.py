@@ -277,6 +277,20 @@ def test_frozen_source_readiness_covers_p1_p2_and_r1_gpu_jobs() -> None:
         "frozen_sources/pi05_replication_v1/train_scripts/kai/eval/"
         "run_pi05_predictive_adapter_p2_formal.sh"
     )
+    assert p2_eval_east["env"]["ROBOTWIN_ATTACH_REQUEUE_FAILED"] == "1"
+    assert p2_eval_east["env"]["TORCH_CUDA_ARCH_LIST"] == "9.0"
+    assert p2_eval_east["env"]["TORCH_EXTENSIONS_DIR"] == (
+        "/vePFS/tim/runtime/torch_extensions/h20_sm90_py310"
+    )
+    p2_eval_robot_task = next(
+        candidate
+        for candidate in p2_eval["candidates"]
+        if candidate["resource"] == "robot-task"
+    )
+    assert p2_eval_robot_task["env"]["TORCH_CUDA_ARCH_LIST"] == "8.0"
+    assert p2_eval_robot_task["env"]["TORCH_EXTENSIONS_DIR"] == (
+        "/vePFS/tim/runtime/torch_extensions/a100_sm80_py310"
+    )
     assert p2_train["ready_hashes"] != p1["ready_hashes"]
     assert any(
         item["path"].startswith(str(scheduler.REPLICATION_FROZEN_OVERLAY))
@@ -357,6 +371,48 @@ def test_frozen_source_readiness_covers_p1_p2_and_r1_gpu_jobs() -> None:
     assert p2_train["ready_files"].count(replication_ready) == 1
     assert r1_train["ready_files"].count(replication_ready) == 1
     assert "ready_hashes" not in tasks["pi05_r1_seed1000_gate"]
+
+
+def test_p2_east_h20_abi_preflight_is_a_hard_independent_gate() -> None:
+    queue = json.loads(scheduler.QUEUE_PATH.read_text())
+    scheduler.apply_frozen_source_readiness(queue)
+    scheduler.validate_queue(queue)
+    tasks = {task["id"]: task for task in queue["tasks"]}
+
+    preflight = tasks["pi05_predictive_adapter_p2_east_h20_abi_preflight"]
+    assert preflight["priority"] == 0
+    assert preflight["completion_glob"] == str(scheduler.P2_EAST_H20_ABI_MARKER)
+    assert len(preflight["candidates"]) == 1
+    candidate = preflight["candidates"][0]
+    assert candidate["resource"] == "Robot-East-H20"
+    assert candidate["gpus"] == 1
+    assert candidate["env"] == {
+        "TORCH_CUDA_ARCH_LIST": "9.0",
+        "TORCH_EXTENSIONS_DIR": (
+            "/vePFS/tim/runtime/torch_extensions/h20_sm90_py310"
+        ),
+    }
+    assert candidate["yaml"].endswith("pi05_p2_east_h20_abi_preflight_1h20.yaml")
+
+    amendment = json.loads(scheduler.P2_EAST_H20_ABI_AMENDMENT.read_text())
+    assert amendment["repair"]["preflight"]["formal_result_tree"] is False
+    assert amendment["repair"]["preflight"]["episodes"] == 1
+    assert amendment["repair"]["preflight"]["tasks"] == ["beat_block_hammer"]
+    for parent in amendment["parents"].values():
+        assert scheduler.sha256_file(scheduler.REPO / parent["path"]) == parent[
+            "sha256"
+        ]
+    hashes = {item["path"]: item["sha256"] for item in preflight["ready_hashes"]}
+    for relative, expected in amendment["file_sha256"].items():
+        assert hashes[str(scheduler.REPO / relative)] == expected
+    extension_root = Path(amendment["repair"]["torch_extensions_dir"])
+    for relative, expected in amendment["extension_sha256"].items():
+        assert hashes[str(extension_root / relative)] == expected
+
+    for seed in (1001, 1002):
+        evaluate = tasks[f"pi05_predictive_adapter_p2_candidate_seed{seed}_eval"]
+        assert str(scheduler.P2_EAST_H20_ABI_MARKER) in evaluate["ready_files"]
+        assert str(scheduler.P2_EAST_H20_ABI_AMENDMENT) in evaluate["ready_files"]
 
 
 def test_p2_final_evals_require_independent_checkpoint_audits() -> None:

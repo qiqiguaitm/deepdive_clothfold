@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p2_east_h20_abi_amendment_v1",
+  "created_at": "2026-08-06T07:20:00Z",
+  "parents": {
+    "p2_protocol": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json",
+      "sha256": "52f80a75fa5ee0b3a1a74f5cd9738626dd574bc11a0fd71823f54defdac9908b"
+    },
+    "p2_integrity_amendment_v2": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_integrity_amendment_v2.json",
+      "sha256": "e8471bf04ec6a6d0cc4950e760e35083c6fdd800f01191f4a5a216f91b0b31d7"
+    }
+  },
+  "failed_attempts": [
+    {
+      "job_id": "t-20260806150858-dxb7c",
+      "training_seed": 1001,
+      "valid_summaries": 0
+    },
+    {
+      "job_id": "t-20260806150902-68x9j",
+      "training_seed": 1002,
+      "valid_summaries": 0
+    }
+  ],
+  "failure": {
+    "stage": "RoboTwin Curobo planner initialization before the first valid episode",
+    "root_error": "CUDA error: no kernel image is available for execution on the device",
+    "cause": "The P2 East branch inherited the evaluator default TORCH_CUDA_ARCH_LIST=8.0 while Robot-East-H20 requires sm90.",
+    "downstream_error": "Robot.left_planner was absent after planner initialization failed.",
+    "scientific_data_written": false
+  },
+  "repair": {
+    "resource": "Robot-East-H20",
+    "torch_cuda_arch_list": "9.0",
+    "torch_extensions_dir": "/vePFS/tim/runtime/torch_extensions/h20_sm90_py310",
+    "attach_requeue_failed": true,
+    "preflight": {
+      "gpus": 1,
+      "tasks": [
+        "beat_block_hammer"
+      ],
+      "evaluation_seeds": [
+        0
+      ],
+      "episodes": 1,
+      "result_name": "pi05_predictive_adapter_p2_east_h20_abi_preflight_v1",
+      "formal_result_tree": false
+    }
+  },
+  "file_sha256": {
+    "train_scripts/kai/eval/run_pi05_p2_east_h20_abi_preflight.sh": "cbba7ec0552a271c159076589759fdf95be34f58562ad67b5eeb21a94a52f2af",
+    "train_scripts/kai/volc/pi05_p2_east_h20_abi_preflight_1h20.yaml": "a553f240b8c5c80830ace9965d0baeba3de34523d7fccdf9dc7cdcd0acaa9161",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p2_eval_east_4h20.yaml": "3550e1edde05d6ae423b52dec4a3b594f21839470eb39b21e1ff6ccdb6f33227",
+    "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa"
+  },
+  "extension_sha256": {
+    "kinematics_fused_cu/kinematics_fused_cu.so": "be24a81d5511fa2860436c0a8c636aa7cb97d61e60042f3a158b131bc8ce7e02",
+    "geom_cu/geom_cu.so": "28fe1a17cc2cbac5c2bcb72cc9389f85c58dd4ad8964aa537be246956bfde6ce",
+    "tensor_step_cu/tensor_step_cu.so": "44fe0a9ec13c2223562e4bd76adc68e22fb607c7c19e79e07abda2cfa2ed4e4f",
+    "lbfgs_step_cu/lbfgs_step_cu.so": "3a455b18c17bb2d128d28e386c52a8bdfeae61284e037e4b7fe9c3c52ec0d303",
+    "line_search_cu/line_search_cu.so": "6e5b83eb7751ba42259334c522114b23010da5910e7002d758d6e706dffa2d3e"
+  },
+  "constraints": [
+    "The repair changes only evaluator binary compatibility and failed-task resumption.",
+    "Training checkpoints, model parameters, task set, scene seeds, episode count, action bridge, and acceptance criteria are unchanged.",
+    "The two failed attempts produced zero summary files and contribute no episode to the formal analysis.",
+    "Formal P2 evaluation remains blocked until the independent one-episode ABI preflight passes."
+  ],
+  "passed": true
+}

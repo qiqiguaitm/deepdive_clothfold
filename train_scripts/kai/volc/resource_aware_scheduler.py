@@ -458,6 +458,16 @@ P2_INTEGRITY_AMENDMENT = (
     / "lmvla/paper_iclr_lmvla/manifests/"
     "pi05_predictive_adapter_p2_integrity_amendment_v2.json"
 )
+P2_EAST_H20_ABI_AMENDMENT = (
+    REPO
+    / "lmvla/paper_iclr_lmvla/manifests/"
+    "pi05_predictive_adapter_p2_east_h20_abi_amendment_v1.json"
+)
+P2_EAST_H20_ABI_MARKER = (
+    REPO
+    / "logs/resource_markers/"
+    "pi05_predictive_adapter_p2_east_h20_abi_preflight_v1.ok"
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -9361,8 +9371,84 @@ def ready(task: dict[str, Any]) -> bool:
     )
 
 
+def add_pi05_p2_east_h20_abi_preflight(queue: dict[str, Any]) -> None:
+    """Require a real one-episode sm90 rollout before retrying P2 on East."""
+    task_id = "pi05_predictive_adapter_p2_east_h20_abi_preflight"
+    if any(task.get("id") == task_id for task in queue.get("tasks", [])):
+        return
+
+    amendment = json.loads(P2_EAST_H20_ABI_AMENDMENT.read_text())
+    for parent in amendment["parents"].values():
+        path = REPO / parent["path"]
+        if sha256_file(path) != parent["sha256"]:
+            raise ValueError(f"P2 East H20 ABI amendment parent drift: {path}")
+    ready_hashes = []
+    for relative, expected in amendment["file_sha256"].items():
+        path = REPO / relative
+        if sha256_file(path) != expected:
+            raise ValueError(f"P2 East H20 ABI runtime drift: {path}")
+        ready_hashes.append({"path": str(path), "sha256": expected})
+
+    extension_root = Path(amendment["repair"]["torch_extensions_dir"])
+    extension_files = []
+    for relative, expected in amendment["extension_sha256"].items():
+        path = extension_root / relative
+        if sha256_file(path) != expected:
+            raise ValueError(f"P2 East H20 extension drift: {path}")
+        ready_hashes.append({"path": str(path), "sha256": expected})
+        extension_files.append(str(path))
+
+    checkpoint = (
+        REPO
+        / "kai0/checkpoints/pi05_predictive_adapter_p1/"
+        "pi05_predictive_adapter_p1_seed1001/49999"
+    )
+    queue["tasks"].append(
+        {
+            "id": task_id,
+            "priority": 0,
+            "description": "One-episode P2 evaluator ABI preflight on East H20 sm90",
+            "completion_glob": str(P2_EAST_H20_ABI_MARKER),
+            "completion_min_count": 1,
+            "ready_files": [
+                str(P2_EAST_H20_ABI_AMENDMENT),
+                str(
+                    REPO
+                    / "logs/resource_markers/"
+                    "pi05_predictive_adapter_p2_seed1001_checkpoint_audit.ok"
+                ),
+                str(checkpoint / "params/_METADATA"),
+                str(checkpoint / "assets/robotwin2.0_absolute_meanstd/norm_stats.json"),
+                *extension_files,
+            ],
+            "ready_hashes": ready_hashes,
+            "candidates": [
+                {
+                    "kind": "platform",
+                    "resource": "Robot-East-H20",
+                    "region": "cn-shanghai",
+                    "gpus": 1,
+                    "queue_timeout_seconds": 180,
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 2,
+                    "yaml": (
+                        "train_scripts/kai/volc/"
+                        "pi05_p2_east_h20_abi_preflight_1h20.yaml"
+                    ),
+                    "task_name": "pi05-p2-east-h20-abi-preflight-1g",
+                    "env": {
+                        "TORCH_CUDA_ARCH_LIST": "9.0",
+                        "TORCH_EXTENSIONS_DIR": str(extension_root),
+                    },
+                }
+            ],
+        }
+    )
+
+
 def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
     """Gate frozen P1/P2/R1 jobs before resource recommendation and launch."""
+    add_pi05_p2_east_h20_abi_preflight(queue)
     manifests = REPO / "lmvla/paper_iclr_lmvla/manifests"
     p1_audit = json.loads(
         (manifests / "pi05_predictive_adapter_p1_baseline_audit.json").read_text()
@@ -9490,6 +9576,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
         replication_eval_amendment_path.read_text()
     )
     p2_integrity_amendment = json.loads(P2_INTEGRITY_AMENDMENT.read_text())
+    p2_east_h20_abi_amendment = json.loads(P2_EAST_H20_ABI_AMENDMENT.read_text())
     p2_eval_authorized = set(
         replication_eval_amendment["authorization"]["p2_eval_tasks"]
     )
@@ -9784,6 +9871,8 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                 REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY",
                 replication_eval_amendment_path,
                 P2_INTEGRITY_AMENDMENT,
+                P2_EAST_H20_ABI_AMENDMENT,
+                P2_EAST_H20_ABI_MARKER,
                 frozen_p2_eval_launcher,
                 checkpoint_audit_marker,
             ):
@@ -9796,6 +9885,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                 "PYTHONPATH": str(REPLICATION_FROZEN_OVERLAY / "kai0/src"),
                 "P2_EVAL_LAUNCHER": str(frozen_p2_eval_launcher),
                 "P2_INTEGRITY_AMENDMENT": str(P2_INTEGRITY_AMENDMENT),
+                "ROBOTWIN_ATTACH_REQUEUE_FAILED": "1",
             }
             assignments = " ".join(
                 f"{key}={shlex.quote(value)}" for key, value in eval_env.items()
@@ -9803,6 +9893,27 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
             for candidate in task.get("candidates", []):
                 if candidate.get("kind") == "platform":
                     candidate.setdefault("env", {}).update(eval_env)
+                    if candidate.get("resource") == "Robot-East-H20":
+                        candidate["env"].update(
+                            {
+                                "TORCH_CUDA_ARCH_LIST": p2_east_h20_abi_amendment[
+                                    "repair"
+                                ]["torch_cuda_arch_list"],
+                                "TORCH_EXTENSIONS_DIR": p2_east_h20_abi_amendment[
+                                    "repair"
+                                ]["torch_extensions_dir"],
+                            }
+                        )
+                    elif candidate.get("resource") == "robot-task":
+                        candidate["env"].update(
+                            {
+                                "TORCH_CUDA_ARCH_LIST": "8.0",
+                                "TORCH_EXTENSIONS_DIR": (
+                                    "/vePFS/tim/runtime/torch_extensions/"
+                                    "a100_sm80_py310"
+                                ),
+                            }
+                        )
                 elif candidate.get("kind") in {"local", "ssh"}:
                     candidate["command"] = candidate["command"].replace(
                         "exec env ", f"exec env {assignments} ", 1

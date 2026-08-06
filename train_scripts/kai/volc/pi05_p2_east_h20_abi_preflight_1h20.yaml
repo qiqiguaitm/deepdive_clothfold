@@ -1,0 +1,44 @@
+TaskName: "pi05-p2-east-h20-abi-preflight-1g"
+Description: "One-episode P2 evaluator ABI preflight on H20 sm90"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 3600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -Eeuo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%SZ)
+  LOG_DIR=$REPO/logs/predictive/p2_abi_preflight
+  mkdir -p "$LOG_DIR"
+  exec >>"$LOG_DIR/east_h20_${STAMP}.log" 2>&1
+  set -x
+  exec env REPO="$REPO" \
+    bash "$REPO/train_scripts/kai/eval/run_pi05_p2_east_h20_abi_preflight.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"
