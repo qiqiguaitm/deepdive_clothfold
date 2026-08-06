@@ -5013,6 +5013,41 @@ def test_p1_north_eval_is_staged_hash_gated_and_materialized() -> None:
     assert east_candidate["task_name"] == "pi05-p1-a0-secondary-attach-east4g"
 
 
+def test_p2_local_accelerator_is_frozen_and_uses_two_a100s() -> None:
+    queue = {"tasks": []}
+
+    scheduler.add_pi05_p2_local_accelerator_task(queue)
+
+    assert len(queue["tasks"]) == 1
+    task = queue["tasks"][0]
+    assert task["id"] == "pi05_predictive_adapter_p2_local_accelerator"
+    assert task["priority"] == 0
+    assert sum(
+        path.endswith(".task_scheduler.json") for path in task["ready_files"]
+    ) == 8
+    assert str(scheduler.P2_EAST_H20_ABI_MARKER) in task["ready_files"]
+    candidate = task["candidates"][0]
+    assert candidate["resource"] == "local"
+    assert candidate["gpus"] == 2
+    assert candidate["gpu_indices"] == [0, 1]
+    assert "run_pi05_p2_local_accelerator.sh" in candidate["command"]
+    assert any(
+        item["path"].endswith(
+            "pi05_predictive_adapter_p2_local_accelerator_amendment_v1.json"
+        )
+        for item in task["ready_hashes"]
+    )
+
+    launcher = (
+        scheduler.REPO
+        / "train_scripts/kai/eval/run_pi05_p2_local_accelerator.sh"
+    ).read_text()
+    assert "export ROBOTWIN_NUM_SLOTS=1" in launcher
+    assert "EVAL_WORKERS_PER_GPU=1" in launcher
+    assert "run_lane 1001 0" in launcher
+    assert "run_lane 1002 1" in launcher
+
+
 def test_completion_locations_require_artifacts_even_without_completion_glob(
     tmp_path: Path,
 ) -> None:

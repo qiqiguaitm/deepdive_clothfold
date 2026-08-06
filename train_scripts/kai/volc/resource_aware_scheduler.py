@@ -468,6 +468,11 @@ P2_EAST_H20_ABI_MARKER = (
     / "logs/resource_markers/"
     "pi05_predictive_adapter_p2_east_h20_abi_preflight_v1.ok"
 )
+P2_LOCAL_ACCELERATOR_AMENDMENT = (
+    REPO
+    / "lmvla/paper_iclr_lmvla/manifests/"
+    "pi05_predictive_adapter_p2_local_accelerator_amendment_v1.json"
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -9446,6 +9451,116 @@ def add_pi05_p2_east_h20_abi_preflight(queue: dict[str, Any]) -> None:
     )
 
 
+def add_pi05_p2_local_accelerator_task(queue: dict[str, Any]) -> None:
+    """Attach two local A100s to the eight live P2 task schedulers."""
+    task_id = "pi05_predictive_adapter_p2_local_accelerator"
+    if any(task.get("id") == task_id for task in queue.get("tasks", [])):
+        return
+
+    amendment = json.loads(P2_LOCAL_ACCELERATOR_AMENDMENT.read_text())
+    ready_hashes = []
+    for spec in amendment["parents"].values():
+        path = REPO / spec["path"]
+        if sha256_file(path) != spec["sha256"]:
+            raise ValueError(f"P2 local accelerator parent drift: {path}")
+        ready_hashes.append({"path": str(path), "sha256": spec["sha256"]})
+    for relative, expected in amendment["file_sha256"].items():
+        path = REPO / relative
+        if sha256_file(path) != expected:
+            raise ValueError(f"P2 local accelerator runtime drift: {path}")
+        ready_hashes.append({"path": str(path), "sha256": expected})
+    ready_hashes.append(
+        {
+            "path": str(P2_LOCAL_ACCELERATOR_AMENDMENT),
+            "sha256": sha256_file(P2_LOCAL_ACCELERATOR_AMENDMENT),
+        }
+    )
+
+    scheduler_files = []
+    checkpoints = []
+    audit_markers = []
+    for training_seed in amendment["authorization"]["training_seeds"]:
+        checkpoint = (
+            REPO
+            / "kai0/checkpoints/pi05_predictive_adapter_p1"
+            / f"pi05_predictive_adapter_p1_seed{training_seed}/49999"
+        )
+        checkpoints.extend(
+            (
+                checkpoint / "params/_METADATA",
+                checkpoint
+                / "assets/robotwin2.0_absolute_meanstd/norm_stats.json",
+            )
+        )
+        audit_markers.append(
+            REPO
+            / "logs/resource_markers"
+            / f"pi05_predictive_adapter_p2_seed{training_seed}_checkpoint_audit.ok"
+        )
+        result_root = (
+            REPO
+            / "lmvla/lawam/results/eval_runs/robotwin"
+            / f"pi05_predictive_adapter_p2_seed{training_seed}_normal"
+        )
+        for eval_seed in amendment["authorization"]["evaluation_seeds"]:
+            scheduler_files.append(
+                result_root
+                / f"seed{eval_seed}"
+                / "pi05_predictive_adapter_p1__demo_clean"
+                / f"local-unseen-a3-seed{eval_seed}"
+                / ".task_scheduler.json"
+            )
+
+    marker = (
+        REPO
+        / "logs/resource_markers/pi05_predictive_adapter_p2_local_accelerator.ok"
+    )
+    queue["tasks"].append(
+        {
+            "id": task_id,
+            "priority": 0,
+            "description": (
+                "Attach two local A100s to the frozen P2 replication schedulers"
+            ),
+            "completion_glob": str(marker),
+            "completion_min_count": 1,
+            "ready_files": [
+                str(REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY"),
+                str(P2_EAST_H20_ABI_MARKER),
+                str(
+                    REPO
+                    / "lmvla/lmwm/data/"
+                    "robotwin_pi05_confirmatory_scene_seeds_v1.json"
+                ),
+                *(str(path) for path in checkpoints),
+                *(str(path) for path in audit_markers),
+                *(str(path) for path in scheduler_files),
+                str(P2_LOCAL_ACCELERATOR_AMENDMENT),
+            ],
+            "ready_hashes": ready_hashes,
+            "candidates": [
+                {
+                    "kind": "local",
+                    "resource": "local",
+                    "gpus": 2,
+                    "gpu_indices": [0, 1],
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 2,
+                    "status_dir": str(
+                        REPO / "logs/predictive/p2_local_accelerator_launcher"
+                    ),
+                    "command": (
+                        f"cd {shlex.quote(str(REPO))} && exec env "
+                        f"P2_VERIFY_REPO={shlex.quote(str(REPLICATION_FROZEN_OVERLAY))} "
+                        "bash train_scripts/kai/eval/"
+                        "run_pi05_p2_local_accelerator.sh"
+                    ),
+                }
+            ],
+        }
+    )
+
+
 def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
     """Gate frozen P1/P2/R1 jobs before resource recommendation and launch."""
     add_pi05_p2_east_h20_abi_preflight(queue)
@@ -13263,6 +13378,7 @@ def main() -> None:
     add_pi05_p1_north_eval_tasks(queue)
     add_pi05_p1_a0_seed01_east_helper_task(queue)
     add_pi05_p1_a0_east_accelerator_task(queue)
+    add_pi05_p2_local_accelerator_task(queue)
     add_pi05_r1_recurrence_aligned_tasks(queue)
     add_pi05_r4_outcome_collection_tasks(queue)
     add_pi05_r4_replication_tasks(queue)
@@ -13294,6 +13410,7 @@ def main() -> None:
             add_pi05_p1_north_eval_tasks(queue)
             add_pi05_p1_a0_seed01_east_helper_task(queue)
             add_pi05_p1_a0_east_accelerator_task(queue)
+            add_pi05_p2_local_accelerator_task(queue)
             add_pi05_r1_recurrence_aligned_tasks(queue)
             add_pi05_r4_outcome_collection_tasks(queue)
             add_pi05_r4_replication_tasks(queue)

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p2_local_accelerator_amendment_v1",
+  "created_at": "2026-08-06T08:25:52Z",
+  "status": "evaluation_acceleration_only",
+  "parents": {
+    "p2_protocol": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json",
+      "sha256": "52f80a75fa5ee0b3a1a74f5cd9738626dd574bc11a0fd71823f54defdac9908b"
+    },
+    "p2_integrity_amendment_v2": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_integrity_amendment_v2.json",
+      "sha256": "e8471bf04ec6a6d0cc4950e760e35083c6fdd800f01191f4a5a216f91b0b31d7"
+    },
+    "p2_east_h20_abi_amendment_v1": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_east_h20_abi_amendment_v1.json",
+      "sha256": "00bc641714438cb0b5ab9f4421bb52d301c5f74712202a11ffe15813615ebbbb"
+    }
+  },
+  "authorization": {
+    "task": "pi05_predictive_adapter_p2_local_accelerator",
+    "training_seeds": [
+      1001,
+      1002
+    ],
+    "evaluation_seeds": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "hardware": "local 2x NVIDIA A100-SXM4-80GB",
+    "workers_per_gpu": 2,
+    "slots_per_worker": 1
+  },
+  "invariants": [
+    "The accelerator starts only after all eight canonical P2 task schedulers exist and both final-checkpoint audit markers are present.",
+    "Each A100 is assigned to exactly one training seed and runs two independent single-worker lanes over disjoint evaluation-seed schedulers.",
+    "ROBOTWIN_NUM_SLOTS remains one; the amendment adds independent cell claimants and does not parallelize episodes within a cell.",
+    "Every worker claims a pending task through the existing locked scheduler and uses worker-index and port ranges disjoint from East and from every other local lane.",
+    "The final step-49,999 checkpoints, frozen source overlay, normal intervention, action bridge, six tasks, four evaluation seeds, fixed 50-scene manifest, and 1,200-episode count per training seed are unchanged.",
+    "The helper writes no canonical report or scientific gate; the original formal jobs retain sole responsibility for final verification, summarization, and canonical completion markers."
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "train_scripts/kai/eval/attach_pi05_a0_confirmatory_local.sh": "bb2878b90e0579d9727c61b296fdb94d070796f71e55c42b6605226096218615",
+    "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
+    "train_scripts/kai/eval/run_pi05_p2_local_accelerator.sh": "6770f1c298b0a58fa5eae5939d2e25c53fab903500458d32a07f62ab2a77bf79"
+  }
+}
