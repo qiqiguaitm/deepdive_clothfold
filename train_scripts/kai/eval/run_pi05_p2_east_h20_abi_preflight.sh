@@ -4,7 +4,7 @@ set -Eeuo pipefail
 REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
 LAWAM=$REPO/lmvla/lawam
 CKPT=$REPO/kai0/checkpoints/pi05_predictive_adapter_p1/pi05_predictive_adapter_p1_seed1001/49999
-MANIFEST=$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json
+MANIFEST=$REPO/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_east_h20_abi_preflight_seeds_v1.json
 RESULT_NAME=pi05_predictive_adapter_p2_east_h20_abi_preflight_v1
 RESULT_ROOT=$LAWAM/results/eval_runs/robotwin/$RESULT_NAME
 MARKER=$REPO/logs/resource_markers/$RESULT_NAME.ok

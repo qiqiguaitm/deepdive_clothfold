@@ -1,0 +1,16 @@
+{
+  "episodes_per_cell": 1,
+  "eval_seeds": {
+    "0": {
+      "beat_block_hammer": [
+        100000
+      ]
+    }
+  },
+  "parent_manifest": {
+    "path": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17"
+  },
+  "selection": "First preregistered valid scene seed for eval seed 0 and beat_block_hammer; ABI preflight only.",
+  "version": "pi05_predictive_adapter_p2_east_h20_abi_preflight_seeds_v1"
+}
