@@ -4823,6 +4823,68 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         }
     )
 
+    north_triton_repair = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_north_triton_exec_repair_v1.json"
+    )
+    north_triton_spec = json.loads(north_triton_repair.read_text())
+    north_triton_ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(north_triton_spec["file_sha256"].items())
+    ]
+    north_triton_marker = (
+        REPO / "logs/resource_markers/pi05_r4_north_triton_exec_repair.ok"
+    )
+    north_triton_marker_remote = (
+        north_stage / "logs/resource_markers/pi05_r4_north_triton_exec_repair.ok"
+    )
+    queue["tasks"].append(
+        {
+            "id": "pi05_r4_north_triton_exec_repair",
+            "priority": 0,
+            "description": (
+                "Restore and preflight byte-verified Triton NVIDIA tool "
+                "executability in the staged North runtime"
+            ),
+            "completion_glob": str(north_triton_marker),
+            "completion_min_count": 1,
+            "rearm_after_ready_file": str(north_triton_repair),
+            "ready_files": [
+                str(north_abi_marker),
+                str(north_triton_repair),
+                *[item["path"] for item in north_triton_ready_hashes],
+            ],
+            "ready_hashes": [
+                *north_triton_ready_hashes,
+                {
+                    "path": str(north_triton_repair),
+                    "sha256": sha256_file(north_triton_repair),
+                },
+            ],
+            "candidates": [
+                {
+                    "kind": "local",
+                    "resource": "local",
+                    "gpus": 0,
+                    "retry_cooldown_seconds": 120,
+                    "max_failures": 3,
+                    "status_dir": str(REPO / "logs/r4/north_triton_exec_repair/launcher"),
+                    "command": shlex.join(
+                        [
+                            "bash",
+                            str(
+                                REPO
+                                / "train_scripts/kai/"
+                                "repair_pi05_r4_north_triton_exec.sh"
+                            ),
+                        ]
+                    ),
+                }
+            ],
+        }
+    )
+
     north_eval_yaml = "train_scripts/kai/volc/pi05_r4_eval_north_4h20.yaml"
     for arm in ("terminal_outcome", "outcome_free_crave"):
         eval_task_id = f"pi05_r4_{arm}_seed1000_eval"
@@ -4848,24 +4910,33 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         parent_hashes.update(
             {item["path"]: item["sha256"] for item in north_abi_ready_hashes}
         )
+        parent_hashes.update(
+            {item["path"]: item["sha256"] for item in north_triton_ready_hashes}
+        )
         parent_hashes[str(north_eval_amendment)] = sha256_file(
             north_eval_amendment
         )
         parent_hashes[str(north_abi_repair)] = sha256_file(north_abi_repair)
+        parent_hashes[str(north_triton_repair)] = sha256_file(
+            north_triton_repair
+        )
         parent["ready_files"] = list(
             dict.fromkeys(
                 [
                     *parent["ready_files"],
                     str(north_stage_marker),
                     str(north_abi_marker),
+                    str(north_triton_marker),
                     str(north_eval_amendment),
                     str(north_abi_repair),
+                    str(north_triton_repair),
                     *[item["path"] for item in north_eval_ready_hashes],
                     *[item["path"] for item in north_abi_ready_hashes],
+                    *[item["path"] for item in north_triton_ready_hashes],
                 ]
             )
         )
-        parent["rearm_after_ready_file"] = str(north_abi_marker)
+        parent["rearm_after_ready_file"] = str(north_triton_marker)
         parent["ready_hashes"] = [
             {"path": path, "sha256": expected}
             for path, expected in parent_hashes.items()
@@ -4885,10 +4956,15 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     "max_failures": 4,
                     "yaml": north_eval_yaml,
                     "task_name": f"pi05-r4-{arm.replace('_', '-')}-eval-north4g",
-                    "ready_files": [str(north_stage_marker), str(north_abi_marker)],
+                    "ready_files": [
+                        str(north_stage_marker),
+                        str(north_abi_marker),
+                        str(north_triton_marker),
+                    ],
                     "ready_files_remote": [
                         str(north_stage_marker_remote),
                         str(north_abi_marker_remote),
+                        str(north_triton_marker_remote),
                         str(remote_model / "model.safetensors"),
                         str(remote_model / "config.json"),
                     ],

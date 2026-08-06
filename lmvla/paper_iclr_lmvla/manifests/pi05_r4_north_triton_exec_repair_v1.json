@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_north_triton_exec_repair_v1",
+  "created_at": "2026-08-06T00:50:00Z",
+  "status": "authorized_operational_repair",
+  "base_repair": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_north_python_abi_repair_v1.json",
+  "base_repair_sha256": "59b10aacc9b75d2899c65042b88e604174e08655efb6b872bb6fa9bdad659395",
+  "failure": {
+    "jobs": [
+      "t-20260806084303-fp6qj",
+      "t-20260806084308-hp2zf"
+    ],
+    "symptom": "TorchInductor could not execute Triton's bundled ptxas after the verified runtime transfer removed executable mode bits.",
+    "evidence": "All eight workers failed their first compiled policy query with the same ptxas PermissionError and produced zero valid episodes."
+  },
+  "repair": {
+    "scope": "Verify the transferred Triton tool bytes, restore mode 0755 on all four bundled NVIDIA tools, execute each version preflight, and reset only the two zero-episode failed result trees.",
+    "remote_stage": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_r4_eval_north_v1/repo",
+    "acceptance_marker": "logs/resource_markers/pi05_r4_north_triton_exec_repair.ok"
+  },
+  "runtime_binary_sha256": {
+    "cuobjdump": "ad1d0f0699f46603416eb58e7b9fdf9a293e95f9312c9df7fd6fda56a6c30d41",
+    "nvdisasm": "1080bc909a3020761ff4c78a9b7bd9b4937bdb9c0978709cbe52381de612a1f2",
+    "ptxas": "c960a4f238b17d5c5d3c01ad2bbc1ebd2c5aecc459cb4d223bff10b45f9b8fca",
+    "ptxas-blackwell": "983b0e9283855979f42cebfd80d43f9b6e786eb84f03f7570bf941c4d3a3c461"
+  },
+  "file_sha256": {
+    "train_scripts/kai/repair_pi05_r4_north_triton_exec.sh": "8f773af6e7c1e7af07682004cb6b8cea24c9e96f71446f13526c2a97c5d13c73"
+  },
+  "invariants": [
+    "Only executable mode bits on byte-verified staged runtime tools are changed.",
+    "Checkpoint bytes, policy code, Python packages, and compile settings are unchanged.",
+    "Tasks, evaluation seeds, scene seeds, episodes per cell, replan horizon, instruction type, and action bridge are unchanged.",
+    "The stopped attempts contribute no policy-effect evidence because they produced zero valid episodes.",
+    "Each retry requires a fresh resource recommendation audit before platform submission."
+  ]
+}

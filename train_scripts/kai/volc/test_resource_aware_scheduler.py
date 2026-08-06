@@ -292,6 +292,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
     }
     north_abi_repair = tasks["pi05_r4_north_python_abi_repair"]
+    north_triton_repair = tasks["pi05_r4_north_triton_exec_repair"]
     formal_gate = tasks["pi05_r4_seed1000_gate"]
     north_stage = tasks["pi05_r4_eval_north_stage"]
     north_materializers = {
@@ -541,10 +542,14 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
                 "north",
             }
             assert task["rearm_after_ready_file"].endswith(
-                "pi05_r4_north_python_abi_repair.ok"
+                "pi05_r4_north_triton_exec_repair.ok"
             )
             assert any(
                 item["path"].endswith("pi05_r4_north_python_abi_repair_v1.json")
+                for item in task["ready_hashes"]
+            )
+            assert any(
+                item["path"].endswith("pi05_r4_north_triton_exec_repair_v1.json")
                 for item in task["ready_hashes"]
             )
     assert north_stage["priority"] == 0
@@ -579,6 +584,13 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     ).read_text()
     assert "*/lib/python3.12/site-packages" in wrapper
     assert 'python_paths+=("$path")' in wrapper
+    assert north_triton_repair["priority"] == 0
+    assert north_triton_repair["candidates"][0]["resource"] == "local"
+    assert north_triton_repair["candidates"][0]["gpus"] == 0
+    assert "repair_pi05_r4_north_triton_exec.sh" in (
+        north_triton_repair["candidates"][0]["command"]
+    )
+    assert north_abi_repair["completion_glob"] in north_triton_repair["ready_files"]
     for arm, materialize in north_materializers.items():
         assert materialize["materialize_north_result_for"] == formal_eval[arm]["id"]
         assert materialize["candidates"][0]["gpus"] == 0
