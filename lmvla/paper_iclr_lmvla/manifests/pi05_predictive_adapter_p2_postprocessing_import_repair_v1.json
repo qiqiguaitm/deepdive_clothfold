@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p2_postprocessing_import_repair_v1",
+  "created_utc": "2026-08-06T10:32:00Z",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_integrity_amendment_v2.json",
+    "sha256": "e8471bf04ec6a6d0cc4950e760e35083c6fdd800f01191f4a5a216f91b0b31d7"
+  },
+  "observed_failure": {
+    "task": "pi05_predictive_adapter_p2_gate",
+    "started_utc": "2026-08-06T10:29:51Z",
+    "finished_utc": "2026-08-06T10:29:52Z",
+    "stage": "after frozen protocol verification and before report loading or bootstrap",
+    "exception": "ModuleNotFoundError: No module named 'analyze_mt_transition_controls'"
+  },
+  "repair": {
+    "scope": "postprocessing import path only",
+    "pythonpath_append": "lmvla/lmwm/scripts",
+    "analyzer_changed": false,
+    "reports_changed": false,
+    "bootstrap_seed_changed": false,
+    "bootstrap_samples_changed": false,
+    "acceptance_criteria_changed": false
+  },
+  "dependency_sha256": {
+    "lmvla/lmwm/scripts/analyze_mt_transition_controls.py": "0b84a59d1655b84aadaf37771b7f4c37b9d1a0f3b64809858a9c5f1ad4718037"
+  },
+  "authorized_tasks": [
+    "pi05_predictive_adapter_p2_gate",
+    "pi05_predictive_adapter_p2_inference_efficiency",
+    "pi05_predictive_adapter_p2_training_memory",
+    "pi05_predictive_adapter_p2_efficiency_finalize"
+  ],
+  "constraints": [
+    "The frozen P2 analyzer remains byte-identical to the preregistered source.",
+    "The imported helper is pinned by SHA-256 and supplies only shared report parsing and atomic-write utilities.",
+    "No rollout, report, training seed, task, evaluation seed, scene key, bootstrap setting, or gate threshold changes."
+  ]
+}

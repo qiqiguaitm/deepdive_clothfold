@@ -424,7 +424,16 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
     tasks = {task["id"]: task for task in queue["tasks"]}
 
     amendment = json.loads(scheduler.P2_INTEGRITY_AMENDMENT.read_text())
+    import_repair = json.loads(
+        scheduler.P2_POSTPROCESSING_IMPORT_REPAIR.read_text()
+    )
     assert amendment["protocol"] == "pi05_predictive_adapter_p2_integrity_amendment_v2"
+    assert import_repair["protocol"] == (
+        "pi05_predictive_adapter_p2_postprocessing_import_repair_v1"
+    )
+    assert scheduler.sha256_file(scheduler.P2_INTEGRITY_AMENDMENT) == (
+        import_repair["parent"]["sha256"]
+    )
     normalization = amendment["normalization_identity"]
     assert normalization["semantic_reference_path"]
     reference = scheduler.REPO / normalization["semantic_reference_path"]
@@ -485,11 +494,23 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
         str(scheduler.REPO / relative): expected
         for relative, expected in amendment["postprocessing_file_sha256"].items()
     }
+    expected_import_hashes = {
+        str(scheduler.REPO / relative): expected
+        for relative, expected in import_repair["dependency_sha256"].items()
+    }
+    expected_post_pythonpath = os.pathsep.join(
+        [
+            str(scheduler.REPLICATION_FROZEN_OVERLAY / "kai0/src"),
+            str(scheduler.REPO / "lmvla/lmwm/scripts"),
+        ]
+    )
     for task_id in postprocessing:
         task = tasks[task_id]
         hashes = {item["path"]: item["sha256"] for item in task["ready_hashes"]}
         assert expected_post_hashes.items() <= hashes.items()
+        assert expected_import_hashes.items() <= hashes.items()
         assert str(scheduler.P2_INTEGRITY_AMENDMENT) in task["ready_files"]
+        assert str(scheduler.P2_POSTPROCESSING_IMPORT_REPAIR) in task["ready_files"]
         assert str(
             scheduler.REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY"
         ) in task["ready_files"]
@@ -502,6 +523,7 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
                 assert env["TRAIN_SOURCE_REPO"] == str(
                     scheduler.REPLICATION_FROZEN_OVERLAY
                 )
+                assert env["PYTHONPATH"] == expected_post_pythonpath
             else:
                 assert scheduler.candidate_env_value(
                     candidate, "P2_VERIFY_REPO"
@@ -509,6 +531,9 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
                 assert scheduler.candidate_env_value(
                     candidate, "TRAIN_SOURCE_REPO"
                 ) == str(scheduler.REPLICATION_FROZEN_OVERLAY)
+                assert scheduler.candidate_env_value(
+                    candidate, "PYTHONPATH"
+                ) == expected_post_pythonpath
 
     scheduler.apply_frozen_source_readiness(queue)
     for task_id in postprocessing:

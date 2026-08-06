@@ -1,0 +1,69 @@
+{
+  "accepted": true,
+  "baseline": {
+    "macro_success_rate": 0.69,
+    "training_seed": 1000
+  },
+  "candidate_macro_success_rates": {
+    "1000": 0.8241666666666666,
+    "1001": 0.7808333333333333,
+    "1002": 0.8133333333333334
+  },
+  "candidate_training_seeds": [
+    1000,
+    1001,
+    1002
+  ],
+  "checks": {
+    "all_three_training_seeds_present": true,
+    "exact_scene_pairing": true,
+    "hierarchical_95ci_excludes_zero_positive": true
+  },
+  "complete": true,
+  "hierarchical_paired_bootstrap": {
+    "ci95": [
+      0.08305555555555556,
+      0.1466666666666667
+    ],
+    "random_seed": 20260804,
+    "samples": 20000,
+    "unit_levels": [
+      "candidate_training_seed",
+      "paired_episode_within_task"
+    ]
+  },
+  "mean_seed_effect_vs_a0": 0.11611111111111112,
+  "protocol": "pi05_predictive_action_adapter_p2_hierarchical_gate_v1",
+  "schema_version": 1,
+  "seed_effects_vs_a0": {
+    "1000": 0.13416666666666666,
+    "1001": 0.09083333333333332,
+    "1002": 0.1233333333333334
+  },
+  "task_effects_vs_a0": {
+    "1000": {
+      "beat_block_hammer": 0.08499999999999996,
+      "blocks_ranking_rgb": 0.1349999999999999,
+      "blocks_ranking_size": 0.15500000000000003,
+      "handover_block": 0.1399999999999999,
+      "stack_blocks_three": 0.27,
+      "stack_blocks_two": 0.020000000000000018
+    },
+    "1001": {
+      "beat_block_hammer": 0.010000000000000009,
+      "blocks_ranking_rgb": 0.12499999999999989,
+      "blocks_ranking_size": 0.07000000000000006,
+      "handover_block": 0.18499999999999994,
+      "stack_blocks_three": 0.16500000000000004,
+      "stack_blocks_two": -0.010000000000000009
+    },
+    "1002": {
+      "beat_block_hammer": 0.040000000000000036,
+      "blocks_ranking_rgb": 0.05999999999999994,
+      "blocks_ranking_size": 0.125,
+      "handover_block": 0.22999999999999998,
+      "stack_blocks_three": 0.255,
+      "stack_blocks_two": 0.030000000000000027
+    }
+  }
+}

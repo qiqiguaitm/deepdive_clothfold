@@ -458,6 +458,11 @@ P2_INTEGRITY_AMENDMENT = (
     / "lmvla/paper_iclr_lmvla/manifests/"
     "pi05_predictive_adapter_p2_integrity_amendment_v2.json"
 )
+P2_POSTPROCESSING_IMPORT_REPAIR = (
+    REPO
+    / "lmvla/paper_iclr_lmvla/manifests/"
+    "pi05_predictive_adapter_p2_postprocessing_import_repair_v1.json"
+)
 P2_EAST_H20_ABI_AMENDMENT = (
     REPO
     / "lmvla/paper_iclr_lmvla/manifests/"
@@ -9691,6 +9696,9 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
         replication_eval_amendment_path.read_text()
     )
     p2_integrity_amendment = json.loads(P2_INTEGRITY_AMENDMENT.read_text())
+    p2_postprocessing_import_repair = json.loads(
+        P2_POSTPROCESSING_IMPORT_REPAIR.read_text()
+    )
     p2_east_h20_abi_amendment = json.loads(P2_EAST_H20_ABI_AMENDMENT.read_text())
     p2_eval_authorized = set(
         replication_eval_amendment["authorization"]["p2_eval_tasks"]
@@ -9860,11 +9868,26 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                 p2_integrity_amendment["postprocessing_file_sha256"].items()
             )
         ),
+        *(
+            {
+                "path": str(REPO / relative),
+                "sha256": expected,
+            }
+            for relative, expected in sorted(
+                p2_postprocessing_import_repair["dependency_sha256"].items()
+            )
+        ),
     ]
+    p2_postprocessing_pythonpath = os.pathsep.join(
+        [
+            str(REPLICATION_FROZEN_OVERLAY / "kai0/src"),
+            str(REPO / "lmvla/lmwm/scripts"),
+        ]
+    )
     postprocessing_env = {
         "P2_VERIFY_REPO": str(REPLICATION_FROZEN_OVERLAY),
         "TRAIN_SOURCE_REPO": str(REPLICATION_FROZEN_OVERLAY),
-        "PYTHONPATH": str(REPLICATION_FROZEN_OVERLAY / "kai0/src"),
+        "PYTHONPATH": p2_postprocessing_pythonpath,
     }
     postprocessing_assignments = " ".join(
         f"{key}={shlex.quote(value)}" for key, value in postprocessing_env.items()
@@ -9877,6 +9900,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
             REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY",
             replication_amendment_path,
             P2_INTEGRITY_AMENDMENT,
+            P2_POSTPROCESSING_IMPORT_REPAIR,
         ):
             path_text = str(path)
             if path_text not in task.setdefault("ready_files", []):
