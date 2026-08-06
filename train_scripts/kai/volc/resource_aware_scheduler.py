@@ -463,6 +463,11 @@ P2_POSTPROCESSING_IMPORT_REPAIR = (
     / "lmvla/paper_iclr_lmvla/manifests/"
     "pi05_predictive_adapter_p2_postprocessing_import_repair_v1.json"
 )
+P2_EFFICIENCY_CONFIG_REPAIR = (
+    REPO
+    / "lmvla/paper_iclr_lmvla/manifests/"
+    "pi05_predictive_adapter_p2_efficiency_config_repair_v1.json"
+)
 P2_EAST_H20_ABI_AMENDMENT = (
     REPO
     / "lmvla/paper_iclr_lmvla/manifests/"
@@ -9463,6 +9468,15 @@ def add_pi05_p2_local_accelerator_task(queue: dict[str, Any]) -> None:
         return
 
     amendment = json.loads(P2_LOCAL_ACCELERATOR_AMENDMENT.read_text())
+    final_gate = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/"
+        "RESULTS_pi05_predictive_adapter_p2_gate.json"
+    )
+    gate_result = json.loads(final_gate.read_text()) if final_gate.is_file() else {}
+    replication_complete = bool(
+        gate_result.get("complete") and gate_result.get("accepted")
+    )
     ready_hashes = []
     for spec in amendment["parents"].values():
         path = REPO / spec["path"]
@@ -9526,6 +9540,12 @@ def add_pi05_p2_local_accelerator_task(queue: dict[str, Any]) -> None:
             "priority": 0,
             "description": (
                 "Attach two local A100s to the frozen P2 replication schedulers"
+            ),
+            "enabled": not replication_complete,
+            "disabled_reason": (
+                "P2 final evaluations and accepted replication gate are complete"
+                if replication_complete
+                else None
             ),
             "completion_glob": str(marker),
             "completion_min_count": 1,
@@ -9699,6 +9719,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
     p2_postprocessing_import_repair = json.loads(
         P2_POSTPROCESSING_IMPORT_REPAIR.read_text()
     )
+    p2_efficiency_config_repair = json.loads(P2_EFFICIENCY_CONFIG_REPAIR.read_text())
     p2_east_h20_abi_amendment = json.loads(P2_EAST_H20_ABI_AMENDMENT.read_text())
     p2_eval_authorized = set(
         replication_eval_amendment["authorization"]["p2_eval_tasks"]
@@ -9857,6 +9878,12 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
     p2_postprocessing_authorized = set(
         p2_integrity_amendment["authorization"]["postprocessing_tasks"]
     )
+    p2_postprocessing_file_hashes = dict(
+        p2_integrity_amendment["postprocessing_file_sha256"]
+    )
+    p2_postprocessing_file_hashes.update(
+        p2_efficiency_config_repair["file_sha256_override"]
+    )
     p2_postprocessing_hashes = [
         *replication_overlay_hashes,
         *(
@@ -9865,7 +9892,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                 "sha256": expected,
             }
             for relative, expected in sorted(
-                p2_integrity_amendment["postprocessing_file_sha256"].items()
+                p2_postprocessing_file_hashes.items()
             )
         ),
         *(
@@ -9901,6 +9928,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
             replication_amendment_path,
             P2_INTEGRITY_AMENDMENT,
             P2_POSTPROCESSING_IMPORT_REPAIR,
+            P2_EFFICIENCY_CONFIG_REPAIR,
         ):
             path_text = str(path)
             if path_text not in task.setdefault("ready_files", []):

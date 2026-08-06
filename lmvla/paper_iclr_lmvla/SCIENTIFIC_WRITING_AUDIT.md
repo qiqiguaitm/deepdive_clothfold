@@ -119,16 +119,16 @@ Nature layout rules are not applied when they conflict with ICLR.
   implementation.
 - Figure 2 remains explicitly labelled as the one-seed legacy pilot; the
   claim-bearing table reports all three corrected training seeds.
-- The current main text is 15 pages including references and appendix. Final
-  submission length must be checked against the ICLR 2027 main-text limit after
-  the confirmatory table and figure replace internal TODO blocks.
+- The current build is 17 pages through references and 23 pages with the
+  appendix. Final submission length must be checked against the ICLR 2027
+  main-text limit before submission.
 - The observation-only predictor cannot resolve instruction-dependent futures.
   The limitation is now explicit, but an instruction-aware control is needed
   before claiming general milestone selection.
-- The P1 table is intentionally not promoted into a claim-bearing figure while
-  P2 remains incomplete. R4 is reported as a completed negative replication,
-  with training-seed, task-level, and interval evidence rather than only a
-  macro average.
+- P2 is complete and accepted relative to its fixed matched A0. The result is
+  reported as a full task-by-seed table rather than a new claim-bearing figure;
+  its text explicitly withholds content-specific causality and independent
+  baseline-seed replication. R4 remains a completed negative replication.
 
 ## Venue distinction
 

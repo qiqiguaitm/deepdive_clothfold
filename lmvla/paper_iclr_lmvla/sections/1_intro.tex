@@ -76,12 +76,14 @@ We also evaluate a separate repair hypothesis that preserves the pretrained
 $\pi_{0.5}$ pathways and confines an action-conditioned predictive adapter to
 the action expert.  Its preregistered seed-1000 screen improves over a matched
 current-source A0 by 13.42 points (82.42\% versus 69.00\%) without a task-level
-regression.  This is direct closed-loop evidence for one checkpoint, not yet a
-replicated method claim: the margin over shuffled action conditioning is only
-1.25 points (Holm-adjusted $p{=}1.0$), and seeds 1001--1002 remain under the
-frozen P2 replication gate.  Adding recurrence-derived CRAVE targets reduces
-success to 62.92\%; this rejects that auxiliary extension rather than the
-parent predictive adapter.
+regression.  The frozen P2 replication yields candidate effects of +13.42,
++9.08, and +12.33 points across training seeds, with a mean +11.61-point
+effect and hierarchical 95\% interval [$+8.31$,$+14.67$].  This establishes
+replicated candidate utility relative to the fixed matched A0, but not
+content-specific causality: the P1 margin over shuffled action conditioning is
+only 1.25 points (Holm-adjusted $p{=}1.0$).  Adding recurrence-derived CRAVE
+targets reduces success to 62.92\%; this rejects that auxiliary extension
+rather than the parent predictive adapter.
 
 A separate demonstration-weighting screen gives a second bounded positive
 direction.  At seed 1000, terminal-outcome weighting reaches 77.58\%, versus
@@ -102,8 +104,8 @@ This paper makes three contributions:
   predictor need not improve control: both conditioned arms regress, correct
   content has no resolved advantage, and a privileged oracle-transition route
   also fails its replicated closed-loop utility gate.  A separately scoped
-  policy-preserving adapter passes a one-seed screen, motivating rather than
-  replacing its still-open replication test.  Outcome-calibrated weighting
-  also passes a one-seed directional screen, but its completed three-seed gate
-  rejects a replicated method effect.
+  policy-preserving adapter passes its three-seed utility gate relative to a
+  fixed matched A0, while its content-specific intervention remains unresolved.
+  Outcome-calibrated weighting also passes a one-seed directional screen, but
+  its completed three-seed gate rejects a replicated method effect.
 \end{itemize}

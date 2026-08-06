@@ -39,7 +39,7 @@ export PYTHONPATH="$SOURCE_REPO/kai0/src:$SOURCE_REPO/kai0/packages/openpi-clien
 if [[ ! -s "$A0" ]]; then
   "$PY" "$BENCH" \
     --arm predictive_p1_a0 \
-    --config pi05_predictive_adapter_p1_a0_exact \
+    --config pi05_robotwin_a0_public_exact_bj \
     --checkpoint "$REPO/kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/pi05_predictive_adapter_p1_a0_seed1000/49999" \
     --warmup 5 --trials 30 --output "$A0"
 fi

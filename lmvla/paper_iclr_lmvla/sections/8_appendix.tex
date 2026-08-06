@@ -72,6 +72,28 @@ directional P1 gate does not establish content-specific causality or
 multi-seed utility.  The canonical decision is
 \texttt{RESULTS\_pi05\_predictive\_adapter\_p1\_seed1000\_gate.json}.
 
+P2 completes the frozen normal-candidate replication at training seeds 1001
+and 1002.  Together with seed 1000, candidate macros are 82.42\%, 78.08\%,
+and 81.33\%, giving effects of +13.42, +9.08, and +12.33 points against the
+fixed seed-1000 matched A0.  The equal-seed mean effect is +11.61 points; the
+predeclared hierarchical paired 95\% interval is [$+8.31$,$+14.67$].  Mean
+task effects in Hammer, ranking-RGB, ranking-size, Handover, Stack-2, and
+Stack-3 order are +4.50, +10.67, +11.67, +18.50, +1.33, and +23.00 points.
+The utility gate is accepted.  Because P2 does not repeat the normal--shuffled
+intervention and holds the A0 training seed fixed, this result establishes
+candidate-seed replication relative to that A0, not content-specific causality
+or independent baseline-seed replication.  The canonical records are
+\texttt{RESULTS\_pi05\_predictive\_adapter\_p2\_gate.json} and
+\texttt{RESULTS\_pi05\_predictive\_adapter\_p2\_efficiency.json}.
+
+The matched efficiency probe counts 3.353 and 3.370 billion parameters
+(+16.82 million; 0.50\%).  Direct-model latency is 57.10 versus 58.03\,ms,
+WebSocket round-trip latency is 111.57 versus 114.33\,ms, and throughput is
+8.96 versus 8.75 requests/s over five warmups and 30 trials on the same GPU.
+Compiled XLA cost analysis reports 172.29 versus 164.92 GFLOPs, which is a
+compiler estimate rather than a theoretical operation count.  The matched
+four-GPU ten-step training probe peaks at 66,789 versus 66,807\,MiB (+18\,MiB).
+
 R1 uses the corrected 359,823-row dense recurrence-target protocol.  Its
 CRAVE-only, predictive-plus-CRAVE, combined zero-route, and combined shuffled
 conditions reach 68.67\%, 62.92\%, 62.17\%, and 64.67\%, respectively, over
@@ -79,9 +101,8 @@ conditions reach 68.67\%, 62.92\%, 62.17\%, and 64.67\%, respectively, over
 (paired bootstrap 95\% CI [$-9.33$,$-2.75$]), 5.75 points below CRAVE-only
 ([$-9.00$,$-2.50$]), and has four task regressions larger than five points.
 The rejected R1 gate disables its additional seeds.  Because R1 adds an
-auxiliary target to P1, this verdict does not negate the parent P1 screen.
-Seeds 1001--1002 of the parent adapter remain reserved for the frozen P2
-replication and are not represented by intermediate checkpoints.
+auxiliary target to P1, this verdict does not negate the parent adapter or its
+completed P2 replication.
 
 \subsection{Outcome-calibrated weighting screen}
 R4 uses the same 6,313 expert-supervised query--action chunks in three matched

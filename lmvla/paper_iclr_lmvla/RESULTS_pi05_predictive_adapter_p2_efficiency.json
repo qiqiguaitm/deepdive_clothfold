@@ -1,0 +1,239 @@
+{
+  "complete": true,
+  "latency_and_compute": {
+    "arms": {
+      "a0": {
+        "arm": "predictive_p1_a0",
+        "checkpoint": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/pi05_predictive_adapter_p1_a0_seed1000/49999",
+        "config": "pi05_robotwin_a0_public_exact_bj",
+        "direct_model": {
+          "mean_95ci_ms": [
+            57.06960787298158,
+            57.13024466026884
+          ],
+          "mean_ms": 57.09677532625695,
+          "n": 30,
+          "p50_ms": 57.07658501341939,
+          "p90_ms": 57.20173488371074,
+          "p95_ms": 57.226683804765344,
+          "std_ms": 0.08651828817775836
+        },
+        "direct_wall": {
+          "mean_95ci_ms": [
+            107.74977459960306,
+            109.73489825536187
+          ],
+          "mean_ms": 108.56967410072684,
+          "n": 30,
+          "p50_ms": 107.75640653446317,
+          "p90_ms": 109.96740786358714,
+          "p95_ms": 111.26806908287108,
+          "std_ms": 2.8979841190239726
+        },
+        "gpu_memory_mib": {
+          "after_load": 8691,
+          "after_warmup": 8715,
+          "before_load": 4
+        },
+        "load_seconds": 10.562448103912175,
+        "model_parameter_count": 3353433872,
+        "protocol": {
+          "camera_count": 3,
+          "client_image_shape": [
+            3,
+            480,
+            640
+          ],
+          "device": "0",
+          "hint_dim": 0,
+          "history_steps": 0,
+          "input": "deterministic synthetic uint8 images and zero state/hint",
+          "state_dim": 14,
+          "transition_task_id": null,
+          "trials": 30,
+          "warmup": 5
+        },
+        "websocket_roundtrip": {
+          "mean_95ci_ms": [
+            110.97438195409875,
+            112.2157810574087
+          ],
+          "mean_ms": 111.57052574368815,
+          "n": 30,
+          "p50_ms": 111.53544392436743,
+          "p90_ms": 113.45931328833103,
+          "p95_ms": 114.52867267653346,
+          "std_ms": 1.7650562719546399
+        },
+        "websocket_server": {
+          "mean_95ci_ms": [
+            106.91426016118687,
+            108.11161212235068
+          ],
+          "mean_ms": 107.47922101678948,
+          "n": 30,
+          "p50_ms": 107.32576320879161,
+          "p90_ms": 109.16271428577602,
+          "p95_ms": 110.36436553113163,
+          "std_ms": 1.7121112451853255
+        },
+        "websocket_throughput_requests_per_second": 8.962940645249875,
+        "xla_cost_analysis": {
+          "bytes accessed": 2520989952.0,
+          "flops": 172294275072.0,
+          "transcendentals": 30938950.0
+        }
+      },
+      "candidate": {
+        "arm": "predictive_p1_candidate",
+        "checkpoint": "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_predictive_adapter_p1/pi05_predictive_adapter_p1_seed1000/49999",
+        "config": "pi05_predictive_adapter_p1_eval",
+        "direct_model": {
+          "mean_95ci_ms": [
+            57.987988697520144,
+            58.07359267879898
+          ],
+          "mean_ms": 58.02774503827095,
+          "n": 30,
+          "p50_ms": 58.005606988444924,
+          "p90_ms": 58.14342899248004,
+          "p95_ms": 58.30466926563531,
+          "std_ms": 0.12211411609489803
+        },
+        "direct_wall": {
+          "mean_95ci_ms": [
+            109.07128496289565,
+            112.00588626399016
+          ],
+          "mean_ms": 110.48655857642491,
+          "n": 30,
+          "p50_ms": 108.28404454514384,
+          "p90_ms": 118.0311341304332,
+          "p95_ms": 118.98429146967828,
+          "std_ms": 4.234376317781246
+        },
+        "gpu_memory_mib": {
+          "after_load": 8643,
+          "after_warmup": 8671,
+          "before_load": 4
+        },
+        "load_seconds": 9.949023488909006,
+        "model_parameter_count": 3370258704,
+        "protocol": {
+          "camera_count": 3,
+          "client_image_shape": [
+            3,
+            480,
+            640
+          ],
+          "device": "0",
+          "hint_dim": 0,
+          "history_steps": 0,
+          "input": "deterministic synthetic uint8 images and zero state/hint",
+          "state_dim": 14,
+          "transition_task_id": null,
+          "trials": 30,
+          "warmup": 5
+        },
+        "websocket_roundtrip": {
+          "mean_95ci_ms": [
+            112.57945439817074,
+            116.23409747689342
+          ],
+          "mean_ms": 114.33262075297534,
+          "n": 30,
+          "p50_ms": 111.13633844070137,
+          "p90_ms": 122.134396340698,
+          "p95_ms": 123.09905951842666,
+          "std_ms": 5.232235695200709
+        },
+        "websocket_server": {
+          "mean_95ci_ms": [
+            108.61586660922816,
+            112.15393663500436
+          ],
+          "mean_ms": 110.28805292832355,
+          "n": 30,
+          "p50_ms": 107.42736561223865,
+          "p90_ms": 118.22326797991991,
+          "p95_ms": 119.00618276558816,
+          "std_ms": 5.126654165674833
+        },
+        "websocket_throughput_requests_per_second": 8.746410196968887,
+        "xla_cost_analysis": {
+          "bytes accessed": 2583145984.0,
+          "flops": 164924375040.0,
+          "transcendentals": 31040838.0
+        }
+      }
+    },
+    "benchmark": "pi05_predictive_adapter_matched_efficiency",
+    "delta_candidate_minus_a0": {
+      "direct_model_mean_ms": 0.9309697120139973,
+      "flops": -7369900032.0,
+      "parameters": 16824832,
+      "warm_gpu_memory_mib": -44,
+      "websocket_roundtrip_mean_ms": 2.7620950092871936,
+      "websocket_throughput_requests_per_second": -0.216530448280988
+    },
+    "p2_gate": "/vePFS/tim/workspace/deepdive_kai0/logs/predictive/p2_eval/p2_gate.accepted",
+    "p2_gate_sha256": "ac1493cdfbb3763e43f1accfce43b45e29e5e9286b3a5a65300b13b36170acee",
+    "protocol": {
+      "flops_source": "compiled JAX executable cost_analysis",
+      "hardware_comparison": "same allocated 80-GiB GPU and process environment",
+      "trials": 30,
+      "warmup": 5
+    }
+  },
+  "p2_gate_sha256": "ac1493cdfbb3763e43f1accfce43b45e29e5e9286b3a5a65300b13b36170acee",
+  "protocol": "pi05_predictive_adapter_p2_efficiency_v1",
+  "schema_version": 1,
+  "training_memory": {
+    "arms": {
+      "a0": {
+        "arm": "a0",
+        "config": "pi05_predictive_adapter_p1_a0_exact",
+        "log": "/vePFS/tim/workspace/deepdive_kai0/logs/efficiency/pi05_predictive_adapter_train_memory/a0.log",
+        "max_peak_memory_mib": 66789,
+        "per_gpu_peak_memory_mib": [
+          66789,
+          66781,
+          66781,
+          66781
+        ],
+        "protocol": {
+          "fsdp_devices": 1,
+          "global_batch_size": 16,
+          "sample_interval_seconds": 0.2,
+          "steps": 10
+        },
+        "samples": 2054,
+        "telemetry": "/vePFS/tim/workspace/deepdive_kai0/logs/efficiency/pi05_predictive_adapter_train_memory/a0.csv"
+      },
+      "candidate": {
+        "arm": "candidate",
+        "config": "pi05_predictive_adapter_p1",
+        "log": "/vePFS/tim/workspace/deepdive_kai0/logs/efficiency/pi05_predictive_adapter_train_memory/candidate.log",
+        "max_peak_memory_mib": 66807,
+        "per_gpu_peak_memory_mib": [
+          66807,
+          66803,
+          66803,
+          66803
+        ],
+        "protocol": {
+          "fsdp_devices": 1,
+          "global_batch_size": 16,
+          "sample_interval_seconds": 0.2,
+          "steps": 10
+        },
+        "samples": 1241,
+        "telemetry": "/vePFS/tim/workspace/deepdive_kai0/logs/efficiency/pi05_predictive_adapter_train_memory/candidate.csv"
+      }
+    },
+    "benchmark": "pi05_predictive_adapter_matched_training_memory",
+    "delta_candidate_minus_a0_mib": 18,
+    "p2_gate": "/vePFS/tim/workspace/deepdive_kai0/logs/predictive/p2_eval/p2_gate.accepted",
+    "p2_gate_sha256": "ac1493cdfbb3763e43f1accfce43b45e29e5e9286b3a5a65300b13b36170acee"
+  }
+}

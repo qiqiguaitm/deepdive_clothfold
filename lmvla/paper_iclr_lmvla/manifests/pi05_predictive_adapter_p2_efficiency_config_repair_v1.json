@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p2_efficiency_config_repair_v1",
+  "created_utc": "2026-08-06T10:44:00Z",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_integrity_amendment_v2.json",
+    "sha256": "e8471bf04ec6a6d0cc4950e760e35083c6fdd800f01191f4a5a216f91b0b31d7"
+  },
+  "observed_failures": [
+    {
+      "resource": "local",
+      "started_utc": "2026-08-06T10:36:14Z",
+      "finished_utc": "2026-08-06T10:36:59Z"
+    },
+    {
+      "resource": "Robot-East-H20",
+      "job_id": "t-20260806183733-4v6p8",
+      "started_utc": "2026-08-06T10:37:32Z",
+      "finished_utc": "2026-08-06T10:38:47Z"
+    }
+  ],
+  "failure": {
+    "stage": "A0 policy construction before warmup or latency sampling",
+    "exception": "ValueError: Config 'pi05_predictive_adapter_p1_a0_exact' not found",
+    "cause": "The A0 training launcher constructs its named training config dynamically, while the frozen latency benchmark accepts only a registered inference config."
+  },
+  "repair": {
+    "scope": "A0 inference config name only",
+    "from": "pi05_predictive_adapter_p1_a0_exact",
+    "to": "pi05_robotwin_a0_public_exact_bj",
+    "justification": "The repaired name is the registered config used by the accepted P1 A0 formal evaluation for the same checkpoint. It matches the dynamic A0 training config's policy architecture, action protocol, prompt-preserving data transform, and normalization asset identity.",
+    "formal_eval_launcher": "train_scripts/kai/eval/run_pi05_predictive_adapter_p1_formal.sh",
+    "formal_eval_launcher_sha256": "01d3f91f6e13c79f3fef3183af3aeeea871218193d915c07980cfb15a1ee7dfc",
+    "training_dry_run_audit": "logs/predictive/p1_preflight/a0_dry_run.json",
+    "training_dry_run_audit_sha256": "cd4d7ef74d1f0e4cbd776ca255f91f158cdfe94b06e0c5deb296afcf2666145a"
+  },
+  "file_sha256_override": {
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_efficiency_1gpu.sh": "fa485e590ae9d59d8a3b0111a61b45be362e35006422165eab16a093cb378449"
+  },
+  "authorized_tasks": [
+    "pi05_predictive_adapter_p2_inference_efficiency",
+    "pi05_predictive_adapter_p2_efficiency_finalize"
+  ],
+  "constraints": [
+    "The frozen latency benchmark remains byte-identical to the preregistered source.",
+    "The A0 checkpoint, candidate checkpoint, candidate config, hardware matching, warmups, trials, observations, FLOP analysis, latency paths, throughput calculation, and report schema remain unchanged.",
+    "Both failed attempts ended before any valid warmup or measured latency sample, so no result is reused or selectively discarded."
+  ]
+}

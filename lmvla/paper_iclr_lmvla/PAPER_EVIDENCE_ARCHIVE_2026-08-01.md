@@ -1612,3 +1612,56 @@ Canonical records:
 - `lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_teardown_recovery_v1.json`
 - `lmvla/lmwm/docs/pi05_r4_{ordinary,terminal_outcome,outcome_free_crave}_seed{1001,1002}.json`
 - `logs/r4/three_seed/r4_three_seed_gate.rejected`
+
+## 39. P2 predictive-adapter replication acceptance and efficiency
+
+Both P2 final candidate evaluations completed the frozen six-task,
+four-evaluation-seed scene manifest with 24 valid cells, 1,200 episodes, and
+zero invalid cell per training seed. Candidate macro success is 82.42%,
+78.08%, and 81.33% at seeds 1000, 1001, and 1002, respectively, against the
+fixed matched seed-1000 A0 macro of 69.00%. The corresponding effects are
++13.42, +9.08, and +12.33 points. The equal-seed mean effect is +11.61 points;
+the preregistered hierarchical paired bootstrap over candidate training seed
+and paired episodes gives a 95% interval of `[+8.31,+14.67]`. The lower bound
+is positive, so the frozen P2 utility gate is accepted.
+
+Mean task effects, in Hammer, ranking-RGB, ranking-size, Handover, Stack-2,
+and Stack-3 order, are +4.50, +10.67, +11.67, +18.50, +1.33, and +23.00
+points. P2 therefore establishes replicated candidate utility relative to the
+fixed matched A0. It does not repeat the P1 action-content interventions and
+does not vary the A0 training seed. The normal-minus-shuffled P1 contrast
+remains +1.25 points with Holm-adjusted `p=1.0`; content-specific causality and
+independent baseline-seed replication are not claimed.
+
+The conditional matched efficiency branch also completed. The candidate has
+3,370,258,704 parameters versus 3,353,433,872 for A0 (+16,824,832; 0.50%). On
+the same local 80-GiB GPU, mean direct-model latency is 58.03 versus 57.10 ms
+(+0.93 ms; 1.63%), WebSocket round-trip latency is 114.33 versus 111.57 ms
+(+2.76 ms; 2.48%), and throughput is 8.75 versus 8.96 requests/s. Compiled XLA
+cost analysis reports 164.92 versus 172.29 GFLOPs per request; this is retained
+as a compiler estimate and not interpreted as a theoretical compute reduction.
+The matched four-GPU, batch-16, ten-step probe peaks at 66,807 versus
+66,789 MiB (+18 MiB; 0.027%).
+
+The first local and East inference-efficiency attempts failed before warmup or
+measurement because the runner passed the dynamically constructed A0 training
+name to the static config registry. Formal P1 evaluation already loads the
+same checkpoint with `pi05_robotwin_a0_public_exact_bj`. A frozen repair changed
+only this A0 inference config name; benchmark code, checkpoints, candidate
+config, hardware matching, observations, warmups, trials, metrics, and report
+schema remained unchanged. A fresh recommendation audit selected local GPU 0,
+and the repaired run completed. The four-GPU training-memory job completed on
+Robot-East-H20 under its pre-submission recommendation audit.
+
+Canonical records:
+
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p2_seed1001_normal.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p2_seed1002_normal.json`
+- `lmvla/paper_iclr_lmvla/RESULTS_pi05_predictive_adapter_p2_gate.json`
+- `lmvla/paper_iclr_lmvla/RESULTS_pi05_predictive_adapter_p2_efficiency.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_postprocessing_import_repair_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_efficiency_config_repair_v1.json`
+- `logs/predictive/p2_eval/p2_gate.accepted`
+- `logs/resource_markers/pi05_predictive_adapter_p2_efficiency.ok`
+- `logs/submission_recommendations/pi05_predictive_adapter_p2_inference_efficiency/20260806T104440.267306Z.json`
+- `logs/submission_recommendations/pi05_predictive_adapter_p2_training_memory/20260806T103614.598969Z.json`

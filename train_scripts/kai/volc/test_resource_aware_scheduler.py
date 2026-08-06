@@ -427,6 +427,7 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
     import_repair = json.loads(
         scheduler.P2_POSTPROCESSING_IMPORT_REPAIR.read_text()
     )
+    efficiency_repair = json.loads(scheduler.P2_EFFICIENCY_CONFIG_REPAIR.read_text())
     assert amendment["protocol"] == "pi05_predictive_adapter_p2_integrity_amendment_v2"
     assert import_repair["protocol"] == (
         "pi05_predictive_adapter_p2_postprocessing_import_repair_v1"
@@ -434,6 +435,17 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
     assert scheduler.sha256_file(scheduler.P2_INTEGRITY_AMENDMENT) == (
         import_repair["parent"]["sha256"]
     )
+    assert scheduler.sha256_file(scheduler.P2_INTEGRITY_AMENDMENT) == (
+        efficiency_repair["parent"]["sha256"]
+    )
+    assert efficiency_repair["repair"]["to"] == "pi05_robotwin_a0_public_exact_bj"
+    efficiency_launcher = scheduler.REPO / next(
+        iter(efficiency_repair["file_sha256_override"])
+    )
+    assert scheduler.sha256_file(efficiency_launcher) == next(
+        iter(efficiency_repair["file_sha256_override"].values())
+    )
+    assert "--config pi05_robotwin_a0_public_exact_bj" in efficiency_launcher.read_text()
     normalization = amendment["normalization_identity"]
     assert normalization["semantic_reference_path"]
     reference = scheduler.REPO / normalization["semantic_reference_path"]
@@ -494,6 +506,14 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
         str(scheduler.REPO / relative): expected
         for relative, expected in amendment["postprocessing_file_sha256"].items()
     }
+    expected_post_hashes.update(
+        {
+            str(scheduler.REPO / relative): expected
+            for relative, expected in efficiency_repair[
+                "file_sha256_override"
+            ].items()
+        }
+    )
     expected_import_hashes = {
         str(scheduler.REPO / relative): expected
         for relative, expected in import_repair["dependency_sha256"].items()
@@ -511,6 +531,7 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
         assert expected_import_hashes.items() <= hashes.items()
         assert str(scheduler.P2_INTEGRITY_AMENDMENT) in task["ready_files"]
         assert str(scheduler.P2_POSTPROCESSING_IMPORT_REPAIR) in task["ready_files"]
+        assert str(scheduler.P2_EFFICIENCY_CONFIG_REPAIR) in task["ready_files"]
         assert str(
             scheduler.REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY"
         ) in task["ready_files"]
@@ -5047,6 +5068,10 @@ def test_p2_local_accelerator_is_frozen_and_uses_two_a100s() -> None:
     task = queue["tasks"][0]
     assert task["id"] == "pi05_predictive_adapter_p2_local_accelerator"
     assert task["priority"] == 0
+    assert task["enabled"] is False
+    assert task["disabled_reason"] == (
+        "P2 final evaluations and accepted replication gate are complete"
+    )
     assert sum(
         path.endswith(".task_scheduler.json") for path in task["ready_files"]
     ) == 8

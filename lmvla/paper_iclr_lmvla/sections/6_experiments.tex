@@ -117,7 +117,7 @@ Completed step-20k midpoint panels and step-40k safety probes remain diagnostic
 only: they use unmatched checkpoints or lack a matched A0 and do not enter this
 confirmatory table.
 
-\subsection{A policy-preserving predictive adapter passes its one-seed screen}
+\subsection{A policy-preserving predictive adapter passes its screen and replication gate}
 The separate action-conditioned predictive branch passes its preregistered P1
 screen at training seed 1000.  The normal adapter reaches \pOneNormal\%,
 compared with \pOneAZero\% for its matched current-source A0, a
@@ -133,9 +133,8 @@ the zero-route and masked-action controls by 3.92 and 4.42 points, but exceeds
 shuffled actions by only \pOneVsShuffled{} points.  The paired shuffled-action
 comparison has exact McNemar $p{=}0.383$ and Holm-adjusted $p{=}1.0$; the
 zero-route comparison has Holm-adjusted $p{=}0.0939$.  P1 is therefore direct
-positive closed-loop evidence for one trained checkpoint, not yet a replicated
-method effect or a strong causal demonstration that correct action content is
-used.
+positive closed-loop evidence for one trained checkpoint, but not a strong
+causal demonstration that correct action content is used.
 
 \begin{table}[H]
 \centering\small
@@ -165,6 +164,54 @@ R1 & Combined, shuffled actions & 87.5 & 88.0 & 45.5 & 32.5 & 85.0 & 49.5 & 64.6
 \label{tab:predictive-p1-r1}
 \end{table}
 
+The frozen P2 replication passes its predeclared utility gate.  Candidate
+macro success is 82.42\%, 78.08\%, and 81.33\% at training seeds 1000,
+1001, and 1002, respectively, compared with 69.00\% for the fixed matched A0
+checkpoint.  The corresponding seed effects are +13.42, +9.08, and +12.33
+points.  Averaging candidate training seeds gives a +11.61-point effect; the
+hierarchical paired bootstrap over training seed and paired episodes gives a
+95\% interval of [$+8.31$,$+14.67$] points.  The interval excludes zero, so
+P2 establishes replicated candidate utility relative to this matched A0.
+
+\begin{table}[H]
+\centering\small
+\caption{Frozen P2 predictive-adapter replication.  Each candidate seed
+contains 24 task--evaluation-seed cells and 1,200 episodes paired to the fixed
+seed-1000 matched A0 report.  Mean task effects average candidate training
+seeds; the macro interval is the predeclared hierarchical paired bootstrap.}
+\setlength{\tabcolsep}{3pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrrrr}
+\toprule
+Candidate seed & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Macro & Effect vs. A0 \\
+\midrule
+1000 & 93.0 & 95.5 & 64.5 & 56.0 & 97.5 & 88.0 & 82.42 & +13.42 \\
+1001 & 85.5 & 94.5 & 56.0 & 60.5 & 94.5 & 77.5 & 78.08 & +9.08 \\
+1002 & 88.5 & 88.0 & 61.5 & 65.0 & 98.5 & 86.5 & 81.33 & +12.33 \\
+\midrule
+Mean effect & +4.50 & +10.67 & +11.67 & +18.50 & +1.33 & +23.00 & -- & +11.61 \\
+\bottomrule
+\end{tabular}}
+\label{tab:predictive-p2}
+\end{table}
+
+This gate does not resolve action-content attribution.  The only matched
+normal-versus-shuffled intervention remains the P1 seed-1000 contrast of
++1.25 points (Holm-adjusted $p{=}1.0$); P2 replicates normal candidate
+training, not the intervention panel.  It also uses one fixed matched A0
+training seed, so the interval captures candidate-seed and paired-episode
+variation rather than independent baseline-training variation.
+
+The adapter adds 16.82 million parameters (3.353 to 3.370 billion; 0.50\%).
+On one matched 80-GiB GPU, mean direct-model latency rises from 57.10 to
+58.03\,ms (+0.93\,ms; 1.63\%), WebSocket round-trip latency rises from
+111.57 to 114.33\,ms (+2.76\,ms; 2.48\%), and throughput changes from
+8.96 to 8.75 requests/s.  Compiled XLA cost analysis reports 172.29 versus
+164.92 GFLOPs per request, so it does not indicate an increase in compiled
+FLOPs despite the added parameters.  In a matched four-GPU, batch-16, ten-step
+training probe, peak memory is 66,789 versus 66,807\,MiB (+18\,MiB;
+0.027\%).
+
 \subsection{Recurrence alignment harms the predictive branch at seed 1000}
 The corrected dense-target R1 extension does not preserve the P1 improvement.
 Predictive-plus-CRAVE reaches \rOneCombined\%, below matched A0 by
@@ -177,10 +224,6 @@ RGB improves (+3.0).  The preregistered R1 gate is rejected, so its additional
 training seeds are disabled.  This is a negative result for the
 recurrence-aligned auxiliary extension, not evidence that the P1 adapter is
 ineffective.
-
-\exptodo{P2}{Insert the seed-1001/1002 final-checkpoint results and the
-predeclared hierarchical paired interval.  Do not promote the P1 seed-1000
-screen to a replicated utility claim before this gate completes.}
 
 \subsection{Terminal-outcome weighting passes its seed-1000 screen}
 At the fixed seed-1000 checkpoint, terminal-outcome weighting reaches

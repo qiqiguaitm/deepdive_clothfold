@@ -1,22 +1,21 @@
 World-model-augmented robot policies condition actions on predicted future
-visual states, but latent targets can drift when a vision--language--action
-(VLA) encoder remains trainable.  We introduce \textbf{MINT-VLA}
+visual states, but latent targets can drift while a vision--language--action
+(VLA) encoder trains.  We introduce \textbf{MINT-VLA}
 (\textbf{M}ilestone \textbf{I}ntegration with \textbf{N}ative-Space
 \textbf{T}argets for \textbf{V}ision--\textbf{L}anguage--\textbf{A}ction
-models), which mines recurring task stages, recomputes their targets in the
-current policy encoder space, and injects one predicted prefix token.  Its
-$\pi_{0.5}$ adapter adds 0.25\% parameters, 18 MiB peak training memory, and no
-measurable inference-latency penalty.  Held-out latent cosine improves from
-0.7479 for persistence to 0.8134.  Yet, at fixed checkpoints on 518 common
-scenes, correct predictions do not outperform current, zero, permuted,
-cross-task, or within-task controls after multiplicity correction.  A
-three-seed oracle-transition arm changes no-hint success by $+0.53$ points
-(95\% CI [$-2.06$,$+3.00$]) and fails its utility gate.
-Across three matched training seeds and 10,800 frozen-scene rollouts, no hint
-reaches 79.39\%, offline absolute conditioning 75.44\%, and MINT-VLA 70.81\%.
-Their paired hierarchical differences from no hint are $-3.94$ points (95\% CI
-[$-6.58$,$-0.97$]) and $-8.58$ points ([$-11.47$,$-5.75$]), respectively.
-MINT-VLA regresses on all six tasks; offline absolute conditioning improves
-only Stack-2 by 0.50 points.  Thus future-state predictability, representation
-alignment, and low overhead do not establish control utility for the tested
-native-space milestone interfaces.
+models), which mines recurring stages, recomputes targets in the current
+encoder space, and injects one predicted prefix token.  Held-out latent cosine
+improves from 0.7479 for persistence to 0.8134.  Across three matched training
+seeds and 10,800 frozen-scene rollouts, no hint reaches 79.39\%, offline
+absolute conditioning 75.44\%, and MINT-VLA 70.81\%.  Their paired differences
+from no hint are $-3.94$ points (95\% CI [$-6.58$,$-0.97$]) and $-8.58$ points
+([$-11.47$,$-5.75$]).  Correct predictions also fail to outperform current,
+zero, permuted, or cross-task controls, while a three-seed oracle-transition
+arm changes success by $+0.53$ points ([$-2.06$,$+3.00$]).  Separately, a
+policy-preserving predictive adapter improves a fixed matched $\pi_{0.5}$ A0
+by 11.61 points across three candidate seeds ([$+8.31$,$+14.67$]), adding
+0.50\% parameters and 0.93\,ms direct-model latency.  This replicated utility
+does not establish content-specific causality because the matched
+normal--shuffled intervention remains unresolved.  Future-state predictability
+and representation alignment therefore do not ensure control utility, while
+isolating prediction from pretrained policy pathways can recover it.
