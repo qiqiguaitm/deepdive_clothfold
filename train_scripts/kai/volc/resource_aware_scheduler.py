@@ -12283,6 +12283,12 @@ def candidate_in_cooldown(
 ) -> bool:
     """Avoid repeatedly launching a broken template on the same resource."""
     now = datetime.now(timezone.utc)
+    ignore_before_text = task_state.get("ignore_failures_before")
+    ignore_before = (
+        datetime.fromisoformat(ignore_before_text.replace("Z", "+00:00"))
+        if ignore_before_text
+        else None
+    )
     for attempt in reversed(task_state.get("attempts", [])):
         if (
             attempt.get("resource") != candidate["resource"]
@@ -12293,6 +12299,9 @@ def candidate_in_cooldown(
         timestamp = attempt.get("finished_at") or attempt.get("last_checked_at")
         if not timestamp:
             return True
+        failed_at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        if ignore_before is not None and failed_at <= ignore_before:
+            continue
         if (
             candidate["resource"] == "robot-task"
             and attempt.get("active_gpus_at_dispatch") is not None
@@ -12306,7 +12315,6 @@ def candidate_in_cooldown(
             ]
             if current_active < int(attempt["active_gpus_at_dispatch"]):
                 return False
-        failed_at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         return (now - failed_at).total_seconds() < int(
             candidate.get("retry_cooldown_seconds", RETRY_COOLDOWN_SECONDS)
         )

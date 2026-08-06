@@ -64,6 +64,22 @@ def test_candidate_failure_count_respects_rearm_epoch() -> None:
     assert scheduler.candidate_failure_count(task_state, {"resource": "local"}) == 1
 
 
+def test_candidate_cooldown_respects_rearm_epoch() -> None:
+    task_state = {
+        "ignore_failures_before": "2099-01-01T12:00:00Z",
+        "attempts": [
+            {
+                "resource": "local",
+                "failure": "old runtime failure",
+                "finished_at": "2099-01-01T11:59:59Z",
+            }
+        ],
+    }
+    candidate = {"resource": "local", "retry_cooldown_seconds": 300}
+
+    assert not scheduler.candidate_in_cooldown(task_state, candidate, {})
+
+
 def test_p2_frame_cache_uses_directory_readiness() -> None:
     queue = json.loads(scheduler.QUEUE_PATH.read_text())
     tasks = {task["id"]: task for task in queue["tasks"]}
