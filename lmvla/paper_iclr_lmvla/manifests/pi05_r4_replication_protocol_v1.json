@@ -66,9 +66,9 @@
     "lmvla/lmwm/scripts/build_pi05_r4_train_config.py": "8007d2355c6e29943e3c670849241e3ffb3c11d668a9f4b899a3090cb9f1964a",
     "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
     "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
-    "train_scripts/kai/eval/run_pi05_r4_replication_eval.sh": "850e2fd642abe862c7fec8ad5d51ab2dd8831102fd327c4fedffc882155b27f0",
+    "train_scripts/kai/eval/run_pi05_r4_replication_eval.sh": "9cf27d5e062c9d3d057312d22e740903101589b2645b62161601572858a9cef2",
     "train_scripts/kai/eval/serve_lerobot_pi05.py": "acf914ba7038463e5412ec0cdc05a153dc25af666274dad519fee4692eb3d0d5",
-    "train_scripts/kai/run_pi05_r4_replication_training.sh": "0486c8503c74dd4e8edebbd86672a6b787f9466e4155afd42c7da5e3fb36e307",
+    "train_scripts/kai/run_pi05_r4_replication_training.sh": "7e6fa39bd6d7fe0c8fd09d5e446c879834344d864ed48ec65c1f82e62f6272a7",
     "train_scripts/kai/volc/pi05_r4_replication_eval_east_4h20.yaml": "53c9566d1dc6f460e4f3053cd85befacddee776c0953261171f2f38b63d1b8e5",
     "train_scripts/kai/volc/pi05_r4_replication_train_east_4h20.yaml": "872dc171b5f934d62501448079173d9725885b4f1ebee5b3c76ecdff1a43a2de"
   },

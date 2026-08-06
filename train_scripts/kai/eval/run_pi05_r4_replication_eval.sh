@@ -42,6 +42,19 @@ for required in "$TRAIN_MARKER" "$MODEL/model.safetensors" "$MODEL/config.json" 
 done
 mkdir -p "$LOG_DIR" "$(dirname "$MARKER")"
 
+$SERVER_PY - "$REPO" "$PROTOCOL" <<'PY'
+import hashlib, json, pathlib, sys
+repo, protocol_path = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+rows = [(value["path"], value["sha256"]) for value in protocol["parents"].values()]
+rows.extend(protocol["file_sha256"].items())
+for relative, expected in rows:
+    actual = hashlib.sha256((repo / relative).read_bytes()).hexdigest()
+    if actual != expected:
+        raise ValueError(f"R4 replication source drift: {relative}: {actual} != {expected}")
+print(f"verified R4 replication protocol files={len(rows)}", flush=True)
+PY
+
 $SERVER_PY - "$PROTOCOL" "$ARM" "$SEED" "$MODEL" <<'PY'
 import json, pathlib, sys
 protocol = json.loads(pathlib.Path(sys.argv[1]).read_text())

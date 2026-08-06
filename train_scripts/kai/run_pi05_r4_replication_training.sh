@@ -19,6 +19,20 @@ test -f "$REPO/logs/r4/seed1000/r4_gate.accepted"
 test -f "$REPO/logs/resource_markers/pi05_r4_training_runtime.ok"
 test -f "$REPO/logs/resource_markers/pi05_r4_matched_runtime.ok"
 test -f "$REPO/logs/resource_markers/pi05_r4_crave_sidecar.ok"
+PROTOCOL=$REPO/lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_protocol_v1.json
+test -s "$PROTOCOL"
+"$REPO/kai0/.venv/bin/python" - "$REPO" "$PROTOCOL" <<'PY'
+import hashlib, json, pathlib, sys
+repo, protocol_path = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+rows = [(value["path"], value["sha256"]) for value in protocol["parents"].values()]
+rows.extend(protocol["file_sha256"].items())
+for relative, expected in rows:
+    actual = hashlib.sha256((repo / relative).read_bytes()).hexdigest()
+    if actual != expected:
+        raise ValueError(f"R4 replication source drift: {relative}: {actual} != {expected}")
+print(f"verified R4 replication protocol files={len(rows)}", flush=True)
+PY
 
 DATASET=$REPO/lmvla/lmwm/data/pi05_r4_training_v1/lerobot_query_chunks
 SIDECAR=$REPO/lmvla/lmwm/data/pi05_r4_training_v1/crave_weights.npz
