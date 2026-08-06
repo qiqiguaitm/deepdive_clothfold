@@ -19,7 +19,7 @@ remote_manifest=$AUDIT_DIR/remote.sha256
 
 (
   cd "$LOCAL_MODEL"
-  find . -type f -print0 | sort -z | xargs -0 sha256sum
+  find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
 ) >"$local_manifest.tmp"
 ssh -p "$NORTH_PORT" -o BatchMode=yes "$NORTH_HOST" bash -s -- \
   "$REMOTE_MODEL" <<'REMOTE' >"$remote_manifest.tmp"
@@ -27,7 +27,7 @@ set -Eeuo pipefail
 model=$1
 test -d "$model"
 cd "$model"
-find . -type f -print0 | sort -z | xargs -0 sha256sum
+find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
 REMOTE
 
 cmp "$local_manifest.tmp" "$remote_manifest.tmp"

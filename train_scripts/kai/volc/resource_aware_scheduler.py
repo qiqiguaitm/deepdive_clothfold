@@ -5344,6 +5344,7 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
                 ),
                 "completion_glob": str(north_model_audit_marker),
                 "completion_min_count": 1,
+                "rearm_after_ready_file": str(north_amendment),
                 "ready_files": [
                     str(north_stage_marker),
                     str(north_amendment),

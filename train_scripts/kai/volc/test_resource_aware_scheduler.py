@@ -123,6 +123,9 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
     assert model_audit["completion_glob"].endswith(
         "pi05_r4_replication_north_public_model.ok"
     )
+    assert model_audit["rearm_after_ready_file"].endswith(
+        "pi05_r4_north_training_amendment_v1.json"
+    )
     eval_stage = tasks["pi05_r4_replication_eval_north_stage"]
     assert eval_stage["candidates"][0]["gpus"] == 0
     assert eval_stage["completion_glob"].endswith(
