@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 01:17 UTC
+Updated: 2026-08-06 01:51 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -27,8 +27,8 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 01:17 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seed 1001 is near step 23,100 and seed 1002 near step 23,000 of
+At the 01:51 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seeds 1001 and 1002 are near step 25,700 of
 50,000; both have complete committed step-20,000 Orbax checkpoints. Training
 loss and intermediate checkpoints are health telemetry only.
 
@@ -48,8 +48,17 @@ loss and intermediate checkpoints are health telemetry only.
 
 ## R4: outcome-calibrated fixed-checkpoint screen
 
-At the 01:17 UTC scheduler cutoff, ordinary fine-tuning has completed 22/24
-cells with no failed cell. The first ABI-repaired North attempts for
+At the 01:51 UTC scheduler cutoff, the ordinary-arm evaluation has completed and
+passed its fixed-manifest audit: 24/24 cells, 1,200 episodes, six tasks, and no
+failed cell. Its canonical report is
+`lmvla/lmwm/docs/pi05_r4_ordinary_seed1000.json`. Two-slot execution exposed a
+post-hoc verifier defect: asynchronous episode completion permuted otherwise
+identical unique scene-seed sets. The clarified verifier still rejects wrong,
+missing, extra, or duplicate seeds but treats completion order as
+non-identifying. The amendment, regression tests, local re-finalization, and
+byte-verified North staged repair all passed; no rollout was changed or rerun.
+
+The first ABI-repaired North attempts for
 outcome-free CRAVE and terminal outcome failed at their first compiled policy
 query because the transferred Triton `ptxas` bytes had lost executable mode;
 all eight failures occurred before a valid episode. A scheduler-reload race
@@ -60,11 +69,11 @@ second immutable repair verifies the SHA-256 of `cuobjdump`, `nvdisasm`,
 preflight for each binary. Fresh recommendation audits then selected North for
 CRAVE job `t-20260806085323-85xzv` and terminal-outcome job
 `t-20260806085327-wdxr6`, four H20 GPUs each. The cold H20 `max-autotune`
-compile completed without another runtime error. CRAVE has completed three of
-four first-task cells and terminal outcome all four, each containing 50 valid
-episodes; the remaining CRAVE seed is active and every seed has an empty failed
-set. These seven completed cells prove the repaired execution path, but partial
-panels must not be summarized as a method result.
+compile completed without another runtime error. CRAVE has completed 7/24
+cells and terminal outcome 8/24, each completed cell containing 50 valid
+episodes; every seed has an empty failed set. These completed cells prove the
+repaired execution path, but partial panels must not be summarized as a method
+result.
 
 - [ ] Complete all 24 cells and 1,200 episodes for ordinary, outcome-free
   CRAVE-weighted, and terminal-outcome-weighted seed-1000 checkpoints.
@@ -93,12 +102,12 @@ panels must not be summarized as a method result.
 
 ## Current scheduler gates
 
-Canonical snapshot at 01:17 UTC: 467 tasks total, 333 completed, 120 disabled,
-9 pending, and 5 running. All eight East H20 GPUs, eight North H20 GPUs, and
-both local A100 GPUs are occupied by the five active P2/R4 tasks. Seven tasks
-wait only for final checkpoints, reports, or an accepted gate; none is ready
-but resource-starved. gf1 remains permanently retired and robot-task new
-submissions remain disabled.
+Canonical snapshot at 01:51 UTC: the two P2 training tasks occupy all eight
+East H20 GPUs and the two North R4 evaluations occupy all eight North H20 GPUs.
+The ordinary R4 evaluator is complete, so both local A100 GPUs are free. All
+remaining pending nodes wait for final checkpoints, North reports, or an
+accepted gate; none is ready but resource-starved. gf1 remains permanently
+retired and robot-task new submissions remain disabled.
 
 The snapshot queue inventory reports 333 completed and 120 disabled, whereas a
 direct aggregation of historical state objects reports 346 completed and 107
