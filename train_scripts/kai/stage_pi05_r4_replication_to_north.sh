@@ -132,6 +132,7 @@ PI05_R4_MOUNT_ROOT=/vePFS-North-E/vis_robot "$wrapper" \
   --output "$config"
 PI05_R4_MOUNT_ROOT=/vePFS-North-E/vis_robot "$wrapper" - "$config" <<'PY'
 import sys
+import lerobot.policies
 from lerobot.configs.train import TrainPipelineConfig
 
 config = TrainPipelineConfig.from_pretrained(sys.argv[1])
