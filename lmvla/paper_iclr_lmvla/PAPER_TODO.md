@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 08:44 UTC
+Updated: 2026-08-06 09:30 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -63,9 +63,10 @@ the same amendment. The amendment changes no training or evaluation condition.
   inherited an sm80 Curobo build on H20; both produced zero summaries. The
   independent sm90 ABI smoke passed one fixed episode with model queries. Fresh
   audited jobs `t-20260806155107-lf65m` and `t-20260806155110-9sb67` are now
-  running four H20 GPUs each. Each training seed is at `8 completed / 4 in
-  progress / 12 pending / 0 failed`; all eight workers completed the first two
-  frozen tasks and are advancing through `blocks_ranking_rgb`.
+  running four H20 GPUs each. At the current cutoff seed 1001 has completed
+  `12/24` cells and seed 1002 has completed `13/24`, with zero failed cells.
+  Both jobs completed the first three frozen tasks; their workers are advancing
+  asynchronously through the fourth task.
 - [ ] Run the preregistered hierarchical paired analysis over training seeds
   and paired episode keys within each of the six fixed tasks, with task effects
   averaged equally. A replicated utility claim requires the 95% interval for
@@ -147,7 +148,7 @@ reports materialize locally.
 
 ## Current scheduler gates
 
-Canonical snapshot at 08:44 UTC: both P2 final checkpoints and independent v2
+Canonical snapshot at 09:30 UTC: both P2 final checkpoints and independent v2
 integrity audits are complete. The initial formal jobs failed before the first
 valid episode with an sm80/sm90 Curobo ABI mismatch and wrote zero summaries.
 ABI amendment `pi05_predictive_adapter_p2_east_h20_abi_amendment_v1` freezes
@@ -161,11 +162,12 @@ episode, issued model queries, and passed. Fresh recommendation audits then
 selected Robot-East-H20 for seed-1001 evaluation
 `t-20260806155107-lf65m` and seed-1002 evaluation
 `t-20260806155110-9sb67`. Both use four H20 GPUs. Each frozen scheduler is at
-`8 completed / 4 in progress / 12 pending / 0 failed`; all eight workers
-completed `beat_block_hammer` and `blocks_ranking_size` and are advancing
-through `blocks_ranking_rgb` without the previous CUDA ABI error. The P2
-hierarchical gate and conditional efficiency branch remain dependency-blocked
-on both complete 24-cell reports.
+`12/24` completed cells for seed 1001 and `13/24` for seed 1002, with zero
+failed cells. Both completed `beat_block_hammer`, `blocks_ranking_size`, and
+`blocks_ranking_rgb`; workers are advancing asynchronously through the fourth
+frozen task without the previous CUDA ABI error. The P2 hierarchical gate and
+conditional efficiency branch remain dependency-blocked on both complete
+24-cell reports.
 
 A fresh recommendation audit at 08:29 UTC selected the otherwise idle local
 2xA100 host for a locked-scheduler attach accelerator. The helper exited before
@@ -197,9 +199,10 @@ North for ordinary evaluations `t-20260806144923-b5lhp` and
 `t-20260806145558-ppshq` and `t-20260806145603-5k5dr`, and terminal-outcome
 evaluations `t-20260806145457-7zvfd` and `t-20260806145502-cslx9`. All six are
 running four H20 GPUs each. At this cutoff every arm-seed combination is at
-`12 completed / 4 in progress / 8 pending / 0 failed`. Scheduler heartbeats
-continue to advance and no worker traceback is present. The final gate remains
-correctly dependency-blocked.
+`20/24` completed cells and has entered the final `stack_blocks_three` task,
+with zero failed cells. Scheduler heartbeats and episode-level logs continue
+to advance; no worker failure is present. The final gate remains correctly
+dependency-blocked.
 gf1 remains permanently retired and robot-task new submissions remain disabled.
 
 Current highest-priority utilization is East 8/8 H20 GPUs plus North 24 H20
