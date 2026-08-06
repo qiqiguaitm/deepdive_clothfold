@@ -1,0 +1,43 @@
+TaskName: "pi05-predictive-adapter-p2-cnsh4g"
+Description: "P1-gated pi0.5 predictive-adapter P2 replication training"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni2l.28xlarge"
+
+ActiveDeadlineSeconds: 345600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/logs/predictive/p2_platform
+  mkdir -p "$LOG_DIR"
+  exec >>"$LOG_DIR/seed${SEED:?missing SEED}_${STAMP}_cnsh.log" 2>&1
+  set -x
+  exec env REPO="$REPO" bash "$REPO/train_scripts/kai/run_pi05_predictive_adapter_p2_train.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

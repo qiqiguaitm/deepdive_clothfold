@@ -1,0 +1,45 @@
+TaskName: "pi05-mt3-tracker-train-east1g"
+Description: "Frozen-protocol MT3 tracker-only training"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  cd "$REPO"
+  exec $REPO/kai0/.venv/bin/python $REPO/lmvla/lmwm/scripts/train_mt3_stage_tracker.py \
+    --candidate "${CANDIDATE:?missing CANDIDATE}" \
+    --features "$REPO/logs/mt_stage_tracker/features_raw_pi05_base" \
+    --output "$REPO/logs/mt_stage_tracker/$CANDIDATE" \
+    --updates 10000 --batch-size 64 --learning-rate 0.0003 \
+    --weight-decay 0.01 --seed 1000 --device cuda
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

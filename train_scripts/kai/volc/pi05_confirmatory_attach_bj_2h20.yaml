@@ -1,0 +1,50 @@
+TaskName: "pi05-confirmatory-attach-bj2g"
+Description: "Attach two H20 workers to an active frozen-scene pi0.5 evaluation"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.8xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  export REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PY=$REPO/lmvla/lawam/robotwin_python_wrapper_northe.sh
+  export ROBOTWIN_PYTHON=$ROBOTWIN_PY
+  export ATTACH_GPU_COUNT=2
+  export TORCH_CUDA_ARCH_LIST=9.0
+  exec bash "$REPO/train_scripts/kai/eval/attach_pi05_a0_confirmatory_platform.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

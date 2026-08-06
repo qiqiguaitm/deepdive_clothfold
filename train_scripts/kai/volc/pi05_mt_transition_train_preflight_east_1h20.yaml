@@ -1,0 +1,83 @@
+TaskName: "pi05-mt-train-preflight-east1g"
+Description: "Validate the MT1 training environment on Robot-East-H20"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 3600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  PY=$REPO/kai0/.venv/bin/python
+  DATA=/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21
+  INIT=$REPO/kai0/checkpoints/pi05_base/params
+  PAIRS=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/pairs.npz
+  MARKER=$REPO/logs/resource_markers/pi05_mt_train_east_preflight.ok
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG=$REPO/lmvla/lawam/logs/volc_robotwin/pi05_mt_train_preflight_${STAMP}_east.log
+  mkdir -p "$(dirname "$LOG")" "$(dirname "$MARKER")"
+  exec > >(tee "$LOG") 2>&1
+  set -x
+
+  test -x "$PY"
+  test -d "$DATA/meta"
+  test -f "$INIT/_METADATA"
+  test -f "$PAIRS"
+  test -f "$REPO/kai0/assets/pi05_robotwin_a0_public_exact_bj/robotwin2.0_absolute_meanstd/norm_stats.json"
+  export PI05_EXACT_DATASET=$DATA
+  export PI05_BASE_PARAMS=$INIT
+  export OPENPI_DATA_HOME=$REPO/openpi_cache
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+
+  "$PY" -c 'import jax; devices=jax.devices(); assert any(d.platform == "gpu" for d in devices), devices; print(devices)'
+  cd "$REPO/kai0"
+  "$PY" scripts/train_pi05_robotwin_confirmatory.py \
+    --arm mt1_oracle \
+    --config-name pi05_robotwin_mt1_oracle_east_preflight \
+    --exp-name pi05_robotwin_mt1_oracle_east_preflight \
+    --seed 1000 \
+    --data-repo "$DATA" \
+    --init-params "$INIT" \
+    --asset-id robotwin2.0_absolute_meanstd \
+    --transition-pairs "$PAIRS" \
+    --num-train-steps 1 \
+    --num-workers 0 \
+    --save-interval 1 \
+    --dry-run > /tmp/mt1_config.json
+  "$PY" -c 'import json; d=json.load(open("/tmp/mt1_config.json")); assert d["model"]["lmwm_transition_condition"] == "oracle"; assert d["training"]["batch_size"] == 16; print("MT1_CONFIG_OK")'
+  printf 'validated=%s\nhost=%s\nlog=%s\n' \
+    "$(date -u +%FT%TZ)" "$(hostname)" "$LOG" > "$MARKER"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

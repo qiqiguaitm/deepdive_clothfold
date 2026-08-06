@@ -1,5 +1,5 @@
-TaskName: "pi05-a0-public-exact-s1000-eval-cnsh4g"
-Description: "Exact public-recipe pi0.5 A0 on frozen six-task RoboTwin bridge"
+TaskName: "pi05-confirmatory-eval-cnsh4g"
+Description: "Matched pi0.5 A0/A2/A3 confirmation on frozen RoboTwin scenes"
 Tags: []
 
 ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
@@ -32,14 +32,6 @@ Envs:
     Value: "1"
   - Name: TOKENIZERS_PARALLELISM
     Value: "false"
-  - Name: PI05_EVAL_CONFIG_NAME
-    Value: "pi05_robotwin_a0_public_exact_bj"
-  - Name: PI05_ASSET_ID
-    Value: "robotwin2.0_absolute_meanstd"
-  - Name: ROBOTWIN_EVAL_CKPT_ROOT
-    Value: "/vePFS/tim/workspace/deepdive_kai0/kai0/checkpoints/pi05_robotwin_a0_public_exact_bj/pi05_robotwin_a0_public_exact_seed1000"
-  - Name: ROBOTWIN_EVAL_RESULT_NAME
-    Value: "pi05_rt_a0_public_exact_seed1000"
 
 Entrypoint: |
   set -euo pipefail
@@ -61,7 +53,7 @@ Entrypoint: |
   export STAR_VLA_PYTHON=$PY
   export OPENPI_DATA_HOME=$REPO/openpi_cache
   export ROBOTWIN_SERVER_BACKEND=openpi
-  export ROBOTWIN_OPENPI_CONFIG=$PI05_EVAL_CONFIG_NAME
+  export ROBOTWIN_OPENPI_CONFIG="${ROBOTWIN_EVAL_CONFIG:-${PI05_EVAL_CONFIG_NAME:?missing evaluator config}}"
   export OPENPI_SERVE_SCRIPT=$REPO/kai0/scripts/serve_policy.py
   export KAI0_ROOT=$REPO/kai0
   export ROBOTWIN_MODEL_INTERFACE=openpi
@@ -69,20 +61,25 @@ Entrypoint: |
   CKPT=$(find "$ROBOTWIN_EVAL_CKPT_ROOT" -maxdepth 1 -type d -regex '.*/[0-9]+' | sort -V | tail -1)
   test -n "$CKPT"
   test -d "$CKPT/params"
-  test -f "$CKPT/assets/$PI05_ASSET_ID/norm_stats.json"
+  ASSET_ID="${PI05_ASSET_ID:-robotwin2.0_absolute_meanstd}"
+  test -f "$CKPT/assets/$ASSET_ID/norm_stats.json"
 
   export ROBOTWIN_PATH=/vePFS/HuanQian/RoboTwin
   export ROBOTWIN_PYTHON=$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh
   "$ROBOTWIN_PYTHON" -c \
     'import sapien.core as sapien; import mplib; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  if [ "${ROBOTWIN_HINT_ENCODER:-none}" = "so400m" ]; then
+    "$ROBOTWIN_PYTHON" -c \
+      "from transformers import AutoProcessor; AutoProcessor.from_pretrained('$REPO/lmvla/lmwm/data/hf_so400m')"
+  fi
   export PYTHONPATH="$REPO/kai0/packages/openpi-client/src:${PYTHONPATH:-}"
   "$ROBOTWIN_PYTHON" -c 'import openpi_client.websocket_client_policy' 2>/dev/null ||
     "$ROBOTWIN_PYTHON" -m pip install -q websockets msgpack
 
-  export ROBOTWIN_TASKS="beat_block_hammer blocks_ranking_size blocks_ranking_rgb handover_block stack_blocks_two stack_blocks_three"
+  export ROBOTWIN_TASKS="${ROBOTWIN_TASKS:-beat_block_hammer blocks_ranking_size blocks_ranking_rgb handover_block stack_blocks_two stack_blocks_three}"
   export TASK_CONFIG=demo_clean
-  export ROBOTWIN_TEST_NUM=50
-  export ROBOTWIN_NUM_SLOTS=1
+  export ROBOTWIN_TEST_NUM="${ROBOTWIN_TEST_NUM:-50}"
+  export ROBOTWIN_NUM_SLOTS="${ROBOTWIN_NUM_SLOTS:-1}"
   export NUM_WORKERS=1
   export PORT_SEARCH_LIMIT=30
   export ROBOTWIN_SAVE_VIDEO=0
@@ -102,25 +99,11 @@ Entrypoint: |
       export CUDA_VISIBLE_DEVICES=$seed
       export GPU_IDS=$seed
       export SEED=$seed
-      export PORT_BASE=$((9800 + seed * 40))
+      export PORT_BASE=$((10800 + seed * 40))
       export ROBOTWIN_EVAL_ROOT=$LAWAM/results/eval_runs/robotwin/$ROBOTWIN_EVAL_RESULT_NAME/seed$seed
       mkdir -p "$ROBOTWIN_EVAL_ROOT"
-      run_tag="${ROBOTWIN_EVAL_RUN_TAG_PREFIX:-exact-a0-seed}$seed"
-      shopt -s nullglob
-      scheduler_paths=("$ROBOTWIN_EVAL_ROOT"/*/"$run_tag"/.task_scheduler.json)
-      shopt -u nullglob
-      if [ "${#scheduler_paths[@]}" -eq 1 ]; then
-        run_dir=$(dirname "${scheduler_paths[0]}")
-        ROBOTWIN_ATTACH_SCHEDULER=1 \
-          bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
-          "$CKPT" "$TASK_CONFIG" "$run_tag" "$run_dir"
-      elif [ "${#scheduler_paths[@]}" -eq 0 ]; then
-        bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
-          "$CKPT" "$TASK_CONFIG" "$run_tag"
-      else
-        echo "ambiguous schedulers for $run_tag: ${scheduler_paths[*]}" >&2
-        exit 12
-      fi
+      bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
+        "$CKPT" "$TASK_CONFIG" "confirmatory-cnsh-seed$seed"
     ) > "$LOG_DIR/${ROBOTWIN_EVAL_RESULT_NAME}_${STAMP}_seed${seed}.log" 2>&1 &
     pids="$pids $!"
     sleep 20
@@ -128,7 +111,7 @@ Entrypoint: |
   for pid in $pids; do wait "$pid" || status=1; done
   count=$(find "$LAWAM/results/eval_runs/robotwin/$ROBOTWIN_EVAL_RESULT_NAME" -name summary.json | wc -l)
   test "$count" -eq 24 || status=1
-  echo "exact A0 evaluation done status=$status summaries=$count"
+  echo "confirmatory robot-task evaluation done status=$status summaries=$count"
   exit "$status"
 
 RetryOptions:

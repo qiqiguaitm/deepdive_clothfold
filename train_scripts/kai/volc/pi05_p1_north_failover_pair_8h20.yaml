@@ -1,0 +1,42 @@
+TaskName: "pi05-p1-north-failover-pair"
+Description: "Explicitly authorized P1 A0/candidate resume pair from audited 10k optimizer states"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -Eeuo pipefail
+  STAGE_ROOT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z
+  test "$(jq -r '.stage_verified' "$STAGE_ROOT/north_stage_report.json")" = true
+  test "$(jq -r '.runtime_preflight_passed' "$STAGE_ROOT/pi05_p1_north_runtime_preflight.json")" = true
+  exec env STAGE_ROOT="$STAGE_ROOT" \
+    bash "$STAGE_ROOT/train_scripts/kai/run_pi05_p1_north_failover_pair.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

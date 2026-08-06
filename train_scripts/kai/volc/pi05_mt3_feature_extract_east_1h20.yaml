@@ -1,0 +1,58 @@
+TaskName: "pi05-mt3-feature-extract-east1g"
+Description: "Frozen raw-pi0.5 feature extraction for MT3 tracker selection"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  cd "$REPO"
+  export PYTHONPATH=$REPO/kai0/src:${PYTHONPATH:-}
+  export OPENPI_DATA_HOME=$REPO/openpi_cache
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.75
+  export JAX_COMPILATION_CACHE_DIR=$REPO/.cache/jax-mt3-features
+  mkdir -p "$JAX_COMPILATION_CACHE_DIR"
+  exec $REPO/kai0/.venv/bin/python $REPO/lmvla/lmwm/scripts/extract_mt3_tracker_features.py \
+    --repo "$REPO" \
+    --checkpoint "$REPO/kai0/checkpoints/pi05_base" \
+    --data-repo /vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21 \
+    --pairs "$REPO/lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/pairs.npz" \
+    --split "$REPO/lmvla/lmwm/data/robotwin_mt_stage_tracker_split_v1.json" \
+    --output "$REPO/logs/mt_stage_tracker/features_raw_pi05_base" \
+    --shard-index "${SHARD_INDEX:?missing SHARD_INDEX}" --num-shards 8 \
+    --batch-size 16 --rows-per-file 4096
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

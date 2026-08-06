@@ -1,0 +1,19 @@
+TaskName: "pi05-r3-generic-stage-cnsh4g"
+Description: "pi0.5 R3 generic-stage control same-scene screen"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs: [{RoleName: "worker", RoleReplicas: 1, Flavor: "ml.pni2.14xlarge"}]
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages: [{Type: "Vepfs", VepfsId: "vepfs-cnsh075262e1f815", SubPath: "", MountPath: "/vePFS"}]
+CacheType: "Cloudfs"
+Envs: [{Name: PYTHONUNBUFFERED, Value: "1"}]
+Entrypoint: |
+  set -euo pipefail
+  export REPO=/vePFS/tim/workspace/deepdive_kai0 LOCAL_GPU_COUNT=4 GPU_INDEX_OFFSET=0 TORCH_CUDA_ARCH_LIST=8.0 R3_CONDITION=generic_stage
+  exec bash "$REPO/train_scripts/kai/eval/run_pi05_r3_semantic_screen.sh"
+RetryOptions: {EnableRetry: false, MaxRetryTimes: 0}
+AccessType: "Public"

@@ -1,0 +1,55 @@
+TaskName: "pi05-a0-s1001-quarantine-mixed-tag-east1g"
+Description: "Quarantine duplicate A0 seed1001 evaluation run tags on shared vePFS"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 1800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/pi05_rt_a0_public_exact_seed1001
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  QUARANTINE=$REPO/logs/quarantine/pi05_a0_s1001_mixed_tag_platform_$STAMP
+  moved=0
+  while IFS= read -r -d '' source; do
+    relative=${source#"$ROOT"/}
+    destination=$QUARANTINE/$relative
+    mkdir -p "$(dirname "$destination")"
+    mv "$source" "$destination"
+    moved=$((moved + 1))
+  done < <(find "$ROOT" -type d -name 'exact-a0-seed*' -print0)
+  remaining=$(find "$ROOT" -type d -name 'exact-a0-seed*' | wc -l)
+  test "$remaining" -eq 0
+  mkdir -p "$REPO/logs/resource_markers"
+  printf 'completed=%s\nmoved=%s\nquarantine=%s\n' \
+    "$(date -u +%FT%TZ)" "$moved" "$QUARANTINE" \
+    > "$REPO/logs/resource_markers/pi05_a0_s1001_mixed_tag_quarantined.ok"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

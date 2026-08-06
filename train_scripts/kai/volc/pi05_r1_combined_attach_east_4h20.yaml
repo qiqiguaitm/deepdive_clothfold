@@ -1,0 +1,35 @@
+TaskName: "pi05-r1-combined-s1000-east-attach4g"
+Description: "Pure attach helper for the remaining seed-2/3 R1 combined cells"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  set -Eeuo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%SZ)
+  mkdir -p "$REPO/logs/r1/platform"
+  exec >>"$REPO/logs/r1/platform/combined_${STAMP}_pure_attach_east.log" 2>&1
+  set -x
+  exec env REPO="$REPO" SEEDS="2 3" PORT_BASE_OFFSET=26600 \
+    bash "$REPO/train_scripts/kai/eval/attach_pi05_r1_combined_local.sh"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

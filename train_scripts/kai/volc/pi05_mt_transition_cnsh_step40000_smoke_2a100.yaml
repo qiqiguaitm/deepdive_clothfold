@@ -1,0 +1,106 @@
+TaskName: "pi05-mt-transition-s40k-smoke-cnsh2g"
+Description: "Two-arm MT1/MT2 step-40k A100 closed-loop smoke"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.7xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LAWAM=$REPO/lmvla/lawam
+  MARKER=$REPO/logs/resource_markers/pi05_mt_transition_cnsh_step40000_smoke.ok
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$LAWAM/logs/volc_rteval
+  mkdir -p "$LOG_DIR" "$(dirname "$MARKER")"
+  exec >> "$LOG_DIR/pi05_mt_transition_s40k_smoke_${STAMP}.log" 2>&1
+  set -x
+
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  export TORCH_EXTENSIONS_DIR=/vePFS/tim/runtime/torch_extensions/a100_sm80_py310
+  mkdir -p "$TORCH_EXTENSIONS_DIR"
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  mkdir -p /home/tim/workspace
+  ln -sfn "$REPO" /home/tim/workspace/deepdive_kai0
+
+  export REPO OPENPI_DATA_HOME=$REPO/openpi_cache
+  export PI05_ASSET_ID=robotwin2.0_absolute_meanstd
+  export ROBOTWIN_TRANSITION_ORACLE=1
+  export ROBOTWIN_TRANSITION_PAIRS=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/pairs.npz
+  export ROBOTWIN_TRANSITION_TASK_MAP=$REPO/lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/eval_task_id.json
+  export ROBOTWIN_TRANSITION_EPISODES=/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21/meta/episodes.jsonl
+  export ROBOTWIN_TASKS=stack_blocks_two
+  export ROBOTWIN_TEST_NUM=1
+  export SEEDS=0
+  export LOCAL_GPU_COUNT=1
+  export MAX_PARALLEL_SEEDS=1
+  export SEED_STAGGER_SECONDS=0
+  export TORCH_CUDA_ARCH_LIST=8.0
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.55
+
+  status=0
+  env \
+    PI05_EVAL_CONFIG_NAME=pi05_robotwin_mt1_oracle_exact \
+    CKPT=$REPO/kai0/checkpoints/pi05_robotwin_mt1_oracle_exact/pi05_robotwin_mt1_oracle_seed1000/40000 \
+    ROBOTWIN_TRANSITION_INTERVENTION=correct \
+    RESULT_NAME=pi05_mt1_s40000_correct_cnsh_smoke_v2 \
+    GPU_INDEX_OFFSET=0 PORT_BASE_OFFSET=21400 \
+    bash "$REPO/train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh" \
+    > "$LOG_DIR/pi05_mt1_s40000_correct_${STAMP}.log" 2>&1 &
+  p0=$!
+  env \
+    PI05_EVAL_CONFIG_NAME=pi05_robotwin_mt2_null_exact \
+    CKPT=$REPO/kai0/checkpoints/pi05_robotwin_mt2_null_exact/pi05_robotwin_mt2_null_seed1000/40000 \
+    ROBOTWIN_TRANSITION_INTERVENTION=null \
+    RESULT_NAME=pi05_mt2_s40000_null_cnsh_smoke_v2 \
+    GPU_INDEX_OFFSET=1 PORT_BASE_OFFSET=21600 \
+    bash "$REPO/train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh" \
+    > "$LOG_DIR/pi05_mt2_s40000_null_${STAMP}.log" 2>&1 &
+  p1=$!
+  wait "$p0" || status=1
+  wait "$p1" || status=1
+
+  for result in pi05_mt1_s40000_correct_cnsh_smoke_v2 pi05_mt2_s40000_null_cnsh_smoke_v2; do
+    count=$(find "$LAWAM/results/eval_runs/robotwin/$result" -name summary.json | wc -l)
+    test "$count" -ge 1 || status=1
+  done
+  test "$status" -eq 0
+  temporary=$MARKER.tmp.$$
+  printf 'validated=%s\ncheckpoint_step=40000\narms=mt1_correct,mt2_null\n' \
+    "$(date -u +%FT%TZ)" > "$temporary"
+  mv "$temporary" "$MARKER"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

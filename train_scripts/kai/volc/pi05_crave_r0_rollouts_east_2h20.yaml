@@ -1,0 +1,33 @@
+TaskName: "pi05-crave-r0-rollouts-east2g"
+Description: "Outcome-labeled public pi0.5 RoboTwin video collection for CRAVE R0"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.8xlarge"
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  set -euo pipefail
+  export REPO=/vePFS/tim/workspace/deepdive_kai0
+  export LOCAL_GPU_COUNT=2
+  export GPU_INDEX_OFFSET=0
+  export TORCH_CUDA_ARCH_LIST=9.0
+  exec bash "$REPO/train_scripts/kai/eval/run_pi05_crave_r0_rollout_collection.sh"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

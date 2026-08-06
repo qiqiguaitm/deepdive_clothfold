@@ -1,4 +1,6 @@
 {
   "base_config_name": "pi05_robotwin_a3_live_residual_prefix_official_eval",
-  "override_asset_id": "robotwin2.0_absolute_meanstd"
+  "override_asset_id": "robotwin2.0_absolute_meanstd",
+  "override_use_delta_joint_actions": false,
+  "override_use_quantile_norm": false
 }

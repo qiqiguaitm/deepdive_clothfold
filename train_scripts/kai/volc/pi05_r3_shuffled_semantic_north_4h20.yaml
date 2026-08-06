@@ -1,0 +1,26 @@
+TaskName: "pi05-r3-shuffled-semantic-north4g"
+Description: "pi0.5 R3 shuffled-semantic same-scene control"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs: [{RoleName: "worker", RoleReplicas: 1, Flavor: "ml.pni3ln.17xlarge"}]
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages: [{Type: "Vepfs", VepfsId: "vepfs-cnbj875793a96d6b", SubPath: "/vis_robot", MountPath: "/vePFS-North-E/vis_robot"}]
+CacheType: "Cloudfs"
+Envs: [{Name: PYTHONUNBUFFERED, Value: "1"}]
+Entrypoint: |
+  set -euo pipefail
+  export REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  export PUBLIC_PI05_MODEL=/vePFS-North-E/vis_robot/tim/hf_models/SidneyXie_pi05_robotwin
+  export PALIGEMMA_TOKENIZER_PATH=/vePFS-North-E/vis_robot/tim/hf_models/paligemma_tokenizer
+  export PUBLIC_PI05_SERVER_PY=/vePFS-North-E/vis_robot/tim/workspace/lerobot-pi05-server-venv/bin/python
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$REPO/lmvla/lawam/robotwin_python_wrapper_northe.sh
+  export PYTHONPATH=/vePFS-North-E/vis_robot/tim/workspace/lerobot-main/src:$REPO/kai0/packages/openpi-client/src:$REPO/kai0/src:${PYTHONPATH:-}
+  export LOCAL_GPU_COUNT=4 GPU_INDEX_OFFSET=0 TORCH_CUDA_ARCH_LIST=9.0 R3_CONDITION=shuffled_semantic
+  exec bash "$REPO/train_scripts/kai/eval/run_pi05_r3_semantic_screen.sh"
+RetryOptions: {EnableRetry: false, MaxRetryTimes: 0}
+AccessType: "Public"

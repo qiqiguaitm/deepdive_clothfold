@@ -1,0 +1,38 @@
+TaskName: "pi05-crave-r0-rollout-analysis-east1g"
+Description: "CRAVE R0 rollout outcome, stall, and regression diagnostics"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  exec "$REPO/kai0/.venv/bin/python" "$REPO/lmvla/lmwm/scripts/analyze_pi05_crave_r0_rollouts.py" \
+    --feature-root "$REPO/logs/crave_r0/rollout_features" \
+    --selection "$REPO/lmvla/lmwm/data/pi05_crave_r0_v1/selection_manifest.json" \
+    --reference-feature-dir "$REPO/lmvla/lmwm/data/robotwin_dinov3base" \
+    --labels-manifest "$REPO/lmvla/lmwm/data/pi05_crave_r0_v1/labels_manifest.json" \
+    --probe-labels "$REPO/lmvla/lmwm/data/pi05_crave_r0_v1/probe_train.npz" \
+    --output "$REPO/logs/crave_r0/rollout_analysis/report.json" \
+    --markdown "$REPO/logs/crave_r0/rollout_analysis/report.md" \
+    --marker "$REPO/logs/resource_markers/pi05_crave_r0_rollout_analysis.ok"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

@@ -1,0 +1,73 @@
+TaskName: "pi05-a1-awbc-matched-mae-cnbj-1h20"
+Description: "Evaluate pi05_a1_awbc step39999 on the exact FastWAM Task_A1 five-episode MAE protocol"
+Tags: []
+Preemptible: false
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: XLA_PYTHON_CLIENT_MEM_FRACTION
+    Value: "0.85"
+  - Name: OMP_NUM_THREADS
+    Value: "8"
+
+Entrypoint: |
+  set -euo pipefail
+  ROOT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  KAI=$ROOT/kai0
+  CKPT=$KAI/checkpoints/pi05_a1_awbc/a1_awbc/39999
+  NORM=$KAI/checkpoints/pi05_a1_awbc/a1_awbc/norm_stats.json
+  VAL=$KAI/data/Task_A1/self_built/A1_fastwam_base_val
+  OUT=$ROOT/logs/eval_task_a1_matched/pi05_a1_awbc_step39999.json
+  LOG=$ROOT/logs/pi05_a1_awbc_matched_mae_$(date -u +%Y%m%d_%H%M%S).log
+  mkdir -p "$(dirname "$OUT")" "$ROOT/logs"
+  exec > >(tee -a "$LOG") 2>&1
+  echo "=== pi05 Task_A1 matched MAE $(date -u) host=$(hostname) ==="
+  nvidia-smi -L
+  test "$(nvidia-smi -L | wc -l)" -eq 1
+  test -f "$CKPT/params/_METADATA"
+  test -f "$NORM"
+  test "$(find "$VAL/data" -type f -name '*.parquet' | wc -l)" -eq 5
+  test "$(find -L "$VAL/videos" -type f -name '*.mp4' | wc -l)" -eq 15
+
+  cd "$KAI"
+  export PYTHONPATH=$KAI/src:${PYTHONPATH:-}
+  export JAX_COMPILATION_CACHE_DIR=$KAI/.jax_cache
+  export XLA_FLAGS=--xla_gpu_autotune_level=0
+  unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY || true
+  .venv/bin/python -u ../train_scripts/kai/eval/eval_task_a1_matched_mae.py \
+    --config pi05_a1_awbc \
+    --ckpt "$CKPT" \
+    --norm-stats "$NORM" \
+    --val "$VAL" \
+    --out "$OUT" \
+    --max-win-per-ep 6 \
+    --prompts positive,plain
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

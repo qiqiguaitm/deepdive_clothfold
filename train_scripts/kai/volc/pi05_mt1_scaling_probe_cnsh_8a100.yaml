@@ -1,0 +1,41 @@
+TaskName: "pi05-mt1-b16-scaling-probe-cnsh8g"
+Description: "Non-claim-bearing pi0.5 MT1 batch-16 8xA100 throughput probe"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni2.28xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  exec env \
+    PROBE_GPUS=8 \
+    PROBE_EXP=${PROBE_EXP:-pi05_mt1_b16_scaling_probe_8g} \
+    RESULT=${RESULT:-$REPO/logs/scaling/pi05_mt1_b16_scaling_probe_8g.json} \
+    WORKERS=${WORKERS:-8} \
+    FSDP_DEVICES=${FSDP_DEVICES:-1} \
+    bash $REPO/train_scripts/kai/run_pi05_mt1_scaling_probe.sh
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

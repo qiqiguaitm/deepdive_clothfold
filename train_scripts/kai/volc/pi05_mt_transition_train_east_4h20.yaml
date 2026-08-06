@@ -1,0 +1,65 @@
+TaskName: "pi05-mt-transition-train-east4g"
+Description: "Gate-controlled pi0.5 oracle milestone-transition replication"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 345600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  GATE=$REPO/logs/resource_markers/pi05_mt1_seed1000_replication_gate.ok
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_robotwin
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/${EXP:?missing EXP}_${STAMP}_east.log" 2>&1
+  set -x
+
+  test -f "$GATE"
+  test "${ARM:?missing ARM}" = mt1_oracle
+  test -n "${SEED:?missing SEED}"
+  test -n "${CONFIG:?missing CONFIG}"
+  test -n "$EXP"
+  export PI05_EXACT_DATASET=/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21
+  export PI05_BASE_PARAMS=$REPO/kai0/checkpoints/pi05_base/params
+  export OPENPI_DATA_HOME=$REPO/openpi_cache
+  export JAX_COMPILATION_CACHE_DIR=$REPO/.cache/jax-mt-transition
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.92
+  mkdir -p "$JAX_COMPILATION_CACHE_DIR"
+  exec env STEPS=50000 WORKERS=8 SAVE_INTERVAL=5000 \
+    bash "$REPO/train_scripts/kai/run_pi05_mt_transition_train.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

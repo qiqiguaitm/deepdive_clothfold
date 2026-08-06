@@ -1,0 +1,28 @@
+TaskName: "pi05-crave-r0-features-east4g"
+Description: "P0-verdict-gated incremental CRAVE R0 DINO feature extraction"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+ActiveDeadlineSeconds: 14400
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  exec env LOCAL_GPU_COUNT=4 bash /vePFS/tim/workspace/deepdive_kai0/train_scripts/kai/run_pi05_crave_r0_feature_extract.sh
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

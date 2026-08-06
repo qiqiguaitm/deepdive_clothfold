@@ -1,0 +1,66 @@
+TaskName: "pi05-mt-transition-eval-north4g"
+Description: "Frozen-scene pi0.5 milestone-transition evaluation"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_rteval
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/${RESULT_NAME:?missing RESULT_NAME}_${STAMP}_north.log" 2>&1
+  set -x
+
+  export REPO
+  export OPENPI_DATA_HOME=$REPO/openpi_cache
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$REPO/lmvla/lawam/robotwin_python_wrapper_northe.sh
+  export ROBOTWIN_TRANSITION_EPISODES=/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0_official_prompts_v21/meta/episodes.jsonl
+  export PYTHONPATH=$REPO/lmvla/lawam:$REPO/kai0/packages/openpi-client/src:${PYTHONPATH:-}
+  export GPU_INDEX_OFFSET=0
+  export PORT_BASE_OFFSET=${PORT_BASE_OFFSET:-19800}
+  export TORCH_CUDA_ARCH_LIST=9.0
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false
+  export XLA_PYTHON_CLIENT_MEM_FRACTION=0.55
+  mkdir -p /home/tim/workspace
+  ln -sfn "$REPO" /home/tim/workspace/deepdive_kai0
+  test -x "$ROBOTWIN_PYTHON"
+  test -f "$ROBOTWIN_TRANSITION_EPISODES"
+  exec bash "$REPO/train_scripts/kai/eval/run_pi05_mt_transition_formal.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

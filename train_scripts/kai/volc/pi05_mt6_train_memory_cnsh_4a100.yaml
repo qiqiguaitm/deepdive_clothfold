@@ -1,0 +1,38 @@
+TaskName: "pi05-mt6-train-memory-cnsh4g"
+Description: "Matched selected-MT3 training peak-memory probe on four Shanghai A100s"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/kai:kai0-gf0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.14xlarge"
+
+ActiveDeadlineSeconds: 3600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  export CUDA_VISIBLE_DEVICES=0,1,2,3
+  exec bash /vePFS/tim/workspace/deepdive_kai0/train_scripts/kai/eval/pi05_mt6_selected_train_memory_4a100.sh
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

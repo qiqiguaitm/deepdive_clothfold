@@ -101,7 +101,22 @@ Entrypoint: |
       export PORT_BASE=$((7500 + i*40))
       export ROBOTWIN_EVAL_ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/$ROBOTWIN_EVAL_RESULT_NAME/seed$i
       mkdir -p "$ROBOTWIN_EVAL_ROOT"
-      bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh "$CKPT" "$TASK_CONFIG" "unseen-seed$i"
+      run_tag="unseen-seed$i"
+      shopt -s nullglob
+      scheduler_paths=("$ROBOTWIN_EVAL_ROOT"/*/"$run_tag"/.task_scheduler.json)
+      shopt -u nullglob
+      if [ "${#scheduler_paths[@]}" -eq 1 ]; then
+        run_dir=$(dirname "${scheduler_paths[0]}")
+        ROBOTWIN_ATTACH_SCHEDULER=1 \
+          bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
+          "$CKPT" "$TASK_CONFIG" "$run_tag" "$run_dir"
+      elif [ "${#scheduler_paths[@]}" -eq 0 ]; then
+        bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
+          "$CKPT" "$TASK_CONFIG" "$run_tag"
+      else
+        echo "ambiguous schedulers for $run_tag: ${scheduler_paths[*]}" >&2
+        exit 12
+      fi
     ) > "$LOG_DIR/pi05_rteval_a0_official_x4_${STAMP}_seed${i}.log" 2>&1 &
     pids="$pids $!"
     sleep 25

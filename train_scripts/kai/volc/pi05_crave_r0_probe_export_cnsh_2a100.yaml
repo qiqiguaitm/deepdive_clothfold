@@ -1,0 +1,28 @@
+TaskName: "pi05-crave-r0-probe-export-cnsh2g"
+Description: "Frozen pi0.5 CRAVE R0 probe feature export"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.7xlarge"
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  exec env GPU_INDEX_OFFSET=0 bash /vePFS/tim/workspace/deepdive_kai0/train_scripts/kai/run_pi05_crave_r0_probe_export_2gpu.sh
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

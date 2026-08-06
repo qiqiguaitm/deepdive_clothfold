@@ -1,0 +1,76 @@
+TaskName: "pi05-actionfix-correct-handover-cnsh2g"
+Description: "Action-fixed A2/A3 step-20k Handover probes"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni2.7xlarge"
+
+ActiveDeadlineSeconds: 21600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR=$REPO/lmvla/lawam/logs/volc_rteval
+  STAMP=$(date -u +%Y%m%d_%H%M%S)
+  mkdir -p "$LOG_DIR"
+  exec >> "$LOG_DIR/pi05_midpoint_correct_handover_${STAMP}.log" 2>&1
+  set -x
+
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  mkdir -p /home/tim/workspace
+  ln -sfn "$REPO" /home/tim/workspace/deepdive_kai0
+  "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh" -c \
+    'import sapien.core as sapien; import mplib; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+
+  arms=(a2_abs a3_live)
+  ports=(24600 24700)
+  pids=""
+  status=0
+  for gpu in 0 1; do
+    arm=${arms[$gpu]}
+    env ARM=$arm GPU_INDEX=$gpu PORT_BASE_OFFSET=${ports[$gpu]} STEP=20000 \
+      TASK_NAME=handover_block INTERVENTION=correct RESULT_SUFFIX=_correct_actionfix_cnsh \
+      bash "$REPO/train_scripts/kai/eval/run_pi05_confirmatory_midpoint_probe.sh" \
+      > "$LOG_DIR/pi05_midpoint_${arm}_handover_${STAMP}.log" 2>&1 &
+    pids="$pids $!"
+    sleep 20
+  done
+  for pid in $pids; do wait "$pid" || status=1; done
+  if [ "$status" -eq 0 ]; then
+    mkdir -p "$REPO/logs/resource_markers"
+    printf 'validated=%s\narms=2\n' "$(date -u +%FT%TZ)" \
+      > "$REPO/logs/resource_markers/pi05_actionfix_correct_handover_step20000_cnsh.ok"
+  fi
+  exit "$status"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

@@ -1,0 +1,44 @@
+TaskName: "pi05-crave-r0-rollouts-north2g"
+Description: "Outcome-labeled public pi0.5 RoboTwin video collection for CRAVE R0"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.8xlarge"
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  set -euo pipefail
+  export REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  export PUBLIC_PI05_MODEL=/vePFS-North-E/vis_robot/tim/hf_models/SidneyXie_pi05_robotwin
+  export PALIGEMMA_TOKENIZER_PATH=/vePFS-North-E/vis_robot/tim/hf_models/paligemma_tokenizer
+  export PUBLIC_PI05_SERVER_PY=/vePFS-North-E/vis_robot/tim/workspace/lerobot-pi05-server-venv/bin/python
+  export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$REPO/lmvla/lawam/robotwin_python_wrapper_northe.sh
+  export PYTHONPATH=/vePFS-North-E/vis_robot/tim/workspace/lerobot-main/src:$REPO/kai0/packages/openpi-client/src:$REPO/kai0/src:${PYTHONPATH:-}
+  export TORCH_EXTENSIONS_DIR=/vePFS-North-E/vis_robot/tim/runtime/torch_extensions/h20_sm90_py310
+  export TORCHINDUCTOR_CACHE_DIR=/vePFS-North-E/vis_robot/tim/runtime/torchinductor/pi05_h20_torch211
+  export LOCAL_GPU_COUNT=2
+  export GPU_INDEX_OFFSET=0
+  export TORCH_CUDA_ARCH_LIST=9.0
+  export MARKER=$REPO/logs/resource_markers/pi05_crave_r0_rollout_collection.ok
+  export AUDIT_JSON=$REPO/logs/crave_r0/rollouts/artifact_audit.json
+  export AUDIT_MD=$REPO/logs/crave_r0/rollouts/artifact_audit.md
+  exec bash "$REPO/train_scripts/kai/eval/run_pi05_crave_r0_rollout_collection.sh"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"
