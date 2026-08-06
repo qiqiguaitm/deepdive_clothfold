@@ -9,18 +9,24 @@ if [[ "${PREDICTIVE_EFFICIENCY_SNAPSHOT_ACTIVE:-0}" != 1 ]]; then
 fi
 
 REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
+VERIFY_REPO=${P2_VERIFY_REPO:-$REPO}
+SOURCE_REPO=${TRAIN_SOURCE_REPO:-$VERIFY_REPO}
 P2_GATE=${PREDICTIVE_P2_GATE:-$REPO/logs/predictive/p2_eval/p2_gate.accepted}
 PROTOCOL=$REPO/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json
 PY=$REPO/kai0/.venv/bin/python
-BENCH=$REPO/train_scripts/kai/analysis/benchmark_pi05_policy_latency.py
+BENCH=$VERIFY_REPO/train_scripts/kai/analysis/benchmark_pi05_policy_latency.py
 OUT_DIR=$REPO/logs/efficiency/pi05_predictive_adapter
 FINAL=$REPO/logs/efficiency/pi05_predictive_adapter_latency.json
 A0=$OUT_DIR/a0.json
 CANDIDATE=$OUT_DIR/candidate.json
 
 test -f "$P2_GATE"
-python3 "$REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
-  --repo "$REPO" --manifest "$PROTOCOL"
+if [[ "$VERIFY_REPO" != "$REPO" || "$SOURCE_REPO" != "$REPO" ]]; then
+  test -s "$VERIFY_REPO/REPLICATION_READY"
+  test -s "$SOURCE_REPO/REPLICATION_READY"
+fi
+python3 "$VERIFY_REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
+  --repo "$VERIFY_REPO" --manifest "$PROTOCOL"
 mkdir -p "$OUT_DIR"
 export OPENPI_DATA_HOME=$REPO/openpi_cache
 export HF_HUB_OFFLINE=1
@@ -28,7 +34,7 @@ export TRANSFORMERS_OFFLINE=1
 export TOKENIZERS_PARALLELISM=false
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.90
-export PYTHONPATH="$REPO/kai0/src:$REPO/kai0/packages/openpi-client/src:${PYTHONPATH:-}"
+export PYTHONPATH="$SOURCE_REPO/kai0/src:$SOURCE_REPO/kai0/packages/openpi-client/src:${PYTHONPATH:-}"
 
 if [[ ! -s "$A0" ]]; then
   "$PY" "$BENCH" \

@@ -1,0 +1,28 @@
+TaskName: "pi05-predictive-adapter-memory-cnsh4g"
+Description: "P2-gated matched predictive-adapter peak training memory"
+Tags: []
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "robot-task"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni2l.28xlarge"
+ActiveDeadlineSeconds: 14400
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+Entrypoint: |
+  exec bash /vePFS/tim/workspace/deepdive_kai0/train_scripts/kai/eval/run_pi05_predictive_adapter_train_memory_4gpu.sh
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

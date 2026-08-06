@@ -9,6 +9,8 @@ if [[ "${PREDICTIVE_MEMORY_SNAPSHOT_ACTIVE:-0}" != 1 ]]; then
 fi
 
 REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
+VERIFY_REPO=${P2_VERIFY_REPO:-$REPO}
+SOURCE_REPO=${TRAIN_SOURCE_REPO:-$VERIFY_REPO}
 P2_GATE=${PREDICTIVE_P2_GATE:-$REPO/logs/predictive/p2_eval/p2_gate.accepted}
 PROTOCOL=$REPO/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json
 PY=$REPO/kai0/.venv/bin/python
@@ -18,8 +20,12 @@ GPU_COUNT=${GPU_COUNT:-4}
 RUN_ID=${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$$}
 
 test -f "$P2_GATE"
-python3 "$REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
-  --repo "$REPO" --manifest "$PROTOCOL"
+if [[ "$VERIFY_REPO" != "$REPO" || "$SOURCE_REPO" != "$REPO" ]]; then
+  test -s "$VERIFY_REPO/REPLICATION_READY"
+  test -s "$SOURCE_REPO/REPLICATION_READY"
+fi
+python3 "$VERIFY_REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
+  --repo "$VERIFY_REPO" --manifest "$PROTOCOL"
 test "$GPU_COUNT" -eq 4
 mkdir -p "$OUT_DIR"
 
@@ -30,6 +36,7 @@ export OPENPI_DATA_HOME=${OPENPI_DATA_HOME:-$REPO/openpi_cache}
 export XLA_PYTHON_CLIENT_PREALLOCATE=false
 export XLA_PYTHON_CLIENT_MEM_FRACTION=0.90
 export JAX_COMPILATION_CACHE_DIR=${JAX_COMPILATION_CACHE_DIR:-$REPO/.cache/jax-predictive-memory}
+export PYTHONPATH="$SOURCE_REPO/kai0/src:$SOURCE_REPO/kai0/packages/openpi-client/src:${PYTHONPATH:-}"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 
 run_arm() {
@@ -57,7 +64,7 @@ run_arm() {
   set +e
   (
     cd "$REPO/kai0"
-    "$PY" -u scripts/train_pi05_robotwin_confirmatory.py \
+    "$PY" -u "$SOURCE_REPO/kai0/scripts/train_pi05_robotwin_confirmatory.py" \
       --arm "$train_arm" \
       --config-name "$config" \
       --exp-name "$exp" \

@@ -8759,6 +8759,69 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
             )
             tasks_by_id[audit_id] = queue["tasks"][-1]
 
+    p2_postprocessing_authorized = set(
+        p2_integrity_amendment["authorization"]["postprocessing_tasks"]
+    )
+    p2_postprocessing_hashes = [
+        *replication_overlay_hashes,
+        *(
+            {
+                "path": str(REPO / relative),
+                "sha256": expected,
+            }
+            for relative, expected in sorted(
+                p2_integrity_amendment["postprocessing_file_sha256"].items()
+            )
+        ),
+    ]
+    postprocessing_env = {
+        "P2_VERIFY_REPO": str(REPLICATION_FROZEN_OVERLAY),
+        "TRAIN_SOURCE_REPO": str(REPLICATION_FROZEN_OVERLAY),
+        "PYTHONPATH": str(REPLICATION_FROZEN_OVERLAY / "kai0/src"),
+    }
+    postprocessing_assignments = " ".join(
+        f"{key}={shlex.quote(value)}" for key, value in postprocessing_env.items()
+    )
+    for task in queue.get("tasks", []):
+        if task.get("id") not in p2_postprocessing_authorized:
+            continue
+        task["ready_hashes"] = p2_postprocessing_hashes
+        for path in (
+            REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY",
+            replication_amendment_path,
+            P2_INTEGRITY_AMENDMENT,
+        ):
+            path_text = str(path)
+            if path_text not in task.setdefault("ready_files", []):
+                task["ready_files"].append(path_text)
+        for candidate in task.get("candidates", []):
+            if candidate.get("kind") == "platform":
+                candidate.setdefault("env", {}).update(postprocessing_env)
+                continue
+            if candidate.get("kind") not in {"local", "ssh"}:
+                continue
+            if all(
+                candidate_env_value(candidate, key) == value
+                for key, value in postprocessing_env.items()
+            ):
+                continue
+            command = candidate["command"]
+            if "exec env " in command:
+                command = command.replace(
+                    "exec env ", f"exec env {postprocessing_assignments} ", 1
+                )
+            elif "exec bash " in command:
+                command = command.replace(
+                    "exec bash ",
+                    f"exec env {postprocessing_assignments} bash ",
+                    1,
+                )
+            else:
+                raise ValueError(
+                    f"unsupported P2 postprocessing command: {task.get('id')}"
+                )
+            candidate["command"] = command
+
     for task in queue.get("tasks", []):
         task_id = task.get("id", "")
         if not task_id.endswith(("_train", "_eval")):

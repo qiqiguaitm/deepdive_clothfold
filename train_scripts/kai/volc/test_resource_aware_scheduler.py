@@ -282,6 +282,43 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
             else:
                 assert "P2_INTEGRITY_AMENDMENT=" in candidate["command"]
 
+    postprocessing = amendment["authorization"]["postprocessing_tasks"]
+    expected_post_hashes = {
+        str(scheduler.REPO / relative): expected
+        for relative, expected in amendment["postprocessing_file_sha256"].items()
+    }
+    for task_id in postprocessing:
+        task = tasks[task_id]
+        hashes = {item["path"]: item["sha256"] for item in task["ready_hashes"]}
+        assert expected_post_hashes.items() <= hashes.items()
+        assert str(scheduler.P2_INTEGRITY_AMENDMENT) in task["ready_files"]
+        assert str(
+            scheduler.REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY"
+        ) in task["ready_files"]
+        for candidate in task["candidates"]:
+            if candidate["kind"] == "platform":
+                env = candidate["env"]
+                assert env["P2_VERIFY_REPO"] == str(
+                    scheduler.REPLICATION_FROZEN_OVERLAY
+                )
+                assert env["TRAIN_SOURCE_REPO"] == str(
+                    scheduler.REPLICATION_FROZEN_OVERLAY
+                )
+            else:
+                assert scheduler.candidate_env_value(
+                    candidate, "P2_VERIFY_REPO"
+                ) == str(scheduler.REPLICATION_FROZEN_OVERLAY)
+                assert scheduler.candidate_env_value(
+                    candidate, "TRAIN_SOURCE_REPO"
+                ) == str(scheduler.REPLICATION_FROZEN_OVERLAY)
+
+    scheduler.apply_frozen_source_readiness(queue)
+    for task_id in postprocessing:
+        task = tasks[task_id]
+        for candidate in task["candidates"]:
+            if candidate["kind"] != "platform":
+                assert candidate["command"].count("P2_VERIFY_REPO=") == 1
+
 
 def test_replication_launchers_keep_canonical_outputs_and_frozen_sources_separate() -> None:
     launchers = {

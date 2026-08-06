@@ -2,6 +2,7 @@
 set -euo pipefail
 
 REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
+VERIFY_REPO=${P2_VERIFY_REPO:-$REPO}
 GATE=$REPO/logs/predictive/p2_eval/p2_gate.accepted
 LATENCY=$REPO/logs/efficiency/pi05_predictive_adapter_latency.json
 MEMORY=$REPO/logs/efficiency/pi05_predictive_adapter_train_memory.json
@@ -12,8 +13,11 @@ PROTOCOL=$REPO/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_proto
 test -f "$GATE"
 test -s "$LATENCY"
 test -s "$MEMORY"
-python3 "$REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
-  --repo "$REPO" --manifest "$PROTOCOL"
+if [[ "$VERIFY_REPO" != "$REPO" ]]; then
+  test -s "$VERIFY_REPO/REPLICATION_READY"
+fi
+python3 "$VERIFY_REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
+  --repo "$VERIFY_REPO" --manifest "$PROTOCOL"
 python3 - "$GATE" "$LATENCY" "$MEMORY" "$OUTPUT" <<'PY'
 import hashlib
 import json

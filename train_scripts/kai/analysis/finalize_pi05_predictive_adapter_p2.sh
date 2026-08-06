@@ -2,16 +2,20 @@
 set -euo pipefail
 
 REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
+VERIFY_REPO=${P2_VERIFY_REPO:-$REPO}
 REPORT_DIR=$REPO/lmvla/lmwm/docs
 OUTPUT=$REPO/lmvla/paper_iclr_lmvla/RESULTS_pi05_predictive_adapter_p2_gate.json
 MARKER_DIR=$REPO/logs/predictive/p2_eval
 PROTOCOL=$REPO/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json
 
 test -f "$REPO/logs/predictive/p1_eval/p1_gate.accepted"
-python3 "$REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
-  --repo "$REPO" --manifest "$PROTOCOL"
+if [[ "$VERIFY_REPO" != "$REPO" ]]; then
+  test -s "$VERIFY_REPO/REPLICATION_READY"
+fi
+python3 "$VERIFY_REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
+  --repo "$VERIFY_REPO" --manifest "$PROTOCOL"
 mkdir -p "$MARKER_DIR"
-python3 "$REPO/lmvla/lmwm/scripts/analyze_pi05_predictive_adapter_p2.py" \
+python3 "$VERIFY_REPO/lmvla/lmwm/scripts/analyze_pi05_predictive_adapter_p2.py" \
   --a0 "$REPORT_DIR/pi05_predictive_adapter_p1_seed1000_a0.json" \
   --candidate "1000=$REPORT_DIR/pi05_predictive_adapter_p1_seed1000_normal.json" \
   --candidate "1001=$REPORT_DIR/pi05_predictive_adapter_p2_seed1001_normal.json" \
