@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 01:51 UTC
+Updated: 2026-08-06 02:18 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -27,10 +27,21 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 01:51 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seeds 1001 and 1002 are near step 25,700 of
-50,000; both have complete committed step-20,000 Orbax checkpoints. Training
-loss and intermediate checkpoints are health telemetry only.
+At the 02:18 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seeds 1001 and 1002 are near step 27,800 of 50,000; both have
+complete committed step-25,000 Orbax checkpoints. Training loss and
+intermediate checkpoints are health telemetry only.
+
+The final-checkpoint gate is now explicit rather than inferred from
+`params/_METADATA`. Integrity amendment
+`pi05_predictive_adapter_p2_integrity_amendment_v1` pins the clarified
+scene-seed verifier and evaluation launcher, records exact training metadata,
+target-pair, frame-cache index, and normalization identities, and requires an
+atomic step-49,999 checkpoint with a parameter tree matching the step-25,000
+reference and complete first- and second-moment optimizer state. The scheduler
+contains one zero-GPU audit node per replication seed. Each formal evaluation
+requires that seed's independent audit marker and reruns the audit at launch.
+The amendment changes no training or evaluation condition.
 
 - [ ] Finish seed-1001 and seed-1002 training at the frozen final step 49,999
   and pass the source, dataset, normalization, parameter-tree, optimizer-state,
@@ -48,7 +59,7 @@ loss and intermediate checkpoints are health telemetry only.
 
 ## R4: outcome-calibrated fixed-checkpoint screen
 
-At the 01:51 UTC scheduler cutoff, the ordinary-arm evaluation has completed and
+At the 02:18 UTC scheduler cutoff, the ordinary-arm evaluation has completed and
 passed its fixed-manifest audit: 24/24 cells, 1,200 episodes, six tasks, and no
 failed cell. Its canonical report is
 `lmvla/lmwm/docs/pi05_r4_ordinary_seed1000.json`. Two-slot execution exposed a
@@ -69,11 +80,11 @@ second immutable repair verifies the SHA-256 of `cuobjdump`, `nvdisasm`,
 preflight for each binary. Fresh recommendation audits then selected North for
 CRAVE job `t-20260806085323-85xzv` and terminal-outcome job
 `t-20260806085327-wdxr6`, four H20 GPUs each. The cold H20 `max-autotune`
-compile completed without another runtime error. CRAVE has completed 7/24
-cells and terminal outcome 8/24, each completed cell containing 50 valid
-episodes; every seed has an empty failed set. These completed cells prove the
-repaired execution path, but partial panels must not be summarized as a method
-result.
+compile completed without another runtime error. The live North task-status
+ledger has completed 8/24 CRAVE cells and 9/24 terminal cells, with every
+recorded status equal to `ok`; the newest cell completed at 02:17 UTC. These
+completed cells prove the repaired execution path, but partial panels must not
+be summarized as a method result.
 
 - [ ] Complete all 24 cells and 1,200 episodes for ordinary, outcome-free
   CRAVE-weighted, and terminal-outcome-weighted seed-1000 checkpoints.
@@ -102,21 +113,23 @@ result.
 
 ## Current scheduler gates
 
-Canonical snapshot at 01:51 UTC: the two P2 training tasks occupy all eight
+Canonical snapshot at 02:17 UTC: the two P2 training tasks occupy all eight
 East H20 GPUs and the two North R4 evaluations occupy all eight North H20 GPUs.
-The ordinary R4 evaluator is complete, so both local A100 GPUs are free. All
-remaining pending nodes wait for final checkpoints, North reports, or an
-accepted gate; none is ready but resource-starved. gf1 remains permanently
-retired and robot-task new submissions remain disabled.
+The ordinary R4 evaluator is complete, so both local A100 GPUs are free. The two
+new P2 checkpoint-audit nodes are zero-GPU tasks and correctly remain pending
+until their final checkpoint inputs exist. All remaining pending nodes wait for
+final checkpoints, North reports, or an accepted gate; none is ready but
+resource-starved. gf1 remains permanently retired and robot-task new
+submissions remain disabled.
 
-The snapshot queue inventory reports 333 completed and 120 disabled, whereas a
-direct aggregation of historical state objects reports 346 completed and 107
+The snapshot queue inventory reports 335 completed and 120 disabled, whereas a
+direct aggregation of historical state objects reports 348 completed and 107
 disabled. The 13-task difference is audited: one retired local-assist task and
 12 superseded L2 control/attach tasks retain historical `completed` state but
 are administratively disabled in the current queue policy. The snapshot uses
 the current effective status; the state file preserves execution history.
 Running, pending, and total counts agree, and this dual accounting does not
-change the five active task identities or any scientific result.
+change the four running task identities or any scientific result.
 
 ## Stop rules
 
