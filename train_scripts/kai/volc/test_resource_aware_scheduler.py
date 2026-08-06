@@ -5030,6 +5030,7 @@ def test_p2_local_accelerator_is_frozen_and_uses_two_a100s() -> None:
     assert candidate["resource"] == "local"
     assert candidate["gpus"] == 2
     assert candidate["gpu_indices"] == [0, 1]
+    assert candidate["max_failures"] == 1
     assert "run_pi05_p2_local_accelerator.sh" in candidate["command"]
     assert any(
         item["path"].endswith(

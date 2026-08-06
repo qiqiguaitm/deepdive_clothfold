@@ -9545,7 +9545,7 @@ def add_pi05_p2_local_accelerator_task(queue: dict[str, Any]) -> None:
                     "gpus": 2,
                     "gpu_indices": [0, 1],
                     "retry_cooldown_seconds": 300,
-                    "max_failures": 2,
+                    "max_failures": 1,
                     "status_dir": str(
                         REPO / "logs/predictive/p2_local_accelerator_launcher"
                     ),
