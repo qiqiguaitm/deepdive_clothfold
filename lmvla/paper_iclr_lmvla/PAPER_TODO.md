@@ -1,6 +1,6 @@
 # Predictive-Adapter Evidence-Strengthening TODO
 
-Updated: 2026-08-06 15:03 UTC
+Updated: 2026-08-06 18:07 UTC
 
 This file contains only unfinished evidence and current publication gates.
 Completed MINT-VLA, P0--P2, R0--R4, efficiency, and execution history remain in
@@ -13,18 +13,29 @@ do not manually launch, stop, restart, or reprioritize a job.
 
 ## Execution snapshot
 
-- P3 A0 seeds 1001 and 1002 are running on North 8xH20 each as
-  `t-20260806225620-48vdn` and `t-20260806225625-72j28`. Two earlier attempts
-  failed before step 0 because the North virtualenv imported a mixed source
-  tree; the frozen staging source is now first in `PYTHONPATH` and both retries
-  passed source verification and dataset startup.
-- P4 masked seeds 1001 and 1002 are running together on East 8xH20 as
-  `t-20260806224622-vnfhj`. Zero-gate and shuffled follow on the same queue.
+- P3 A0 seeds 1001 and 1002 restarted from the official initialization on
+  North 8xH20 each as `t-20260807015907-2jh5j` and
+  `t-20260807015912-m47wd`; both passed the frozen source/data checks and logged
+  step 0. Their preceding attempts reached step 20,000 but stopped when the
+  per-directory North quota rejected the asynchronous step-15,000 checkpoint.
+  A resume from the valid step-10,000 checkpoints was deliberately rejected:
+  the current trainer restores model/optimizer state but not data-loader state,
+  so it would repeat the beginning of each seeded data stream. The incomplete
+  attempts were excluded, their A0 outputs were removed, and the fixed recipe
+  now runs from step 0 with a sidecar that deletes an older intermediate only
+  after a newer checkpoint has complete parameter and train-state metadata.
+- P4 masked seeds 1001 and 1002 completed together on East 8xH20 as
+  `t-20260806224622-vnfhj`; both 1,200-episode reports passed the frozen pairing
+  verifier. Shuffled is running as `t-20260807013535-jr5mk`, with zero-gate to
+  follow on the same queue.
 - P5 exact-public paired evaluation is running on the local 2xA100 host. The
   original 78.42% aggregate report cannot recover episode identities, so the
   exact checkpoint is being reevaluated once on the frozen 1,200 episodes.
 - Current claim-bearing allocation is North 16 GPUs, East 8 GPUs, and local 2
-  GPUs. P3/P4 zero-GPU analysis nodes are frozen and wait on their reports.
+  GPUs. The P3 quota sidecar is zero-GPU operational infrastructure and does
+  not alter optimization, data order, checkpoint frequency, or model
+  selection. P3/P4 zero-GPU analysis nodes are frozen and wait on their
+  reports.
 
 ## Current evidence boundary
 
