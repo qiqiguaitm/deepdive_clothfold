@@ -5385,6 +5385,18 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
         {"path": str(REPO / relative), "sha256": expected}
         for relative, expected in sorted(north_eval_spec["file_sha256"].items())
     ]
+    north_eval_repair_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_north_eval_protocol_repair_amendment_v1.json"
+    )
+    north_eval_repair_spec = json.loads(north_eval_repair_amendment.read_text())
+    north_eval_repair_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(
+            north_eval_repair_spec["file_sha256"].items()
+        )
+    ]
     north_eval_repo = Path(
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
         ".staging/pi05_r4_eval_north_v1/repo"
@@ -5396,6 +5408,15 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
     north_eval_stage_marker_remote = (
         north_eval_repo
         / "logs/resource_markers/pi05_r4_replication_eval_north_stage.ok"
+    )
+    north_eval_repair_id = "pi05_r4_replication_eval_north_protocol_repair"
+    north_eval_repair_marker = (
+        REPO
+        / "logs/resource_markers/pi05_r4_replication_eval_protocol_repair.ok"
+    )
+    north_eval_repair_marker_remote = (
+        north_eval_repo
+        / "logs/resource_markers/pi05_r4_replication_eval_protocol_repair.ok"
     )
     north_training_smoke_id = "pi05_r4_north_training_smoke_gate"
     north_training_smoke_marker = (
@@ -5501,6 +5522,50 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
             }
         )
         existing.add(north_eval_stage_id)
+    if north_eval_repair_id not in existing:
+        repair_script = (
+            REPO
+            / "train_scripts/kai/"
+            "repair_pi05_r4_replication_eval_protocol_on_north.sh"
+        )
+        queue["tasks"].append(
+            {
+                "id": north_eval_repair_id,
+                "priority": 0,
+                "description": (
+                    "Repair and reverify the omitted R4 protocol in North eval staging"
+                ),
+                "completion_glob": str(north_eval_repair_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(north_eval_stage_marker),
+                    str(north_eval_repair_amendment),
+                    str(repair_script),
+                    str(protocol),
+                ],
+                "ready_files_remote": [str(north_eval_stage_marker_remote)],
+                "ready_hashes": [
+                    protocol_hash,
+                    *north_eval_repair_hashes,
+                    {
+                        "path": str(north_eval_repair_amendment),
+                        "sha256": sha256_file(north_eval_repair_amendment),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 3,
+                        "status_dir": str(REPO / "logs/r4/north_eval_protocol_repair"),
+                        "command": shlex.join(["bash", str(repair_script)]),
+                    }
+                ],
+            }
+        )
+        existing.add(north_eval_repair_id)
     reports = {
         (seed, arm): REPO / "lmvla/lmwm/docs" / f"pi05_r4_{arm}_seed{seed}.json"
         for seed in (1000, 1001, 1002)
@@ -5892,15 +5957,28 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
                             "ready_files": [
                                 str(north_eval_stage_marker),
                                 str(north_eval_amendment),
+                                str(north_eval_repair_marker),
+                                str(north_eval_repair_amendment),
                             ],
                             "ready_hashes": [
                                 *north_eval_ready_hashes,
+                                *north_eval_repair_hashes,
                                 {
                                     "path": str(north_eval_amendment),
                                     "sha256": sha256_file(north_eval_amendment),
                                 },
+                                {
+                                    "path": str(north_eval_repair_amendment),
+                                    "sha256": sha256_file(
+                                        north_eval_repair_amendment
+                                    ),
+                                },
                             ],
-                            "ready_files_remote": north_model_files,
+                            "ready_files_remote": [
+                                *north_model_files,
+                                str(north_eval_repair_marker_remote),
+                                str(north_eval_repo / protocol.relative_to(REPO)),
+                            ],
                         },
                     ],
                 }

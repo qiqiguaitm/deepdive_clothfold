@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_north_eval_protocol_repair_amendment_v1",
+  "created_at": "2026-08-06T06:47:00Z",
+  "parents": {
+    "replication_protocol": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_protocol_v1.json",
+      "sha256": "2111b594853f87334374704495bdb7b7fbc3a43b4b58c7e228016dafa7ee041d"
+    },
+    "north_eval_amendment": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_north_eval_replication_amendment_v1.json",
+      "sha256": "e389a09483a33bf05b5ef93b223424f23ae24988e97c44bd17021fd83708c47e"
+    }
+  },
+  "failure": "The v1 North eval staging script copied every file referenced by the replication protocol but omitted the protocol JSON itself. Evaluation therefore exited before any rollout at its required-file preflight.",
+  "repair": "Copy the unchanged protocol JSON from the verified North training tree into the North eval staging tree, verify its SHA-256, and reverify all 17 referenced files before allowing evaluation.",
+  "file_sha256": {
+    "train_scripts/kai/repair_pi05_r4_replication_eval_protocol_on_north.sh": "2334bcdd5ade75eea6bfc8b649fc8af195d9d62a5465f043b2db5d1239aa75d9"
+  },
+  "scientific_change": "none",
+  "rollout_change": "none; both failed attempts stopped before evaluator launch"
+}

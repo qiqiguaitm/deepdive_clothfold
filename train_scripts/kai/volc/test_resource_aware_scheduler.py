@@ -131,6 +131,11 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
     assert eval_stage["completion_glob"].endswith(
         "pi05_r4_replication_eval_north_stage.ok"
     )
+    eval_repair = tasks["pi05_r4_replication_eval_north_protocol_repair"]
+    assert eval_repair["candidates"][0]["gpus"] == 0
+    assert eval_repair["completion_glob"].endswith(
+        "pi05_r4_replication_eval_protocol_repair.ok"
+    )
     smoke_gate = tasks["pi05_r4_north_training_smoke_gate"]
     assert smoke_gate["candidates"][0]["gpus"] == 0
     assert smoke_gate["completion_glob"].endswith(
@@ -181,6 +186,14 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
             )
             assert north_eval["env"]["R4_ARM"] == arm
             assert north_eval["env"]["R4_SEED"] == str(seed)
+            assert any(
+                path.endswith("pi05_r4_replication_eval_protocol_repair.ok")
+                for path in north_eval["ready_files_remote"]
+            )
+            assert any(
+                path.endswith("pi05_r4_replication_protocol_v1.json")
+                for path in north_eval["ready_files_remote"]
+            )
             materialize = tasks[
                 f"pi05_r4_{arm}_seed{seed}_eval_materialize_north"
             ]
