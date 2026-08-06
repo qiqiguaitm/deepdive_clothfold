@@ -24,7 +24,8 @@ import re
 import sys
 
 text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
-steps = [int(value) for value in re.findall(r"\bStep (\d+):", text)]
+steps = [int(value) for value in re.findall(r"\bstep:(\d+)\b", text)]
+steps.extend(int(value) for value in re.findall(r"Training:[^\r\n]*?\b(\d+)/5000\b", text))
 print(max(steps, default=0))
 PY
 )
