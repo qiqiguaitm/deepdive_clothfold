@@ -128,13 +128,15 @@ six tasks: +8.5 points on Hammer, +13.5 on ranking-RGB, +15.5 on ranking-size,
 task regression and higher point estimates than all three route/action
 controls satisfy the directional gate and authorize P2 replication.
 
-The action-content attribution remains unresolved.  Normal inference exceeds
-the zero-route and masked-action controls by 3.92 and 4.42 points, but exceeds
-shuffled actions by only \pOneVsShuffled{} points.  The paired shuffled-action
-comparison has exact McNemar $p{=}0.383$ and Holm-adjusted $p{=}1.0$; the
-zero-route comparison has Holm-adjusted $p{=}0.0939$.  P1 is therefore direct
-positive closed-loop evidence for one trained checkpoint, but not a strong
-causal demonstration that correct action content is used.
+The action-content attribution remains unresolved after the frozen three-seed
+intervention panel.  Normal minus shuffled actions is $+0.53$ points
+(hierarchical 95\% CI [$-2.14$,$+3.08$]; Holm-adjusted $p{=}0.534$), normal
+minus zero route is $+1.50$ points ([$-1.31$,$+4.39$]; adjusted $p{=}0.205$),
+and normal minus masked actions is $+1.33$ points
+([$-2.22$,$+4.86$]; adjusted $p{=}0.224$).  None passes its predeclared gate,
+and seed- and task-level effects change sign.  The adapter package therefore
+has closed-loop utility relative to the fixed A0, but these interventions do
+not identify correct-content use, route necessity, or action-conditioning use.
 
 \begin{table}[H]
 \centering\small
@@ -195,12 +197,10 @@ Mean effect & +4.50 & +10.67 & +11.67 & +18.50 & +1.33 & +23.00 & -- & +11.61 \\
 \label{tab:predictive-p2}
 \end{table}
 
-This gate does not resolve action-content attribution.  The only matched
-normal-versus-shuffled intervention remains the P1 seed-1000 contrast of
-+1.25 points (Holm-adjusted $p{=}1.0$); P2 replicates normal candidate
-training, not the intervention panel.  It also uses one fixed matched A0
-training seed, so the interval captures candidate-seed and paired-episode
-variation rather than independent baseline-training variation.
+P4 now replicates the intervention panel but, as reported above, does not
+identify the utility mechanism.  P2 also uses one fixed matched A0 training
+seed, so its interval captures candidate-seed and paired-episode variation
+rather than independent baseline-training variation.
 
 The adapter adds 16.82 million parameters (3.353 to 3.370 billion; 0.50\%).
 On one matched 80-GiB GPU, mean direct-model latency rises from 57.10 to

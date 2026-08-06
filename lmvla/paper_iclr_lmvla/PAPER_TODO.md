@@ -1,6 +1,6 @@
 # Predictive-Adapter Evidence-Strengthening TODO
 
-Updated: 2026-08-06 20:40 UTC
+Updated: 2026-08-06 23:25 UTC
 
 This file contains only unfinished evidence and current publication gates.
 Completed MINT-VLA, P0--P2, R0--R4, efficiency, and execution history remain in
@@ -24,18 +24,20 @@ do not manually launch, stop, restart, or reprioritize a job.
   attempts were excluded, their A0 outputs were removed, and the fixed recipe
   now runs from step 0 with a sidecar that deletes an older intermediate only
   after a newer checkpoint has complete parameter and train-state metadata.
-- P4 masked and shuffled seeds 1001 and 1002 completed together on East 8xH20
-  as `t-20260806224622-vnfhj` and `t-20260807013535-jr5mk`; all four
-  1,200-episode reports passed the frozen pairing verifier. Zero-gate is running
-  as `t-20260807042808-g8gsz` and is the last rollout dependency for P4.
+- P4 masked, shuffled, and zero-gate seeds 1001 and 1002 completed on East
+  8xH20 as `t-20260806224622-vnfhj`, `t-20260807013535-jr5mk`, and
+  `t-20260807042808-g8gsz`. All six 1,200-episode reports passed the frozen
+  pairing verifier. The three-seed analysis is complete and all three mechanism
+  gates fail.
 - P5 exact-public paired evaluation is running on the local 2xA100 host. The
   original 78.42% aggregate report cannot recover episode identities, so the
-  exact checkpoint is being reevaluated once on the frozen 1,200 episodes.
-- Current claim-bearing allocation is North 16 GPUs, East 8 GPUs, and local 2
-  GPUs. The P3 quota sidecar is zero-GPU operational infrastructure and does
-  not alter optimization, data order, checkpoint frequency, or model
-  selection. P3/P4 zero-GPU analysis nodes are frozen and wait on their
-  reports.
+  exact checkpoint is being reevaluated once on the frozen 1,200 episodes; 22
+  of 24 task-by-evaluation-seed cells are complete.
+- Current claim-bearing allocation is North 16 GPUs and local 2 GPUs; East is
+  free after P4 completion. The P3 runs have reached approximately step 40,000.
+  The P3 quota sidecar is zero-GPU operational infrastructure and does not alter
+  optimization, data order, checkpoint frequency, or model selection. The P3
+  zero-GPU analysis node is frozen and waits on both final reports.
 
 ## Current evidence boundary
 
@@ -46,9 +48,13 @@ do not manually launch, stop, restart, or reprioritize a job.
 - P2 does **not** include independently trained A0 seeds 1001 and 1002. Its
   interval captures candidate-seed and paired-episode variation, not baseline-
   training variation.
-- Content-specific causality is unresolved. The only normal-versus-shuffled
-  closed-loop intervention is seed 1000: +1.25 points, exact McNemar `p=0.383`,
-  Holm-adjusted `p=1.0`.
+- P4 does not identify the mechanism. Across three candidate seeds,
+  normal-minus-shuffled is +0.53 points with hierarchical 95% CI
+  `[-2.14,+3.08]` and Holm-adjusted `p=0.534`; normal-minus-zero-gate is +1.50
+  points with CI `[-1.31,+4.39]` and adjusted `p=0.205`; normal-minus-masked is
+  +1.33 points with CI `[-2.22,+4.86]` and adjusted `p=0.224`. Content-specific
+  causality, route necessity, and action-conditioning use therefore all remain
+  unidentified.
 - The public pi0.5 initialization reaches 78.42% on the same 24-cell scene
   manifest, versus an 80.61% mean across P2 candidates. This +2.19-point
   descriptive difference is not yet a canonical paired claim because the local
@@ -107,14 +113,14 @@ scene, episode, observation, and action bridge as normal inference.
 - [x] Freeze deterministic `zero_gate`, `shuffled`, and `masked` intervention
   identities, permutation seeds, checkpoint hashes, result names, and exact
   pairing checks before running a new rollout.
-- [ ] Evaluate zero-gate, shuffled-action, and masked-action conditions at
+- [x] Evaluate zero-gate, shuffled-action, and masked-action conditions at
   candidate seeds 1001 and 1002: six new 24-cell/1,200-episode reports. Reuse
   seed-1000 reports only after their episode keys and hashes pass the new audit.
-- [ ] Run a three-seed hierarchical paired analysis for normal-minus-shuffled
+- [x] Run a three-seed hierarchical paired analysis for normal-minus-shuffled
   (correct action content), normal-minus-zero-gate (route use), and normal-
   minus-masked (action-conditioning use). Treat these as a frozen family of
   three comparisons and apply Holm correction to their pooled paired tests.
-- [ ] Report every condition, training seed, and task. Do not use a positive
+- [x] Report every condition, training seed, and task. Do not use a positive
   macro to claim uniform use when a task effect is negative.
 
 **P4 claim gates:**
@@ -197,7 +203,7 @@ RoboTwin only; it cannot support new-task, real-robot, or second-VLA claims.
 - [ ] Do not change the abstract's replicated-utility wording until P3 finishes.
   P3, not the already accepted P2 gate, determines whether “matched training
   seeds” is admissible.
-- [ ] Add a content-specific statement only if P4's normal-minus-shuffled gate
+- [x] Add a content-specific statement only if P4's normal-minus-shuffled gate
   passes. Otherwise preserve the current explicit null attribution.
 - [ ] Present P5 beside, not instead of, P3 so a strong or weak public reference
   cannot obscure the matched-training comparison.
