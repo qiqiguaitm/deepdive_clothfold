@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 03:58 UTC
+Updated: 2026-08-06 05:36 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -28,10 +28,10 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 03:58 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seeds 1001 and 1002 have passed step 35,400 of 50,000; both have
-complete committed step-35,000 Orbax checkpoints. Training loss and
-intermediate checkpoints are health telemetry only.
+At the 05:36 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seeds 1001 and 1002 have passed approximately step 43,400 and
+43,500 of 50,000; both have complete committed step-40,000 Orbax checkpoints.
+Training loss and intermediate checkpoints are health telemetry only.
 
 The final-checkpoint gate is now explicit rather than inferred from
 `params/_METADATA`. Integrity amendment
@@ -133,16 +133,28 @@ verified environment; evaluations and the final gate remain dependency-blocked.
 
 ## Current scheduler gates
 
-Canonical snapshot at 03:58 UTC: the two P2 training tasks occupy all eight
-East H20 GPUs. Both replicas have passed step 35,400/49,999 with stable finite
-losses and committed step-35,000 checkpoints. The North R4 seed-1000 rollout
-trees have been validated and returned, and the accidental local fallback has
-been stopped. The two P2 checkpoint-audit nodes remain pending until exact
-step-49,999 inputs exist. The accepted R4 marker makes six replication training
-nodes logically ready, but their frozen launchers currently have only the
-verified East training candidate; they must wait for East capacity rather than
-move to an unverified environment. gf1 remains permanently retired and
-robot-task new submissions remain disabled.
+Canonical snapshot at 05:36 UTC: the two P2 training tasks occupy all eight
+East H20 GPUs and have passed approximately step 43,400/49,999 and
+43,500/49,999 with stable finite losses. Their exact final-checkpoint audits
+remain dependency-blocked until step 49,999 exists.
+
+R4 replication training has moved to a separately frozen North operational
+amendment without changing the scientific protocol. The staged runtime passed
+the 17-file source audit, exact four-rank/effective-batch-16 config validation,
+and binding check. The East and North public-model directories matched over all
+29 files (9,354,105,778 bytes; aggregate manifest SHA-256
+`1ed525630ca0b88ac8bad1f7e57732153b1639cfee724ca7096c38dd67947770`). A
+single-task container smoke then passed step 100 before concurrency expanded.
+Fresh recommendation audits selected Robot-North-H20 for all six jobs:
+ordinary seed 1001 `t-20260806131842-nbqkd`, ordinary seed 1002
+`t-20260806133116-vb7lj`, outcome-free CRAVE seeds 1001/1002
+`t-20260806133121-7qxml` and `t-20260806133125-t49f6`, and terminal-outcome
+seeds 1001/1002 `t-20260806133130-zcvnz` and
+`t-20260806133135-qqwz7`. All six are running and occupy 24/25 North H20 GPUs;
+the first smoke arm has passed step 500 while the five later jobs complete
+their first compilation. Evaluations and the final gate remain correctly
+dependency-blocked. gf1 remains permanently retired and robot-task new
+submissions remain disabled.
 
 The snapshot queue inventory reports 335 completed and 120 disabled, whereas a
 direct aggregation of historical state objects reports 348 completed and 107
