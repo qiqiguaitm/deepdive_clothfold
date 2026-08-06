@@ -9430,7 +9430,7 @@ def add_pi05_p2_east_h20_abi_preflight(queue: dict[str, Any]) -> None:
                     "gpus": 1,
                     "queue_timeout_seconds": 180,
                     "retry_cooldown_seconds": 300,
-                    "max_failures": 2,
+                    "max_failures": 3,
                     "yaml": (
                         "train_scripts/kai/volc/"
                         "pi05_p2_east_h20_abi_preflight_1h20.yaml"

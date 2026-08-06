@@ -386,6 +386,7 @@ def test_p2_east_h20_abi_preflight_is_a_hard_independent_gate() -> None:
     candidate = preflight["candidates"][0]
     assert candidate["resource"] == "Robot-East-H20"
     assert candidate["gpus"] == 1
+    assert candidate["max_failures"] == 3
     assert candidate["env"] == {
         "TORCH_CUDA_ARCH_LIST": "9.0",
         "TORCH_EXTENSIONS_DIR": (

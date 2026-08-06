@@ -29,6 +29,11 @@
       "job_id": "t-20260806153116-fnbwt",
       "valid_summaries": 0,
       "failure": "The 50-seed formal manifest was intentionally rejected when ROBOTWIN_TEST_NUM=1; no simulator episode started."
+    },
+    {
+      "job_id": "t-20260806153946-5cnqv",
+      "valid_summaries": 0,
+      "failure": "The fixed scene seed was rejected on its first setup attempt; the smoke-only retry budget of one was stricter than the formal protocol. No episode was accepted."
     }
   ],
   "failure": {
@@ -53,6 +58,7 @@
       ],
       "episodes": 1,
       "scene_seed": 100000,
+      "fixed_seed_max_attempts": 5,
       "seed_manifest": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_east_h20_abi_preflight_seeds_v1.json",
       "result_name": "pi05_predictive_adapter_p2_east_h20_abi_preflight_v1",
       "formal_result_tree": false
@@ -60,7 +66,7 @@
   },
   "file_sha256": {
     "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_east_h20_abi_preflight_seeds_v1.json": "3e4c93b677bdc34eee74c279b3333f7e85a4ff454ee7c666d5a806b293048216",
-    "train_scripts/kai/eval/run_pi05_p2_east_h20_abi_preflight.sh": "14d2b21c28eb412da74160a1487dfd4d06fc4bd19b86fde3570e3b739a61bbef",
+    "train_scripts/kai/eval/run_pi05_p2_east_h20_abi_preflight.sh": "60428e53cda03fc27f8d11a0b214563c9fffc079a9a24f366648ba5d44f26822",
     "train_scripts/kai/volc/pi05_p2_east_h20_abi_preflight_1h20.yaml": "a553f240b8c5c80830ace9965d0baeba3de34523d7fccdf9dc7cdcd0acaa9161",
     "train_scripts/kai/volc/pi05_predictive_adapter_p2_eval_east_4h20.yaml": "3550e1edde05d6ae423b52dec4a3b594f21839470eb39b21e1ff6ccdb6f33227",
     "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa"
