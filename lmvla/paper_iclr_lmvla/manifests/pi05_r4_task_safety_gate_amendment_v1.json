@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_task_safety_gate_amendment_v1",
+  "created_at": "2026-08-06T01:54:00Z",
+  "status": "preregistered_before_candidate_panel_completion",
+  "base_protocol": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_formal_eval_protocol_v1.json",
+  "base_protocol_sha256": "9c0130a89e670b7e19d721f0090275d6a0d01e90e5e42fe966883652aab31b76",
+  "timing": {
+    "ordinary_panel": "complete",
+    "terminal_outcome_panel": "incomplete",
+    "outcome_free_crave_panel": "incomplete",
+    "three_arm_gate": "not_run"
+  },
+  "gate_clarification": {
+    "macro_condition": "terminal_outcome macro success must exceed both ordinary and outcome_free_crave",
+    "task_safety_condition": "terminal_outcome must not regress any task by more than 5 percentage points against either matched control",
+    "acceptance": "both the macro and task-safety conditions must pass for both comparisons"
+  },
+  "file_sha256_override": {
+    "lmvla/lmwm/scripts/analyze_pi05_r4_formal.py": "fb74e030ea6bfcc20362068b156542a2ba650efb8ff1d6a87d887d9e137c24a0"
+  },
+  "test_sha256": {
+    "lmvla/lmwm/scripts/test_analyze_pi05_r4_formal.py": "3d8d1d6e2f20683dc82362f93d534d548d51ea09150d695b206304aae1614b6d"
+  },
+  "invariants": [
+    "No completed or in-progress rollout is inspected to choose the five-point threshold.",
+    "The threshold matches the task-safety guard already stated in PAPER_TODO.md.",
+    "Task, evaluation-seed, episode, and scene-seed pairing checks are unchanged.",
+    "The hierarchical paired bootstrap remains descriptive and is reported for both matched comparisons."
+  ]
+}

@@ -4386,10 +4386,17 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         "pi05_r4_manifest_set_verifier_amendment_v1.json"
     )
     manifest_verifier_spec = json.loads(manifest_verifier_amendment.read_text())
+    task_safety_amendment = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_task_safety_gate_amendment_v1.json"
+    )
+    task_safety_spec = json.loads(task_safety_amendment.read_text())
     eval_hash_overrides = {
         **local_parallelism_spec["file_sha256_override"],
         **action_bridge_spec["file_sha256_override"],
         **manifest_verifier_spec["file_sha256_override"],
+        **task_safety_spec["file_sha256_override"],
     }
     eval_ready_hashes = [
         {
@@ -4403,6 +4410,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         str(local_parallelism_amendment),
         str(action_bridge_amendment),
         str(manifest_verifier_amendment),
+        str(task_safety_amendment),
     ]
     action_bridge_ready_hashes = [
         {"path": str(REPO / relative), "sha256": expected}
@@ -4618,6 +4626,10 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     {
                         "path": str(manifest_verifier_amendment),
                         "sha256": sha256_file(manifest_verifier_amendment),
+                    },
+                    {
+                        "path": str(task_safety_amendment),
+                        "sha256": sha256_file(task_safety_amendment),
                     },
                 ],
                 "progress_globs": [
@@ -5173,7 +5185,8 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 "priority": 2,
                 "description": (
                     "Apply the preregistered paired R4 seed-1000 gate; replication "
-                    "remains blocked unless terminal-outcome exceeds both controls"
+                    "remains blocked unless terminal-outcome exceeds both controls "
+                    "without a task regression larger than five points"
                 ),
                 "completion_glob": str(gate_output),
                 "completion_min_count": 1,
@@ -5184,6 +5197,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 ],
                 "ready_files": [
                     str(eval_protocol),
+                    str(task_safety_amendment),
                     str(analyzer),
                     *(str(path) for path in reports.values()),
                     *(str(path) for path in eval_markers),
@@ -5193,6 +5207,10 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                     {
                         "path": str(eval_protocol),
                         "sha256": sha256_file(eval_protocol),
+                    },
+                    {
+                        "path": str(task_safety_amendment),
+                        "sha256": sha256_file(task_safety_amendment),
                     },
                 ],
                 "candidates": [

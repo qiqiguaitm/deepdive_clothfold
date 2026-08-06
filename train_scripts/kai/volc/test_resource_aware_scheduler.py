@@ -551,6 +551,10 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
             for item in task["ready_hashes"]
         )
         assert any(
+            item["path"].endswith("pi05_r4_task_safety_gate_amendment_v1.json")
+            for item in task["ready_hashes"]
+        )
+        assert any(
             item["path"].endswith("verify_robotwin_fixed_seed_eval.py")
             and item["sha256"]
             == "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861"
@@ -673,6 +677,13 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert formal_gate["priority"] == 2
     assert formal_gate["completion_glob"].endswith(
         "RESULTS_pi05_r4_seed1000_gate.json"
+    )
+    assert "task regression larger than five points" in formal_gate["description"]
+    assert any(
+        item["path"].endswith("analyze_pi05_r4_formal.py")
+        and item["sha256"]
+        == "fb74e030ea6bfcc20362068b156542a2ba650efb8ff1d6a87d887d9e137c24a0"
+        for item in formal_gate["ready_hashes"]
     )
     assert "--accepted-marker" in formal_gate["candidates"][0]["command"]
     assert all(

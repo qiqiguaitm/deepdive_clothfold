@@ -14,6 +14,7 @@ import numpy as np
 EXPECTED_TASKS = 6
 EXPECTED_SEEDS = 4
 EXPECTED_EPISODES_PER_CELL = 50
+MAX_TASK_REGRESSION = -0.05
 
 
 def _atomic_json(path: Path, payload: dict) -> None:
@@ -144,10 +145,14 @@ def analyze(
         ("ordinary", ordinary, ordinary_macro),
         ("outcome_free_crave", crave, crave_macro),
     ):
+        task_deltas = _task_deltas(terminal, control)
         comparisons[label] = {
             "control_macro_success_rate": control_macro,
             "terminal_minus_control_macro": terminal_macro - control_macro,
-            "task_deltas": _task_deltas(terminal, control),
+            "task_deltas": task_deltas,
+            "no_task_regression_below_minus_0_05": (
+                min(task_deltas.values()) >= MAX_TASK_REGRESSION
+            ),
             "hierarchical_paired_bootstrap_95": _hierarchical_bootstrap(
                 terminal,
                 control,
@@ -158,6 +163,7 @@ def analyze(
 
     accepted = all(
         item["terminal_minus_control_macro"] > 0.0
+        and item["no_task_regression_below_minus_0_05"]
         for item in comparisons.values()
     )
     return {
@@ -168,7 +174,10 @@ def analyze(
         "terminal_macro_success_rate": terminal_macro,
         "comparisons": comparisons,
         "accepted": accepted,
-        "gate": "terminal_outcome macro must exceed both matched controls",
+        "gate": (
+            "terminal_outcome macro must exceed both matched controls and no "
+            "task may regress by more than 5 percentage points against either"
+        ),
         "bootstrap": {
             "method": "paired task/seed/episode hierarchical bootstrap",
             "samples": bootstrap_samples,
