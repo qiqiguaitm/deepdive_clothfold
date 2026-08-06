@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 02:18 UTC
+Updated: 2026-08-06 02:31 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -27,8 +27,8 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 02:18 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seeds 1001 and 1002 are near step 27,800 of 50,000; both have
+At the 02:31 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seeds 1001 and 1002 are at step 28,800 of 50,000; both have
 complete committed step-25,000 Orbax checkpoints. Training loss and
 intermediate checkpoints are health telemetry only.
 
@@ -41,7 +41,10 @@ atomic step-49,999 checkpoint with a parameter tree matching the step-25,000
 reference and complete first- and second-moment optimizer state. The scheduler
 contains one zero-GPU audit node per replication seed. Each formal evaluation
 requires that seed's independent audit marker and reruns the audit at launch.
-The amendment changes no training or evaluation condition.
+The frozen postprocessing overlay also restores the exact preregistered source
+versions while allowing canonical reports to be written outside that immutable
+tree. Its hashes, platform launchers, and protocol verification are pinned in
+the same amendment. The amendment changes no training or evaluation condition.
 
 - [ ] Finish seed-1001 and seed-1002 training at the frozen final step 49,999
   and pass the source, dataset, normalization, parameter-tree, optimizer-state,
@@ -49,10 +52,11 @@ The amendment changes no training or evaluation condition.
 - [ ] Evaluate both final candidates on all 24 frozen task-by-evaluation-seed
   cells (1,200 episodes per training seed). Do not evaluate an intermediate
   checkpoint.
-- [ ] Run the preregistered hierarchical paired analysis over training seeds,
-  tasks, and episode keys. A replicated utility claim requires the 95% interval
-  for candidate minus matched A0 to exclude zero. Report every training-seed
-  effect and all six task effects.
+- [ ] Run the preregistered hierarchical paired analysis over training seeds
+  and paired episode keys within each of the six fixed tasks, with task effects
+  averaged equally. A replicated utility claim requires the 95% interval for
+  candidate minus matched A0 to exclude zero. Report every training-seed effect
+  and all six task effects.
 - [ ] Only if the P2 utility gate passes, finalize matched parameters, FLOPs,
   peak training memory, direct and WebSocket latency, and throughput against
   A0 on the frozen hardware protocol.
@@ -81,8 +85,9 @@ preflight for each binary. Fresh recommendation audits then selected North for
 CRAVE job `t-20260806085323-85xzv` and terminal-outcome job
 `t-20260806085327-wdxr6`, four H20 GPUs each. The cold H20 `max-autotune`
 compile completed without another runtime error. The live North task-status
-ledger has completed 8/24 CRAVE cells and 9/24 terminal cells, with every
-recorded status equal to `ok`; the newest cell completed at 02:17 UTC. These
+ledger has completed 12/24 CRAVE cells and 12/24 terminal cells, with every
+recorded status equal to `ok`; all four evaluation seeds in each arm have
+completed three of six tasks as of 02:31 UTC. These
 completed cells prove the repaired execution path, but partial panels must not
 be summarized as a method result.
 
@@ -113,8 +118,9 @@ be summarized as a method result.
 
 ## Current scheduler gates
 
-Canonical snapshot at 02:17 UTC: the two P2 training tasks occupy all eight
+Canonical snapshot at 02:31 UTC: the two P2 training tasks occupy all eight
 East H20 GPUs and the two North R4 evaluations occupy all eight North H20 GPUs.
+Both P2 replicas have reached step 28,800/49,999 with stable finite losses.
 The ordinary R4 evaluator is complete, so both local A100 GPUs are free. The two
 new P2 checkpoint-audit nodes are zero-GPU tasks and correctly remain pending
 until their final checkpoint inputs exist. All remaining pending nodes wait for
