@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Recurrence-Aligned Control TODO
 
-Updated: 2026-08-05 18:35 UTC
+Updated: 2026-08-06 00:46 UTC
 
 This file contains only unfinished training/evaluation work and current gates.
 Completed or superseded evidence is preserved in
@@ -523,6 +523,25 @@ eval seed 0 and 39/50 for eval seed 1. Together these 100 episodes exercised
 postprocessor, websocket, and simulator-control path. This closes the runtime
 repair check but is not an R4 method result; all 24 ordinary cells and both
 matched control arms remain required before the preregistered gate can run.
+
+At 00:46 UTC on 2026-08-06, both P2 replications remained healthy near step
+20,500/50,000 at 1.3--1.4 iterations/s, with approximately six hours remaining.
+The local R4 ordinary arm had completed 14/24 fixed cells: seed 0 and seed 1
+were complete, while seed 2 and seed 3 had each completed one cell with no
+failed cell. The first North attempts for outcome-free CRAVE
+(`t-20260806082947-nxjvh`) and terminal outcome
+(`t-20260806082951-rvp22`) failed at 0/24 because the Python 3.10 RoboTwin
+process inherited binary NumPy packages from the staged Python 3.12 policy
+server. Those attempts produced no valid episode and are excluded from method
+evidence. A hash-pinned operational repair now filters only Python 3.12
+site-packages while retaining pure-source paths. Its real North preflight
+loaded Python 3.10.20 and NumPy 1.26.4 from the RoboTwin environment, then
+removed only the two zero-episode failed trees. Fresh recommendation audits
+selected North again for CRAVE (`t-20260806084303-fp6qj`) and terminal outcome
+(`t-20260806084308-hp2zf`), four H20 GPUs each. All eight seed workers have
+crossed initialization, claimed their first fixed task, and show zero failed
+claims. No R4 policy-effect conclusion is authorized until all three arms pass
+the unchanged 24-cell, 1,200-episode verifier and the preregistered gate.
 
 ## P1: seed-1000 closed-loop causal gate
 
