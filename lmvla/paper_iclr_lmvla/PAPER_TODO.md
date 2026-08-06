@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 05:36 UTC
+Updated: 2026-08-06 06:00 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -28,9 +28,9 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 05:36 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seeds 1001 and 1002 have passed approximately step 43,400 and
-43,500 of 50,000; both have complete committed step-40,000 Orbax checkpoints.
+At the 06:00 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seeds 1001 and 1002 have passed approximately step 45,300 and
+45,400 of 50,000; both have complete committed step-45,000 Orbax checkpoints.
 Training loss and intermediate checkpoints are health telemetry only.
 
 The final-checkpoint gate is now explicit rather than inferred from
@@ -133,9 +133,9 @@ verified environment; evaluations and the final gate remain dependency-blocked.
 
 ## Current scheduler gates
 
-Canonical snapshot at 05:36 UTC: the two P2 training tasks occupy all eight
-East H20 GPUs and have passed approximately step 43,400/49,999 and
-43,500/49,999 with stable finite losses. Their exact final-checkpoint audits
+Canonical snapshot at 06:00 UTC: the two P2 training tasks occupy all eight
+East H20 GPUs and have passed approximately step 45,300/49,999 and
+45,400/49,999 with stable finite losses. Their exact final-checkpoint audits
 remain dependency-blocked until step 49,999 exists.
 
 R4 replication training has moved to a separately frozen North operational
@@ -150,11 +150,11 @@ ordinary seed 1001 `t-20260806131842-nbqkd`, ordinary seed 1002
 `t-20260806133116-vb7lj`, outcome-free CRAVE seeds 1001/1002
 `t-20260806133121-7qxml` and `t-20260806133125-t49f6`, and terminal-outcome
 seeds 1001/1002 `t-20260806133130-zcvnz` and
-`t-20260806133135-qqwz7`. All six are running and occupy 24/25 North H20 GPUs;
-the first smoke arm has passed step 500 while the five later jobs complete
-their first compilation. Evaluations and the final gate remain correctly
-dependency-blocked. gf1 remains permanently retired and robot-task new
-submissions remain disabled.
+`t-20260806133135-qqwz7`. All six are running and occupy 24/25 North H20 GPUs.
+The ordinary seed-1001 arm has passed step 2,200; the five later jobs have
+passed approximately step 1,350--1,410 with matched throughput. Evaluations and
+the final gate remain correctly dependency-blocked. gf1 remains permanently
+retired and robot-task new submissions remain disabled.
 
 The snapshot queue inventory reports 335 completed and 120 disabled, whereas a
 direct aggregation of historical state objects reports 348 completed and 107
