@@ -5397,6 +5397,60 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
         north_eval_repo
         / "logs/resource_markers/pi05_r4_replication_eval_north_stage.ok"
     )
+    north_training_smoke_id = "pi05_r4_north_training_smoke_gate"
+    north_training_smoke_marker = (
+        REPO / "logs/resource_markers/pi05_r4_north_training_smoke.ok"
+    )
+    north_training_smoke_marker_remote = (
+        north_repo / "logs/resource_markers/pi05_r4_north_training_smoke.ok"
+    )
+    if north_training_smoke_id not in existing:
+        smoke_script = (
+            REPO / "train_scripts/kai/verify_pi05_r4_north_training_smoke.sh"
+        )
+        queue["tasks"].append(
+            {
+                "id": north_training_smoke_id,
+                "priority": 1,
+                "description": "Require North R4 ordinary seed-1001 to reach step 100",
+                "completion_glob": str(north_training_smoke_marker),
+                "completion_min_count": 1,
+                "rearm_after_ready_file": str(north_amendment),
+                "ready_files": [
+                    str(north_stage_marker),
+                    str(north_model_audit_marker),
+                    str(north_amendment),
+                    str(smoke_script),
+                ],
+                "ready_files_remote": [
+                    str(north_stage_marker_remote),
+                    str(north_model_audit_marker_remote),
+                    str(
+                        north_repo
+                        / "logs/r4/north_container_preflight/ordinary-seed1001.txt"
+                    ),
+                ],
+                "ready_hashes": [
+                    *north_ready_hashes,
+                    {
+                        "path": str(north_amendment),
+                        "sha256": sha256_file(north_amendment),
+                    },
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 3,
+                        "status_dir": str(REPO / "logs/r4/north_training_smoke"),
+                        "command": shlex.join(["bash", str(smoke_script)]),
+                    }
+                ],
+            }
+        )
+        existing.add(north_training_smoke_id)
     if north_eval_stage_id not in existing:
         north_eval_stage_script = (
             REPO / "train_scripts/kai/stage_pi05_r4_replication_eval_to_north.sh"
@@ -5556,6 +5610,7 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
                         "id": train_id,
                         "priority": 2,
                         "description": f"Gate-controlled R4 {arm} seed-{seed} training",
+                        "rearm_after_ready_file": str(north_amendment),
                         "enabled": enabled,
                         "disabled_reason": disabled_reason,
                         "completion_glob": str(train_marker),
@@ -5633,6 +5688,11 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
                                     str(north_stage_marker),
                                     str(north_model_audit_marker),
                                     str(north_amendment),
+                                    *(
+                                        []
+                                        if (arm, seed) == ("ordinary", 1001)
+                                        else [str(north_training_smoke_marker)]
+                                    ),
                                 ],
                                 "ready_hashes": [
                                     *north_ready_hashes,
@@ -5644,6 +5704,11 @@ def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
                                 "ready_files_remote": [
                                     str(north_stage_marker_remote),
                                     str(north_model_audit_marker_remote),
+                                    *(
+                                        []
+                                        if (arm, seed) == ("ordinary", 1001)
+                                        else [str(north_training_smoke_marker_remote)]
+                                    ),
                                     str(
                                         north_repo
                                         / "lmvla/lmwm/data/pi05_r4_training_v1/"

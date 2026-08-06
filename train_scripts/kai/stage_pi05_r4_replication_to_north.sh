@@ -121,8 +121,12 @@ wrapper=$repo/train_scripts/kai/runtime/pi05_r4_north_training_python.sh
 
 chmod 0755 "$wrapper"
 mkdir -p "$repo/kai0/.venv/bin" "$(dirname "$repo")/lerobot-main/.venv/bin"
-ln -sfn "$wrapper" "$repo/kai0/.venv/bin/python"
-ln -sfn "$wrapper" "$(dirname "$repo")/lerobot-main/.venv/bin/python"
+ln -sfn ../../../train_scripts/kai/runtime/pi05_r4_north_training_python.sh \
+  "$repo/kai0/.venv/bin/python"
+ln -sfn ../../../deepdive_kai0/train_scripts/kai/runtime/pi05_r4_north_training_python.sh \
+  "$(dirname "$repo")/lerobot-main/.venv/bin/python"
+test "$(readlink -f "$repo/kai0/.venv/bin/python")" = "$wrapper"
+test "$(readlink -f "$(dirname "$repo")/lerobot-main/.venv/bin/python")" = "$wrapper"
 test -s "$public_model/model.safetensors"
 test -s "$public_model/train_config.json"
 

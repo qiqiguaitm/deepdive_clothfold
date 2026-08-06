@@ -131,6 +131,11 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
     assert eval_stage["completion_glob"].endswith(
         "pi05_r4_replication_eval_north_stage.ok"
     )
+    smoke_gate = tasks["pi05_r4_north_training_smoke_gate"]
+    assert smoke_gate["candidates"][0]["gpus"] == 0
+    assert smoke_gate["completion_glob"].endswith(
+        "pi05_r4_north_training_smoke.ok"
+    )
     for task_id in expected:
         assert gate in tasks[task_id]["ready_files"]
     for seed in (1001, 1002):
@@ -159,6 +164,11 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
                 path.endswith("pi05_r4_replication_north_public_model.ok")
                 for path in north["ready_files_remote"]
             )
+            requires_smoke = (arm, seed) != ("ordinary", 1001)
+            assert any(
+                path.endswith("pi05_r4_north_training_smoke.ok")
+                for path in north["ready_files_remote"]
+            ) is requires_smoke
             assert {candidate["resource"] for candidate in evaluation["candidates"]} == {
                 "Robot-East-H20",
                 "local",

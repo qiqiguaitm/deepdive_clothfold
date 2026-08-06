@@ -31,7 +31,13 @@ Entrypoint: |
   export REPO=/vePFS/tim/workspace/deepdive_kai0
   export LEROBOT_ROOT=/vePFS/tim/workspace/lerobot-main
   export WORLD_SIZE=4
+  mkdir -p "$REPO/logs/r4/north_container_preflight"
+  printf 'started=%s\nhost=%s\narm=%s\nseed=%s\npython_link=%s\n' \
+    "$(date -u +%FT%TZ)" "$(hostname)" "${R4_ARM:?missing R4_ARM}" \
+    "${R4_SEED:?missing R4_SEED}" "$(readlink "$LEROBOT_ROOT/.venv/bin/python" 2>/dev/null || true)" \
+    >"$REPO/logs/r4/north_container_preflight/${R4_ARM}-seed${R4_SEED}.txt"
   test -s "$REPO/logs/resource_markers/pi05_r4_replication_north_stage.ok"
+  test -x "$LEROBOT_ROOT/.venv/bin/python"
   exec bash "$REPO/train_scripts/kai/run_pi05_r4_replication_training.sh"
 RetryOptions:
   EnableRetry: false

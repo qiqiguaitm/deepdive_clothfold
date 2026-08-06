@@ -32,6 +32,7 @@
     "preflight": [
       "verify every parent and file hash from the frozen replication protocol",
       "compare the complete East and North public-model file manifests by SHA-256",
+      "require ordinary seed 1001 to reach training step 100 before expanding North concurrency",
       "validate the exact LeRobot TrainPipelineConfig with batch_size=4 and world_size=4",
       "run the frozen training-entrypoint binding check",
       "require the North public model and staged dataset before recommendation"
@@ -44,9 +45,10 @@
   },
   "file_sha256": {
     "train_scripts/kai/runtime/pi05_r4_north_training_python.sh": "0baaa3c486370ddc2d11df2619f4323737635afd9dacc15fd88ecdeb8eac58c0",
-    "train_scripts/kai/stage_pi05_r4_replication_to_north.sh": "9635e4cb320d87d9e3701aa9bf639544729eddf1f2209031e395ff36f724a5cf",
+    "train_scripts/kai/stage_pi05_r4_replication_to_north.sh": "016631c6e4142ab8c7c00a787e9d7da810cf013188e470e525c984fcaad81367",
     "train_scripts/kai/audit_pi05_r4_north_public_model.sh": "b0322a1dd8daf7e7616d19f19841d1b71c0edd6b7198947f48006565bd179807",
-    "train_scripts/kai/volc/pi05_r4_replication_train_north_4h20.yaml": "6b5a97293cfb784f24367abd3d117396db0d40f9722d35503ad44654ffaedbd3"
+    "train_scripts/kai/verify_pi05_r4_north_training_smoke.sh": "e1376d8d253628f2de1565ce2e258f48f6a0b0fb46f230a9b8a76f38b554d1b4",
+    "train_scripts/kai/volc/pi05_r4_replication_train_north_4h20.yaml": "265e2f8c90d7f85822d2190267b7505063219f548b839debeccea661e4fdc7ef"
   },
   "claim_effect": "none; this amendment changes resource placement only and does not authorize a new method or statistical claim"
 }
