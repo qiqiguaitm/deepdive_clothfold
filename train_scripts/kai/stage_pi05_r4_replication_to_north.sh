@@ -24,6 +24,8 @@ test -d "$LOCAL_SITE/accelerate"
 test -d "$LOCAL_SITE/accelerate-1.14.0.dist-info"
 test -d "$LOCAL_SITE/sentencepiece"
 test -d "$LOCAL_SITE/sentencepiece-0.2.1.dist-info"
+test -d "$LOCAL_SITE/datasets"
+test -d "$LOCAL_SITE/pyarrow"
 
 rm -rf "$PAYLOAD"
 mkdir -p "$PAYLOAD"
@@ -62,12 +64,46 @@ for marker in \
   test -s "$REPO/logs/resource_markers/$marker"
   cp -a "$REPO/logs/resource_markers/$marker" "$PAYLOAD/logs/resource_markers/"
 done
-cp -a \
-  "$LOCAL_SITE/accelerate" \
-  "$LOCAL_SITE/accelerate-1.14.0.dist-info" \
-  "$LOCAL_SITE/sentencepiece" \
-  "$LOCAL_SITE/sentencepiece-0.2.1.dist-info" \
-  "$PAYLOAD/runtime/pi05_r4_north_training/site-packages/"
+python3 - "$LOCAL_SITE" \
+  "$PAYLOAD/runtime/pi05_r4_north_training/site-packages" <<'PY'
+import importlib.metadata
+import pathlib
+import shutil
+import sys
+
+site, destination = map(pathlib.Path, sys.argv[1:])
+names = {
+    "accelerate", "aiohappyeyeballs", "aiohttp", "aiosignal", "anyio",
+    "attrs", "certifi", "charset-normalizer", "click", "datasets", "dill",
+    "filelock", "frozenlist", "fsspec", "h11", "hf-xet", "httpcore",
+    "httpx", "huggingface-hub", "idna", "multidict", "multiprocess",
+    "numpy", "packaging", "pandas", "propcache", "pyarrow",
+    "python-dateutil", "pytz", "pyyaml", "requests", "sentencepiece", "six",
+    "tqdm", "typing-extensions", "tzdata", "urllib3", "xxhash", "yarl",
+}
+distributions = {
+    distribution.metadata["Name"].lower().replace("_", "-"): distribution
+    for distribution in importlib.metadata.distributions(path=[str(site)])
+}
+missing = sorted(names - distributions.keys())
+if missing:
+    raise RuntimeError(f"missing East training distributions: {missing}")
+copied = 0
+for name in sorted(names):
+    distribution = distributions[name]
+    for relative in distribution.files or ():
+        relative_path = pathlib.Path(str(relative))
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            continue
+        source = site / relative_path
+        if not source.is_file():
+            continue
+        target = destination / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        copied += 1
+print(f"copied training overlay distributions={len(names)} files={copied}")
+PY
 cp -a "$REPO/train_scripts/kai/runtime/pi05_r4_north_training_python.sh" \
   "$PAYLOAD/train_scripts/kai/runtime/"
 
@@ -97,8 +133,12 @@ import pathlib
 import sys
 
 import accelerate
+import aiohttp
+import datasets
 import google.protobuf
 import lerobot
+import pandas
+import pyarrow
 import sentencepiece
 import torch
 
@@ -113,6 +153,10 @@ for relative, expected in rows:
     if actual != expected:
         raise ValueError(f"frozen source mismatch: {relative}: {actual} != {expected}")
 assert accelerate.__version__ == "1.14.0"
+assert aiohttp.__version__ == "3.14.3"
+assert datasets.__version__ == "4.8.5"
+assert pandas.__version__ == "2.3.3"
+assert pyarrow.__version__ == "25.0.0"
 assert sentencepiece.__version__ == "0.2.1"
 assert google.protobuf.__version__ == "7.35.1"
 assert torch.__version__ == "2.11.0+cu128"
