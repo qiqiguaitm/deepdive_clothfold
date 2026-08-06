@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 01:08 UTC
+Updated: 2026-08-06 01:14 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -27,8 +27,8 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 01:08 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seed 1001 is near step 22,400 and seed 1002 near step 22,300 of
+At the 01:14 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seed 1001 is near step 22,800 and seed 1002 near step 22,700 of
 50,000; both have complete committed step-20,000 Orbax checkpoints. Training
 loss and intermediate checkpoints are health telemetry only.
 
@@ -48,7 +48,7 @@ loss and intermediate checkpoints are health telemetry only.
 
 ## R4: outcome-calibrated fixed-checkpoint screen
 
-At the 01:08 UTC scheduler cutoff, ordinary fine-tuning has completed 20/24
+At the 01:14 UTC scheduler cutoff, ordinary fine-tuning has completed 21/24
 cells with no failed cell. The first ABI-repaired North attempts for
 outcome-free CRAVE and terminal outcome failed at their first compiled policy
 query because the transferred Triton `ptxas` bytes had lost executable mode;
@@ -59,10 +59,12 @@ second immutable repair verifies the SHA-256 of `cuobjdump`, `nvdisasm`,
 `ptxas`, and `ptxas-blackwell`, restores mode `0755`, and executes a version
 preflight for each binary. Fresh recommendation audits then selected North for
 CRAVE job `t-20260806085323-85xzv` and terminal-outcome job
-`t-20260806085327-wdxr6`, four H20 GPUs each. All eight workers are currently
-executing real H20 `max-autotune` kernel benchmarks with active heartbeats and
-no failed task claim. Partial cells and compiler health must not be summarized
-as a method result.
+`t-20260806085327-wdxr6`, four H20 GPUs each. The cold H20 `max-autotune`
+compile completed without another runtime error. CRAVE has completed three of
+four first-task cells and terminal outcome all four, each containing 50 valid
+episodes; the remaining CRAVE seed is active and every seed has an empty failed
+set. These seven completed cells prove the repaired execution path, but partial
+panels must not be summarized as a method result.
 
 - [ ] Complete all 24 cells and 1,200 episodes for ordinary, outcome-free
   CRAVE-weighted, and terminal-outcome-weighted seed-1000 checkpoints.
@@ -91,7 +93,7 @@ as a method result.
 
 ## Current scheduler gates
 
-Canonical snapshot at 01:08 UTC: 467 tasks total, 333 completed, 120 disabled,
+Canonical snapshot at 01:11 UTC: 467 tasks total, 333 completed, 120 disabled,
 9 pending, and 5 running. All eight East H20 GPUs, eight North H20 GPUs, and
 both local A100 GPUs are occupied by the five active P2/R4 tasks. Seven tasks
 wait only for final checkpoints, reports, or an accepted gate; none is ready
