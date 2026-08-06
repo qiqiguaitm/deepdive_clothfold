@@ -14,6 +14,21 @@ export VK_ICD_FILENAMES="$CLIENT/lib/python3.10/site-packages/sapien/vulkan_libr
 export CUDA_HOME=/usr/local/cuda
 export PATH=/usr/local/cuda/bin:$PATH
 export TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST:-9.0}
-export PYTHONPATH="$TIM_RT/envs/curobo/src:$TIM_RT/_shim:$CLIENT_DEPS:${ROBOTWIN_EXTRA_SITE:+$ROBOTWIN_EXTRA_SITE:}${PYTHONPATH:-}"
+
+# The policy server uses Python 3.12, while RoboTwin is pinned to Python 3.10.
+# Retain inherited source roots but never expose 3.12 binary packages to 3.10.
+python_paths=("$TIM_RT/envs/curobo/src" "$TIM_RT/_shim" "$CLIENT_DEPS")
+if [[ -n ${ROBOTWIN_EXTRA_SITE:-} ]]; then
+  python_paths+=("$ROBOTWIN_EXTRA_SITE")
+fi
+IFS=: read -r -a inherited_python_paths <<< "${PYTHONPATH:-}"
+for path in "${inherited_python_paths[@]}"; do
+  [[ -n $path ]] || continue
+  case "$path" in
+    */lib/python3.12/site-packages|*/lib/python3.12/site-packages/*) continue ;;
+  esac
+  python_paths+=("$path")
+done
+export PYTHONPATH=$(IFS=:; printf '%s' "${python_paths[*]}")
 
 exec "$CLIENT/bin/python" "$@"

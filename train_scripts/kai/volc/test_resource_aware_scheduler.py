@@ -291,6 +291,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         arm: tasks[f"pi05_r4_{arm}_seed1000_eval"]
         for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
     }
+    north_abi_repair = tasks["pi05_r4_north_python_abi_repair"]
     formal_gate = tasks["pi05_r4_seed1000_gate"]
     north_stage = tasks["pi05_r4_eval_north_stage"]
     north_materializers = {
@@ -539,6 +540,13 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
                 "shared",
                 "north",
             }
+            assert task["rearm_after_ready_file"].endswith(
+                "pi05_r4_north_python_abi_repair.ok"
+            )
+            assert any(
+                item["path"].endswith("pi05_r4_north_python_abi_repair_v1.json")
+                for item in task["ready_hashes"]
+            )
     assert north_stage["priority"] == 0
     assert north_stage["candidates"][0]["resource"] == "local"
     assert north_stage["candidates"][0]["gpus"] == 0
@@ -560,6 +568,17 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         item["path"].endswith("pi05_r4_eval_north_4h20.yaml")
         for item in north_stage["ready_hashes"]
     )
+    assert north_abi_repair["priority"] == 0
+    assert north_abi_repair["candidates"][0]["resource"] == "local"
+    assert north_abi_repair["candidates"][0]["gpus"] == 0
+    assert "repair_pi05_r4_north_python_abi.sh" in (
+        north_abi_repair["candidates"][0]["command"]
+    )
+    wrapper = (
+        scheduler.REPO / "train_scripts/kai/eval/robotwin_python_wrapper_north.sh"
+    ).read_text()
+    assert "*/lib/python3.12/site-packages" in wrapper
+    assert 'python_paths+=("$path")' in wrapper
     for arm, materialize in north_materializers.items():
         assert materialize["materialize_north_result_for"] == formal_eval[arm]["id"]
         assert materialize["candidates"][0]["gpus"] == 0
