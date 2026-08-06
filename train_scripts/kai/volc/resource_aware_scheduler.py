@@ -453,6 +453,11 @@ R1_FROZEN_OVERLAY = REPO / "logs/frozen_source_overlays/pi05_r1_v1"
 REPLICATION_FROZEN_OVERLAY = (
     REPO / "logs/frozen_source_overlays/pi05_replication_v1"
 )
+P2_INTEGRITY_AMENDMENT = (
+    REPO
+    / "lmvla/paper_iclr_lmvla/manifests/"
+    "pi05_predictive_adapter_p2_integrity_amendment_v1.json"
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -8599,18 +8604,26 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
     replication_eval_amendment = json.loads(
         replication_eval_amendment_path.read_text()
     )
+    p2_integrity_amendment = json.loads(P2_INTEGRITY_AMENDMENT.read_text())
     p2_eval_authorized = set(
         replication_eval_amendment["authorization"]["p2_eval_tasks"]
     )
+    if p2_eval_authorized != set(
+        p2_integrity_amendment["authorization"]["evaluation_tasks"]
+    ):
+        raise ValueError("P2 integrity amendment evaluation scope drift")
     frozen_p2_eval_launcher = REPO / replication_eval_amendment[
         "frozen_eval_launcher"
     ]
     replication_eval_hashes = list(replication_overlay_hashes)
-    replication_eval_hashes.append(
+    replication_eval_hashes.extend(
         {
-            "path": str(frozen_p2_eval_launcher),
-            "sha256": replication_eval_amendment["frozen_eval_launcher_sha256"],
+            "path": str(REPO / relative),
+            "sha256": expected,
         }
+        for relative, expected in sorted(
+            p2_integrity_amendment["runtime_file_sha256"].items()
+        )
     )
     replication_eval_hashes.extend(
         {
@@ -8621,6 +8634,130 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
             replication_eval_amendment["platform_yamls"].items()
         )
     )
+
+    tasks_by_id = {task.get("id"): task for task in queue.get("tasks", [])}
+    checkpoint_audit_script = (
+        REPO / "lmvla/lmwm/scripts/audit_pi05_predictive_adapter_p2_checkpoint.py"
+    )
+    p2_audit_ids = set(
+        p2_integrity_amendment["authorization"]["checkpoint_audit_tasks"]
+    )
+    for seed in p2_integrity_amendment["authorization"]["training_seeds"]:
+        audit_id = f"pi05_predictive_adapter_p2_candidate_seed{seed}_checkpoint_audit"
+        if audit_id not in p2_audit_ids:
+            raise ValueError(f"P2 checkpoint audit task is not authorized: {audit_id}")
+        checkpoint_root = (
+            REPO
+            / "kai0/checkpoints/pi05_predictive_adapter_p1"
+            / f"pi05_predictive_adapter_p1_seed{seed}"
+        )
+        final_checkpoint = checkpoint_root / "49999"
+        reference_checkpoint = checkpoint_root / "25000"
+        source_preflight = (
+            REPO
+            / "logs/predictive/p1_preflight"
+            / f"source_freeze_candidate_seed{seed}.json"
+        )
+        audit_report = (
+            REPO / "logs/predictive/p2_audit" / f"seed{seed}_final_checkpoint.json"
+        )
+        audit_marker = (
+            REPO
+            / "logs/resource_markers"
+            / f"pi05_predictive_adapter_p2_seed{seed}_checkpoint_audit.ok"
+        )
+        if audit_id not in tasks_by_id:
+            dataset_files = [
+                str(
+                    REPO / spec["path"]
+                    if not Path(spec["path"]).is_absolute()
+                    else Path(spec["path"])
+                )
+                for spec in p2_integrity_amendment["dataset_identity"][
+                    "files"
+                ].values()
+            ]
+            required_checkpoint_files = [
+                str(final_checkpoint / relative)
+                for relative in p2_integrity_amendment["checkpoint_contract"][
+                    "required_nonempty_files"
+                ]
+            ]
+            command = shlex.join(
+                [
+                    "python3",
+                    str(checkpoint_audit_script),
+                    "--repo",
+                    str(REPO),
+                    "--seed",
+                    str(seed),
+                    "--checkpoint",
+                    str(final_checkpoint),
+                    "--reference-checkpoint",
+                    str(reference_checkpoint),
+                    "--source-preflight",
+                    str(source_preflight),
+                    "--amendment",
+                    str(P2_INTEGRITY_AMENDMENT),
+                    "--output",
+                    str(audit_report),
+                    "--marker",
+                    str(audit_marker),
+                ]
+            )
+            queue["tasks"].append(
+                {
+                    "id": audit_id,
+                    "priority": 0,
+                    "description": (
+                        f"Audit final P2 seed-{seed} source, dataset, params, "
+                        "optimizer state, normalization, and atomic checkpoint"
+                    ),
+                    "completion_glob": str(audit_marker),
+                    "completion_min_count": 1,
+                    "produces_files": [str(audit_report), str(audit_marker)],
+                    "ready_files": [
+                        *required_checkpoint_files,
+                        str(reference_checkpoint / "params/_METADATA"),
+                        str(reference_checkpoint / "train_state/_METADATA"),
+                        str(source_preflight),
+                        str(P2_INTEGRITY_AMENDMENT),
+                        *dataset_files,
+                    ],
+                    "ready_dirs": [
+                        str(
+                            REPO
+                            / p2_integrity_amendment["dataset_identity"][
+                                "frame_cache"
+                            ]["path"]
+                        )
+                    ],
+                    "ready_hashes": [
+                        {
+                            "path": str(REPO / relative),
+                            "sha256": expected,
+                        }
+                        for relative, expected in sorted(
+                            p2_integrity_amendment["runtime_file_sha256"].items()
+                        )
+                    ],
+                    "candidates": [
+                        {
+                            "kind": "local",
+                            "resource": "local",
+                            "gpus": 0,
+                            "retry_cooldown_seconds": 60,
+                            "status_dir": str(
+                                REPO
+                                / "logs/predictive/p2_audit/launcher"
+                                / f"seed{seed}"
+                            ),
+                            "command": f"cd {shlex.quote(str(REPO))} && exec {command}",
+                        }
+                    ],
+                }
+            )
+            tasks_by_id[audit_id] = queue["tasks"][-1]
 
     for task in queue.get("tasks", []):
         task_id = task.get("id", "")
@@ -8683,10 +8820,23 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                         )
         elif task_id in p2_eval_authorized:
             task["ready_hashes"] = replication_eval_hashes
+            seed_match = re.search(r"_seed(\d+)_eval$", task_id)
+            if not seed_match:
+                raise ValueError(f"P2 evaluation task has no seed suffix: {task_id}")
+            checkpoint_audit_marker = (
+                REPO
+                / "logs/resource_markers"
+                / (
+                    "pi05_predictive_adapter_p2_seed"
+                    f"{seed_match.group(1)}_checkpoint_audit.ok"
+                )
+            )
             for path in (
                 REPLICATION_FROZEN_OVERLAY / "REPLICATION_READY",
                 replication_eval_amendment_path,
+                P2_INTEGRITY_AMENDMENT,
                 frozen_p2_eval_launcher,
+                checkpoint_audit_marker,
             ):
                 path_text = str(path)
                 if path_text not in task.setdefault("ready_files", []):
@@ -8696,6 +8846,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                 "P2_VERIFY_REPO": str(REPLICATION_FROZEN_OVERLAY),
                 "PYTHONPATH": str(REPLICATION_FROZEN_OVERLAY / "kai0/src"),
                 "P2_EVAL_LAUNCHER": str(frozen_p2_eval_launcher),
+                "P2_INTEGRITY_AMENDMENT": str(P2_INTEGRITY_AMENDMENT),
             }
             assignments = " ".join(
                 f"{key}={shlex.quote(value)}" for key, value in eval_env.items()

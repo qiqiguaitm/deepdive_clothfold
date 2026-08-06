@@ -226,6 +226,63 @@ def test_frozen_source_readiness_covers_p1_p2_and_r1_gpu_jobs() -> None:
     assert "ready_hashes" not in tasks["pi05_r1_seed1000_gate"]
 
 
+def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
+    queue = json.loads(scheduler.QUEUE_PATH.read_text())
+    scheduler.add_pi05_r1_recurrence_aligned_tasks(queue)
+    scheduler.apply_frozen_source_readiness(queue)
+    scheduler.validate_queue(queue)
+    tasks = {task["id"]: task for task in queue["tasks"]}
+
+    amendment = json.loads(scheduler.P2_INTEGRITY_AMENDMENT.read_text())
+    for relative, expected in amendment["runtime_file_sha256"].items():
+        assert scheduler.sha256_file(scheduler.REPO / relative) == expected
+    for parent in amendment["parents"].values():
+        assert scheduler.sha256_file(scheduler.REPO / parent["path"]) == parent[
+            "sha256"
+        ]
+
+    for seed in (1001, 1002):
+        audit_id = (
+            f"pi05_predictive_adapter_p2_candidate_seed{seed}_checkpoint_audit"
+        )
+        audit_task = tasks[audit_id]
+        marker = str(
+            scheduler.REPO
+            / "logs/resource_markers"
+            / f"pi05_predictive_adapter_p2_seed{seed}_checkpoint_audit.ok"
+        )
+        assert audit_task["completion_glob"] == marker
+        assert audit_task["candidates"][0]["gpus"] == 0
+        assert audit_task["candidates"][0]["resource"] == "local"
+        assert f"--seed {seed}" in audit_task["candidates"][0]["command"]
+        assert any(
+            path.endswith("/49999/_CHECKPOINT_METADATA")
+            for path in audit_task["ready_files"]
+        )
+        assert any(
+            path.endswith("/49999/train_state/_METADATA")
+            for path in audit_task["ready_files"]
+        )
+
+        evaluate = tasks[f"pi05_predictive_adapter_p2_candidate_seed{seed}_eval"]
+        assert marker in evaluate["ready_files"]
+        assert str(scheduler.P2_INTEGRITY_AMENDMENT) in evaluate["ready_files"]
+        hashes = {item["path"]: item["sha256"] for item in evaluate["ready_hashes"]}
+        verifier = str(
+            scheduler.REPO / "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py"
+        )
+        assert hashes[verifier] == amendment["runtime_file_sha256"][
+            "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py"
+        ]
+        for candidate in evaluate["candidates"]:
+            if candidate["kind"] == "platform":
+                assert candidate["env"]["P2_INTEGRITY_AMENDMENT"] == str(
+                    scheduler.P2_INTEGRITY_AMENDMENT
+                )
+            else:
+                assert "P2_INTEGRITY_AMENDMENT=" in candidate["command"]
+
+
 def test_replication_launchers_keep_canonical_outputs_and_frozen_sources_separate() -> None:
     launchers = {
         "train_scripts/kai/run_pi05_predictive_adapter_p1_train.sh": (

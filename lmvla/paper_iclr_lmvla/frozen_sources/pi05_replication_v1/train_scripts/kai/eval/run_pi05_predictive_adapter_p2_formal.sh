@@ -6,6 +6,7 @@ VERIFY_REPO=${P2_VERIFY_REPO:-$REPO}
 SEED=${SEED:?set SEED to 1001 or 1002}
 P1_GATE=${PREDICTIVE_P1_GATE:-$REPO/logs/predictive/p1_eval/p1_gate.accepted}
 PROTOCOL=$REPO/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json
+INTEGRITY_AMENDMENT=${P2_INTEGRITY_AMENDMENT:-$REPO/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_integrity_amendment_v1.json}
 MANIFEST=$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json
 
 case "$SEED" in
@@ -29,8 +30,46 @@ MARKER=$REPO/logs/resource_markers/${RESULT_NAME}.ok
 test -f "$P1_GATE"
 python3 "$VERIFY_REPO/kai0/scripts/verify_pi05_predictive_adapter_p2_protocol.py" \
   --repo "$VERIFY_REPO" --manifest "$PROTOCOL"
-test -f "$CKPT/params/_METADATA"
-test -f "$CKPT/assets/robotwin2.0_absolute_meanstd/norm_stats.json"
+python3 - "$REPO" "$INTEGRITY_AMENDMENT" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+
+repo = pathlib.Path(sys.argv[1])
+amendment_path = pathlib.Path(sys.argv[2])
+amendment = json.loads(amendment_path.read_text())
+
+def sha256(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+for spec in amendment["parents"].values():
+    path = repo / spec["path"]
+    actual = sha256(path)
+    if actual != spec["sha256"]:
+        raise SystemExit(f"P2 integrity parent drift: {path}: {actual} != {spec['sha256']}")
+for relative, expected in amendment["runtime_file_sha256"].items():
+    path = repo / relative
+    actual = sha256(path)
+    if actual != expected:
+        raise SystemExit(f"P2 integrity runtime drift: {path}: {actual} != {expected}")
+PY
+
+AUDIT_REPORT=$REPO/logs/predictive/p2_audit/seed${SEED}_final_checkpoint.json
+AUDIT_MARKER=$REPO/logs/resource_markers/pi05_predictive_adapter_p2_seed${SEED}_checkpoint_audit.ok
+python3 "$REPO/lmvla/lmwm/scripts/audit_pi05_predictive_adapter_p2_checkpoint.py" \
+  --repo "$REPO" \
+  --seed "$SEED" \
+  --checkpoint "$CKPT" \
+  --reference-checkpoint "${CKPT%/49999}/25000" \
+  --source-preflight "$REPO/logs/predictive/p1_preflight/source_freeze_candidate_seed${SEED}.json" \
+  --amendment "$INTEGRITY_AMENDMENT" \
+  --output "$AUDIT_REPORT" \
+  --marker "$AUDIT_MARKER"
 test -f "$MANIFEST"
 
 export PYTHONPATH="$VERIFY_REPO/kai0/src:${PYTHONPATH:-}"

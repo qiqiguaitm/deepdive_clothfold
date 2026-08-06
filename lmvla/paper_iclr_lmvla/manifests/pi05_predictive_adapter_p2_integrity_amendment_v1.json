@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p2_integrity_amendment_v1",
+  "created_at": "2026-08-06T02:15:00Z",
+  "parents": {
+    "p2_protocol": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_protocol.json",
+      "sha256": "52f80a75fa5ee0b3a1a74f5cd9738626dd574bc11a0fd71823f54defdac9908b"
+    },
+    "p1_source_audit": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p1_baseline_audit.json",
+      "sha256": "82459c52bb9b45f278bc2bc44b5a240ac2488367a54546d673be169c8cc9ef20"
+    },
+    "p0_dataset_audit": {
+      "path": "lmvla/lmwm/data/pi05_predictive_adapter_p0_v1/audit.json",
+      "sha256": "e2e05a255819fa046af758c7b26ec4c7eeb5283a688bf006a7060eecc429c9a5"
+    },
+    "frozen_evaluation_amendment": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_replication_frozen_evaluation_amendment_v1.json",
+      "sha256": "8a963b97bb5f7f57ec92599a87af35a266dd31501ae17c5b206f468f09ed44a6"
+    }
+  },
+  "authorization": {
+    "training_seeds": [1001, 1002],
+    "checkpoint_audit_tasks": [
+      "pi05_predictive_adapter_p2_candidate_seed1001_checkpoint_audit",
+      "pi05_predictive_adapter_p2_candidate_seed1002_checkpoint_audit"
+    ],
+    "evaluation_tasks": [
+      "pi05_predictive_adapter_p2_candidate_seed1001_eval",
+      "pi05_predictive_adapter_p2_candidate_seed1002_eval"
+    ]
+  },
+  "runtime_file_sha256": {
+    "lmvla/lmwm/scripts/audit_pi05_predictive_adapter_p2_checkpoint.py": "9b86e241bbe2dc9d97515eb88a5a2081441e36ba9b93020e55c374c53d0f2e46",
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "lmvla/paper_iclr_lmvla/frozen_sources/pi05_replication_v1/train_scripts/kai/eval/run_pi05_predictive_adapter_p2_formal.sh": "d41d6761e948e442d650ea70ec3fc2e4624cd7a276150752252fa47248de32e7"
+  },
+  "checkpoint_contract": {
+    "final_step": 49999,
+    "reference_step": 25000,
+    "required_nonempty_files": [
+      "_CHECKPOINT_METADATA",
+      "params/_METADATA",
+      "params/_sharding",
+      "params/manifest.ocdbt",
+      "train_state/_METADATA",
+      "train_state/_sharding",
+      "train_state/manifest.ocdbt",
+      "assets/robotwin2.0_absolute_meanstd/norm_stats.json"
+    ],
+    "require_atomic_commit": true,
+    "require_exact_parameter_tree_match_to_reference": true,
+    "require_predictive_adapter_parameter_leaves": true,
+    "require_exact_optimizer_tree_match_to_reference": true,
+    "require_optimizer_first_and_second_moments": true,
+    "require_nonempty_params_and_train_state_payloads": true
+  },
+  "normalization_identity": {
+    "path_within_checkpoint": "assets/robotwin2.0_absolute_meanstd/norm_stats.json",
+    "sha256": "8e4894bc762100c23cd435caff20653ccb39a9614ce210971dcf4018ef0a9f09"
+  },
+  "dataset_identity": {
+    "files": {
+      "target_pairs": {
+        "path": "lmvla/lmwm/data/pi05_predictive_adapter_p0_v1/pairs.npz",
+        "sha256": "5f166b847dcc71af55b5af053a42fe29c740969b7a97ae0c1eaf4cb481472440"
+      },
+      "target_episode_manifest": {
+        "path": "lmvla/lmwm/data/pi05_predictive_adapter_p0_v1/episode_manifest.jsonl",
+        "sha256": "90d4803d9f85203354dd99606f4f1ca3f58721ca8b7b030c6638c5e74effc12a"
+      },
+      "target_episode_split": {
+        "path": "lmvla/lmwm/data/pi05_predictive_adapter_p0_v1/episode_split.json",
+        "sha256": "8c370d12964f0ff7aad9af0b4d1ee9abe47824f84295cee0e3d427ffc13c14ec"
+      },
+      "training_episodes": {
+        "path": "/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21/meta/episodes.jsonl",
+        "sha256": "9d05f20e76cee73acc7240a5f2ed97881bb4ea621daaf64f70a5c3767d47ef8d"
+      },
+      "training_info": {
+        "path": "/vePFS/tim/workspace/VLANeXt-main/datasets/robotwin2.0_official_prompts_v21/meta/info.json",
+        "sha256": "86bf6916d4c452014c3c72335d4af62e211fb666950a2a9b9a5a5dc9d05899da"
+      }
+    },
+    "frame_cache": {
+      "path": "lmvla/lawam/dataset/robotwin2.0/frame_cache_jpeg256",
+      "camera": "observation.images.cam_high",
+      "files": 27500,
+      "bytes": 85308569890,
+      "first_episode": 0,
+      "last_episode": 27499,
+      "index_definition": "sha256 of sorted '<relative-path>\\t<byte-size>\\n' rows",
+      "index_sha256": "0241308de9834b7bb1913e62451beca3a5324c14789d21eb25104e663fbc0b40"
+    }
+  },
+  "scene_seed_verifier_clarification": {
+    "reason": "Two-slot execution can permute completion order while preserving exact unique scene-seed identity.",
+    "semantics": "Compare unique expected and observed scene-seed sets per cell; reject duplicates, missing seeds, extra seeds, and wrong seeds.",
+    "rollout_changed_or_rerun": false
+  },
+  "constraints": [
+    "This amendment does not alter training seeds, updates, batch size, initialization, data contents, evaluation cells, or acceptance criteria.",
+    "The original P2 protocol and source hashes remain immutable and are verified before evaluation.",
+    "Only a committed step-49,999 checkpoint with complete params, optimizer state, normalization, source, and dataset audits may enter evaluation.",
+    "The scene-seed clarification changes verifier ordering semantics only; exact per-cell seed identity remains mandatory.",
+    "No intermediate checkpoint may satisfy the audit marker."
+  ],
+  "passed": true
+}
