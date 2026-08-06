@@ -4,7 +4,7 @@
 
 - Method: MINT-VLA stores mined milestone frames, re-encodes targets with the current VLA visual encoder during training, predicts an absolute milestone through a residual parameterization, and connects it to the VLA's native conditioning input. The current pi0.5 instantiation uses one prefix token.
 - Primary VLA/benchmark: pi0.5 on RoboTwin 2.0. LIBERO and LaWAM are supporting diagnostics.
-- Structure: problem and controlled comparisons -> MINT-VLA -> confirmatory design -> completed three-seed negative result and interface diagnosis.
+- Structure: problem and controlled comparisons -> MINT-VLA -> confirmatory design -> completed three-seed negative result and interface diagnosis -> independently scoped policy-preserving repair hypothesis.
 - Questions: Q1 matched control performance; Q2 predicted token content; Q3 factorized integration mechanism; Q4 robustness, task scope, and efficiency. Q5 second-VLA instantiation is explicitly closed because the draft makes no multi-architecture claim.
 
 ## Evidence Boundary
@@ -15,6 +15,19 @@
 - The corrected absolute-action/mean-std/batch-16/50k matrix is complete across training seeds 1000--1002: A0 79.39%, A2-Abs 75.44%, and A3 70.81%.
 - Paired hierarchical differences versus A0 are -3.94 pp for A2-Abs (95% CI [-6.58,-0.97]) and -8.58 pp for A3 ([-11.47,-5.75]); the paper therefore makes a negative integration result, not a method-benefit claim.
 - A3 is observation-conditioned and not fully gradient-isolated. LaWAM Future-off is not a clean no-WM VLA baseline.
+- The policy-preserving predictive adapter is a separate method hypothesis. Its
+  seed-1000 P1 screen is direct positive closed-loop evidence: 82.42% versus
+  69.00% for matched current-source A0, with no task regression. It is not yet
+  a replicated utility claim because P2 seeds 1001--1002 are unfinished.
+- P1's advantage over shuffled action conditioning is only +1.25 pp
+  (Holm-adjusted p=1.0), so content-specific causality remains unresolved.
+- Corrected R1 predictive-plus-CRAVE reaches 62.92%, below A0 by 6.08 pp and
+  CRAVE-only by 5.75 pp, with four task regressions above five points. This
+  rejects the recurrence-aligned auxiliary extension, not the parent P1
+  adapter.
+- R4 has complete audited data, runtime, and three step-5,000 checkpoints, but
+  its three-arm fixed-checkpoint evaluations are unfinished; no R4 policy
+  effect is reportable.
 
 ## Files
 

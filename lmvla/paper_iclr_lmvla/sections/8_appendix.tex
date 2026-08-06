@@ -56,6 +56,33 @@ difference is $+0.53$ points (95\% CI [$-2.06$,$+3.00$]) over 3,600 paired
 episodes with zero unmatched keys.  The interval crosses zero, so the
 predeclared MT1 gate rejects the oracle-transition branch.
 
+\subsection{Policy-preserving predictive-adapter screens}
+P1 trains matched current-source A0 and predictive checkpoints from the same
+official $\pi_{0.5}$ initialization at seed 1000.  Both finalize step 49,999
+and pass source, dataset, normalization, parameter-tree, optimizer-state,
+checkpoint, and 24-cell scene-manifest audits.  Every condition contains 1,200
+paired episodes.  Macro success is 69.00\% for A0, 82.42\% for normal
+predictive inference, 78.50\% with the predictive route zeroed, 81.17\% with
+shuffled action conditioning, and 78.00\% with masked actions.  Normal minus
+A0 is +13.42 points, with task effects of +8.5, +13.5, +15.5, +14.0, +2.0,
+and +27.0 points in table order.  The pooled Holm-adjusted A0 contrast is
+$7.02\!\times\!10^{-16}$.  Normal minus shuffled actions is only +1.25 points
+(exact McNemar $p{=}0.383$; Holm-adjusted $p{=}1.0$), so the accepted
+directional P1 gate does not establish content-specific causality or
+multi-seed utility.  The canonical decision is
+\texttt{RESULTS\_pi05\_predictive\_adapter\_p1\_seed1000\_gate.json}.
+
+R1 uses the corrected 359,823-row dense recurrence-target protocol.  Its
+CRAVE-only, predictive-plus-CRAVE, combined zero-route, and combined shuffled
+conditions reach 68.67\%, 62.92\%, 62.17\%, and 64.67\%, respectively, over
+1,200 paired episodes each.  Predictive-plus-CRAVE is 6.08 points below A0
+(paired bootstrap 95\% CI [$-9.33$,$-2.75$]), 5.75 points below CRAVE-only
+([$-9.00$,$-2.50$]), and has four task regressions larger than five points.
+The rejected R1 gate disables its additional seeds.  Because R1 adds an
+auxiliary target to P1, this verdict does not negate the parent P1 screen.
+Seeds 1001--1002 of the parent adapter remain reserved for the frozen P2
+replication and are not represented by intermediate checkpoints.
+
 \subsection{Outcome-linked recurrence diagnostics}
 The frozen recurrence-diagnostic panel contains 120 public-$\pi_{0.5}$
 rollouts: 99 successes and 21 failures across the six RoboTwin tasks.  All 12

@@ -72,6 +72,17 @@ boundary with privileged stage transitions: its mean effect over A0 is
 $+0.53$ points (95\% CI [$-2.06$,$+3.00$]), with a negative effect at seed
 1002 and regressions on Hammer and both ranking tasks.
 
+We also evaluate a separate repair hypothesis that preserves the pretrained
+$\pi_{0.5}$ pathways and confines an action-conditioned predictive adapter to
+the action expert.  Its preregistered seed-1000 screen improves over a matched
+current-source A0 by 13.42 points (82.42\% versus 69.00\%) without a task-level
+regression.  This is direct closed-loop evidence for one checkpoint, not yet a
+replicated method claim: the margin over shuffled action conditioning is only
+1.25 points (Holm-adjusted $p{=}1.0$), and seeds 1001--1002 remain under the
+frozen P2 replication gate.  Adding recurrence-derived CRAVE targets reduces
+success to 62.92\%; this rejects that auxiliary extension rather than the
+parent predictive adapter.
+
 This paper makes three contributions:
 \begin{itemize}
   \item We introduce a milestone target recomputed by the current policy encoder
@@ -82,5 +93,7 @@ This paper makes three contributions:
   \item We show across three matched training seeds that a nontrivial future
   predictor need not improve control: both conditioned arms regress, correct
   content has no resolved advantage, and a privileged oracle-transition route
-  also fails its replicated closed-loop utility gate.
+  also fails its replicated closed-loop utility gate.  A separately scoped
+  policy-preserving adapter passes a one-seed screen, motivating rather than
+  replacing its still-open replication test.
 \end{itemize}

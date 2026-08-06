@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 01:14 UTC
+Updated: 2026-08-06 01:17 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -27,8 +27,8 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 01:14 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seed 1001 is near step 22,800 and seed 1002 near step 22,700 of
+At the 01:17 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seed 1001 is near step 23,100 and seed 1002 near step 23,000 of
 50,000; both have complete committed step-20,000 Orbax checkpoints. Training
 loss and intermediate checkpoints are health telemetry only.
 
@@ -48,7 +48,7 @@ loss and intermediate checkpoints are health telemetry only.
 
 ## R4: outcome-calibrated fixed-checkpoint screen
 
-At the 01:14 UTC scheduler cutoff, ordinary fine-tuning has completed 21/24
+At the 01:17 UTC scheduler cutoff, ordinary fine-tuning has completed 22/24
 cells with no failed cell. The first ABI-repaired North attempts for
 outcome-free CRAVE and terminal outcome failed at their first compiled policy
 query because the transferred Triton `ptxas` bytes had lost executable mode;
@@ -93,7 +93,7 @@ panels must not be summarized as a method result.
 
 ## Current scheduler gates
 
-Canonical snapshot at 01:11 UTC: 467 tasks total, 333 completed, 120 disabled,
+Canonical snapshot at 01:17 UTC: 467 tasks total, 333 completed, 120 disabled,
 9 pending, and 5 running. All eight East H20 GPUs, eight North H20 GPUs, and
 both local A100 GPUs are occupied by the five active P2/R4 tasks. Seven tasks
 wait only for final checkpoints, reports, or an accepted gate; none is ready

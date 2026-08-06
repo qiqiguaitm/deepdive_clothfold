@@ -53,3 +53,14 @@ its difference from A0 is $+0.53$ points (95\% CI [$-2.06$,$+3.00$]), seed
 on the three multistage tasks.  We close the tracker, selector,
 mature-initialization, task-expansion, and second-VLA gates rather than tune
 them against these replicated negative results.
+
+These failures do not make every method proposed in this study ineffective.
+The independently designed, policy-preserving predictive adapter has direct
+positive closed-loop evidence at seed 1000: 82.42\% versus 69.00\% for its
+matched A0, with positive differences on all six tasks.  The result remains a
+screen because the action-shuffled control reaches 81.17\% and the
+multiplicity-adjusted contrast is unresolved.  The failed recurrence-aligned
+R1 model is likewise evidence against that auxiliary extension, not against
+the parent adapter.  We therefore retain the original negative integration
+conclusion, report the P1 result as bounded one-seed evidence, and defer any
+replicated predictive-adapter utility claim to the frozen P2 analysis.

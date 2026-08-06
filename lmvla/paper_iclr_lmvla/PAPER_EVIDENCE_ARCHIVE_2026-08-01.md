@@ -1,6 +1,6 @@
 # MINT-VLA Completed Evidence Archive
 
-Updated: 2026-08-04 09:42 UTC
+Updated: 2026-08-06 00:52 UTC
 
 This document preserves completed evidence and execution notes removed from
 `PAPER_TODO.md`. It is a lookup record, not an active task list. Canonical JSON
@@ -1420,3 +1420,97 @@ Canonical records:
 - `logs/r3_semantic_screen/report.json`
 - `logs/r3_semantic_screen/r3_gate.rejected`
 - `logs/resource_markers/pi05_r3_shuffled_semantic_screen_v1.ok`
+
+## 34. P1 predictive-adapter seed-1000 gate verdict
+
+The pi0.5-preserving predictive branch is a new method hypothesis, not a
+reinterpretation of the completed observation-only MINT-VLA experiment.  It
+keeps the official pi0.5 visual-language and action paths, stops the predictive
+loss at inherited features, and routes an action-conditioned, zero-initialized
+adapter only into the action expert.  P0 established action-conditioned latent
+prediction and authorized P1; it did not establish control utility.
+
+P1 trained a current-source A0 and predictive candidate from the same official
+initialization at training seed 1000.  Both final step-49,999 checkpoints passed
+the frozen source, dataset, normalization, optimizer-state, checkpoint, and
+24-cell scene-manifest audits.  Every evaluation contains 1,200 paired
+episodes.  Macro success is 69.00% for A0, 82.42% for the normal predictive
+adapter, 78.50% with the predictive route zeroed, 81.17% with shuffled action
+conditioning, and 78.00% with masked actions.
+
+The normal adapter improves over A0 by 13.42 percentage points.  Its task-level
+differences are +8.5 on Hammer, +13.5 on Ranking RGB, +15.5 on Ranking size,
++14.0 on Handover, +2.0 on Stack-2, and +27.0 on Stack-3; no task regresses.
+The pooled paired normal-versus-A0 comparison has Holm-adjusted
+`p=7.02e-16`.  The normal adapter also exceeds the three preregistered controls
+in point estimate, so the directional seed-1000 gate is accepted and P2
+replication is authorized.
+
+The content-specific interpretation is weaker than the gate verdict.  Normal
+exceeds shuffled actions by only 1.25 points, with exact McNemar `p=0.383` and
+Holm-adjusted `p=1.0`; normal versus zero-gate is +3.92 points with
+Holm-adjusted `p=0.0939`.  P1 therefore establishes a positive, directly
+measured seed-1000 closed-loop screen.  It does not yet establish a replicated
+utility effect or a strong causal claim about correct action content.  Those
+claims remain conditional on P2.
+
+The P1 recovery history is operational provenance rather than extra evidence.
+After gf1 was permanently retired, exact source and optimizer states were
+recovered through a checksum-frozen North stage.  Failed pre-launch,
+container-runtime, package-lock, CUDA-architecture, and materialization
+attempts produced no admissible rollout evidence.  Only the five complete
+canonical reports enter the gate.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_pi05_predictive_adapter_p1_seed1000_gate.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_a0.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_normal.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_zero_gate.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_shuffled.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_masked.json`
+- `logs/predictive/p1_eval/p1_gate.accepted`
+
+## 35. R1 recurrence-aligned extension and R4 completed prerequisites
+
+R1 tests whether recurrence-derived CRAVE targets improve the new predictive
+adapter.  This is an auxiliary extension of P1, not the parent predictive
+method.  Sparse-label launches were invalidated before evaluation; only the
+corrected 359,823-row dense-target protocol and its final step-49,999
+checkpoints enter the result.
+
+All four R1 seed-1000 evaluations contain 24 cells and 1,200 paired episodes.
+CRAVE-only reaches 68.67%, predictive-plus-CRAVE combined reaches 62.92%, the
+combined zero-route control reaches 62.17%, and combined shuffled-action
+reaches 64.67%.  Combined is 6.08 points below A0 (paired bootstrap 95% CI
+[-9.33,-2.75]), 5.75 points below CRAVE-only ([-9.00,-2.50]), and 19.50 points
+below the parent predictive adapter ([-22.50,-16.50]).  Relative to A0, its
+task effects are -1.5 on Hammer, +3.0 on Ranking RGB, -6.5 on Ranking size,
+-6.5 on Handover, -11.0 on Stack-2, and -14.0 on Stack-3.  Four tasks violate
+the five-point regression guard.  The preregistered R1 gate is therefore
+rejected, and R1 seeds 1001/1002 are permanently disabled.  This result rejects
+the recurrence-aligned combined extension; it does not negate the accepted P1
+screen.
+
+R4 completed its data and training prerequisites without establishing a policy
+effect.  Its audited dataset contains 600 rollout episodes and 6,313 executable
+three-camera query/action samples.  The ordinary, task-normalized
+terminal-outcome-weighted, and outcome-free CRAVE-weighted arms share identical
+ordered action chunks and differ only in their weighting rule.  Exact public
+checkpoint loading, sample-weight preservation, sidecar alignment, and the
+two-step runtime smoke passed.  All three formal training arms completed the
+frozen step-5,000 checkpoint and passed the checkpoint-integrity audit.  These
+records authorize the fixed-checkpoint three-arm closed-loop screen; training
+losses and checkpoint existence alone are not control evidence.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_pi05_r1_seed1000_gate.json`
+- `lmvla/lmwm/docs/pi05_r1_seed1000_crave.json`
+- `lmvla/lmwm/docs/pi05_r1_seed1000_combined.json`
+- `lmvla/lmwm/docs/pi05_r1_seed1000_combined_zero_gate.json`
+- `lmvla/lmwm/docs/pi05_r1_seed1000_combined_shuffled.json`
+- `logs/r1/seed1000/r1_gate.rejected`
+- `logs/r4/training_dataset_audit.json`
+- `logs/r4/checkpoint_integrity_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_r4_formal_eval_protocol_v1.json`

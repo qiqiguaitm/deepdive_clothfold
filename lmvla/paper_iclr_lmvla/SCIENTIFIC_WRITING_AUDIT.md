@@ -1,6 +1,6 @@
 # MINT-VLA Scientific-Writing Audit
 
-Updated: 2026-08-03
+Updated: 2026-08-06
 
 Target venue: ICLR 2027. The review applies the installed `scientific-writing`
 skill's ICLR conventions and borrows Nature's claim-first, accessible prose.
@@ -59,6 +59,17 @@ Nature layout rules are not applied when they conflict with ICLR.
   outcome separation together with 38.4--99.0% success false-positive rates.
   It is described as diagnostic information, not reward, value, failure
   detection, or control utility.
+- **Method-identity boundary:** the completed negative MINT-VLA matrix and the
+  policy-preserving predictive adapter are described as different method
+  hypotheses. The former supports an interface-failure result; the latter has
+  a positive seed-1000 closed-loop screen whose replication remains open.
+- **P1 causal boundary:** P1 reports all six task effects and the matched A0,
+  zero-route, shuffled-action, and masked-action controls. Its +13.42-point A0
+  contrast is not converted into a content-specific claim because the
+  normal--shuffled contrast is only +1.25 points (Holm-adjusted p=1.0).
+- **R1 scope boundary:** the 62.92% predictive-plus-CRAVE result, its four
+  task-level regressions, and its intervals against A0 and CRAVE-only are
+  reported as rejection of the auxiliary recurrence extension, not of P1.
 
 ## Closed evidence verdict
 
@@ -82,6 +93,13 @@ Nature layout rules are not applied when they conflict with ICLR.
 7. **The privileged semantic screen is closed.** Correct next-subtask prompts
    score 77.08% versus 80.83% without a subtask and 77.50% with shuffled
    semantics. The primary interval and task-safety gates fail.
+8. **The P1 screen is accepted but not replicated.** Seed-1000 predictive
+   inference reaches 82.42% versus 69.00% for matched A0, with no task-level
+   regression. P2 seeds 1001--1002 remain mandatory before a method-level
+   utility claim.
+9. **The R1 extension is closed.** Predictive-plus-CRAVE reaches 62.92% and
+   violates four task-safety guards. This verdict is not generalized to the
+   parent policy-preserving adapter.
 
 ## Warning: manuscript closure
 
@@ -98,6 +116,10 @@ Nature layout rules are not applied when they conflict with ICLR.
 - The observation-only predictor cannot resolve instruction-dependent futures.
   The limitation is now explicit, but an instruction-aware control is needed
   before claiming general milestone selection.
+- The new P1 table is intentionally not promoted into a claim-bearing figure:
+  it contains one training seed, while P2 and all R4 control evaluations remain
+  incomplete. Any later figure must preserve task-level effects and uncertainty
+  rather than show only a macro average.
 
 ## Venue distinction
 

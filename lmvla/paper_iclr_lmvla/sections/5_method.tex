@@ -82,6 +82,31 @@ semantics, and no task regression greater than 5 points.  This experiment
 tests privileged prompting of an unchanged policy; it does not evaluate a
 learned semantic predictor.
 
+\subsection{Pretrained-policy-preserving predictive branch}
+The completed negative MINT-VLA experiment motivates a separate hypothesis
+rather than a post-hoc repair of the same method.  The new branch preserves the
+official $\pi_{0.5}$ visual-language and action paths, stops the predictive loss
+at every inherited feature, and routes a zero-initialized action-conditioned
+adapter only into the action expert.  Its offline P0 gate compares normal,
+shuffled, and masked action conditioning on held-out latent prediction; this
+gate can authorize control training but cannot establish utility.
+
+P1 trains a current-source A0 and the predictive candidate at seed 1000 under
+matched data, normalization, optimizer, update count, and source identity.  At
+the final checkpoint, normal inference is compared on the same 24 cells with
+A0, a zeroed route, shuffled action conditioning, and masked actions.  The
+directional screen requires the normal candidate to exceed every control and
+permits no task regression larger than five points.  P2 is a separate
+replication gate: seeds 1001 and 1002 must finish the frozen recipe, and the
+hierarchical 95\% interval for candidate minus matched A0 must exclude zero
+before we claim a replicated utility effect.
+
+R1 adds dense recurrence-derived CRAVE targets to the predictive branch.  Its
+necessary gate compares the combined model with A0, the parent predictive
+adapter, CRAVE-only training, zero-route, and shuffled-action controls.  A
+failed R1 gate rejects this auxiliary extension; it does not retroactively
+negate a P1 result.
+
 \subsection{Q4: robustness, scope, and efficiency}
 Training seed is the top-level uncertainty unit.  We will use a hierarchical
 bootstrap over training seed, task, and paired scene, while retaining task-level
