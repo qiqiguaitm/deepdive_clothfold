@@ -1,0 +1,51 @@
+TaskName: "pi05-predictive-p4-pair-east8g"
+Description: "Frozen P4 intervention for candidate seeds 1001 and 1002 on East 8xH20"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  STAMP=$(date -u +%Y%m%d_%H%M%SZ)
+  LOG_DIR=$REPO/logs/predictive/p4_platform
+  mkdir -p "$LOG_DIR" /vePFS/tim/runtime/torch_extensions/h20_sm90_py310
+  export TORCH_CUDA_ARCH_LIST=9.0
+  export TORCH_EXTENSIONS_DIR=/vePFS/tim/runtime/torch_extensions/h20_sm90_py310
+  pids=()
+  for spec in "1001:0,1,2,3:22600" "1002:4,5,6,7:22700"; do
+    IFS=: read -r seed devices port <<<"$spec"
+    (
+      export CUDA_VISIBLE_DEVICES="$devices"
+      exec env REPO="$REPO" SEED="$seed" P4_CONDITION="${P4_CONDITION:?missing condition}" \
+        LOCAL_GPU_COUNT=4 MAX_PARALLEL_SEEDS=4 PORT_BASE_OFFSET="$port" \
+        bash "$REPO/train_scripts/kai/eval/run_pi05_predictive_adapter_p4_formal.sh"
+    ) >"$LOG_DIR/${P4_CONDITION}_seed${seed}_${STAMP}.log" 2>&1 &
+    pids+=("$!")
+  done
+  status=0
+  for pid in "${pids[@]}"; do wait "$pid" || status=1; done
+  exit "$status"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

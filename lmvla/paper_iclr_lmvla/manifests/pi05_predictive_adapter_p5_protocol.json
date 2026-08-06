@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "phase": "p5",
+  "protocol": "pi05_predictive_adapter_p5_public_reference_v1",
+  "created_at": "2026-08-06T14:35:00Z",
+  "frozen": true,
+  "checkpoint": "/vePFS/tim/hf_models/SidneyXie_pi05_robotwin",
+  "checkpoint_model_sha256": "9a5381c3260fc58fdb4b90d17b93f9090bcbfbcd8e0287f9bf2acea2477a2bc3",
+  "aggregate_source": {
+    "report": "logs/eval_reports/pi05_public_samebridge_4seed_v3.json",
+    "sha256": "8dbf61bfc67ddd86a206d796c29d5156cc29186aa3dab8c15df4518fe881c1a3",
+    "macro_success_rate": 0.7841666666666667,
+    "episode_outcomes_recoverable": false
+  },
+  "evaluation": {
+    "result_name": "pi05_predictive_adapter_p5_public_paired",
+    "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "tasks": 6,
+    "eval_seeds": [0, 1, 2, 3],
+    "episodes_per_cell": 50,
+    "episodes_total": 1200,
+    "training_or_tuning": false
+  },
+  "analysis": {
+    "candidate_seeds": [1000, 1001, 1002],
+    "bootstrap_levels": ["candidate_training_seed", "paired_episode_within_task"],
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20260806,
+    "gate": "hierarchical 95% CI lower endpoint exceeds zero"
+  },
+  "file_sha256": {
+    "kai0/scripts/verify_pi05_predictive_adapter_p345_protocol.py": "ee53550567cf8cebb3d2c3aba2dd2cdaf9b766bcf4d8fb698f57c9bf897fe8e6",
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/scripts/analyze_pi05_predictive_adapter_p5.py": "a422a03dc39a35fac61a227fe421e42307336bcb96a6a1bf5482274638344362",
+    "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "train_scripts/kai/analysis/finalize_pi05_predictive_adapter_p5.sh": "c0f5d4932df086cea827ceb179615e335d85282e37d5eea13d72281ab63c2b65",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p5_public_formal.sh": "e0abc73e4dc843af8101ae5ed6936cd42662a7354ff85cefd17cf05d2aefca5e",
+    "train_scripts/kai/eval/run_pi05_public_samebridge_multiseed.sh": "bde694cb172afce1244d8de82aa68a9f8492b97a9f4ff5537c1d2c5a2f61cb8f"
+  }
+}

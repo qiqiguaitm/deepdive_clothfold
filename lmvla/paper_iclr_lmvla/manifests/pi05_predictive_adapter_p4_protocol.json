@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "phase": "p4",
+  "protocol": "pi05_predictive_adapter_p4_three_seed_interventions_v1",
+  "created_at": "2026-08-06T14:35:00Z",
+  "frozen": true,
+  "candidate_seeds": [1000, 1001, 1002],
+  "conditions": {
+    "normal": "unchanged predictive action adapter",
+    "zero_gate": "deterministically set route gate to zero",
+    "shuffled": "deterministically reverse the predicted action horizon",
+    "masked": "deterministically replace predicted action sequence with zeros"
+  },
+  "new_evaluations": [
+    "seed1001:zero_gate", "seed1001:shuffled", "seed1001:masked",
+    "seed1002:zero_gate", "seed1002:shuffled", "seed1002:masked"
+  ],
+  "evaluation": {
+    "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "tasks": 6,
+    "eval_seeds": [0, 1, 2, 3],
+    "episodes_per_cell": 50,
+    "episodes_per_report": 1200,
+    "pairing": "identical checkpoint, scene seed, episode key, observation and action bridge"
+  },
+  "analysis": {
+    "comparisons": ["normal-minus-shuffled", "normal-minus-zero_gate", "normal-minus-masked"],
+    "bootstrap_levels": ["training_seed", "paired_episode_within_task"],
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20260806,
+    "pooled_tests": "exact McNemar with Holm correction across three frozen comparisons",
+    "gate": "hierarchical lower CI > 0 and Holm-adjusted p < 0.05"
+  },
+  "checkpoint_metadata_sha256": {
+    "1000": "8286f4d2d13202f6c310bd18821c8ecc8f62c0bd80e87c7625007e897cba00f3",
+    "1001": "8286f4d2d13202f6c310bd18821c8ecc8f62c0bd80e87c7625007e897cba00f3",
+    "1002": "8286f4d2d13202f6c310bd18821c8ecc8f62c0bd80e87c7625007e897cba00f3"
+  },
+  "seed1000_report_sha256": {
+    "normal": "4fd26876f0b013f8fed27a66def4fcabb869e898973fd127d6d8c10e42eb7a91",
+    "zero_gate": "44dd49ceb7d6a358baf31e791e4f5c4f494568893be2403594a12af03123521b",
+    "shuffled": "0d7c192ec381f7e69273491671453934aed13ebbb1dd59829ecd3d615952f051",
+    "masked": "bd81ca7b42bd8e58c9a8716e26e8a61dee53b18f7303faff910ff57799d65556"
+  },
+  "file_sha256": {
+    "kai0/scripts/verify_pi05_predictive_adapter_p345_protocol.py": "ee53550567cf8cebb3d2c3aba2dd2cdaf9b766bcf4d8fb698f57c9bf897fe8e6",
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p1_formal.sh": "01d3f91f6e13c79f3fef3183af3aeeea871218193d915c07980cfb15a1ee7dfc",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p4_formal.sh": "5d98c506672b3777500c61101e2dfa2b59b3dda83d25ecc71fc89a081f8fd9ae",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p4_pair_east_8h20.yaml": "a550cb23c977e0a0bcc3f774a46dc7307a4eda751ca6eae848081f6af7847028"
+  }
+}

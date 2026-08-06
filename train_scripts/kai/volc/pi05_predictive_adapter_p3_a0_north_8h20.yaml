@@ -1,0 +1,63 @@
+TaskName: "pi05-predictive-p3-a0-north8g"
+Description: "Frozen P3 independent matched A0 training seed on North 8xH20"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.hpcpni3ln.45xlarge"
+
+ActiveDeadlineSeconds: 345600
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  ROOT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAGE=$ROOT/.staging/pi05_p1_failover_20260804T1034Z
+  STAMP=$(date -u +%Y%m%d_%H%M%SZ)
+  mkdir -p "$STAGE/logs/predictive/p3_platform"
+  exec >>"$STAGE/logs/predictive/p3_platform/a0_seed${SEED:?missing SEED}_${STAMP}.log" 2>&1
+  set -x
+  test -s "$STAGE/north_stage_report.json"
+  python3 - "$STAGE/north_stage_report.json" <<'PY'
+  import json, sys
+  if json.load(open(sys.argv[1])).get("stage_verified") is not True:
+      raise SystemExit("North staging audit is not verified")
+  PY
+  test -s "$STAGE/datasets/robotwin2.0_official_prompts_v21/meta/episodes.jsonl"
+  test -s "$STAGE/kai0/checkpoints/pi05_base/params/_METADATA"
+  env REPO="$ROOT" P345_VERIFY_REPO="$ROOT" P3_TRAIN_REPO="$STAGE" \
+    PYTHON_BIN="$ROOT/kai0/.venv/bin/python" WORKERS=16 \
+    bash "$ROOT/train_scripts/kai/run_pi05_predictive_adapter_p3_a0_train.sh"
+  CKPT=$STAGE/kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/pi05_predictive_adapter_p1_a0_seed${SEED}/49999
+  REF=$STAGE/kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/pi05_predictive_adapter_p1_a0_seed1000/49999
+  "$ROOT/kai0/.venv/bin/python" \
+    "$ROOT/lmvla/lmwm/scripts/audit_pi05_predictive_adapter_p3_checkpoint.py" \
+    --checkpoint "$CKPT" --reference "$REF" \
+    --source-preflight "$STAGE/logs/predictive/p1_preflight/source_freeze_a0_seed${SEED}.json" \
+    --dataset "$STAGE/datasets/robotwin2.0_official_prompts_v21/meta/episodes.jsonl" \
+    --seed "$SEED" --output "$STAGE/logs/predictive/p3_audit/a0_seed${SEED}.json" \
+    --marker "$STAGE/logs/resource_markers/pi05_predictive_adapter_p3_a0_seed${SEED}_audit.ok"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

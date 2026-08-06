@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
+VERIFY_REPO=${P345_VERIFY_REPO:-$REPO}
+SEED=${SEED:?set SEED to 1001 or 1002}
+CONDITION=${P4_CONDITION:?set P4_CONDITION}
+PROTOCOL=$VERIFY_REPO/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p4_protocol.json
+
+case "$SEED" in 1001|1002) ;; *) echo "P4 seed must be 1001 or 1002" >&2; exit 2;; esac
+case "$CONDITION" in zero_gate|shuffled|masked) ;; *) echo "invalid P4 condition" >&2; exit 2;; esac
+python3 "$VERIFY_REPO/kai0/scripts/verify_pi05_predictive_adapter_p345_protocol.py" \
+  --repo "$VERIFY_REPO" --manifest "$PROTOCOL" --phase p4
+
+CKPT=$REPO/kai0/checkpoints/pi05_predictive_adapter_p1/pi05_predictive_adapter_p1_seed${SEED}/49999
+RESULT_NAME=pi05_predictive_adapter_p4_seed${SEED}_${CONDITION}
+exec env REPO="$REPO" PREDICTIVE_P1_CONDITION="$CONDITION" CKPT="$CKPT" \
+  RESULT_NAME="$RESULT_NAME" PORT_BASE_OFFSET="${PORT_BASE_OFFSET:-22600}" \
+  LOCAL_GPU_COUNT="${LOCAL_GPU_COUNT:-4}" MAX_PARALLEL_SEEDS="${MAX_PARALLEL_SEEDS:-4}" \
+  bash "$REPO/train_scripts/kai/eval/run_pi05_predictive_adapter_p1_formal.sh"

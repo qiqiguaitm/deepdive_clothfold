@@ -8227,6 +8227,265 @@ TRACKER_CHECKPOINT=\"$tracker\" bash train_scripts/kai/run_pi05_mt_transition_tr
         existing.add(task_id)
 
 
+def add_pi05_predictive_adapter_p345_tasks(queue: dict[str, Any]) -> None:
+    """Register the frozen P3--P5 evidence-strengthening graph."""
+    existing = {task["id"] for task in queue.get("tasks", [])}
+    north_root = Path("/vePFS-North-E/vis_robot/workspace/deepdive_kai0")
+    stage = north_root / ".staging/pi05_p1_failover_20260804T1034Z"
+    p3_protocol = REPO / "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_protocol.json"
+    p4_protocol = REPO / "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p4_protocol.json"
+    p5_protocol = REPO / "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p5_protocol.json"
+
+    for seed in (1001, 1002):
+        train_id = f"pi05_predictive_adapter_p3_a0_seed{seed}_train"
+        audit_marker = stage / f"logs/resource_markers/pi05_predictive_adapter_p3_a0_seed{seed}_audit.ok"
+        checkpoint = stage / (
+            "kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/"
+            f"pi05_predictive_adapter_p1_a0_seed{seed}/49999"
+        )
+        if train_id not in existing:
+            queue["tasks"].append(
+                {
+                    "id": train_id,
+                    "priority": 0,
+                    "description": f"P3 independent matched A0 seed-{seed} 50k training and final-checkpoint audit",
+                    "prefer_max_gpus_when_immediate": True,
+                    "completion_glob": str(audit_marker),
+                    "completion_remote": True,
+                    "completion_min_count": 1,
+                    "ready_files": [
+                        str(p3_protocol),
+                        str(REPO / "kai0/scripts/verify_pi05_predictive_adapter_p345_protocol.py"),
+                        str(REPO / "lmvla/lmwm/scripts/audit_pi05_predictive_adapter_p3_checkpoint.py"),
+                        str(REPO / "train_scripts/kai/run_pi05_predictive_adapter_p3_a0_train.sh"),
+                    ],
+                    "ready_files_remote": [
+                        str(north_root / p3_protocol.relative_to(REPO)),
+                        str(stage / "north_stage_report.json"),
+                        str(stage / "datasets/robotwin2.0_official_prompts_v21/meta/episodes.jsonl"),
+                        str(stage / "kai0/checkpoints/pi05_base/params/_METADATA"),
+                    ],
+                    "progress_logs": [
+                        {
+                            "label": "step",
+                            "glob": str(stage / f"logs/predictive/p3_platform/a0_seed{seed}_*.log"),
+                            "regex": "Step ([0-9]+):",
+                            "total": 50000,
+                            "remote": True,
+                        }
+                    ],
+                    "candidates": [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-North-H20",
+                            "region": "cn-beijing",
+                            "gpus": 8,
+                            "queue_timeout_seconds": 300,
+                            "retry_cooldown_seconds": 60,
+                            "yaml": "train_scripts/kai/volc/pi05_predictive_adapter_p3_a0_north_8h20.yaml",
+                            "task_name": f"pi05-p3-a0-s{seed}-north8g",
+                            "env": {"SEED": str(seed)},
+                        }
+                    ],
+                }
+            )
+            existing.add(train_id)
+
+        eval_id = f"pi05_predictive_adapter_p3_a0_seed{seed}_eval"
+        eval_marker = stage / f"logs/resource_markers/pi05_predictive_adapter_p3_a0_seed{seed}.ok"
+        if eval_id not in existing:
+            queue["tasks"].append(
+                {
+                    "id": eval_id,
+                    "priority": 0,
+                    "description": f"P3 frozen 24-cell A0 seed-{seed} evaluation",
+                    "completion_glob": str(eval_marker),
+                    "completion_remote": True,
+                    "completion_min_count": 1,
+                    "ready_files": [str(p3_protocol)],
+                    "ready_files_remote": [
+                        str(audit_marker),
+                        str(checkpoint / "params/_METADATA"),
+                        str(stage / "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"),
+                    ],
+                    "candidates": [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-North-H20",
+                            "region": "cn-beijing",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 300,
+                            "retry_cooldown_seconds": 900,
+                            "yaml": "train_scripts/kai/volc/pi05_predictive_adapter_p3_a0_eval_north_4h20.yaml",
+                            "task_name": f"pi05-p3-a0-s{seed}-eval-north4g",
+                            "env": {"SEED": str(seed), "PORT_BASE_OFFSET": str(22400 + (seed - 1001) * 100)},
+                        }
+                    ],
+                }
+            )
+            existing.add(eval_id)
+
+        sync_id = f"pi05_predictive_adapter_p3_a0_seed{seed}_sync"
+        shared_report = REPO / f"lmvla/lmwm/docs/pi05_predictive_adapter_p3_a0_seed{seed}.json"
+        shared_marker = REPO / f"logs/resource_markers/pi05_predictive_adapter_p3_a0_seed{seed}.ok"
+        if sync_id not in existing:
+            remote_report = stage / f"lmvla/lmwm/docs/pi05_predictive_adapter_p3_a0_seed{seed}.json"
+            command = (
+                "ssh -p 16370 -o BatchMode=yes root@124.174.16.237 "
+                + shlex.quote(
+                    f"mkdir -p {shared_report.parent} {shared_marker.parent}; "
+                    f"cp {remote_report} {shared_report}; cp {eval_marker} {shared_marker}; "
+                    f"cp {stage}/logs/predictive/p3_audit/a0_seed{seed}.json "
+                    f"{REPO}/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_a0_seed{seed}_checkpoint_audit.json"
+                )
+            )
+            queue["tasks"].append(
+                {
+                    "id": sync_id,
+                    "priority": 0,
+                    "description": f"Sync P3 seed-{seed} report and audit from North",
+                    "completion_glob": str(shared_marker),
+                    "completion_min_count": 1,
+                    "ready_files_remote": [str(eval_marker), str(remote_report)],
+                    "candidates": [
+                        {
+                            "kind": "local",
+                            "resource": "local",
+                            "gpus": 0,
+                            "retry_cooldown_seconds": 300,
+                            "status_dir": str(REPO / f"logs/predictive/p3_sync/seed{seed}"),
+                            "command": command,
+                        }
+                    ],
+                }
+            )
+            existing.add(sync_id)
+
+    for condition in ("zero_gate", "shuffled", "masked"):
+        task_id = f"pi05_predictive_adapter_p4_{condition}_seed1001_1002_eval"
+        if task_id in existing:
+            continue
+        queue["tasks"].append(
+            {
+                "id": task_id,
+                "priority": 0,
+                "description": f"P4 paired {condition} evaluation for candidate seeds 1001 and 1002",
+                "prefer_max_gpus_when_immediate": True,
+                "completion_glob": str(REPO / f"logs/resource_markers/pi05_predictive_adapter_p4_seed*_{condition}.ok"),
+                "completion_min_count": 2,
+                "ready_files": [
+                    str(p4_protocol),
+                    str(REPO / "kai0/checkpoints/pi05_predictive_adapter_p1/pi05_predictive_adapter_p1_seed1001/49999/params/_METADATA"),
+                    str(REPO / "kai0/checkpoints/pi05_predictive_adapter_p1/pi05_predictive_adapter_p1_seed1002/49999/params/_METADATA"),
+                    str(REPO / "train_scripts/kai/eval/run_pi05_predictive_adapter_p4_formal.sh"),
+                ],
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 8,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 60,
+                        "yaml": "train_scripts/kai/volc/pi05_predictive_adapter_p4_pair_east_8h20.yaml",
+                        "task_name": f"pi05-p4-{condition}-east8g",
+                        "env": {"P4_CONDITION": condition},
+                    }
+                ],
+            }
+        )
+        existing.add(task_id)
+
+    analysis_tasks = (
+        {
+            "id": "pi05_predictive_adapter_p3_analysis",
+            "description": "P3 frozen matched-training-seed hierarchical analysis",
+            "protocol": REPO / "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_analysis_protocol.json",
+            "inputs": [
+                REPO / f"lmvla/lmwm/docs/pi05_predictive_adapter_p3_a0_seed{seed}.json"
+                for seed in (1001, 1002)
+            ],
+            "marker": REPO / "logs/resource_markers/pi05_predictive_adapter_p3_analysis.ok",
+            "script": "train_scripts/kai/analysis/finalize_pi05_predictive_adapter_p3.sh",
+        },
+        {
+            "id": "pi05_predictive_adapter_p4_analysis",
+            "description": "P4 frozen three-seed intervention analysis with Holm correction",
+            "protocol": REPO / "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p4_analysis_protocol.json",
+            "inputs": [
+                REPO / f"lmvla/lmwm/docs/pi05_predictive_adapter_p4_seed{seed}_{condition}.json"
+                for condition in ("zero_gate", "shuffled", "masked")
+                for seed in (1001, 1002)
+            ],
+            "marker": REPO / "logs/resource_markers/pi05_predictive_adapter_p4_analysis.ok",
+            "script": "train_scripts/kai/analysis/finalize_pi05_predictive_adapter_p4.sh",
+        },
+    )
+    for analysis in analysis_tasks:
+        if analysis["id"] in existing:
+            continue
+        queue["tasks"].append(
+            {
+                "id": analysis["id"],
+                "priority": 0,
+                "description": analysis["description"],
+                "completion_glob": str(analysis["marker"]),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(analysis["protocol"]),
+                    str(REPO / analysis["script"]),
+                    *(str(path) for path in analysis["inputs"]),
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(REPO / f"logs/predictive/{analysis['id']}_local"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec bash "
+                            + analysis["script"]
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(analysis["id"])
+
+    p5_id = "pi05_predictive_adapter_p5_public_paired_eval"
+    if p5_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": p5_id,
+                "priority": 0,
+                "description": "P5 exact public checkpoint reevaluation with recoverable paired episodes",
+                "completion_glob": str(REPO / "logs/resource_markers/pi05_predictive_adapter_p5_public_gate.ok"),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(p5_protocol),
+                    "/vePFS/tim/hf_models/SidneyXie_pi05_robotwin/model.safetensors",
+                    str(REPO / "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"),
+                    str(REPO / "train_scripts/kai/eval/run_pi05_predictive_adapter_p5_public_formal.sh"),
+                ],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 2,
+                        "gpu_indices": [0, 1],
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(REPO / "logs/predictive/p5_public_local2"),
+                        "command": (
+                            f"cd {shlex.quote(str(REPO))} && exec bash "
+                            "train_scripts/kai/eval/run_pi05_predictive_adapter_p5_public_formal.sh"
+                        ),
+                    }
+                ],
+            }
+        )
+
+
 def validate_queue(queue: dict[str, Any]) -> None:
     """Reject queue edits that would silently invalidate confirmatory evidence."""
     tasks = queue.get("tasks", [])
@@ -13445,6 +13704,7 @@ def main() -> None:
     add_pi05_mt6_efficiency_task(queue)
     add_pi05_mt6_train_memory_task(queue)
     add_pi05_mt3_eval_attach_tasks(queue)
+    add_pi05_predictive_adapter_p345_tasks(queue)
     apply_frozen_source_readiness(queue)
     validate_queue(queue)
     apply_permanent_resource_policy(queue)
@@ -13477,6 +13737,7 @@ def main() -> None:
             add_pi05_mt6_efficiency_task(queue)
             add_pi05_mt6_train_memory_task(queue)
             add_pi05_mt3_eval_attach_tasks(queue)
+            add_pi05_predictive_adapter_p345_tasks(queue)
             apply_frozen_source_readiness(queue)
             validate_queue(queue)
             apply_permanent_resource_policy(queue)

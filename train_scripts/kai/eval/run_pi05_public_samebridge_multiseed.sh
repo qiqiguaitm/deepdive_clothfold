@@ -7,7 +7,7 @@ MODEL="${PUBLIC_PI05_MODEL:-/vePFS/tim/hf_models/SidneyXie_pi05_robotwin}"
 TOKENIZER="${PALIGEMMA_TOKENIZER_PATH:-/vePFS/tim/hf_models/paligemma_tokenizer}"
 SERVER_PY="${PUBLIC_PI05_SERVER_PY:-/vePFS/tim/workspace/lerobot-pi05-server-venv/bin/python}"
 STAMP="$(date -u +%Y%m%d_%H%M%S)"
-LOG_DIR="$LAWAM/logs/volc_rteval"
+LOG_DIR="${PUBLIC_PI05_LOG_DIR:-$LAWAM/logs/volc_rteval}"
 mkdir -p "$LOG_DIR"
 
 test -f "$MODEL/model.safetensors"
@@ -15,6 +15,7 @@ test -f "$TOKENIZER/tokenizer.model"
 test -x "$SERVER_PY"
 
 export STAR_VLA_PYTHON="$SERVER_PY"
+export PYTHONPATH="$REPO/kai0/src:$REPO/kai0/packages/openpi-client/src:${PYTHONPATH:-}"
 export ROBOTWIN_SERVER_BACKEND=openpi
 export ROBOTWIN_OPENPI_CONFIG=lerobot_pi05
 export OPENPI_SERVE_SCRIPT="$REPO/train_scripts/kai/eval/serve_lerobot_pi05.py"

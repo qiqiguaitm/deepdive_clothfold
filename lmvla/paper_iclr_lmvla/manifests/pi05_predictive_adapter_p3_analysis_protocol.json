@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "phase": "p3",
+  "frozen": true,
+  "frozen_at": "2026-08-06T15:00:00Z",
+  "bootstrap": {
+    "samples": 20000,
+    "seed": 20260806,
+    "hierarchy": "training seed, then paired episodes within six equally weighted tasks"
+  },
+  "expected_generated_reports": [
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p3_a0_seed1001.json",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p3_a0_seed1002.json"
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_a0.json": "b4e8a5b0f7e12a202738e536a6e3e38ee3417950e6fed6466d80b0306c469eb2",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_normal.json": "4fd26876f0b013f8fed27a66def4fcabb869e898973fd127d6d8c10e42eb7a91",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p2_seed1001_normal.json": "4994be2054f8ad6d7a67f1d219c42400fcba4dcaa73e6f3464095b64a365a944",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p2_seed1002_normal.json": "707843f2860b23ce5a2a93f463a54198082db32b0b336060d387772d9d6df97c",
+    "lmvla/lmwm/scripts/analyze_pi05_predictive_adapter_p3.py": "21d240cd74fb9efeebabd7abe707eb76b56d3509d1e9f2bbe2373f72e567899c",
+    "train_scripts/kai/analysis/finalize_pi05_predictive_adapter_p3.sh": "d13c29f483e4c3896e472a0dab820df53d2ed8cf10a95fcd995d95cb8dbd38a9"
+  }
+}

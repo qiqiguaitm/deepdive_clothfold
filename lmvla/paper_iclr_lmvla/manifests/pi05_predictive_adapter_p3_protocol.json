@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "phase": "p3",
+  "protocol": "pi05_predictive_adapter_p3_independent_matched_a0_v1",
+  "created_at": "2026-08-06T14:35:00Z",
+  "frozen": true,
+  "training": {
+    "arm": "a0",
+    "config": "pi05_predictive_adapter_p1_a0_exact",
+    "seeds": [1001, 1002],
+    "initialization": "official pi0.5 params pinned by the P1 baseline audit",
+    "dataset": "robotwin2.0_official_prompts_v21",
+    "normalization": "robotwin2.0_absolute_meanstd",
+    "global_batch_size": 16,
+    "updates": 50000,
+    "final_checkpoint": 49999,
+    "save_interval": 5000,
+    "optimizer_and_schedule": "exact P1 A0 recipe",
+    "selection": "fixed final checkpoint without evaluation-based selection",
+    "north_stage": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z"
+  },
+  "evaluation": {
+    "tasks": 6,
+    "eval_seeds": [0, 1, 2, 3],
+    "episodes_per_cell": 50,
+    "episodes_per_checkpoint": 1200,
+    "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "exact_pairing": "candidate and A0 report keys must match within training seed"
+  },
+  "analysis": {
+    "matched_training_seeds": [1000, 1001, 1002],
+    "bootstrap_levels": ["training_seed", "paired_episode_within_task"],
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20260806,
+    "primary_gate": "hierarchical 95% CI lower endpoint exceeds zero",
+    "task_safe_gate": "no seed/task effect below -0.05"
+  },
+  "parents": {
+    "source_audit": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p1_baseline_audit.json",
+    "checkpoint_integrity_contract": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_integrity_amendment_v2.json"
+  },
+  "file_sha256": {
+    "kai0/scripts/verify_pi05_predictive_adapter_p345_protocol.py": "ee53550567cf8cebb3d2c3aba2dd2cdaf9b766bcf4d8fb698f57c9bf897fe8e6",
+    "lmvla/lmwm/scripts/audit_pi05_predictive_adapter_p3_checkpoint.py": "30f455f10add1d1f9db37d9b9cdfdfed17948afe0ab78065ad4f93b27c96a127",
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p1_baseline_audit.json": "82459c52bb9b45f278bc2bc44b5a240ac2488367a54546d673be169c8cc9ef20",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p1_formal.sh": "01d3f91f6e13c79f3fef3183af3aeeea871218193d915c07980cfb15a1ee7dfc",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p3_a0_formal.sh": "f0d6155ce0a7618fee906918590b2745e1ded6880bd6d3994509aa96fd1a7dfc",
+    "train_scripts/kai/run_pi05_predictive_adapter_p1_train.sh": "9457de7aa4a27d5445a786c640d27fa61a937945a8728b6fad62b417126a533a",
+    "train_scripts/kai/run_pi05_predictive_adapter_p3_a0_train.sh": "180760792fceb9a34f84201a9992177f4dd1dce1b7754c2d8b0fae16755abf65",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p3_a0_eval_north_4h20.yaml": "672b43557c78e9be731c2208a66b2cb4b594038954bef7448e5be0f534c8a7b5",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p3_a0_north_8h20.yaml": "29e6d4ad8e00e37e73511a295df0adbbe580715535d96039bbef67db017c5284"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "phase": "p4",
+  "frozen": true,
+  "frozen_at": "2026-08-06T15:00:00Z",
+  "bootstrap": {
+    "samples": 20000,
+    "seed": 20260806,
+    "hierarchy": "training seed, then paired episodes within six equally weighted tasks"
+  },
+  "mcnemar_family": ["normal_minus_shuffled", "normal_minus_zero_gate", "normal_minus_masked"],
+  "expected_generated_reports": [
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p4_seed1001_zero_gate.json",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p4_seed1002_zero_gate.json",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p4_seed1001_shuffled.json",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p4_seed1002_shuffled.json",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p4_seed1001_masked.json",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p4_seed1002_masked.json"
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_normal.json": "4fd26876f0b013f8fed27a66def4fcabb869e898973fd127d6d8c10e42eb7a91",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_zero_gate.json": "44dd49ceb7d6a358baf31e791e4f5c4f494568893be2403594a12af03123521b",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_shuffled.json": "0d7c192ec381f7e69273491671453934aed13ebbb1dd59829ecd3d615952f051",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_masked.json": "bd81ca7b42bd8e58c9a8716e26e8a61dee53b18f7303faff910ff57799d65556",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p2_seed1001_normal.json": "4994be2054f8ad6d7a67f1d219c42400fcba4dcaa73e6f3464095b64a365a944",
+    "lmvla/lmwm/docs/pi05_predictive_adapter_p2_seed1002_normal.json": "707843f2860b23ce5a2a93f463a54198082db32b0b336060d387772d9d6df97c",
+    "lmvla/lmwm/scripts/analyze_pi05_predictive_adapter_p4.py": "f891df15110c2c77118938da6f76d3a1bd956ca12574370d587cdfaedf7bf0fa",
+    "train_scripts/kai/analysis/finalize_pi05_predictive_adapter_p4.sh": "62e970753963173702deacd6eda2a1aab178d5ea3895d3b19032d084adcd9cd3"
+  }
+}
