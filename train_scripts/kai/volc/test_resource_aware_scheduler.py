@@ -99,6 +99,16 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
     assert stage["completion_glob"].endswith(
         "pi05_r4_replication_north_stage.ok"
     )
+    model_audit = tasks["pi05_r4_replication_north_public_model_audit"]
+    assert model_audit["candidates"][0]["gpus"] == 0
+    assert model_audit["completion_glob"].endswith(
+        "pi05_r4_replication_north_public_model.ok"
+    )
+    eval_stage = tasks["pi05_r4_replication_eval_north_stage"]
+    assert eval_stage["candidates"][0]["gpus"] == 0
+    assert eval_stage["completion_glob"].endswith(
+        "pi05_r4_replication_eval_north_stage.ok"
+    )
     for task_id in expected:
         assert gate in tasks[task_id]["ready_files"]
     for seed in (1001, 1002):
@@ -123,10 +133,27 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
                 path.endswith("pi05_r4_replication_north_stage.ok")
                 for path in north["ready_files_remote"]
             )
+            assert any(
+                path.endswith("pi05_r4_replication_north_public_model.ok")
+                for path in north["ready_files_remote"]
+            )
             assert {candidate["resource"] for candidate in evaluation["candidates"]} == {
                 "Robot-East-H20",
                 "local",
+                "Robot-North-H20",
             }
+            north_eval = next(
+                candidate
+                for candidate in evaluation["candidates"]
+                if candidate["resource"] == "Robot-North-H20"
+            )
+            assert north_eval["env"]["R4_ARM"] == arm
+            assert north_eval["env"]["R4_SEED"] == str(seed)
+            materialize = tasks[
+                f"pi05_r4_{arm}_seed{seed}_eval_materialize_north"
+            ]
+            assert materialize["candidates"][0]["gpus"] == 0
+            assert materialize["materialize_north_result_for"] == evaluation["id"]
 
     evidence = tasks["pi05_r4_seed1000_evidence_finalize"]
     assert evidence["candidates"][0]["gpus"] == 0

@@ -1,0 +1,63 @@
+TaskName: "pi05-r4-replication-eval-north4g"
+Description: "Gate-controlled fixed-scene R4 replication evaluation on North"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+Entrypoint: |
+  set -Eeuo pipefail
+  NORTH_ROOT=/vePFS-North-E/vis_robot
+  TRAIN_REPO=$NORTH_ROOT/tim/workspace/deepdive_kai0
+  REPO=$NORTH_ROOT/workspace/deepdive_kai0/.staging/pi05_r4_eval_north_v1/repo
+  : "${R4_ARM:?missing R4_ARM}"
+  : "${R4_SEED:?missing R4_SEED}"
+  RUN_NAME=${R4_ARM}-seed${R4_SEED}
+  TRAIN_RUN=$TRAIN_REPO/lmvla/lmwm/checkpoints/pi05_r4_matched_v1/$RUN_NAME
+  EVAL_RUN=$REPO/lmvla/lmwm/checkpoints/pi05_r4_matched_v1/$RUN_NAME
+  TRAIN_MARKER=$TRAIN_REPO/logs/resource_markers/pi05_r4_${RUN_NAME}.ok
+  EVAL_MARKER=$REPO/logs/resource_markers/pi05_r4_${RUN_NAME}.ok
+  test -s "$REPO/logs/resource_markers/pi05_r4_replication_eval_north_stage.ok"
+  test -s "$TRAIN_MARKER"
+  test -s "$TRAIN_RUN/checkpoints/005000/pretrained_model/model.safetensors"
+  mkdir -p "$(dirname "$EVAL_RUN")" "$(dirname "$EVAL_MARKER")"
+  ln -sfn "$TRAIN_RUN" "$EVAL_RUN"
+  ln -sfn "$TRAIN_MARKER" "$EVAL_MARKER"
+
+  export REPO
+  export PUBLIC_PI05_SERVER_PY=$REPO/runtime/python/bin/python3.12
+  export PALIGEMMA_TOKENIZER_PATH=$REPO/runtime/tokenizer
+  export ROBOTWIN_PATH=$NORTH_ROOT/huanqian/RoboTwin
+  export ROBOTWIN_PYTHON=$REPO/train_scripts/kai/eval/robotwin_python_wrapper_north.sh
+  export PYTHONPATH=$REPO/runtime/lerobot/src:$REPO/runtime/venv/lib/python3.12/site-packages:$REPO/kai0/src:$REPO/kai0/packages/openpi-client/src:${PYTHONPATH:-}
+  export TORCH_CUDA_ARCH_LIST=9.0
+  export TORCH_EXTENSIONS_DIR=$NORTH_ROOT/tim/runtime/torch_extensions/h20_sm90_py310
+  export XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_PYTHON_CLIENT_MEM_FRACTION=0.42
+  export LOCAL_GPU_COUNT=4 GPU_INDEX_OFFSET=0 ROBOTWIN_NUM_SLOTS=1 NUM_WORKERS=1
+  export PORT_BASE_OFFSET=${PORT_BASE_OFFSET:?missing PORT_BASE_OFFSET}
+  export R4_EVAL_LOG_DIR=$NORTH_ROOT/workspace/deepdive_kai0/logs/r4/north_replication_eval/$RUN_NAME
+  mkdir -p "$TORCH_EXTENSIONS_DIR" "$R4_EVAL_LOG_DIR"
+  exec bash "$REPO/train_scripts/kai/eval/run_pi05_r4_replication_eval.sh"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

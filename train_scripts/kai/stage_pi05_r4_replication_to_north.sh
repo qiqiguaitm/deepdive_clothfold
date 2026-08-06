@@ -89,7 +89,7 @@ ln -sfn "$wrapper" "$(dirname "$repo")/lerobot-main/.venv/bin/python"
 test -s "$public_model/model.safetensors"
 test -s "$public_model/train_config.json"
 
-"$wrapper" - "$repo" <<'PY'
+PI05_R4_MOUNT_ROOT=/vePFS-North-E/vis_robot "$wrapper" - "$repo" <<'PY'
 import hashlib
 import json
 import pathlib
@@ -120,7 +120,8 @@ PY
 
 config=$repo/logs/r4/north_replication_stage/preflight_config.json
 mkdir -p "$(dirname "$config")"
-"$wrapper" "$repo/lmvla/lmwm/scripts/build_pi05_r4_replication_config.py" \
+PI05_R4_MOUNT_ROOT=/vePFS-North-E/vis_robot "$wrapper" \
+  "$repo/lmvla/lmwm/scripts/build_pi05_r4_replication_config.py" \
   --public-config "$public_model/train_config.json" --arm ordinary --seed 1001 \
   --world-size 4 --steps 5000 \
   --output-dir "$repo/logs/r4/north_replication_stage/preflight_output" \
@@ -128,7 +129,7 @@ mkdir -p "$(dirname "$config")"
   --model-path "$public_model" \
   --sidecar "$repo/lmvla/lmwm/data/pi05_r4_training_v1/crave_weights.npz" \
   --output "$config"
-"$wrapper" - "$config" <<'PY'
+PI05_R4_MOUNT_ROOT=/vePFS-North-E/vis_robot "$wrapper" - "$config" <<'PY'
 import sys
 from lerobot.configs.train import TrainPipelineConfig
 
@@ -139,7 +140,8 @@ assert config.batch_size * 4 == 16
 assert config.seed == 1001
 assert config.steps == 5000
 PY
-PI05_R4_TRAINING_RUNTIME=1 PYTHONPATH="$repo/lmvla/lmwm/runtime/pi05_r4_training" \
+PI05_R4_MOUNT_ROOT=/vePFS-North-E/vis_robot PI05_R4_TRAINING_RUNTIME=1 \
+  PYTHONPATH="$repo/lmvla/lmwm/runtime/pi05_r4_training" \
   "$wrapper" "$repo/lmvla/lmwm/runtime/pi05_r4_training/train_entrypoint.py" --check-binding
 
 mkdir -p "$(dirname "$marker")"

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_north_eval_replication_operational_amendment_v1",
+  "created_at": "2026-08-06T04:20:00Z",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_protocol_v1.json",
+    "sha256": "2111b594853f87334374704495bdb7b7fbc3a43b4b58c7e228016dafa7ee041d"
+  },
+  "scope": "Evaluate North-trained R4 replication checkpoints on Robot-North-H20 with the frozen fixed-scene evaluator already validated there.",
+  "scientific_invariants": {
+    "arms": ["ordinary", "terminal_outcome", "outcome_free_crave"],
+    "training_seeds": [1001, 1002],
+    "checkpoint_selection": "fixed final step 5000",
+    "scene_manifest": "robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "tasks": 6,
+    "difficulty_cells": 12,
+    "scene_seeds_per_cell": 2,
+    "episodes_per_scene_seed": 50,
+    "total_episodes_per_arm_seed": 1200,
+    "source_entrypoint": "unchanged frozen run_pi05_r4_replication_eval.sh"
+  },
+  "path_mapping_only": {
+    "north_training_repo": "/vePFS-North-E/vis_robot/tim/workspace/deepdive_kai0",
+    "north_eval_repo": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_r4_eval_north_v1/repo",
+    "checkpoint_transfer": "none; expose the verified training checkpoint with a same-filesystem symbolic link",
+    "result_transfer": "copy the complete 24-cell result tree and report back only after fixed-seed verification"
+  },
+  "file_sha256": {
+    "train_scripts/kai/stage_pi05_r4_replication_eval_to_north.sh": "9324c2ed7a8da2900aa5a92b480f414b50215f40d618f1b4bf71e56c6b239a06",
+    "train_scripts/kai/sync_pi05_r4_replication_eval_from_north.sh": "c8a235a0e09e7e4664f5cfdc2b2d1ce333a630582d859b2262fb13b1d7023e45",
+    "train_scripts/kai/volc/pi05_r4_replication_eval_north_4h20.yaml": "a6781c0448de8d73f338eed166a431e264461c2fd918078c3858e115e7d9f600"
+  },
+  "claim_effect": "none; this amendment changes evaluation placement and verified result materialization only"
+}

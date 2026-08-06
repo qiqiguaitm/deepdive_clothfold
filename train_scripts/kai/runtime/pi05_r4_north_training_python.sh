@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-if [[ -d /vePFS/tim/workspace/deepdive_kai0 ]]; then
+if [[ -n ${PI05_R4_MOUNT_ROOT:-} ]]; then
+  mount_root=$PI05_R4_MOUNT_ROOT
+elif [[ -d /vePFS/tim/workspace/deepdive_kai0 ]]; then
   mount_root=/vePFS
 else
   mount_root=/vePFS-North-E/vis_robot
