@@ -4955,6 +4955,13 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             ],
         }
     )
+    for arm in ("ordinary", "terminal_outcome", "outcome_free_crave"):
+        eval_task = next(
+            task
+            for task in queue["tasks"]
+            if task.get("id") == f"pi05_r4_{arm}_seed1000_eval"
+        )
+        eval_task["rearm_after_ready_file"] = str(north_manifest_verifier_marker)
 
     north_eval_yaml = "train_scripts/kai/volc/pi05_r4_eval_north_4h20.yaml"
     for arm in ("terminal_outcome", "outcome_free_crave"):
@@ -5019,7 +5026,7 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
                 ]
             )
         )
-        parent["rearm_after_ready_file"] = str(north_triton_marker)
+        parent["rearm_after_ready_file"] = str(north_manifest_verifier_marker)
         parent["ready_hashes"] = [
             {"path": path, "sha256": expected}
             for path, expected in parent_hashes.items()

@@ -571,7 +571,7 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
                 "north",
             }
             assert task["rearm_after_ready_file"].endswith(
-                "pi05_r4_north_triton_exec_repair.ok"
+                "pi05_r4_north_manifest_verifier.ok"
             )
             assert any(
                 item["path"].endswith("pi05_r4_north_python_abi_repair_v1.json")
@@ -626,6 +626,9 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
     assert any(
         item["path"].endswith("verify_robotwin_fixed_seed_eval.py")
         for item in north_manifest_verifier["ready_hashes"]
+    )
+    assert formal_eval["ordinary"]["rearm_after_ready_file"].endswith(
+        "pi05_r4_north_manifest_verifier.ok"
     )
     wrapper = (
         scheduler.REPO / "train_scripts/kai/eval/robotwin_python_wrapper_north.sh"
