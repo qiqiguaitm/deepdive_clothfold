@@ -94,6 +94,11 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
     }
     expected.add("pi05_r4_three_seed_gate")
     assert expected <= tasks.keys()
+    stage = tasks["pi05_r4_replication_north_stage"]
+    assert stage["candidates"][0]["gpus"] == 0
+    assert stage["completion_glob"].endswith(
+        "pi05_r4_replication_north_stage.ok"
+    )
     for task_id in expected:
         assert gate in tasks[task_id]["ready_files"]
     for seed in (1001, 1002):
@@ -104,6 +109,20 @@ def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
                 "R4_ARM": arm,
                 "R4_SEED": str(seed),
             }
+            assert {candidate["resource"] for candidate in train["candidates"]} == {
+                "Robot-East-H20",
+                "Robot-North-H20",
+            }
+            north = next(
+                candidate
+                for candidate in train["candidates"]
+                if candidate["resource"] == "Robot-North-H20"
+            )
+            assert north["env"] == {"R4_ARM": arm, "R4_SEED": str(seed)}
+            assert any(
+                path.endswith("pi05_r4_replication_north_stage.ok")
+                for path in north["ready_files_remote"]
+            )
             assert {candidate["resource"] for candidate in evaluation["candidates"]} == {
                 "Robot-East-H20",
                 "local",

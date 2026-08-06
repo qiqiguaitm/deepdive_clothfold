@@ -1,0 +1,39 @@
+TaskName: "pi05-r4-replication-train-north4g"
+Description: "Gate-controlled matched R4 replication training on byte-verified North runtime"
+Tags: []
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS"
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+Entrypoint: |
+  set -Eeuo pipefail
+  export REPO=/vePFS/tim/workspace/deepdive_kai0
+  export LEROBOT_ROOT=/vePFS/tim/workspace/lerobot-main
+  export WORLD_SIZE=4
+  test -s "$REPO/logs/resource_markers/pi05_r4_replication_north_stage.ok"
+  exec bash "$REPO/train_scripts/kai/run_pi05_r4_replication_training.sh"
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"

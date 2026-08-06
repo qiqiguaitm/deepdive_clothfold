@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_north_training_operational_amendment_v1",
+  "created_at": "2026-08-06T04:10:00Z",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_protocol_v1.json",
+    "sha256": "2111b594853f87334374704495bdb7b7fbc3a43b4b58c7e228016dafa7ee041d"
+  },
+  "scope": "Operationally mirror the frozen four-H20 replication training runtime and data from Robot-East-H20 to Robot-North-H20.",
+  "scientific_invariants": {
+    "arms": ["ordinary", "terminal_outcome", "outcome_free_crave"],
+    "training_seeds": [1001, 1002],
+    "world_size": 4,
+    "effective_batch_size": 16,
+    "steps": 5000,
+    "checkpoint_selection": "fixed final step 5000",
+    "dataset": "byte-verified copy of pi05_r4_training_v1",
+    "initialization": "byte-verified SidneyXie/pi05_robotwin public checkpoint",
+    "source_entrypoint": "unchanged frozen run_pi05_r4_replication_training.sh"
+  },
+  "runtime": {
+    "torch": "2.11.0+cu128",
+    "accelerate": "1.14.0",
+    "sentencepiece": "0.2.1",
+    "protobuf": "7.35.1",
+    "preflight": [
+      "verify every parent and file hash from the frozen replication protocol",
+      "validate the exact LeRobot TrainPipelineConfig with batch_size=4 and world_size=4",
+      "run the frozen training-entrypoint binding check",
+      "require the North public model and staged dataset before recommendation"
+    ]
+  },
+  "path_mapping_only": {
+    "shared_mount": "/vePFS/tim/workspace/deepdive_kai0",
+    "north_backing_path": "/vePFS-North-E/vis_robot/tim/workspace/deepdive_kai0",
+    "north_job_mount": "/vePFS"
+  },
+  "file_sha256": {
+    "train_scripts/kai/runtime/pi05_r4_north_training_python.sh": "b4cea6d9e41b93547b63e5adffa13fb2548c8fbc141d0a7dd936ebb8a8fa0413",
+    "train_scripts/kai/stage_pi05_r4_replication_to_north.sh": "99c5ca7e3db1f9f1f395b98fbaa3cf92c9cb437842f1258b82933389ff4a0193",
+    "train_scripts/kai/volc/pi05_r4_replication_train_north_4h20.yaml": "6b5a97293cfb784f24367abd3d117396db0d40f9722d35503ad44654ffaedbd3"
+  },
+  "claim_effect": "none; this amendment changes resource placement only and does not authorize a new method or statistical claim"
+}
