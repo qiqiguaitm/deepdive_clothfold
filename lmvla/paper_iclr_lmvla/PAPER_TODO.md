@@ -101,11 +101,13 @@ but resource-starved. gf1 remains permanently retired and robot-task new
 submissions remain disabled.
 
 The snapshot queue inventory reports 333 completed and 120 disabled, whereas a
-direct aggregation of the task objects reports 346 completed and 107 disabled.
-Running, pending, and total counts agree. Treat the presentation counts as a
-scheduler-bookkeeping discrepancy until the 13-task classification difference
-is audited; it does not change the five active task identities or any
-scientific result.
+direct aggregation of historical state objects reports 346 completed and 107
+disabled. The 13-task difference is audited: one retired local-assist task and
+12 superseded L2 control/attach tasks retain historical `completed` state but
+are administratively disabled in the current queue policy. The snapshot uses
+the current effective status; the state file preserves execution history.
+Running, pending, and total counts agree, and this dual accounting does not
+change the five active task identities or any scientific result.
 
 ## Stop rules
 

@@ -160,6 +160,17 @@ def test_frozen_source_readiness_covers_p1_p2_and_r1_gpu_jobs() -> None:
     assert p2_east["env"]["TRAIN_SOURCE_REPO"] == str(
         scheduler.REPLICATION_FROZEN_OVERLAY
     )
+    assert p2_train["progress_logs"] == [
+        {
+            "label": "step",
+            "glob": str(
+                scheduler.REPO
+                / "logs/predictive/p2_platform/seed1001_*_east.log"
+            ),
+            "regex": r"Step ([0-9]+):",
+            "total": 50000,
+        }
+    ]
     assert len(r1_train["ready_hashes"]) >= 20
     assert r1_eval["ready_hashes"] != r1_train["ready_hashes"]
     assert any(

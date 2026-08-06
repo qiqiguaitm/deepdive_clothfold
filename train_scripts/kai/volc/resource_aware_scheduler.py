@@ -8611,6 +8611,21 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
             }
             if task_id in p2_train_authorized:
                 env["P2_VERIFY_REPO"] = str(REPLICATION_FROZEN_OVERLAY)
+                seed_match = re.search(r"_seed(\d+)_train$", task_id)
+                if not seed_match:
+                    raise ValueError(f"P2 training task has no seed suffix: {task_id}")
+                seed = seed_match.group(1)
+                task["progress_logs"] = [
+                    {
+                        "label": "step",
+                        "glob": str(
+                            REPO
+                            / f"logs/predictive/p2_platform/seed{seed}_*_east.log"
+                        ),
+                        "regex": r"Step ([0-9]+):",
+                        "total": 50000,
+                    }
+                ]
             elif "_a0_" in task_id or "_predictive_" in task_id:
                 env["TRAIN_VERIFY_REPO"] = str(REPLICATION_FROZEN_OVERLAY)
             else:
