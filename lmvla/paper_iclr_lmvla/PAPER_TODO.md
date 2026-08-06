@@ -1,6 +1,6 @@
 # Predictive-Adapter Evidence-Strengthening TODO
 
-Updated: 2026-08-06 18:07 UTC
+Updated: 2026-08-06 20:40 UTC
 
 This file contains only unfinished evidence and current publication gates.
 Completed MINT-VLA, P0--P2, R0--R4, efficiency, and execution history remain in
@@ -24,10 +24,10 @@ do not manually launch, stop, restart, or reprioritize a job.
   attempts were excluded, their A0 outputs were removed, and the fixed recipe
   now runs from step 0 with a sidecar that deletes an older intermediate only
   after a newer checkpoint has complete parameter and train-state metadata.
-- P4 masked seeds 1001 and 1002 completed together on East 8xH20 as
-  `t-20260806224622-vnfhj`; both 1,200-episode reports passed the frozen pairing
-  verifier. Shuffled is running as `t-20260807013535-jr5mk`, with zero-gate to
-  follow on the same queue.
+- P4 masked and shuffled seeds 1001 and 1002 completed together on East 8xH20
+  as `t-20260806224622-vnfhj` and `t-20260807013535-jr5mk`; all four
+  1,200-episode reports passed the frozen pairing verifier. Zero-gate is running
+  as `t-20260807042808-g8gsz` and is the last rollout dependency for P4.
 - P5 exact-public paired evaluation is running on the local 2xA100 host. The
   original 78.42% aggregate report cannot recover episode identities, so the
   exact checkpoint is being reevaluated once on the frozen 1,200 episodes.
