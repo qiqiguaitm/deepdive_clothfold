@@ -39,8 +39,64 @@ def read_json(path: Path) -> Any:
     return json.loads(path.read_text())
 
 
+def canonical_json_sha256(value: Any) -> str:
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def nonempty(path: Path) -> bool:
     return path.is_file() and path.stat().st_size > 0
+
+
+def normalization_identity_check(
+    *, repo: Path, norm_path: Path, identity: dict[str, Any]
+) -> dict[str, Any]:
+    expected_raw = identity["sha256"]
+    actual_raw = sha256(norm_path) if nonempty(norm_path) else None
+    semantic_reference = identity.get("semantic_reference_path")
+    if not semantic_reference:
+        return {
+            "path": str(norm_path),
+            "semantic_reference_path": None,
+            "expected_sha256": expected_raw,
+            "actual_sha256": actual_raw,
+            "canonical_expected_sha256": None,
+            "canonical_actual_sha256": None,
+            "raw_bytes_match": actual_raw == expected_raw,
+            "semantic_match": actual_raw == expected_raw,
+            "passed": actual_raw == expected_raw,
+        }
+
+    reference_path = repo / semantic_reference
+    reference_value = read_json(reference_path) if nonempty(reference_path) else None
+    actual_value = read_json(norm_path) if nonempty(norm_path) else None
+    semantic_match = actual_value is not None and actual_value == reference_value
+    canonical_actual = (
+        canonical_json_sha256(actual_value) if actual_value is not None else None
+    )
+    canonical_expected = (
+        canonical_json_sha256(reference_value) if reference_value is not None else None
+    )
+    declared_canonical = identity.get("expected_canonical_sha256")
+    canonical_contract_match = declared_canonical is None or (
+        canonical_expected == declared_canonical
+        and canonical_actual == declared_canonical
+    )
+    return {
+        "path": str(norm_path),
+        "semantic_reference_path": str(reference_path),
+        "expected_sha256": expected_raw,
+        "actual_sha256": actual_raw,
+        "canonical_expected_sha256": canonical_expected,
+        "canonical_actual_sha256": canonical_actual,
+        "declared_canonical_sha256": declared_canonical,
+        "canonical_contract_match": canonical_contract_match,
+        "raw_bytes_match": actual_raw == expected_raw,
+        "semantic_match": semantic_match,
+        "passed": semantic_match and canonical_contract_match,
+    }
 
 
 def tree_keys(metadata: dict[str, Any]) -> set[str]:
@@ -244,14 +300,11 @@ def audit(
     }
 
     norm_path = checkpoint / "assets/robotwin2.0_absolute_meanstd/norm_stats.json"
-    expected_norm = amendment["normalization_identity"]["sha256"]
-    actual_norm = sha256(norm_path) if nonempty(norm_path) else None
-    checks["normalization"] = {
-        "path": str(norm_path),
-        "expected_sha256": expected_norm,
-        "actual_sha256": actual_norm,
-        "passed": actual_norm == expected_norm,
-    }
+    checks["normalization"] = normalization_identity_check(
+        repo=repo,
+        norm_path=norm_path,
+        identity=amendment["normalization_identity"],
+    )
 
     return {
         "schema_version": 1,

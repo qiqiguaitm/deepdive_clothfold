@@ -4,7 +4,11 @@ import hashlib
 import json
 from pathlib import Path
 
-from audit_pi05_predictive_adapter_p2_checkpoint import audit, frame_cache_index
+from audit_pi05_predictive_adapter_p2_checkpoint import (
+    audit,
+    frame_cache_index,
+    normalization_identity_check,
+)
 
 
 def digest(path: Path) -> str:
@@ -169,3 +173,79 @@ def test_incomplete_commit_fails(tmp_path: Path) -> None:
     metadata["commit_timestamp_nsecs"] = 0
     root.write_text(json.dumps(metadata))
     assert not run_audit(amendment, paths)["checks"]["atomic_commit"]["passed"]
+
+
+def test_normalization_accepts_equal_json_with_different_whitespace(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    reference = repo / "source/norm_stats.json"
+    checkpoint = repo / "checkpoint/norm_stats.json"
+    reference.parent.mkdir(parents=True)
+    checkpoint.parent.mkdir(parents=True)
+    reference.write_text('{"mean": [1, 2], "std": [3, 4]}\n')
+    checkpoint.write_text('{\n  "std": [3, 4],\n  "mean": [1, 2]\n}\n')
+
+    result = normalization_identity_check(
+        repo=repo,
+        norm_path=checkpoint,
+        identity={
+            "sha256": digest(reference),
+            "semantic_reference_path": "source/norm_stats.json",
+            "expected_canonical_sha256": (
+                "165835227445183191585a86f9350cac7855018361f11baa21b33c7d4aed60dd"
+            ),
+        },
+    )
+
+    assert result["passed"]
+    assert result["semantic_match"]
+    assert not result["raw_bytes_match"]
+    assert result["canonical_contract_match"]
+    assert result["canonical_actual_sha256"] == result["canonical_expected_sha256"]
+
+
+def test_normalization_rejects_json_value_drift(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    reference = repo / "source/norm_stats.json"
+    checkpoint = repo / "checkpoint/norm_stats.json"
+    reference.parent.mkdir(parents=True)
+    checkpoint.parent.mkdir(parents=True)
+    reference.write_text('{"mean": [1, 2]}\n')
+    checkpoint.write_text('{"mean": [1, 3]}\n')
+
+    result = normalization_identity_check(
+        repo=repo,
+        norm_path=checkpoint,
+        identity={
+            "sha256": digest(reference),
+            "semantic_reference_path": "source/norm_stats.json",
+        },
+    )
+
+    assert not result["passed"]
+    assert not result["semantic_match"]
+
+
+def test_normalization_rejects_wrong_declared_canonical_hash(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    reference = repo / "source/norm_stats.json"
+    checkpoint = repo / "checkpoint/norm_stats.json"
+    reference.parent.mkdir(parents=True)
+    checkpoint.parent.mkdir(parents=True)
+    reference.write_text('{"mean": [1, 2]}\n')
+    checkpoint.write_text('{"mean": [1, 2]}\n')
+
+    result = normalization_identity_check(
+        repo=repo,
+        norm_path=checkpoint,
+        identity={
+            "sha256": digest(reference),
+            "semantic_reference_path": "source/norm_stats.json",
+            "expected_canonical_sha256": "0" * 64,
+        },
+    )
+
+    assert result["semantic_match"]
+    assert not result["canonical_contract_match"]
+    assert not result["passed"]

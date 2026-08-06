@@ -456,7 +456,7 @@ REPLICATION_FROZEN_OVERLAY = (
 P2_INTEGRITY_AMENDMENT = (
     REPO
     / "lmvla/paper_iclr_lmvla/manifests/"
-    "pi05_predictive_adapter_p2_integrity_amendment_v1.json"
+    "pi05_predictive_adapter_p2_integrity_amendment_v2.json"
 )
 
 

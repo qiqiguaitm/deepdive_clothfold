@@ -367,6 +367,13 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
     tasks = {task["id"]: task for task in queue["tasks"]}
 
     amendment = json.loads(scheduler.P2_INTEGRITY_AMENDMENT.read_text())
+    assert amendment["protocol"] == "pi05_predictive_adapter_p2_integrity_amendment_v2"
+    normalization = amendment["normalization_identity"]
+    assert normalization["semantic_reference_path"]
+    reference = scheduler.REPO / normalization["semantic_reference_path"]
+    assert scheduler.sha256_file(reference) == normalization["sha256"]
+    assert normalization["comparison"].startswith("parsed JSON exact equality")
+    assert normalization["expected_canonical_sha256"]
     for relative, expected in amendment["runtime_file_sha256"].items():
         assert scheduler.sha256_file(scheduler.REPO / relative) == expected
     for parent in amendment["parents"].values():
