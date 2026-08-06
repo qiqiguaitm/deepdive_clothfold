@@ -533,6 +533,11 @@ def test_r4_collection_is_smoke_gated_and_isolated() -> None:
         assert checkpoint_permissions["completion_glob"] in task["ready_files"]
         assert task["progress_globs"][0]["expected"] == 24
         if arm != "ordinary":
+            assert task["progress_globs_remote"][0]["expected"] == 24
+            assert (
+                f"/pi05_r4_{arm}_seed1000/**/summary.json"
+                in task["progress_globs_remote"][0]["glob"]
+            )
             assert any(
                 item["path"].endswith("pi05_r4_north_eval_amendment_v1.json")
                 for item in task["ready_hashes"]
@@ -2856,6 +2861,52 @@ def test_north_stage_progress_reports_tos_phase_and_percentage(tmp_path: Path) -
     assert state["tasks"][task["id"]]["runtime_progress"] == (
         "phase=tos-upload, transfer=42.25"
     )
+
+
+def test_north_running_progress_counts_remote_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task = {
+        "id": "pi05_r4_terminal_outcome_seed1000_eval",
+        "enabled": True,
+        "completion_glob": str(tmp_path / "complete.ok"),
+        "completion_min_count": 1,
+        "progress_globs": [
+            {
+                "label": "cells",
+                "glob": str(tmp_path / "local" / "**/summary.json"),
+                "expected": 24,
+            }
+        ],
+        "progress_globs_remote": [
+            {
+                "label": "cells",
+                "glob": "/remote/pi05_r4_terminal_outcome_seed1000/**/summary.json",
+                "expected": 24,
+            }
+        ],
+    }
+    state = {
+        "tasks": {
+            task["id"]: {
+                "status": "running",
+                "attempts": [{"resource": "Robot-North-H20"}],
+            }
+        }
+    }
+    commands: list[str] = []
+
+    def fake_ssh(_host: str, command: str, timeout: int = 120) -> str:
+        commands.append(command)
+        assert timeout == 30
+        return "7\n"
+
+    monkeypatch.setattr(scheduler, "ssh", fake_ssh)
+    scheduler.refresh_running_progress({"tasks": [task]}, state)
+
+    assert state["tasks"][task["id"]]["runtime_progress"] == "cells=7/24"
+    assert len(commands) == 1
+    assert "pi05_r4_terminal_outcome_seed1000" in commands[0]
 
 
 def test_mt1_replication_overflow_fills_gf1_then_routes_seed1002_north() -> None:

@@ -4941,6 +4941,18 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
             {"path": path, "sha256": expected}
             for path, expected in parent_hashes.items()
         ]
+        parent["progress_globs_remote"] = [
+            {
+                "label": "cells",
+                "glob": str(
+                    north_stage
+                    / "lmvla/lawam/results/eval_runs/robotwin"
+                    / result_name
+                    / "**/summary.json"
+                ),
+                "expected": 24,
+            }
+        ]
         if not any(
             candidate.get("resource") == "Robot-North-H20"
             for candidate in parent["candidates"]
@@ -11665,8 +11677,30 @@ def refresh_running_progress(queue: dict[str, Any], state: dict[str, Any]) -> No
         complete, evidence = completion_evidence(task)
         record_artifact_progress(task_state, complete, evidence)
         progress_items = []
-        for item in task.get("progress_globs", []):
-            count = len(glob.glob(item["glob"], recursive=True))
+        last_attempt = task_state.get("attempts", [{}])[-1]
+        remote_progress = (
+            last_attempt.get("resource") == "Robot-North-H20"
+            and task.get("progress_globs_remote")
+        )
+        progress_globs = (
+            task["progress_globs_remote"]
+            if remote_progress
+            else task.get("progress_globs", [])
+        )
+        for item in progress_globs:
+            if remote_progress:
+                program = (
+                    "import glob; print(len(glob.glob("
+                    f"{item['glob']!r}, recursive=True)))"
+                )
+                try:
+                    count = int(
+                        ssh(GSY, f"python3 -c {shlex.quote(program)}", timeout=30)
+                    )
+                except Exception:
+                    continue
+            else:
+                count = len(glob.glob(item["glob"], recursive=True))
             expected = item.get("expected")
             value = f"{count}/{expected}" if expected is not None else str(count)
             progress_items.append(f"{item['label']}={value}")
