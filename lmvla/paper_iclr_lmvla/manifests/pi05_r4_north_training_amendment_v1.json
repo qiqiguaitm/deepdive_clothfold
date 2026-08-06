@@ -27,6 +27,8 @@
     "pyarrow": "25.0.0",
     "pandas": "2.3.3",
     "aiohttp": "3.14.3",
+    "av": "15.1.0",
+    "jsonlines": "4.0.0",
     "preflight": [
       "verify every parent and file hash from the frozen replication protocol",
       "compare the complete East and North public-model file manifests by SHA-256",
@@ -42,7 +44,7 @@
   },
   "file_sha256": {
     "train_scripts/kai/runtime/pi05_r4_north_training_python.sh": "0baaa3c486370ddc2d11df2619f4323737635afd9dacc15fd88ecdeb8eac58c0",
-    "train_scripts/kai/stage_pi05_r4_replication_to_north.sh": "4e68db2aadea7d29b8b392c6ee654685682bdb27d8e394bdf50b4988fd1a1e98",
+    "train_scripts/kai/stage_pi05_r4_replication_to_north.sh": "9635e4cb320d87d9e3701aa9bf639544729eddf1f2209031e395ff36f724a5cf",
     "train_scripts/kai/audit_pi05_r4_north_public_model.sh": "50d45f4607d36470a0f339e3b1f20f516df0f5b5216fc5612db56de63f3f9aeb",
     "train_scripts/kai/volc/pi05_r4_replication_train_north_4h20.yaml": "6b5a97293cfb784f24367abd3d117396db0d40f9722d35503ad44654ffaedbd3"
   },

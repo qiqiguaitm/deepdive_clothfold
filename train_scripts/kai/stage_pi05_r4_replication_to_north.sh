@@ -73,10 +73,10 @@ import sys
 
 site, destination = map(pathlib.Path, sys.argv[1:])
 names = {
-    "accelerate", "aiohappyeyeballs", "aiohttp", "aiosignal", "anyio",
+    "accelerate", "aiohappyeyeballs", "aiohttp", "aiosignal", "anyio", "av",
     "attrs", "certifi", "charset-normalizer", "click", "datasets", "dill",
     "filelock", "frozenlist", "fsspec", "h11", "hf-xet", "httpcore",
-    "httpx", "huggingface-hub", "idna", "multidict", "multiprocess",
+    "httpx", "huggingface-hub", "idna", "jsonlines", "multidict", "multiprocess",
     "numpy", "packaging", "pandas", "propcache", "pyarrow",
     "python-dateutil", "pytz", "pyyaml", "requests", "sentencepiece", "six",
     "tqdm", "typing-extensions", "tzdata", "urllib3", "xxhash", "yarl",
@@ -134,9 +134,11 @@ import sys
 
 import accelerate
 import aiohttp
+import av
 import datasets
 import google.protobuf
 import lerobot
+import jsonlines
 import pandas
 import pyarrow
 import sentencepiece
@@ -154,6 +156,7 @@ for relative, expected in rows:
         raise ValueError(f"frozen source mismatch: {relative}: {actual} != {expected}")
 assert accelerate.__version__ == "1.14.0"
 assert aiohttp.__version__ == "3.14.3"
+assert av.__version__ == "15.1.0"
 assert datasets.__version__ == "4.8.5"
 assert pandas.__version__ == "2.3.3"
 assert pyarrow.__version__ == "25.0.0"
