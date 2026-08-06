@@ -9689,6 +9689,7 @@ def apply_frozen_source_readiness(queue: dict[str, Any]) -> None:
                             }
                         )
         elif task_id in p2_eval_authorized:
+            task["prefer_max_gpus_when_immediate"] = True
             task["ready_hashes"] = replication_eval_hashes
             seed_match = re.search(r"_seed(\d+)_eval$", task_id)
             if not seed_match:

@@ -385,6 +385,7 @@ def test_p2_final_evals_require_independent_checkpoint_audits() -> None:
         )
 
         evaluate = tasks[f"pi05_predictive_adapter_p2_candidate_seed{seed}_eval"]
+        assert evaluate["prefer_max_gpus_when_immediate"] is True
         assert marker in evaluate["ready_files"]
         assert str(scheduler.P2_INTEGRITY_AMENDMENT) in evaluate["ready_files"]
         hashes = {item["path"]: item["sha256"] for item in evaluate["ready_hashes"]}
