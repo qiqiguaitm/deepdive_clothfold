@@ -79,6 +79,37 @@ def test_p2_frame_cache_uses_directory_readiness() -> None:
         assert all("frame_cache_jpeg256" not in path for path in task["ready_files"])
 
 
+def test_r4_replication_graph_is_complete_and_gate_controlled() -> None:
+    queue = json.loads(scheduler.QUEUE_PATH.read_text())
+    scheduler.add_pi05_r4_outcome_collection_tasks(queue)
+    scheduler.add_pi05_r4_replication_tasks(queue)
+    tasks = {task["id"]: task for task in queue["tasks"]}
+    gate = str(scheduler.REPO / "logs/r4/seed1000/r4_gate.accepted")
+
+    expected = {
+        f"pi05_r4_{arm}_seed{seed}_{phase}"
+        for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
+        for seed in (1001, 1002)
+        for phase in ("train", "eval")
+    }
+    expected.add("pi05_r4_three_seed_gate")
+    assert expected <= tasks.keys()
+    for task_id in expected:
+        assert gate in tasks[task_id]["ready_files"]
+    for seed in (1001, 1002):
+        for arm in ("ordinary", "terminal_outcome", "outcome_free_crave"):
+            train = tasks[f"pi05_r4_{arm}_seed{seed}_train"]
+            evaluation = tasks[f"pi05_r4_{arm}_seed{seed}_eval"]
+            assert train["candidates"][0]["env"] == {
+                "R4_ARM": arm,
+                "R4_SEED": str(seed),
+            }
+            assert {candidate["resource"] for candidate in evaluation["candidates"]} == {
+                "Robot-East-H20",
+                "local",
+            }
+
+
 def test_frozen_source_readiness_covers_p1_p2_and_r1_gpu_jobs() -> None:
     queue = json.loads(scheduler.QUEUE_PATH.read_text())
     scheduler.add_pi05_r1_recurrence_aligned_tasks(queue)

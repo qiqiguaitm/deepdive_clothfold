@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_three_seed_replication_v1",
+  "created_at": "2026-08-06T02:40:00Z",
+  "status": "preregistered_before_seed1000_panel_completion",
+  "prerequisite": "logs/r4/seed1000/r4_gate.accepted",
+  "parents": {
+    "formal_training_amendment": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_formal_training_amendment_v1.json",
+      "sha256": "fa51cbd491be96b122f9d3447972c58462f6c122e19f09308cb7516315ece31d"
+    },
+    "formal_eval_protocol": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_formal_eval_protocol_v1.json",
+      "sha256": "9c0130a89e670b7e19d721f0090275d6a0d01e90e5e42fe966883652aab31b76"
+    },
+    "task_safety_amendment": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_task_safety_gate_amendment_v1.json",
+      "sha256": "e29cf8c8fac4e22fbda6774390245c42f09ed0648f3595819b5719573d53c71b"
+    },
+    "manifest_set_verifier_amendment": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_manifest_set_verifier_amendment_v1.json",
+      "sha256": "7c298c4faf079893e6e6f6c9bdf0686a2be3aa14f1dda66b937cfc718ee20aa7"
+    }
+  },
+  "arms": ["ordinary", "terminal_outcome", "outcome_free_crave"],
+  "screen_training_seed": 1000,
+  "replication_training_seeds": [1001, 1002],
+  "checkpoint_step": 5000,
+  "training": {
+    "initialization": "SidneyXie/pi05_robotwin public checkpoint",
+    "dataset": "identical audited R4 query-level LeRobot dataset for every arm and seed",
+    "world_size": 4,
+    "effective_batch_size": 16,
+    "optimizer_and_schedule": "identical to the seed-1000 frozen formal recipe",
+    "checkpoint_selection": "fixed final step 5000; no evaluation-based selection"
+  },
+  "evaluation": {
+    "tasks": 6,
+    "eval_seeds": [0, 1, 2, 3],
+    "episodes_per_cell": 50,
+    "cells_per_arm_seed": 24,
+    "episodes_per_arm_seed": 1200,
+    "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "pairing": "exact task, evaluation-seed, episode, and unique scene-seed identity within every training seed"
+  },
+  "analysis": {
+    "comparisons": [
+      "terminal_outcome minus ordinary",
+      "terminal_outcome minus outcome_free_crave"
+    ],
+    "bootstrap_levels": ["training_seed", "task", "evaluation_seed", "paired_scene"],
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20260806,
+    "acceptance": [
+      "lower endpoint of each paired hierarchical 95% interval is greater than zero",
+      "no terminal-outcome seed/task effect is below -0.05 against either matched control"
+    ],
+    "reporting": "all arm macros, training-seed effects, task effects, seed-by-task effects, intervals, and checks"
+  },
+  "file_sha256": {
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/runtime/pi05_r4_training/sitecustomize.py": "5b1d5d9babc094e853027c241abc7bf26f0d37052c41aed145562d06c66002b5",
+    "lmvla/lmwm/runtime/pi05_r4_training/train_entrypoint.py": "1369dd466b97139a5f86ec5122daa799ca9e13ee7315a99bdbfd1552059f6507",
+    "lmvla/lmwm/scripts/analyze_pi05_r4_replication.py": "9c61f67c72884849d8a87f85c083e9d998f350df79bc05a9c1e51dfa82990004",
+    "lmvla/lmwm/scripts/build_pi05_r4_replication_config.py": "2b949fa7fe67dfdd24ebb693a6052167dcfca2c2a279d9325a4ed935a543eeb5",
+    "lmvla/lmwm/scripts/build_pi05_r4_train_config.py": "8007d2355c6e29943e3c670849241e3ffb3c11d668a9f4b899a3090cb9f1964a",
+    "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "train_scripts/kai/eval/run_pi05_r4_replication_eval.sh": "850e2fd642abe862c7fec8ad5d51ab2dd8831102fd327c4fedffc882155b27f0",
+    "train_scripts/kai/eval/serve_lerobot_pi05.py": "acf914ba7038463e5412ec0cdc05a153dc25af666274dad519fee4692eb3d0d5",
+    "train_scripts/kai/run_pi05_r4_replication_training.sh": "0486c8503c74dd4e8edebbd86672a6b787f9466e4155afd42c7da5e3fb36e307",
+    "train_scripts/kai/volc/pi05_r4_replication_eval_east_4h20.yaml": "53c9566d1dc6f460e4f3053cd85befacddee776c0953261171f2f38b63d1b8e5",
+    "train_scripts/kai/volc/pi05_r4_replication_train_east_4h20.yaml": "872dc171b5f934d62501448079173d9725885b4f1ebee5b3c76ecdff1a43a2de"
+  },
+  "stop_rule": "If the seed-1000 gate is rejected, all replication nodes are disabled and no replication GPU job may launch.",
+  "claim_limit": "Terminal-outcome sample weighting only; no Q-value, advantage, reward-model, world-critic, or model-predictive-control claim."
+}

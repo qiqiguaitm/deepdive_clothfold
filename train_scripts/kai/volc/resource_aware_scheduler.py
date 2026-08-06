@@ -5233,6 +5233,259 @@ def add_pi05_r4_outcome_collection_tasks(queue: dict[str, Any]) -> None:
         existing.add(gate_id)
 
 
+def add_pi05_r4_replication_tasks(queue: dict[str, Any]) -> None:
+    """Add R4 replication nodes, guarded by the seed-1000 safety gate."""
+    existing = {task.get("id") for task in queue.get("tasks", [])}
+    protocol = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/manifests/"
+        "pi05_r4_replication_protocol_v1.json"
+    )
+    spec = json.loads(protocol.read_text())
+    ready_hashes = [
+        {"path": str(REPO / relative), "sha256": expected}
+        for relative, expected in sorted(spec["file_sha256"].items())
+    ]
+    ready_files = [item["path"] for item in ready_hashes]
+    accepted = REPO / "logs/r4/seed1000/r4_gate.accepted"
+    rejected = REPO / "logs/r4/seed1000/r4_gate.rejected"
+    enabled = not (rejected.is_file() and not accepted.is_file())
+    disabled_reason = "R4 seed-1000 safety gate rejected"
+    common_ready = [
+        str(accepted),
+        str(protocol),
+        str(REPO / "logs/resource_markers/pi05_r4_training_runtime.ok"),
+        str(REPO / "logs/resource_markers/pi05_r4_matched_runtime.ok"),
+        str(REPO / "logs/resource_markers/pi05_r4_crave_sidecar.ok"),
+        *ready_files,
+    ]
+    protocol_hash = {"path": str(protocol), "sha256": sha256_file(protocol)}
+    reports = {
+        (seed, arm): REPO / "lmvla/lmwm/docs" / f"pi05_r4_{arm}_seed{seed}.json"
+        for seed in (1000, 1001, 1002)
+        for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
+    }
+    port_bases = {
+        "ordinary": 26200,
+        "terminal_outcome": 26600,
+        "outcome_free_crave": 27000,
+    }
+
+    for seed in (1001, 1002):
+        for arm in ("ordinary", "terminal_outcome", "outcome_free_crave"):
+            run_name = f"{arm}-seed{seed}"
+            train_id = f"pi05_r4_{arm}_seed{seed}_train"
+            train_marker = REPO / "logs/resource_markers" / f"pi05_r4_{run_name}.ok"
+            model = (
+                REPO
+                / "lmvla/lmwm/checkpoints/pi05_r4_matched_v1"
+                / run_name
+                / "checkpoints/005000/pretrained_model"
+            )
+            if train_id not in existing:
+                queue["tasks"].append(
+                    {
+                        "id": train_id,
+                        "priority": 2,
+                        "description": f"Gate-controlled R4 {arm} seed-{seed} training",
+                        "enabled": enabled,
+                        "disabled_reason": disabled_reason,
+                        "completion_glob": str(train_marker),
+                        "completion_min_count": 1,
+                        "ready_files": common_ready,
+                        "ready_hashes": [*ready_hashes, protocol_hash],
+                        "progress_logs": [
+                            {
+                                "label": "step",
+                                "glob": str(
+                                    REPO / "logs/r4/training" / f"{run_name}_*.log"
+                                ),
+                                "regex": r"Training:[^\r\n]*?(\d+)/5000",
+                            }
+                        ],
+                        "candidates": [
+                            {
+                                "kind": "platform",
+                                "resource": "Robot-East-H20",
+                                "region": "cn-shanghai",
+                                "gpus": 4,
+                                "queue_timeout_seconds": 180,
+                                "retry_cooldown_seconds": 600,
+                                "max_failures": 1,
+                                "yaml": (
+                                    "train_scripts/kai/volc/"
+                                    "pi05_r4_replication_train_east_4h20.yaml"
+                                ),
+                                "task_name": (
+                                    f"pi05-r4-{arm.replace('_', '-')}-s{seed}-east4g"
+                                ),
+                                "env": {"R4_ARM": arm, "R4_SEED": str(seed)},
+                            }
+                        ],
+                    }
+                )
+                existing.add(train_id)
+
+            result_name = f"pi05_r4_{arm}_seed{seed}"
+            eval_id = f"pi05_r4_{arm}_seed{seed}_eval"
+            if eval_id in existing:
+                continue
+            eval_marker = REPO / "logs/resource_markers" / f"{result_name}.ok"
+            port_base = port_bases[arm] + (seed - 1001) * 1200
+            local_command = shlex.join(
+                [
+                    "env",
+                    f"R4_ARM={arm}",
+                    f"R4_SEED={seed}",
+                    "LOCAL_GPU_COUNT=2",
+                    "GPU_INDEX_OFFSET=0",
+                    "ROBOTWIN_NUM_SLOTS=2",
+                    "NUM_WORKERS=2",
+                    f"PORT_BASE_OFFSET={port_base}",
+                    "bash",
+                    str(REPO / "train_scripts/kai/eval/run_pi05_r4_replication_eval.sh"),
+                ]
+            )
+            queue["tasks"].append(
+                {
+                    "id": eval_id,
+                    "priority": 3,
+                    "description": f"Fixed-scene R4 {arm} seed-{seed} evaluation",
+                    "enabled": enabled,
+                    "disabled_reason": disabled_reason,
+                    "prefer_max_gpus_when_immediate": True,
+                    "completion_glob": str(eval_marker),
+                    "completion_min_count": 1,
+                    "ready_files": [
+                        str(accepted),
+                        str(train_marker),
+                        str(REPO / "logs/resource_markers/pi05_r4_action_bridge_preflight.ok"),
+                        str(model / "model.safetensors"),
+                        str(model / "config.json"),
+                        str(protocol),
+                        *ready_files,
+                    ],
+                    "ready_hashes": [*ready_hashes, protocol_hash],
+                    "progress_globs": [
+                        {
+                            "label": "cells",
+                            "glob": str(
+                                REPO
+                                / "lmvla/lawam/results/eval_runs/robotwin"
+                                / result_name
+                                / "**/tasks/*/summary.json"
+                            ),
+                            "expected": 24,
+                        }
+                    ],
+                    "candidates": [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-East-H20",
+                            "region": "cn-shanghai",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 180,
+                            "retry_cooldown_seconds": 300,
+                            "max_failures": 4,
+                            "yaml": (
+                                "train_scripts/kai/volc/"
+                                "pi05_r4_replication_eval_east_4h20.yaml"
+                            ),
+                            "task_name": (
+                                f"pi05-r4-{arm.replace('_', '-')}-s{seed}-eval-east4g"
+                            ),
+                            "env": {
+                                "R4_ARM": arm,
+                                "R4_SEED": str(seed),
+                                "PORT_BASE_OFFSET": str(port_base),
+                            },
+                        },
+                        {
+                            "kind": "local",
+                            "resource": "local",
+                            "gpus": 2,
+                            "gpu_indices": [0, 1],
+                            "retry_cooldown_seconds": 300,
+                            "max_failures": 4,
+                            "status_dir": str(
+                                REPO / "logs/r4/eval_launchers" / result_name
+                            ),
+                            "command": local_command,
+                        },
+                    ],
+                }
+            )
+            existing.add(eval_id)
+
+    gate_id = "pi05_r4_three_seed_gate"
+    if gate_id not in existing:
+        output = REPO / "lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_three_seed_gate.json"
+        gate_dir = REPO / "logs/r4/three_seed"
+        report_args = [
+            value
+            for (seed, arm), report in sorted(reports.items())
+            for value in ("--report", f"{seed}:{arm}={report}")
+        ]
+        queue["tasks"].append(
+            {
+                "id": gate_id,
+                "priority": 2,
+                "description": "Paired hierarchical R4 three-seed replication gate",
+                "enabled": enabled,
+                "disabled_reason": disabled_reason,
+                "completion_glob": str(output),
+                "completion_min_count": 1,
+                "produces_files": [
+                    str(output),
+                    str(gate_dir / "r4_three_seed_gate.accepted"),
+                    str(gate_dir / "r4_three_seed_gate.rejected"),
+                ],
+                "ready_files": [
+                    str(accepted),
+                    str(protocol),
+                    *[str(report) for report in reports.values()],
+                    *[
+                        str(
+                            REPO
+                            / "logs/resource_markers"
+                            / f"pi05_r4_{arm}_seed{seed}.ok"
+                        )
+                        for seed in (1000, 1001, 1002)
+                        for arm in ("ordinary", "terminal_outcome", "outcome_free_crave")
+                    ],
+                    *ready_files,
+                ],
+                "ready_hashes": [*ready_hashes, protocol_hash],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 60,
+                        "status_dir": str(gate_dir / "launcher"),
+                        "command": shlex.join(
+                            [
+                                str(REPO / "kai0/.venv/bin/python"),
+                                str(
+                                    REPO
+                                    / "lmvla/lmwm/scripts/"
+                                    "analyze_pi05_r4_replication.py"
+                                ),
+                                *report_args,
+                                "--output",
+                                str(output),
+                                "--accepted-marker",
+                                str(gate_dir / "r4_three_seed_gate.accepted"),
+                                "--rejected-marker",
+                                str(gate_dir / "r4_three_seed_gate.rejected"),
+                            ]
+                        ),
+                    }
+                ],
+            }
+        )
+
+
 def add_pi05_r4_sidecar_north_tasks(queue: dict[str, Any]) -> None:
     """Stage the exact R4 sidecar inputs to North and materialize its output."""
     tasks = {task.get("id"): task for task in queue.get("tasks", [])}
@@ -12260,6 +12513,7 @@ def main() -> None:
     add_pi05_p1_a0_east_accelerator_task(queue)
     add_pi05_r1_recurrence_aligned_tasks(queue)
     add_pi05_r4_outcome_collection_tasks(queue)
+    add_pi05_r4_replication_tasks(queue)
     add_pi05_r4_sidecar_north_tasks(queue)
     add_pi05_r2_adaptive_execution_tasks(queue)
     add_pi05_north_eval_attach_tasks(queue)
@@ -12290,6 +12544,7 @@ def main() -> None:
             add_pi05_p1_a0_east_accelerator_task(queue)
             add_pi05_r1_recurrence_aligned_tasks(queue)
             add_pi05_r4_outcome_collection_tasks(queue)
+            add_pi05_r4_replication_tasks(queue)
             add_pi05_r4_sidecar_north_tasks(queue)
             add_pi05_r2_adaptive_execution_tasks(queue)
             add_pi05_north_eval_attach_tasks(queue)

@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 02:31 UTC
+Updated: 2026-08-06 02:48 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -27,9 +27,9 @@ precedence over status prose.
 
 ## P2: predictive-adapter replication
 
-At the 02:31 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seeds 1001 and 1002 are at step 28,800 of 50,000; both have
-complete committed step-25,000 Orbax checkpoints. Training loss and
+At the 02:48 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seeds 1001 and 1002 are at step 30,200 of 50,000; both have
+complete committed step-30,000 Orbax checkpoints. Training loss and
 intermediate checkpoints are health telemetry only.
 
 The final-checkpoint gate is now explicit rather than inferred from
@@ -85,11 +85,20 @@ preflight for each binary. Fresh recommendation audits then selected North for
 CRAVE job `t-20260806085323-85xzv` and terminal-outcome job
 `t-20260806085327-wdxr6`, four H20 GPUs each. The cold H20 `max-autotune`
 compile completed without another runtime error. The live North task-status
-ledger has completed 12/24 CRAVE cells and 12/24 terminal cells, with every
-recorded status equal to `ok`; all four evaluation seeds in each arm have
-completed three of six tasks as of 02:31 UTC. These
+ledger has completed 12/24 CRAVE cells and 15/24 terminal cells, with every
+recorded status equal to `ok` as of 02:48 UTC. These
 completed cells prove the repaired execution path, but partial panels must not
 be summarized as a method result.
+
+The conditional replication branch is now preregistered before either pending
+seed-1000 panel is complete. Protocol `pi05_r4_three_seed_replication_v1`
+freezes seeds 1001/1002, the same three arms and 5,000-step recipe, the same
+24-cell/1,200-episode evaluation per arm and seed, and a paired hierarchical
+gate over training seed, task, evaluation seed, and scene. Acceptance requires
+the 95% interval lower bound to exceed zero against both controls and forbids
+any seed/task regression larger than five points. The scheduler contains six
+training, six evaluation, and one final gate node; every node requires
+`r4_gate.accepted`, and none is currently ready or running.
 
 - [ ] Complete all 24 cells and 1,200 episodes for ordinary, outcome-free
   CRAVE-weighted, and terminal-outcome-weighted seed-1000 checkpoints.
@@ -118,9 +127,10 @@ be summarized as a method result.
 
 ## Current scheduler gates
 
-Canonical snapshot at 02:31 UTC: the two P2 training tasks occupy all eight
+Canonical snapshot at 02:48 UTC: the two P2 training tasks occupy all eight
 East H20 GPUs and the two North R4 evaluations occupy all eight North H20 GPUs.
-Both P2 replicas have reached step 28,800/49,999 with stable finite losses.
+Both P2 replicas have reached step 30,200/49,999 with stable finite losses and
+committed step-30,000 checkpoints.
 The ordinary R4 evaluator is complete, so both local A100 GPUs are free. The two
 new P2 checkpoint-audit nodes are zero-GPU tasks and correctly remain pending
 until their final checkpoint inputs exist. All remaining pending nodes wait for
