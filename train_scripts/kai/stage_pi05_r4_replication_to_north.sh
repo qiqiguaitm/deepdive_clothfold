@@ -52,6 +52,7 @@ mkdir -p \
   "$PAYLOAD/runtime/pi05_r4_north_training/site-packages" \
   "$PAYLOAD/train_scripts/kai/runtime"
 cp -a "$REPO/lmvla/lmwm/data/pi05_r4_training_v1" "$PAYLOAD/lmvla/lmwm/data/"
+cp -a "$PROTOCOL" "$PAYLOAD/lmvla/paper_iclr_lmvla/manifests/"
 cp -a "$AMENDMENT" "$PAYLOAD/lmvla/paper_iclr_lmvla/manifests/"
 cp -a "$REPO/logs/r4/seed1000/r4_gate.accepted" "$PAYLOAD/logs/r4/seed1000/"
 for marker in \

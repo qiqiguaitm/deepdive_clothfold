@@ -38,7 +38,7 @@
   },
   "file_sha256": {
     "train_scripts/kai/runtime/pi05_r4_north_training_python.sh": "0baaa3c486370ddc2d11df2619f4323737635afd9dacc15fd88ecdeb8eac58c0",
-    "train_scripts/kai/stage_pi05_r4_replication_to_north.sh": "780a08c35afd005c8de3cf6ab989cc79e7339e759fb99838995c5a0c63d64ca1",
+    "train_scripts/kai/stage_pi05_r4_replication_to_north.sh": "5bf7432893ea80bfb642408be716cf63e951856f936cbe0e27c72dc1178cbd6e",
     "train_scripts/kai/audit_pi05_r4_north_public_model.sh": "50d45f4607d36470a0f339e3b1f20f516df0f5b5216fc5612db56de63f3f9aeb",
     "train_scripts/kai/volc/pi05_r4_replication_train_north_4h20.yaml": "6b5a97293cfb784f24367abd3d117396db0d40f9722d35503ad44654ffaedbd3"
   },
