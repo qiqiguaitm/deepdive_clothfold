@@ -83,6 +83,41 @@ auxiliary target to P1, this verdict does not negate the parent P1 screen.
 Seeds 1001--1002 of the parent adapter remain reserved for the frozen P2
 replication and are not represented by intermediate checkpoints.
 
+\subsection{Outcome-calibrated weighting screen}
+R4 uses the same 6,313 expert-supervised query--action chunks in three matched
+seed-1000 arms: ordinary unit weighting, task-normalized outcome-free CRAVE
+progress-change weighting, and aligned-query-rollout terminal-outcome weighting.
+Each fixed step-5,000
+checkpoint passes the frozen 24-cell, 1,200-episode audit.  Macro success is
+74.25\%, 71.08\%, and 77.58\%, respectively.  Terminal minus ordinary is
+$+3.33$ points (paired hierarchical 95\% CI [$-2.25$,$+8.92$]); terminal
+minus outcome-free CRAVE is $+6.50$ points ([$+0.33$,$+12.92$]).
+
+Terminal-minus-ordinary task effects in Hammer, ranking-RGB, ranking-size,
+Handover, Stack-2, and Stack-3 order are $+6.0$, $+0.5$, $+8.0$, $+8.5$,
+$-3.5$, and $+0.5$ points.  Terminal-minus-CRAVE effects are $+8.5$, $+3.0$,
+$+4.5$, $+15.5$, $-2.0$, and $+9.5$.  The directional gate accepts the arm
+because both macro point estimates improve and no task regresses by more than
+five points.  The crossing-zero ordinary contrast prevents a significance or
+replicated-effect claim.  The canonical records are
+\texttt{RESULTS\_pi05\_r4\_seed1000\_complete.json} and
+\texttt{RESULTS\_pi05\_r4\_seed1000\_gate.json}; the frozen seed-1001/1002
+replication was therefore required.  These weights do not constitute Q-values,
+action advantages, rewards, a world critic, or model-predictive control.
+
+The frozen replication is now complete.  At seeds 1000, 1001, and 1002,
+terminal-minus-ordinary macro effects are $+3.33$, $+0.08$, and $+5.00$
+points; terminal-minus-CRAVE effects are $+6.50$, $+0.58$, and $+4.33$ points.
+The three-seed mean effects are $+2.81$ points against ordinary (hierarchical
+95\% CI [$-0.94$,$+6.58$]) and $+3.81$ against outcome-free CRAVE
+([$-0.25$,$+7.97$]).  Mean task effects against ordinary, in Hammer,
+ranking-RGB, ranking-size, Handover, Stack-2, and Stack-3 order, are $+1.67$,
+$+1.67$, $+6.67$, $+5.33$, $+0.50$, and $+1.00$ points.  Against CRAVE they
+are $+3.00$, $+2.50$, $+1.83$, $+7.17$, $+2.00$, and $+6.33$ points.  No
+seed--task contrast falls below $-5$ points, but neither interval excludes
+zero; the predeclared replication gate is therefore rejected.  The canonical
+record is \texttt{RESULTS\_pi05\_r4\_three\_seed\_gate.json}.
+
 \subsection{Outcome-linked recurrence diagnostics}
 The frozen recurrence-diagnostic panel contains 120 public-$\pi_{0.5}$
 rollouts: 99 successes and 21 failures across the six RoboTwin tasks.  All 12

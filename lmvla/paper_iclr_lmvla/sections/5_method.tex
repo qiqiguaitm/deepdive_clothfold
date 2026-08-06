@@ -107,6 +107,25 @@ adapter, CRAVE-only training, zero-route, and shuffled-action controls.  A
 failed R1 gate rejects this auxiliary extension; it does not retroactively
 negate a P1 result.
 
+\subsection{Outcome-calibrated demonstration weighting}
+R4 tests a distinct use of milestone-derived information: weighting expert
+demonstration action chunks rather than injecting a predicted future token.
+The ordinary arm assigns every chunk unit weight.  The outcome-free CRAVE arm
+uses the task-normalized change in recurrence progress between adjacent query
+observations without terminal labels, whereas the terminal-outcome arm uses
+the aligned query rollout's terminal success.  The three arms share 6,313
+expert-supervised query--action chunks, initialization, optimizer, 5,000-update
+recipe, and fixed-checkpoint evaluation protocol.
+
+The seed-1000 gate is directional: terminal-outcome weighting must exceed both
+controls in macro success and may not regress by more than five points on any
+task.  Passing this screen authorizes the frozen seed-1001/1002 replication.
+The final gate requires the paired hierarchical 95\% interval to exclude zero
+against both controls and repeats the task-level regression guard.  These are
+sample-weighting experiments over expert demonstrations; they do not estimate
+a Q-value, action advantage, reward model, world critic, or model-predictive
+controller.
+
 \subsection{Q4: robustness, scope, and efficiency}
 Training seed is the top-level uncertainty unit.  We use the preregistered
 hierarchical bootstrap over training seed and paired scenes within each fixed

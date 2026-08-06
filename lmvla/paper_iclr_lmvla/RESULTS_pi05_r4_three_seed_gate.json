@@ -1,0 +1,142 @@
+{
+  "accepted": false,
+  "bootstrap": {
+    "levels": [
+      "training_seed",
+      "task",
+      "evaluation_seed",
+      "paired_scene"
+    ],
+    "samples": 20000,
+    "seed": 20260806
+  },
+  "checkpoint_step": 5000,
+  "checks": {
+    "positive_95ci_vs_ordinary": false,
+    "positive_95ci_vs_outcome_free_crave": false,
+    "task_safety_vs_ordinary": true,
+    "task_safety_vs_outcome_free_crave": true
+  },
+  "comparisons": {
+    "ordinary": {
+      "hierarchical_paired_bootstrap_95": [
+        -0.009444444444444441,
+        0.06583333333333334
+      ],
+      "mean_seed_effect": 0.02805555555555554,
+      "no_seed_task_regression_below_minus_0_05": true,
+      "positive_95ci": false,
+      "seed_effects": {
+        "1000": 0.033333333333333215,
+        "1001": 0.0008333333333333526,
+        "1002": 0.050000000000000044
+      },
+      "seed_task_effects": {
+        "1000": {
+          "beat_block_hammer": 0.06,
+          "blocks_ranking_rgb": 0.005,
+          "blocks_ranking_size": 0.08,
+          "handover_block": 0.085,
+          "stack_blocks_three": 0.005,
+          "stack_blocks_two": -0.035
+        },
+        "1001": {
+          "beat_block_hammer": -0.005,
+          "blocks_ranking_rgb": 0.03,
+          "blocks_ranking_size": 0.025,
+          "handover_block": -0.045,
+          "stack_blocks_three": -0.035,
+          "stack_blocks_two": 0.035
+        },
+        "1002": {
+          "beat_block_hammer": -0.005,
+          "blocks_ranking_rgb": 0.015,
+          "blocks_ranking_size": 0.095,
+          "handover_block": 0.12,
+          "stack_blocks_three": 0.06,
+          "stack_blocks_two": 0.015
+        }
+      },
+      "task_effects": {
+        "beat_block_hammer": 0.016666666666666666,
+        "blocks_ranking_rgb": 0.016666666666666666,
+        "blocks_ranking_size": 0.06666666666666667,
+        "handover_block": 0.05333333333333334,
+        "stack_blocks_three": 0.009999999999999998,
+        "stack_blocks_two": 0.005
+      }
+    },
+    "outcome_free_crave": {
+      "hierarchical_paired_bootstrap_95": [
+        -0.0024999999999999974,
+        0.07972222222222222
+      ],
+      "mean_seed_effect": 0.03805555555555551,
+      "no_seed_task_regression_below_minus_0_05": true,
+      "positive_95ci": false,
+      "seed_effects": {
+        "1000": 0.06499999999999995,
+        "1001": 0.005833333333333246,
+        "1002": 0.043333333333333335
+      },
+      "seed_task_effects": {
+        "1000": {
+          "beat_block_hammer": 0.085,
+          "blocks_ranking_rgb": 0.03,
+          "blocks_ranking_size": 0.045,
+          "handover_block": 0.155,
+          "stack_blocks_three": 0.095,
+          "stack_blocks_two": -0.02
+        },
+        "1001": {
+          "beat_block_hammer": -0.04,
+          "blocks_ranking_rgb": -0.015,
+          "blocks_ranking_size": 0.025,
+          "handover_block": 0.025,
+          "stack_blocks_three": 0.0,
+          "stack_blocks_two": 0.04
+        },
+        "1002": {
+          "beat_block_hammer": 0.045,
+          "blocks_ranking_rgb": 0.06,
+          "blocks_ranking_size": -0.015,
+          "handover_block": 0.035,
+          "stack_blocks_three": 0.095,
+          "stack_blocks_two": 0.04
+        }
+      },
+      "task_effects": {
+        "beat_block_hammer": 0.03,
+        "blocks_ranking_rgb": 0.024999999999999998,
+        "blocks_ranking_size": 0.018333333333333337,
+        "handover_block": 0.07166666666666667,
+        "stack_blocks_three": 0.06333333333333334,
+        "stack_blocks_two": 0.02
+      }
+    }
+  },
+  "macros": {
+    "1000": {
+      "ordinary": 0.7425,
+      "outcome_free_crave": 0.7108333333333333,
+      "terminal_outcome": 0.7758333333333333
+    },
+    "1001": {
+      "ordinary": 0.7066666666666667,
+      "outcome_free_crave": 0.7016666666666668,
+      "terminal_outcome": 0.7075
+    },
+    "1002": {
+      "ordinary": 0.715,
+      "outcome_free_crave": 0.7216666666666667,
+      "terminal_outcome": 0.765
+    }
+  },
+  "protocol": "pi05_r4_three_seed_replication_v1",
+  "schema_version": 1,
+  "training_seeds": [
+    1000,
+    1001,
+    1002
+  ]
+}

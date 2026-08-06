@@ -1,6 +1,6 @@
 # MINT-VLA Completed Evidence Archive
 
-Updated: 2026-08-06 00:52 UTC
+Updated: 2026-08-06 10:10 UTC
 
 This document preserves completed evidence and execution notes removed from
 `PAPER_TODO.md`. It is a lookup record, not an active task list. Canonical JSON
@@ -1514,3 +1514,101 @@ Canonical records:
 - `logs/r4/training_dataset_audit.json`
 - `logs/r4/checkpoint_integrity_v1.json`
 - `lmvla/paper_iclr_lmvla/manifests/pi05_r4_formal_eval_protocol_v1.json`
+
+## 36. R4 seed-1000 outcome-calibrated closed-loop screen
+
+All three fixed-step R4 arms completed the frozen 24-cell scene manifest with
+1,200 episodes, six tasks, and no invalid cell per arm.  Ordinary fine-tuning
+reaches 74.25% macro success, outcome-free CRAVE weighting reaches 71.08%, and
+terminal-outcome weighting reaches 77.58%.  Terminal outcome therefore exceeds
+ordinary by 3.33 percentage points and outcome-free CRAVE by 6.50 points.
+
+The task-level terminal-minus-ordinary differences are +6.0 points on Hammer,
++0.5 on Ranking RGB, +8.0 on Ranking size, +8.5 on Handover, -3.5 on Stack-2,
+and +0.5 on Stack-3.  Relative to outcome-free CRAVE they are +8.5, +3.0,
++4.5, +15.5, -2.0, and +9.5 points in the same order.  No task violates the
+predeclared five-point regression guard, although Stack-2 regresses against
+both controls and two terminal-versus-ordinary task gains are only 0.5 points.
+
+The paired hierarchical 95% interval is [-2.25,+8.92] points against ordinary
+and [+0.33,+12.92] against outcome-free CRAVE.  Because the ordinary interval
+crosses zero, the accepted seed-1000 gate is a directional replication trigger,
+not a replicated utility or significance claim.  It authorizes the frozen
+seed-1001/1002 three-arm replication and no post-hoc arm selection.
+
+The weighting interpretation remains narrow.  Terminal outcomes and CRAVE
+progress assign sample weights to expert-demonstration action chunks.  These
+experiments do not estimate a Q-value, action advantage, reward model, world
+critic, or model-predictive controller.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_seed1000_complete.json`
+- `lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_seed1000_complete.md`
+- `lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_seed1000_gate.json`
+- `lmvla/lmwm/docs/pi05_r4_ordinary_seed1000.json`
+- `lmvla/lmwm/docs/pi05_r4_outcome_free_crave_seed1000.json`
+- `lmvla/lmwm/docs/pi05_r4_terminal_outcome_seed1000.json`
+- `logs/r4/seed1000/r4_gate.accepted`
+
+## 37. Completed P2 and R4 replication training prerequisites
+
+P2 predictive-adapter seeds 1001 and 1002 both completed the exact final step
+49,999.  Independent v2 audits verify source, dataset, frame cache,
+normalization values and canonical hashes, parameter tree, optimizer first and
+second moments, payload, and atomic checkpoint commit.  These records establish
+final-checkpoint identity only.  The initial East evaluations inherited an
+sm80 Curobo build on H20 and failed before a valid episode; they contribute no
+control evidence.  A frozen sm90 ABI amendment passed a one-episode smoke and
+authorized fresh 24-cell evaluations.
+
+R4 replication likewise completed all six frozen step-5,000 training jobs:
+ordinary, outcome-free CRAVE, and terminal-outcome arms at seeds 1001 and 1002.
+The North runtime passed source, public-checkpoint, effective-batch, binding,
+and single-task training-smoke audits.  Checkpoint completion and loss traces
+do not establish policy utility; all six 24-cell evaluations and the frozen
+three-seed hierarchical gate remain required.
+
+Canonical records:
+
+- `logs/predictive/p2_audit/seed1001_final_checkpoint.json`
+- `logs/predictive/p2_audit/seed1002_final_checkpoint.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_integrity_amendment_v2.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p2_east_h20_abi_amendment_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_protocol_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_r4_north_training_amendment_v1.json`
+
+## 38. R4 three-seed replication gate rejection
+
+All six seed-1001/1002 R4 evaluations completed the frozen 24-cell scene
+manifest with 1,200 episodes and zero failed cell per arm. Together with seed
+1000, terminal-outcome macro success is 77.58%, 70.75%, and 76.50%; ordinary
+success is 74.25%, 70.67%, and 71.50%; outcome-free CRAVE success is 71.08%,
+70.17%, and 72.17%. Equal-seed means are therefore 74.94%, 72.14%, and 71.14%.
+
+Terminal outcome exceeds ordinary by a mean 2.81 percentage points, but the
+predeclared hierarchical 95% interval is [-0.94,+6.58]. It exceeds
+outcome-free CRAVE by 3.81 points with interval [-0.25,+7.97]. Both lower
+bounds fail the positive-interval criterion. No training-seed/task contrast
+regresses below -5 points against either control, so the task-safety checks
+pass. The frozen gate is rejected because both utility checks fail.
+
+The platform reported the six original North parents as failed after all 24
+summaries were durable but before deterministic reports and completion markers
+were written. Five short attach retries were stopped or had already failed;
+they added no summary. The frozen verifier and summarizer were rerun in place,
+each tree again passed the same fixed-scene manifest, and verified reverse sync
+materialized all six reports. This operational recovery changed no rollout,
+checkpoint, scene identity, or statistical protocol.
+
+The accepted seed-1000 screen remains bounded directional evidence. It does
+not support a replicated outcome-calibrated utility claim and does not estimate
+Q-values, advantages, rewards, a world critic, or model-predictive control.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_three_seed_gate.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_protocol_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_teardown_recovery_v1.json`
+- `lmvla/lmwm/docs/pi05_r4_{ordinary,terminal_outcome,outcome_free_crave}_seed{1001,1002}.json`
+- `logs/r4/three_seed/r4_three_seed_gate.rejected`

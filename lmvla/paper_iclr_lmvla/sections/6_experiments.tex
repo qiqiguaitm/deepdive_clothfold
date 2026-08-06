@@ -182,10 +182,84 @@ ineffective.
 predeclared hierarchical paired interval.  Do not promote the P1 seed-1000
 screen to a replicated utility claim before this gate completes.}
 
-\exptodo{R4}{Insert the ordinary, outcome-free CRAVE-weighted, and
-terminal-outcome-weighted fixed-checkpoint results only after all three
-24-cell, 1,200-episode reports pass audit.  Report every task and do not infer
-reward, value, advantage, or model-predictive control from sample weighting.}
+\subsection{Terminal-outcome weighting passes its seed-1000 screen}
+At the fixed seed-1000 checkpoint, terminal-outcome weighting reaches
+\rFourTerminal\% macro success, compared with \rFourOrdinary\% for ordinary
+fine-tuning and \rFourCrave\% for outcome-free CRAVE weighting
+(Table~\ref{tab:r4-screen}).  The corresponding differences are
+\rFourVsOrdinary{} and \rFourVsCrave{} points.  The paired hierarchical 95\%
+interval is [$-2.25$,$+8.92$] points against ordinary and
+[$+0.33$,$+12.92$] against outcome-free CRAVE.  Because the first interval
+crosses zero, this accepted gate is a directional screen and replication
+trigger, not a replicated method effect.
+
+\begin{table}[H]
+\centering\small
+\caption{Seed-1000 outcome-calibrated demonstration-weighting screen.  Every
+row contains 24 frozen task--evaluation-seed cells and 1,200 episodes.  The
+full task profile is shown because the positive macro includes a Stack-2
+regression.}
+\setlength{\tabcolsep}{3pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrrr}
+\toprule
+Condition & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Macro \\
+\midrule
+Ordinary & 86.0 & 93.5 & 57.5 & 49.0 & 92.5 & 67.0 & \rFourOrdinary \\
+Outcome-free CRAVE & 83.5 & 91.0 & 61.0 & 42.0 & 91.0 & 58.0 & \rFourCrave \\
+Terminal outcome & 92.0 & 94.0 & 65.5 & 57.5 & 89.0 & 67.5 & \rFourTerminal \\
+\bottomrule
+\end{tabular}}
+\label{tab:r4-screen}
+\end{table}
+
+Relative to ordinary weighting, the terminal arm changes Hammer, ranking-RGB,
+ranking-size, Handover, Stack-2, and Stack-3 by $+6.0$, $+0.5$, $+8.0$,
+$+8.5$, $-3.5$, and $+0.5$ points.  Relative to outcome-free CRAVE, the same
+task differences are $+8.5$, $+3.0$, $+4.5$, $+15.5$, $-2.0$, and $+9.5$
+points.  No task crosses the predeclared five-point regression guard, but the
+Stack-2 losses and two 0.5-point gains prevent a uniform-benefit claim.
+
+\subsection{The outcome-weighting screen does not pass replication}
+The two additional training seeds preserve positive mean effects but expose
+substantial seed variation (Table~\ref{tab:r4-replication}).  Averaged equally
+over training seeds, terminal-outcome weighting reaches
+\rFourRepTerminal\%, versus \rFourRepOrdinary\% ordinary and
+\rFourRepCrave\% outcome-free CRAVE.  The terminal differences are
+\rFourRepVsOrdinary{} and \rFourRepVsCrave{} points, respectively.  Their
+predeclared hierarchical 95\% intervals are [$-0.94$,$+6.58$] and
+[$-0.25$,$+7.97$] points.  Both lower bounds fail the positive-interval gate,
+so the seed-1000 direction does not establish a replicated utility effect.
+
+\begin{table}[H]
+\centering\small
+\caption{Frozen three-seed R4 replication.  Each condition--seed entry contains
+24 task--evaluation-seed cells and 1,200 paired episodes.  Mean is an equal
+average over training seeds; intervals use the predeclared hierarchy over
+training seed, task, evaluation seed, and paired scene.}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+Training seed & Ordinary & Outcome-free CRAVE & Terminal outcome & $\Delta$ ordinary & $\Delta$ CRAVE \\
+\midrule
+1000 & 74.25 & 71.08 & 77.58 & +3.33 & +6.50 \\
+1001 & 70.67 & 70.17 & 70.75 & +0.08 & +0.58 \\
+1002 & 71.50 & 72.17 & 76.50 & +5.00 & +4.33 \\
+\midrule
+Mean & \rFourRepOrdinary & \rFourRepCrave & \rFourRepTerminal &
+\rFourRepVsOrdinary & \rFourRepVsCrave \\
+\bottomrule
+\end{tabular}
+\label{tab:r4-replication}
+\end{table}
+
+No training-seed/task contrast regresses by more than the predeclared five
+points, so the safety guard passes.  This guard does not rescue the utility
+claim: seed 1001 contributes only $+0.08$ points against ordinary and $+0.58$
+against outcome-free CRAVE.  We retain the complete seed-1000 screen as
+directional evidence and report the replication rejection without inferring
+reward, value, advantage, or model-predictive control from demonstration
+weights.
 
 \subsection{Correct future content does not improve the tested one-token interface}
 The predictor contains nontrivial future information: across two held-out

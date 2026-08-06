@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_r4_replication_teardown_recovery_v1",
+  "created_utc": "2026-08-06T10:10:00Z",
+  "base_protocol": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_r4_replication_protocol_v1.json",
+    "sha256": "2111b594853f87334374704495bdb7b7fbc3a43b4b58c7e228016dafa7ee041d"
+  },
+  "trigger": "All six North result trees contained 24 durable summary.json files, but platform teardown preceded deterministic report and completion-marker creation.",
+  "scientific_invariants": {
+    "rollouts_rerun": false,
+    "summaries_added_by_recovery": 0,
+    "checkpoint_changed": false,
+    "scene_manifest_changed": false,
+    "analysis_protocol_changed": false,
+    "required_cells_per_arm_seed": 24,
+    "required_episodes_per_arm_seed": 1200,
+    "failed_cells_per_arm_seed": 0
+  },
+  "original_jobs": {
+    "ordinary_seed1001": "t-20260806144923-b5lhp",
+    "ordinary_seed1002": "t-20260806145450-49fg7",
+    "terminal_outcome_seed1001": "t-20260806145457-7zvfd",
+    "terminal_outcome_seed1002": "t-20260806145502-cslx9",
+    "outcome_free_crave_seed1001": "t-20260806145558-ppshq",
+    "outcome_free_crave_seed1002": "t-20260806145603-5k5dr"
+  },
+  "suppressed_attach_retries": [
+    "t-20260806175316-8qx8d",
+    "t-20260806175730-bkm9q",
+    "t-20260806175857-g5sjm",
+    "t-20260806175903-25ksb",
+    "t-20260806180036-xx5bd"
+  ],
+  "deterministic_recovery": [
+    "Verify all frozen protocol file hashes.",
+    "Run verify_robotwin_fixed_seed_eval.py against each existing 24-cell tree.",
+    "Run summarize_robotwin_eval.py with --expected-cells 24.",
+    "Assert 24 summaries, six tasks, and 1200 episodes before writing each marker.",
+    "Reverse-sync with sync_pi05_r4_replication_eval_from_north.sh and verify locally.",
+    "Run the preregistered three-seed analyzer without changing bootstrap settings."
+  ],
+  "source_sha256": {
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
+    "lmvla/lmwm/scripts/analyze_pi05_r4_replication.py": "9c61f67c72884849d8a87f85c083e9d998f350df79bc05a9c1e51dfa82990004"
+  },
+  "report_sha256": {
+    "lmvla/lmwm/docs/pi05_r4_ordinary_seed1001.json": "5f6bdcd025a94e1ff8eac05123872e626e5ee88cf293204b7bb4732eae409171",
+    "lmvla/lmwm/docs/pi05_r4_ordinary_seed1002.json": "03a9b000d5d4b23b2526ce21b493522c155c9ce9faf2619bb16e68744d81d885",
+    "lmvla/lmwm/docs/pi05_r4_terminal_outcome_seed1001.json": "d4a9bbc50ff9f32447410d93e3235674937144b80a12e039da63e74951306034",
+    "lmvla/lmwm/docs/pi05_r4_terminal_outcome_seed1002.json": "a2d9c6143cc778ab17fd99af760e0fd3e468526e95525f9470282537d7d1723b",
+    "lmvla/lmwm/docs/pi05_r4_outcome_free_crave_seed1001.json": "526b38deefb236a3c993095ca06c2b6983ab27ba2aecd60ae62043f1b5c059e2",
+    "lmvla/lmwm/docs/pi05_r4_outcome_free_crave_seed1002.json": "36f83d8bba23373d60589ae79b00f0a2bc61cab4ee33511ec9c77527f2f190e2",
+    "lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_three_seed_gate.json": "42e7b1b59f97b27206d836bf80891f06012a0607503f75742237a0d16393e9d2"
+  },
+  "verdict": "The deterministic recovery is operational only; the preregistered R4 gate is rejected."
+}

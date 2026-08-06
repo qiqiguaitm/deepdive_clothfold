@@ -70,6 +70,11 @@ Nature layout rules are not applied when they conflict with ICLR.
 - **R1 scope boundary:** the 62.92% predictive-plus-CRAVE result, its four
   task-level regressions, and its intervals against A0 and CRAVE-only are
   reported as rejection of the auxiliary recurrence extension, not of P1.
+- **R4 scope boundary:** the seed-1000 table reports all tasks, the Stack-2
+  regressions, and the crossing-zero interval against ordinary weighting. The
+  completed three-seed table reports seed heterogeneity and both crossing-zero
+  intervals. Demonstration weights are not described as value, reward, or
+  planning.
 
 ## Closed evidence verdict
 
@@ -100,6 +105,10 @@ Nature layout rules are not applied when they conflict with ICLR.
 9. **The R1 extension is closed.** Predictive-plus-CRAVE reaches 62.92% and
    violates four task-safety guards. This verdict is not generalized to the
    parent policy-preserving adapter.
+10. **The R4 screen is not replicated.** Terminal outcome reaches 77.58% at
+    seed 1000, but its three-seed effects are +2.81 points versus ordinary
+    (95% CI [-0.94,+6.58]) and +3.81 versus outcome-free CRAVE
+    ([-0.25,+7.97]). Both utility checks fail; the task-safety guard passes.
 
 ## Warning: manuscript closure
 
@@ -116,10 +125,10 @@ Nature layout rules are not applied when they conflict with ICLR.
 - The observation-only predictor cannot resolve instruction-dependent futures.
   The limitation is now explicit, but an instruction-aware control is needed
   before claiming general milestone selection.
-- The new P1 table is intentionally not promoted into a claim-bearing figure:
-  it contains one training seed, while P2 and all R4 control evaluations remain
-  incomplete. Any later figure must preserve task-level effects and uncertainty
-  rather than show only a macro average.
+- The P1 table is intentionally not promoted into a claim-bearing figure while
+  P2 remains incomplete. R4 is reported as a completed negative replication,
+  with training-seed, task-level, and interval evidence rather than only a
+  macro average.
 
 ## Venue distinction
 

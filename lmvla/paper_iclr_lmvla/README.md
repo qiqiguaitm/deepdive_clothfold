@@ -25,9 +25,15 @@
   CRAVE-only by 5.75 pp, with four task regressions above five points. This
   rejects the recurrence-aligned auxiliary extension, not the parent P1
   adapter.
-- R4 has complete audited data, runtime, and three step-5,000 checkpoints, but
-  its three-arm fixed-checkpoint evaluations are unfinished; no R4 policy
-  effect is reportable.
+- R4 seed 1000 is complete and audited: terminal-outcome weighting reaches
+  77.58%, versus 74.25% ordinary and 71.08% outcome-free CRAVE. Its 95% interval
+  against ordinary crosses zero, and Stack-2 regresses by 3.5 pp, so this is an
+  accepted directional screen rather than a replicated policy effect.
+- The frozen R4 three-seed replication is complete and rejects a replicated
+  utility claim. Terminal-outcome weighting averages 74.94%, versus 72.14%
+  ordinary and 71.14% outcome-free CRAVE, but both hierarchical 95% intervals
+  cross zero. These arms test demonstration weighting, not Q-values, action
+  advantages, rewards, critics, or model-predictive control.
 
 ## Files
 
