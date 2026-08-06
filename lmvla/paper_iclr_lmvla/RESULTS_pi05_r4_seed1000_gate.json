@@ -1,0 +1,51 @@
+{
+  "accepted": true,
+  "bootstrap": {
+    "intervals_are_descriptive_not_gate_conditions": true,
+    "method": "paired task/seed/episode hierarchical bootstrap",
+    "samples": 10000,
+    "seed": 20260805
+  },
+  "checkpoint_step": 5000,
+  "comparisons": {
+    "ordinary": {
+      "control_macro_success_rate": 0.7425,
+      "hierarchical_paired_bootstrap_95": [
+        -0.022500000000000003,
+        0.08916666666666667
+      ],
+      "no_task_regression_below_minus_0_05": true,
+      "task_deltas": {
+        "beat_block_hammer": 0.06,
+        "blocks_ranking_rgb": 0.005,
+        "blocks_ranking_size": 0.08,
+        "handover_block": 0.085,
+        "stack_blocks_three": 0.005,
+        "stack_blocks_two": -0.035
+      },
+      "terminal_minus_control_macro": 0.033333333333333215
+    },
+    "outcome_free_crave": {
+      "control_macro_success_rate": 0.7108333333333333,
+      "hierarchical_paired_bootstrap_95": [
+        0.0033333333333333335,
+        0.12916666666666665
+      ],
+      "no_task_regression_below_minus_0_05": true,
+      "task_deltas": {
+        "beat_block_hammer": 0.085,
+        "blocks_ranking_rgb": 0.03,
+        "blocks_ranking_size": 0.045,
+        "handover_block": 0.155,
+        "stack_blocks_three": 0.095,
+        "stack_blocks_two": -0.02
+      },
+      "terminal_minus_control_macro": 0.06499999999999995
+    }
+  },
+  "gate": "terminal_outcome macro must exceed both matched controls and no task may regress by more than 5 percentage points against either",
+  "protocol": "pi05_r4_formal_eval_protocol_v1",
+  "schema_version": 1,
+  "terminal_macro_success_rate": 0.7758333333333333,
+  "training_seed": 1000
+}

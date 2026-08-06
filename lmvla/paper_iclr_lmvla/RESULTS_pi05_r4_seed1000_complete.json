@@ -1,0 +1,115 @@
+{
+  "accepted": true,
+  "cells_per_arm": 24,
+  "checkpoint_step": 5000,
+  "claim_boundary": "Terminal-outcome and outcome-free CRAVE are sample-weighting signals over expert demonstrations; this evidence does not estimate Q-values, action advantages, a reward model, a world critic, or model-predictive control.",
+  "comparisons": {
+    "ordinary": {
+      "control_macro_success_rate": 0.7425,
+      "hierarchical_paired_bootstrap_95": [
+        -0.022500000000000003,
+        0.08916666666666667
+      ],
+      "no_task_regression_below_minus_0_05": true,
+      "task_deltas": {
+        "beat_block_hammer": 0.06,
+        "blocks_ranking_rgb": 0.005,
+        "blocks_ranking_size": 0.08,
+        "handover_block": 0.085,
+        "stack_blocks_three": 0.005,
+        "stack_blocks_two": -0.035
+      },
+      "terminal_minus_control_macro": 0.033333333333333215
+    },
+    "outcome_free_crave": {
+      "control_macro_success_rate": 0.7108333333333333,
+      "hierarchical_paired_bootstrap_95": [
+        0.0033333333333333335,
+        0.12916666666666665
+      ],
+      "no_task_regression_below_minus_0_05": true,
+      "task_deltas": {
+        "beat_block_hammer": 0.085,
+        "blocks_ranking_rgb": 0.03,
+        "blocks_ranking_size": 0.045,
+        "handover_block": 0.155,
+        "stack_blocks_three": 0.095,
+        "stack_blocks_two": -0.02
+      },
+      "terminal_minus_control_macro": 0.06499999999999995
+    }
+  },
+  "episodes_per_arm": 1200,
+  "macros": {
+    "ordinary": 0.7425,
+    "outcome_free_crave": 0.7108333333333333,
+    "terminal_outcome": 0.7758333333333333
+  },
+  "protocol": "pi05_r4_seed1000_complete_evidence_v1",
+  "schema_version": 1,
+  "sources": {
+    "gate": {
+      "path": "/vePFS/tim/workspace/deepdive_kai0/lmvla/paper_iclr_lmvla/RESULTS_pi05_r4_seed1000_gate.json",
+      "sha256": "4d1a74eab0f5b0af22608e2773f3f3f1077a8bf598479b77ea6d579dae45aa12"
+    },
+    "reports": {
+      "ordinary": {
+        "path": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/docs/pi05_r4_ordinary_seed1000.json",
+        "sha256": "f304d4c68756962e7aa4d70371647143ffce3be81e964a0f3dc53e779c3ef676"
+      },
+      "outcome_free_crave": {
+        "path": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/docs/pi05_r4_outcome_free_crave_seed1000.json",
+        "sha256": "d81770e2cf6896ad74497539f66c9813fe7789627e9da08629187fd145409a28"
+      },
+      "terminal_outcome": {
+        "path": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/docs/pi05_r4_terminal_outcome_seed1000.json",
+        "sha256": "078a1e9d0f3b01fa222adfe19a699e979bdf82fd04efa6b291a1c9eb634f83cf"
+      }
+    }
+  },
+  "tasks": {
+    "beat_block_hammer": {
+      "ordinary": 0.86,
+      "outcome_free_crave": 0.835,
+      "terminal_minus_ordinary": 0.06000000000000005,
+      "terminal_minus_outcome_free_crave": 0.08500000000000008,
+      "terminal_outcome": 0.92
+    },
+    "blocks_ranking_rgb": {
+      "ordinary": 0.935,
+      "outcome_free_crave": 0.91,
+      "terminal_minus_ordinary": 0.004999999999999893,
+      "terminal_minus_outcome_free_crave": 0.029999999999999916,
+      "terminal_outcome": 0.94
+    },
+    "blocks_ranking_size": {
+      "ordinary": 0.575,
+      "outcome_free_crave": 0.61,
+      "terminal_minus_ordinary": 0.08000000000000007,
+      "terminal_minus_outcome_free_crave": 0.04500000000000004,
+      "terminal_outcome": 0.655
+    },
+    "handover_block": {
+      "ordinary": 0.49,
+      "outcome_free_crave": 0.42,
+      "terminal_minus_ordinary": 0.08499999999999996,
+      "terminal_minus_outcome_free_crave": 0.15499999999999997,
+      "terminal_outcome": 0.575
+    },
+    "stack_blocks_three": {
+      "ordinary": 0.67,
+      "outcome_free_crave": 0.58,
+      "terminal_minus_ordinary": 0.0050000000000000044,
+      "terminal_minus_outcome_free_crave": 0.09500000000000008,
+      "terminal_outcome": 0.675
+    },
+    "stack_blocks_two": {
+      "ordinary": 0.925,
+      "outcome_free_crave": 0.91,
+      "terminal_minus_ordinary": -0.03500000000000003,
+      "terminal_minus_outcome_free_crave": -0.020000000000000018,
+      "terminal_outcome": 0.89
+    }
+  },
+  "training_seed": 1000
+}

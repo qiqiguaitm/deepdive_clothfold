@@ -1,6 +1,6 @@
 # pi0.5-Preserving Predictive and Outcome-Calibrated Control TODO
 
-Updated: 2026-08-06 03:03 UTC
+Updated: 2026-08-06 03:58 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 gates. Completed P0/P1/R0/R1/R2/R3 evidence, completed R4 prerequisites, and
@@ -21,15 +21,16 @@ precedence over status prose.
   62.92%, below A0 by 6.08 points and CRAVE-only by 5.75 points, with four
   task regressions larger than five points. This rejects the recurrence-aligned
   extension, not the parent predictive adapter.
-- R4 data, runtime, smoke, three step-5,000 training checkpoints, and checkpoint
-  integrity are complete. They authorize the fixed-checkpoint evaluation but
-  are not control evidence.
+- R4 seed-1000 fixed-checkpoint evidence is complete and accepted by its
+  preregistered screen: terminal outcome reaches 77.58%, versus 74.25% for
+  ordinary sampling and 71.08% for outcome-free CRAVE. This authorizes the
+  frozen two-seed replication; it is not yet a replicated method claim.
 
 ## P2: predictive-adapter replication
 
-At the 03:03 UTC scheduler cutoff, both frozen seed replications are healthy on
-Robot-East-H20. Seeds 1001 and 1002 are at step 31,300 of 50,000; both have
-complete committed step-30,000 Orbax checkpoints. Training loss and
+At the 03:58 UTC scheduler cutoff, both frozen seed replications are healthy on
+Robot-East-H20. Seeds 1001 and 1002 have passed step 35,400 of 50,000; both have
+complete committed step-35,000 Orbax checkpoints. Training loss and
 intermediate checkpoints are health telemetry only.
 
 The final-checkpoint gate is now explicit rather than inferred from
@@ -63,59 +64,56 @@ the same amendment. The amendment changes no training or evaluation condition.
 
 ## R4: outcome-calibrated fixed-checkpoint screen
 
-At the 02:18 UTC scheduler cutoff, the ordinary-arm evaluation has completed and
-passed its fixed-manifest audit: 24/24 cells, 1,200 episodes, six tasks, and no
-failed cell. Its canonical report is
-`lmvla/lmwm/docs/pi05_r4_ordinary_seed1000.json`. Two-slot execution exposed a
-post-hoc verifier defect: asynchronous episode completion permuted otherwise
-identical unique scene-seed sets. The clarified verifier still rejects wrong,
-missing, extra, or duplicate seeds but treats completion order as
-non-identifying. The amendment, regression tests, local re-finalization, and
-byte-verified North staged repair all passed; no rollout was changed or rerun.
+All three seed-1000 arms have completed and passed the frozen-manifest audit:
+24/24 cells, 1,200 episodes, six tasks, and no invalid cell per arm. Canonical
+reports are `lmvla/lmwm/docs/pi05_r4_ordinary_seed1000.json`,
+`lmvla/lmwm/docs/pi05_r4_outcome_free_crave_seed1000.json`, and
+`lmvla/lmwm/docs/pi05_r4_terminal_outcome_seed1000.json`. Two-slot execution
+exposed a verifier defect: asynchronous completion permuted otherwise identical
+unique scene-seed sets. The clarified verifier still rejects wrong, missing,
+extra, or duplicate seeds but treats completion order as non-identifying. The
+amendment and regression tests passed; no rollout was changed or rerun.
 
-The first ABI-repaired North attempts for
-outcome-free CRAVE and terminal outcome failed at their first compiled policy
-query because the transferred Triton `ptxas` bytes had lost executable mode;
-all eight failures occurred before a valid episode. A scheduler-reload race
-briefly started two more jobs under the superseded readiness marker; both were
-stopped during initialization. These zero-episode attempts are excluded. A
-second immutable repair verifies the SHA-256 of `cuobjdump`, `nvdisasm`,
-`ptxas`, and `ptxas-blackwell`, restores mode `0755`, and executes a version
-preflight for each binary. Fresh recommendation audits then selected North for
-CRAVE job `t-20260806085323-85xzv` and terminal-outcome job
-`t-20260806085327-wdxr6`, four H20 GPUs each. The cold H20 `max-autotune`
-compile completed without another runtime error. The live North task-status
-ledger has completed 16/24 CRAVE cells and 16/24 terminal cells, with every
-recorded status equal to `ok` as of 03:03 UTC. All eight workers are executing
-`stack_blocks_two` with current heartbeats. These
-completed cells prove the repaired execution path, but partial panels must not
-be summarized as a method result.
+The first ABI-repaired North attempts failed before a valid episode because the
+transferred Triton `ptxas` bytes had lost executable mode. The immutable repair
+verified tool hashes, restored mode `0755`, and passed binary preflights. Fresh
+recommendation audits selected North for CRAVE job
+`t-20260806085323-85xzv` and terminal-outcome job
+`t-20260806085327-wdxr6`, four H20 GPUs each. Both wrote all 24 cells. A
+platform teardown race omitted their final markers and reported terminal as
+failed after its last summary was durable. The frozen verifier and summarizer
+were rerun in place, both trees passed, and verified file-by-file reverse sync
+materialized the reports. A scheduler fallback that began a duplicate local
+evaluation was stopped before producing a summary.
 
-The conditional replication branch is now preregistered before either pending
-seed-1000 panel is complete. Protocol `pi05_r4_three_seed_replication_v1`
+The seed-1000 gate accepted terminal outcome: 77.58% versus 74.25% ordinary
+and 71.08% outcome-free CRAVE, for macro deltas of +3.33 and +6.50 percentage
+points. No task regressed by more than five points against either control. The
+descriptive paired hierarchical intervals are [-2.25, +8.92] points against
+ordinary and [+0.33, +12.92] against CRAVE; the first crosses zero, so this is
+a replication trigger rather than a final significance claim. Complete
+task-level evidence is frozen in `RESULTS_pi05_r4_seed1000_complete.{json,md}`.
+
+The conditional replication branch was preregistered before either pending
+seed-1000 panel completed. Protocol `pi05_r4_three_seed_replication_v1`
 freezes seeds 1001/1002, the same three arms and 5,000-step recipe, the same
 24-cell/1,200-episode evaluation per arm and seed, and a paired hierarchical
 gate over training seed, task, evaluation seed, and scene. Acceptance requires
 the 95% interval lower bound to exceed zero against both controls and forbids
 any seed/task regression larger than five points. The scheduler contains six
-training, six evaluation, and one final gate node; every node requires
-`r4_gate.accepted`, and none is currently ready or running.
+training, six evaluation, and one final gate node. The accepted marker now
+makes training eligible subject to a fresh resource recommendation and a
+verified environment; evaluations and the final gate remain dependency-blocked.
 
-A zero-GPU evidence finalizer is also prewired after the seed-1000 gate. It
-revalidates all three complete reports and materializes both JSON and Markdown
-with every task's three absolute rates, paired deltas, bootstrap intervals,
-task-safety checks, decision, source hashes, and the restricted claim boundary.
-It is reporting-only and cannot alter gate acceptance.
-
-- [ ] Complete all 24 cells and 1,200 episodes for ordinary, outcome-free
+- [x] Complete all 24 cells and 1,200 episodes for ordinary, outcome-free
   CRAVE-weighted, and terminal-outcome-weighted seed-1000 checkpoints.
-- [ ] Materialize both North reports locally, verify the frozen scene manifest,
+- [x] Materialize both North reports locally, verify the frozen scene manifest,
   episode identities, checkpoint hashes, action bridge, and 24-cell/1,200-
   episode counts, then run the preregistered three-arm gate.
-- [ ] Report every task. Do not promote a macro improvement if any task violates
-  the five-point regression guard.
-- [ ] Replicate R4 only if the seed-1000 fixed-checkpoint gate passes. Otherwise
-  close the branch without launching new training seeds.
+- [x] Report every task and apply the five-point regression guard.
+- [ ] Complete the authorized seed-1001/1002 three-arm replication and its
+  frozen hierarchical gate. Do not promote the accepted seed-1000 screen to a
+  replicated claim.
 - [ ] Do not make a Q-value, advantage, world-critic, reward, or
   model-predictive-control claim. The terminal-outcome and CRAVE sidecars are
   sample-weighting signals over expert demonstrations, not action-diverse
@@ -125,8 +123,9 @@ It is reporting-only and cannot alter gate acceptance.
 
 - [ ] Replace the P2 manuscript placeholder only after both final evaluations
   and the hierarchical gate are complete.
-- [ ] Add an R4 claim-bearing table or figure only after all three 24-cell
-  reports pass audit. Until then, retain a placeholder and no partial macro.
+- [ ] Add the audited R4 seed-1000 table with an explicit screen-only label;
+  replace it with a claim-bearing replicated table only after seeds 1001/1002
+  and the final hierarchical gate complete.
 - [ ] Any new claim-bearing figure must use a pure-white canvas; 6--8 pt
   sans-serif text at final size; strokes of at least 0.5 pt; sentence-case
   labels; a non-colour cue for every series; and a caption defining all
@@ -134,16 +133,16 @@ It is reporting-only and cannot alter gate acceptance.
 
 ## Current scheduler gates
 
-Canonical snapshot at 03:03 UTC: the two P2 training tasks occupy all eight
-East H20 GPUs and the two North R4 evaluations occupy all eight North H20 GPUs.
-Both P2 replicas have reached step 31,300/49,999 with stable finite losses and
-committed step-30,000 checkpoints.
-The ordinary R4 evaluator is complete, so both local A100 GPUs are free. The two
-new P2 checkpoint-audit nodes are zero-GPU tasks and correctly remain pending
-until their final checkpoint inputs exist. All remaining pending nodes wait for
-final checkpoints, North reports, or an accepted gate; none is ready but
-resource-starved. gf1 remains permanently retired and robot-task new
-submissions remain disabled.
+Canonical snapshot at 03:58 UTC: the two P2 training tasks occupy all eight
+East H20 GPUs. Both replicas have passed step 35,400/49,999 with stable finite
+losses and committed step-35,000 checkpoints. The North R4 seed-1000 rollout
+trees have been validated and returned, and the accidental local fallback has
+been stopped. The two P2 checkpoint-audit nodes remain pending until exact
+step-49,999 inputs exist. The accepted R4 marker makes six replication training
+nodes logically ready, but their frozen launchers currently have only the
+verified East training candidate; they must wait for East capacity rather than
+move to an unverified environment. gf1 remains permanently retired and
+robot-task new submissions remain disabled.
 
 The snapshot queue inventory reports 335 completed and 120 disabled, whereas a
 direct aggregation of historical state objects reports 348 completed and 107
