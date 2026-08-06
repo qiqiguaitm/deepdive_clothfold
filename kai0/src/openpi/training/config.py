@@ -124,6 +124,12 @@ class DataConfig:
     # Filter specific episodes from the dataset (None = use all).
     episodes: list[int] | None = None
 
+    # Optional same-episode frame offsets materialized before the regular data
+    # transforms. Used by the MT3 history tracker; None keeps all existing data
+    # paths unchanged.
+    transition_history_offsets: tuple[int, ...] | None = None
+    transition_history_image_key: str = "observation.images.cam_high"
+
     # Only used for RLDS data loader (ie currently only used for DROID).
     rlds_data_dir: str | None = None
     # Action space for DROID dataset.
@@ -441,6 +447,9 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
     # repack; the model encodes it online with the current pi05 visual encoder.
     lmwm_target_pairs_path: str | None = None
     lmwm_target_frame_cache_root: str | None = None
+    lmwm_transition_pairs_path: str | None = None
+    lmwm_transition_history_offsets: tuple[int, ...] | None = None
+    crave_targets_path: str | None = None
 
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
@@ -461,6 +470,20 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
         # dataset_id → HintLookup 默认 did=0). a1 config 的 RepackTransform structure 须含 lmwm_hint.
         repack_transforms = self.repack_transforms
         prepend_transforms = []
+        if self.crave_targets_path:
+            prepend_transforms.append(
+                libero_policy.RobotwinCraveTargetLookupTransform(
+                    targets_path=self.crave_targets_path,
+                )
+            )
+        if self.lmwm_transition_pairs_path:
+            prepend_transforms.append(
+                libero_policy.RobotwinTransitionLookupTransform(
+                    pairs_path=self.lmwm_transition_pairs_path,
+                    num_tasks=model_config.lmwm_transition_num_tasks,
+                    num_stages=model_config.lmwm_transition_num_stages,
+                )
+            )
         if self.lmwm_target_pairs_path:
             if not self.lmwm_target_frame_cache_root:
                 raise ValueError("lmwm_target_frame_cache_root is required when lmwm_target_pairs_path is set")
@@ -496,6 +519,7 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
             data_transforms=data_transforms,
             model_transforms=model_transforms,
             action_sequence_keys=self.action_sequence_keys,
+            transition_history_offsets=self.lmwm_transition_history_offsets,
         )
 
 
@@ -1065,6 +1089,9 @@ class TrainConfig:
     log_interval: int = 100
     # How often (in steps) to save checkpoints.
     save_interval: int = 1000
+    # Save the final step even when it is not a regular save boundary. Disable
+    # only for short diagnostics that do not need a resumable checkpoint.
+    save_final_checkpoint: bool = True
 
     # ===== In-training eval configuration =====
     # --- Tensor-based eval (uses train dataloader episode split) ---
@@ -1694,6 +1721,8 @@ _CONFIGS = [
             data=LeRobotAlohaDataConfig(
                 repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
                 adapt_to_pi=False,
+                use_delta_joint_actions=False,
+                use_quantile_norm_override=False,
                 repack_transforms=_transforms.Group(
                     inputs=[
                         _transforms.RepackTransform(
@@ -1743,6 +1772,8 @@ _CONFIGS = [
         data=LeRobotAlohaDataConfig(
             repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
             adapt_to_pi=False,
+            use_delta_joint_actions=False,
+            use_quantile_norm_override=False,
             repack_transforms=_transforms.Group(
                 inputs=[
                     _transforms.RepackTransform(
@@ -1816,6 +1847,8 @@ _CONFIGS = [
     # Inference-only counterparts for online RoboTwin evaluation. A1/A2 hints
     # are supplied by the simulator client; A3 predicts its live hint directly
     # from the current base-camera tokens and therefore needs no target image.
+    # These checkpoints are trained in absolute-action, mean/std space; leaving
+    # LeRobotAlohaDataConfig defaults here silently adds current qpos at output.
     *[
         TrainConfig(
             name=_name,
@@ -1831,6 +1864,8 @@ _CONFIGS = [
             data=LeRobotAlohaDataConfig(
                 repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
                 adapt_to_pi=False,
+                use_delta_joint_actions=False,
+                use_quantile_norm_override=False,
                 repack_transforms=_transforms.Group(
                     inputs=[
                         _transforms.RepackTransform(
@@ -1881,6 +1916,8 @@ _CONFIGS = [
         data=LeRobotAlohaDataConfig(
             repo_id="/vePFS-North-E/vis_robot/huanqian/uniVP/data/robotwin2.0/robotwin2.0",
             adapt_to_pi=False,
+            use_delta_joint_actions=False,
+            use_quantile_norm_override=False,
             repack_transforms=_transforms.Group(
                 inputs=[
                     _transforms.RepackTransform(
@@ -3672,6 +3709,7 @@ _CONFIGS = [
         inline_eval_every=1,
     ),
 
+
     # VLANeXt #12 频域 DCT loss (vlanext_dct_then_soft_connection_plan.md Step 1): 与 pi05_v4_awbc 逐字段一致,
     # 唯一变量 = model 开 use_dct_loss=True (weight/freq 用论文默认 0.1/1.0/0.2). 压动作 chunk 高频抖动 → 更平滑.
     # DCT loss 已端到端实现 (pi0.py + train.py), 默认关 → 此 config 是唯一启用处, 不影响任何旧 config (向后兼容).
@@ -4578,6 +4616,100 @@ _CONFIGS = [
     *polaris_config.get_polaris_configs(),
 ]
 
+# Milestone-transition training configs are assembled dynamically by the
+# confirmatory launcher. Register matched inference configs here so every
+# numeric checkpoint can be served without reconstructing the training data
+# transform or changing the accepted A0 action/normalization protocol.
+_robotwin_transition_base = next(
+    config for config in _CONFIGS if config.name == "pi05_robotwin_a0_public_exact_bj"
+)
+_CONFIGS.append(
+    dataclasses.replace(
+        _robotwin_transition_base,
+        name="pi05_predictive_adapter_p1_eval",
+        model=dataclasses.replace(
+            _robotwin_transition_base.model,
+            predictive_adapter_mode="joint",
+            predictive_adapter_intervention="normal",
+        ),
+    )
+)
+_CONFIGS.append(
+    dataclasses.replace(
+        _robotwin_transition_base,
+        name="pi05_r1_crave_eval",
+        model=dataclasses.replace(
+            _robotwin_transition_base.model,
+            recurrence_adapter_mode="joint",
+            recurrence_adapter_intervention="normal",
+        ),
+    )
+)
+_CONFIGS.append(
+    dataclasses.replace(
+        _robotwin_transition_base,
+        name="pi05_r1_combined_eval",
+        model=dataclasses.replace(
+            _robotwin_transition_base.model,
+            predictive_adapter_mode="joint",
+            predictive_adapter_intervention="normal",
+            recurrence_adapter_mode="joint",
+            recurrence_adapter_intervention="normal",
+        ),
+    )
+)
+for _name, _condition in (
+    ("pi05_robotwin_mt1_oracle_exact", "oracle"),
+    ("pi05_robotwin_mt2_null_exact", "null"),
+):
+    _CONFIGS.append(
+        dataclasses.replace(
+            _robotwin_transition_base,
+            name=_name,
+            model=dataclasses.replace(
+                _robotwin_transition_base.model,
+                lmwm_transition_condition=_condition,
+            ),
+        )
+    )
+
+for _tracker in ("current_frame", "history_proprio"):
+    _CONFIGS.append(
+        dataclasses.replace(
+            _robotwin_transition_base,
+            name=f"pi05_robotwin_mt3_learned_{_tracker}_exact",
+            model=dataclasses.replace(
+                _robotwin_transition_base.model,
+                lmwm_transition_condition="learned",
+                lmwm_transition_tracker=_tracker,
+            ),
+        )
+    )
+
+_CONFIGS.append(
+    dataclasses.replace(
+        _robotwin_transition_base,
+        name="pi05_robotwin_mt5_local_exact",
+        model=dataclasses.replace(
+            _robotwin_transition_base.model,
+            lmwm_local_dynamics=True,
+        ),
+    )
+)
+for _tracker in ("current_frame", "history_proprio"):
+    _CONFIGS.append(
+        dataclasses.replace(
+            _robotwin_transition_base,
+            name=f"pi05_robotwin_mt5_combined_{_tracker}_exact",
+            model=dataclasses.replace(
+                _robotwin_transition_base.model,
+                lmwm_local_dynamics=True,
+                lmwm_transition_condition="learned",
+                lmwm_transition_tracker=_tracker,
+            ),
+        )
+    )
+
 if len({config.name for config in _CONFIGS}) != len(_CONFIGS):
     raise ValueError("Config names must be unique.")
 _CONFIGS_DICT = {config.name: config for config in _CONFIGS}
@@ -4589,12 +4721,14 @@ def _load_extra_config_from_env() -> None:
     Sidecar contract — JSON file at <ckpt>/train_config.json:
       {
         "base_config_name": "<TrainConfig.name from main config.py>",
-        "override_asset_id": "<asset_id used in <ckpt>/assets/<asset_id>/norm_stats.json>"
+        "override_asset_id": "<asset_id used in <ckpt>/assets/<asset_id>/norm_stats.json>",
+        "override_use_delta_joint_actions": false,
+        "override_use_quantile_norm": false
       }
 
-    Behavior: clones _CONFIGS_DICT[base_config_name] and overrides
-    `data.assets.asset_id` with override_asset_id. Lets a packed ckpt run on sim01
-    without editing src/openpi/training/config.py per-experiment.
+    Behavior: clones _CONFIGS_DICT[base_config_name] and applies the requested
+    inference data-transform overrides. This lets a packed checkpoint preserve
+    its training-time action and normalization protocol without per-run edits.
     """
     extra = os.environ.get("OPENPI_EXTRA_CONFIG")
     if not extra:
@@ -4615,6 +4749,16 @@ def _load_extra_config_from_env() -> None:
     new_asset_id = spec.get("override_asset_id")
     if new_asset_id is not None:
         data_kw["assets"] = AssetsConfig(asset_id=new_asset_id)
+    new_delta_actions = spec.get("override_use_delta_joint_actions")
+    if new_delta_actions is not None:
+        if not isinstance(new_delta_actions, bool):
+            raise TypeError("override_use_delta_joint_actions must be a boolean")
+        data_kw["use_delta_joint_actions"] = new_delta_actions
+    new_quantile_norm = spec.get("override_use_quantile_norm")
+    if new_quantile_norm is not None:
+        if not isinstance(new_quantile_norm, bool):
+            raise TypeError("override_use_quantile_norm must be a boolean")
+        data_kw["use_quantile_norm_override"] = new_quantile_norm
     new_yaml = spec.get("override_datasets_yaml")
     if new_yaml is not None:
         new_yaml_path = pathlib.Path(new_yaml)

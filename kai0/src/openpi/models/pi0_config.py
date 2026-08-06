@@ -128,11 +128,86 @@ class Pi0Config(_model.BaseModelConfig):
     lmwm_spatial_grid_size: int = 4
     lmwm_spatial_bottleneck_dim: int = 256
 
+    # Milestone-transition routing. The adapter acts only on action-expert
+    # tokens; it never enters the PaliGemma prefix. ``oracle`` consumes the
+    # automatically mined task/current-stage/next-stage IDs, while ``null``
+    # instantiates the identical parameter tree with the null transition.
+    lmwm_transition_condition: str = "none"  # "none" | "oracle" | "null" | "learned"
+    lmwm_transition_num_tasks: int = 6
+    lmwm_transition_num_stages: int = 10
+    lmwm_transition_embed_dim: int = 128
+    lmwm_transition_hidden_dim: int = 512
+    lmwm_transition_tracker: str = "current_frame"  # "current_frame" | "history_proprio"
+    lmwm_transition_tracker_feature_dim: int = 2048
+    lmwm_transition_tracker_current_hidden_dim: int = 512
+    lmwm_transition_tracker_history_hidden_dim: int = 256
+    lmwm_transition_tracker_proprio_dim: int = 14
+    lmwm_transition_dropout_probability: float = 0.2
+    lmwm_transition_auxiliary_loss_weight: float = 0.1
+
+    # Fixed-physical-horizon local dynamics route used by the gated MT5 2x2.
+    # It predicts a residual pooled visual feature from the current feature and
+    # a summary of the candidate action chunk, then routes only to the action
+    # expert. Current and target visual features are stop-gradient.
+    lmwm_local_dynamics: bool = False
+    lmwm_local_hidden_dim: int = 512
+    lmwm_local_loss_weight: float = 0.05
+
+    # pi0.5-preserving predictive adapter. The adapter predicts a compact grid
+    # of future SigLIP patch tokens from detached current tokens and an action
+    # chunk. Its zero-initialized, action-indexed route enters only the action
+    # expert. ``offline`` optimizes prediction only; ``joint`` adds the frozen
+    # predictive objective to the ordinary A0 flow loss.
+    predictive_adapter_mode: str = "none"  # "none" | "offline" | "joint"
+    predictive_adapter_grid_size: int = 4
+    predictive_adapter_hidden_dim: int = 512
+    predictive_adapter_loss_weight: float = 1.0
+    predictive_adapter_intervention: str = "normal"  # normal | shuffled | masked | zero_gate
+    # CRAVE-v2 fixed-horizon distributional teacher. The label heads and the
+    # zero-output action route consume detached native pi0.5 visual tokens.
+    recurrence_adapter_mode: str = "none"  # "none" | "joint"
+    recurrence_adapter_bins: int = 21
+    recurrence_adapter_hidden_dim: int = 256
+    recurrence_adapter_loss_weight: float = 0.1
+    recurrence_adapter_intervention: str = "normal"
+
     def __post_init__(self):
         if self.max_token_len is None:
             object.__setattr__(self, "max_token_len", 200 if self.pi05 else 48)
         if self.discrete_state_input is None:
             object.__setattr__(self, "discrete_state_input", self.pi05)
+        if self.predictive_adapter_mode not in {"none", "offline", "joint"}:
+            raise ValueError(
+                "predictive_adapter_mode must be 'none', 'offline', or 'joint', "
+                f"got {self.predictive_adapter_mode!r}"
+            )
+        if self.predictive_adapter_intervention not in {
+            "normal",
+            "shuffled",
+            "masked",
+            "zero_gate",
+        }:
+            raise ValueError(
+                "unsupported predictive_adapter_intervention="
+                f"{self.predictive_adapter_intervention!r}"
+            )
+        if self.recurrence_adapter_mode not in {"none", "joint"}:
+            raise ValueError(
+                "recurrence_adapter_mode must be 'none' or 'joint', "
+                f"got {self.recurrence_adapter_mode!r}"
+            )
+        if self.recurrence_adapter_bins < 3:
+            raise ValueError("recurrence_adapter_bins must be at least three")
+        if self.recurrence_adapter_intervention not in {
+            "normal",
+            "shuffled",
+            "masked",
+            "zero_gate",
+        }:
+            raise ValueError(
+                "unsupported recurrence_adapter_intervention="
+                f"{self.recurrence_adapter_intervention!r}"
+            )
 
     @property
     @override
@@ -191,6 +266,13 @@ class Pi0Config(_model.BaseModelConfig):
                     "action_head_cond_num_domains>0 (the module to keep trainable must exist)."
                 )
             return nnx.Not(nnx_utils.PathRegex(".*action_head_cond_hub.*"))
+
+        if self.freeze_mode == "only_predictive_adapter":
+            if self.predictive_adapter_mode == "none":
+                raise ValueError(
+                    "freeze_mode='only_predictive_adapter' requires predictive_adapter_mode"
+                )
+            return nnx.Not(nnx_utils.PathRegex(".*predictive_action_adapter.*"))
 
         filters = []
         has_lora = False

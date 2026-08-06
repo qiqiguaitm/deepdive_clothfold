@@ -371,9 +371,17 @@ def train_step(
         result = model.compute_loss(rng, observation, actions, train=True)
         if isinstance(result, dict):
             main = jnp.mean(result["main_loss"])
-            total = main
+            main_weight = result.get("main_weight", jnp.asarray(1.0, dtype=main.dtype))
+            total = main_weight * main
             aux_info = {"main_loss": main}
-            for name in ("cl_loss", "dct_loss", "lmwm_loss"):
+            for name in (
+                "cl_loss",
+                "dct_loss",
+                "lmwm_loss",
+                "lmwm_local_loss",
+                "predictive_loss",
+                "recurrence_loss",
+            ):
                 if name in result:
                     weight_key = name.replace("_loss", "_weight")
                     contrib = result[weight_key] * result[name]
@@ -481,9 +489,11 @@ def main(config: _config.TrainConfig):
         # asset-based/多数据集 config (repo_id 是锚点名, norm 在 assets_dirs/asset_id): 回退到那里.
         src_file = Path(config.data.repo_id) / 'norm_stats.json'
         # config.data 是 DataConfigFactory: asset_id 在 .assets.asset_id (回退也认顶层 .asset_id).
-        _asset_id = getattr(config.data, "asset_id", None) or getattr(getattr(config.data, "assets", None), "asset_id", None)
+        _assets = getattr(config.data, "assets", None)
+        _asset_id = getattr(config.data, "asset_id", None) or getattr(_assets, "asset_id", None)
         if not src_file.exists() and _asset_id:
-            src_file = Path(config.assets_dirs) / _asset_id / 'norm_stats.json'
+            assets_dir = getattr(_assets, "assets_dir", None) or config.assets_dirs
+            src_file = Path(assets_dir) / _asset_id / 'norm_stats.json'
         if src_file.exists():
             shutil.copy(src_file, dst_dir)
         else:
@@ -623,13 +633,21 @@ def main(config: _config.TrainConfig):
 
         batch = next(data_iter)
 
-        if (step % config.save_interval == 0 and step > start_step) or step == config.num_train_steps - 1:
+        if should_save_checkpoint(step, start_step, config):
             _checkpoints.save_state(checkpoint_manager, train_state, data_loader, step)
             if config.inline_eval_val_root:
                 _run_inline_eval(train_state, config, data_loader.data_config(), step, mesh)
 
     logging.info("Waiting for checkpoint manager to finish")
     checkpoint_manager.wait_until_finished()
+
+
+def should_save_checkpoint(
+    step: int, start_step: int, config: _config.TrainConfig
+) -> bool:
+    periodic_checkpoint = step % config.save_interval == 0 and step > start_step
+    final_checkpoint = config.save_final_checkpoint and step == config.num_train_steps - 1
+    return periodic_checkpoint or final_checkpoint
 
 
 if __name__ == "__main__":

@@ -16,6 +16,19 @@ def test_repack_transform():
     assert transform(item) == {"a": {"b": 1}, "d": 2}
 
 
+def test_resize_images_also_resizes_transition_history():
+    transform = _transforms.ResizeImages(8, 8)
+    item = {
+        "image": {"base_0_rgb": np.zeros((12, 16, 3), dtype=np.uint8)},
+        "lmwm_transition_history_images": np.zeros((3, 12, 16, 3), dtype=np.uint8),
+    }
+
+    transformed = transform(item)
+
+    assert transformed["image"]["base_0_rgb"].shape == (8, 8, 3)
+    assert transformed["lmwm_transition_history_images"].shape == (3, 8, 8, 3)
+
+
 def test_delta_actions():
     item = {"state": np.array([1, 2, 3]), "actions": np.array([[3, 4, 5], [5, 6, 7]])}
 

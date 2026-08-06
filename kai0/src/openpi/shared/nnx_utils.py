@@ -40,6 +40,9 @@ def module_jit(meth: Callable[P, R], *jit_args, **jit_kwargs) -> Callable[P, R]:
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         return jitted_fn(state, *args, **kwargs)
 
+    # Preserve access to JAX lowering for reproducible FLOP/cost analysis while
+    # using the exact frozen module state captured by this wrapper.
+    wrapper.lower = lambda *args, **kwargs: jitted_fn.lower(state, *args, **kwargs)  # type: ignore[attr-defined]
     return wrapper
 
 

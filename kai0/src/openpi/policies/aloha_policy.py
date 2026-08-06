@@ -42,6 +42,22 @@ class AlohaInputs(transforms.DataTransformFn):
     def __call__(self, data: dict) -> dict:
         data = _decode_aloha(data, adapt_to_pi=self.adapt_to_pi)
 
+        if "lmwm_transition_history_images" in data:
+            history_images = np.asarray(data["lmwm_transition_history_images"])
+            if np.issubdtype(history_images.dtype, np.floating):
+                history_images = (255 * history_images).astype(np.uint8)
+            if history_images.ndim != 4 or history_images.shape[1] != 3:
+                raise ValueError(
+                    "transition history images must have shape [time, channel, height, width]"
+                )
+            data["lmwm_transition_history_images"] = einops.rearrange(
+                history_images, "t c h w -> t h w c"
+            )
+            history_state = np.asarray(data["lmwm_transition_history_state"], dtype=np.float32)
+            data["lmwm_transition_history_state"] = np.stack(
+                [_decode_state(state[:14], adapt_to_pi=self.adapt_to_pi) for state in history_state]
+            )
+
         in_images = data["images"]
         if set(in_images) - set(self.EXPECTED_CAMERAS):
             raise ValueError(f"Expected images to contain {self.EXPECTED_CAMERAS}, got {tuple(in_images)}")
@@ -93,6 +109,20 @@ class AlohaInputs(transforms.DataTransformFn):
             inputs["lmwm_target_image"] = data["lmwm_target_image"]
         if "lmwm_target_mask" in data:
             inputs["lmwm_target_mask"] = data["lmwm_target_mask"]
+        for key in (
+            "crave_progress_change",
+            "crave_target_density",
+            "crave_boundary_crossing",
+            "crave_target_mask",
+            "lmwm_transition_task",
+            "lmwm_transition_current",
+            "lmwm_transition_next",
+            "lmwm_transition_mask",
+            "lmwm_transition_history_images",
+            "lmwm_transition_history_state",
+        ):
+            if key in data:
+                inputs[key] = data[key]
 
         return inputs
 

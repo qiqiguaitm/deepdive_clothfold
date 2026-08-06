@@ -99,16 +99,23 @@ class RobotwinTargetImageLookupTransform(transforms.DataTransformFn):
 
     def __post_init__(self):
         z = np.load(self.pairs_path)
-        cur_ep = z["cur_ep"].astype(np.int64)
-        cur_fi = z["cur_fi"].astype(np.int64)
-        tgt_fi = z["tgt_fi"].astype(np.int64)
-        index = {(int(e), int(f)): int(t) for e, f, t in zip(cur_ep, cur_fi, tgt_fi, strict=False)}
+        horizon_frames = int(z["horizon_frames"]) if "horizon_frames" in z.files else None
+        if horizon_frames is None:
+            cur_ep = z["cur_ep"].astype(np.int64)
+            cur_fi = z["cur_fi"].astype(np.int64)
+            tgt_fi = z["tgt_fi"].astype(np.int64)
+            index = {(int(e), int(f)): int(t) for e, f, t in zip(cur_ep, cur_fi, tgt_fi, strict=False)}
+        else:
+            if horizon_frames <= 0:
+                raise ValueError(f"fixed target horizon must be positive, got {horizon_frames}")
+            index = {}
         ep_paths = {}
         pattern = os.path.join(self.frame_cache_root, "chunk-*", self.camera, "episode_*.npz")
         for path in glob.glob(pattern):
             ep = int(os.path.basename(path).split("_")[1].split(".")[0])
             ep_paths[ep] = path
         object.__setattr__(self, "_index", index)
+        object.__setattr__(self, "_horizon_frames", horizon_frames)
         object.__setattr__(self, "_ep_paths", ep_paths)
         object.__setattr__(self, "_cache", {})
 
@@ -135,7 +142,11 @@ class RobotwinTargetImageLookupTransform(transforms.DataTransformFn):
     def __call__(self, data: dict) -> dict:
         ep = int(np.asarray(data["episode_index"]).reshape(-1)[0])
         fi = int(np.asarray(data["frame_index"]).reshape(-1)[0])
-        tgt = self._index.get((ep, fi))
+        tgt = (
+            fi + self._horizon_frames
+            if self._horizon_frames is not None
+            else self._index.get((ep, fi))
+        )
         img = None if tgt is None else self._decode(ep, tgt)
         if img is None:
             cur = data.get("observation", {}).get("images", {}).get("cam_high")
@@ -150,6 +161,124 @@ class RobotwinTargetImageLookupTransform(transforms.DataTransformFn):
         else:
             data["lmwm_target_mask"] = np.asarray(True)
         data["lmwm_target_image"] = img
+        return data
+
+
+@dataclasses.dataclass(frozen=True)
+class RobotwinTransitionLookupTransform(transforms.DataTransformFn):
+    """Attach automatically mined task/current/next milestone-stage IDs.
+
+    The frozen recurrence artifact assigns a task-local segment ordinal to each
+    covered frame. The next stage is the following ordinal, including a
+    terminal ordinal after the last segment. Frames outside the frozen artifact
+    receive explicit null sentinels so the raw training dataset remains matched
+    to A0 rather than being silently filtered.
+    """
+
+    pairs_path: str
+    num_tasks: int = 6
+    num_stages: int = 10
+
+    def __post_init__(self):
+        z = np.load(self.pairs_path)
+        required = {"cur_ep", "cur_fi", "cur_ms", "pair_task"}
+        missing = required.difference(z.files)
+        if missing:
+            raise ValueError(f"transition pairs missing keys: {sorted(missing)}")
+        cur_ep = z["cur_ep"].astype(np.int64)
+        cur_fi = z["cur_fi"].astype(np.int64)
+        cur_ms = z["cur_ms"].astype(np.int64)
+        pair_task = z["pair_task"].astype(np.int64)
+        if np.any(pair_task < 0) or np.any(pair_task >= self.num_tasks):
+            raise ValueError("transition task IDs exceed configured task vocabulary")
+        if np.any(cur_ms < 0) or np.any(cur_ms + 1 >= self.num_stages):
+            raise ValueError("transition stage IDs exceed configured stage vocabulary")
+        index = {
+            (int(ep), int(fi)): (int(task), int(stage), int(stage + 1))
+            for ep, fi, task, stage in zip(cur_ep, cur_fi, pair_task, cur_ms, strict=False)
+        }
+        object.__setattr__(self, "_index", index)
+        episode_ranges = []
+        for task in np.unique(pair_task).tolist():
+            task_episodes = cur_ep[pair_task == task]
+            episode_ranges.append((int(task_episodes.min()), int(task_episodes.max()), task))
+        ordered = sorted(episode_ranges)
+        if any(left[1] >= right[0] for left, right in zip(ordered, ordered[1:], strict=False)):
+            raise ValueError("transition task episode ranges overlap")
+        object.__setattr__(self, "_episode_ranges", tuple(episode_ranges))
+
+    def __call__(self, data: dict) -> dict:
+        ep = int(np.asarray(data["episode_index"]).reshape(-1)[0])
+        fi = int(np.asarray(data["frame_index"]).reshape(-1)[0])
+        value = self._index.get((ep, fi))
+        if value is None:
+            task = next(
+                (task for lower, upper, task in self._episode_ranges if lower <= ep <= upper),
+                self.num_tasks,
+            )
+            current, nxt = self.num_stages, self.num_stages
+            available = False
+        else:
+            task, current, nxt = value
+            available = True
+        data["lmwm_transition_task"] = np.asarray(task, dtype=np.int32)
+        data["lmwm_transition_current"] = np.asarray(current, dtype=np.int32)
+        data["lmwm_transition_next"] = np.asarray(nxt, dtype=np.int32)
+        data["lmwm_transition_mask"] = np.asarray(available)
+        return data
+
+
+@dataclasses.dataclass(frozen=True)
+class RobotwinCraveTargetLookupTransform(transforms.DataTransformFn):
+    """Attach frozen R0 recurrence targets without changing dataset sampling."""
+
+    targets_path: str
+
+    def __post_init__(self):
+        z = np.load(self.targets_path)
+        required = {
+            "cur_ep",
+            "cur_fi",
+            "progress_change",
+            "target_recurrence_density",
+            "phase_boundary_crossing",
+        }
+        missing = required.difference(z.files)
+        if missing:
+            raise ValueError(f"CRAVE targets missing keys: {sorted(missing)}")
+        keys = list(zip(z["cur_ep"].astype(np.int64), z["cur_fi"].astype(np.int64), strict=True))
+        if len(set(keys)) != len(keys):
+            raise ValueError("CRAVE targets contain duplicate (episode, frame) rows")
+        progress = z["progress_change"].astype(np.float32)
+        density = z["target_recurrence_density"].astype(np.float32)
+        boundary = z["phase_boundary_crossing"].astype(np.bool_)
+        if not np.all(np.isfinite(progress)) or not np.all(np.isfinite(density)):
+            raise ValueError("CRAVE continuous targets must be finite")
+        if np.any(progress < -1.0) or np.any(progress > 1.0):
+            raise ValueError("CRAVE progress-change targets must lie in [-1, 1]")
+        if np.any(density < 0.0) or np.any(density > 1.0):
+            raise ValueError("CRAVE recurrence-density targets must lie in [0, 1]")
+        index = {
+            (int(ep), int(frame)): (float(delta), float(rho), bool(crossing))
+            for (ep, frame), delta, rho, crossing in zip(
+                keys, progress, density, boundary, strict=True
+            )
+        }
+        object.__setattr__(self, "_index", index)
+
+    def __call__(self, data: dict) -> dict:
+        ep = int(np.asarray(data["episode_index"]).reshape(-1)[0])
+        frame = int(np.asarray(data["frame_index"]).reshape(-1)[0])
+        value = self._index.get((ep, frame))
+        if value is None:
+            delta, density, boundary, available = 0.0, 0.0, False, False
+        else:
+            delta, density, boundary = value
+            available = True
+        data["crave_progress_change"] = np.asarray(delta, dtype=np.float32)
+        data["crave_target_density"] = np.asarray(density, dtype=np.float32)
+        data["crave_boundary_crossing"] = np.asarray(boundary, dtype=np.bool_)
+        data["crave_target_mask"] = np.asarray(available, dtype=np.bool_)
         return data
 
 

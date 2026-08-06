@@ -1,4 +1,5 @@
 from collections.abc import Iterator, Sequence
+from collections import OrderedDict
 import logging
 import math
 import multiprocessing
@@ -74,6 +75,91 @@ class TransformedDataset(Dataset[T_co]):
 
     def __len__(self) -> int:
         return len(self._dataset)
+
+
+class SameEpisodeHistoryDataset(Dataset):
+    """Attach raw same-episode history frames before robot/model transforms."""
+
+    def __init__(
+        self,
+        dataset: Dataset,
+        offsets: Sequence[int],
+        *,
+        image_key: str = "observation.images.cam_high",
+        cache_size: int = 256,
+    ):
+        if not offsets or tuple(offsets)[-1] != 0:
+            raise ValueError("history offsets must be non-empty and end at zero")
+        if any(right <= left for left, right in zip(offsets, offsets[1:], strict=False)):
+            raise ValueError("history offsets must be strictly increasing")
+        if cache_size <= 0:
+            raise ValueError("history cache size must be positive")
+
+        base = dataset
+        while not hasattr(base, "hf_dataset") and hasattr(base, "_dataset"):
+            base = base._dataset
+        if not hasattr(base, "hf_dataset"):
+            raise TypeError("history materialization requires an underlying LeRobotDataset")
+
+        episode_ids = np.asarray(base.hf_dataset["episode_index"], dtype=np.int64)
+        frame_ids = np.asarray(base.hf_dataset["frame_index"], dtype=np.int64)
+        self._dataset = dataset
+        self._offsets = tuple(int(value) for value in offsets)
+        self._image_key = image_key
+        self._sample_ids = tuple(
+            (int(episode), int(frame))
+            for episode, frame in zip(episode_ids, frame_ids, strict=True)
+        )
+        self._index = {sample_id: position for position, sample_id in enumerate(self._sample_ids)}
+        if len(self._index) != len(self._sample_ids):
+            raise ValueError("LeRobot history index contains duplicate (episode, frame) rows")
+        self._cache_size = cache_size
+        self._cache: OrderedDict[int, dict] = OrderedDict()
+
+    def __len__(self) -> int:
+        return len(self._dataset)
+
+    def _get(self, index: int) -> dict:
+        if index not in self._cache:
+            self._cache[index] = self._dataset[index]
+            if len(self._cache) > self._cache_size:
+                self._cache.popitem(last=False)
+        self._cache.move_to_end(index)
+        return self._cache[index]
+
+    @staticmethod
+    def _field(item: dict, key: str):
+        if key in item:
+            return item[key]
+        current = item
+        for part in key.split("."):
+            if not isinstance(current, dict) or part not in current:
+                raise KeyError(f"history source field missing: {key}")
+            current = current[part]
+        return current
+
+    def __getitem__(self, index: SupportsIndex) -> dict:
+        position = index.__index__()
+        current = self._get(position)
+        episode, frame = self._sample_ids[position]
+        history = []
+        for offset in self._offsets:
+            history_frame = max(0, frame + offset)
+            history_position = self._index.get((episode, history_frame))
+            if history_position is None:
+                raise KeyError(
+                    f"history frame absent from episode {episode}: frame={history_frame}"
+                )
+            history.append(self._get(history_position))
+
+        result = dict(current)
+        result["lmwm_transition_history_images"] = np.stack(
+            [np.asarray(self._field(item, self._image_key)) for item in history]
+        )
+        result["lmwm_transition_history_state"] = np.stack(
+            [np.asarray(self._field(item, "observation.state"))[:14] for item in history]
+        )
+        return result
 
 
 class IterableTransformedDataset(IterableDataset[T_co]):
@@ -535,6 +621,12 @@ def create_torch_data_loader(
         dataset = create_advantage_torch_dataset(data_config, action_horizon, model_config, config)
     else:
         dataset = create_torch_dataset(data_config, action_horizon, model_config, episodes=episodes)
+    if data_config.transition_history_offsets is not None:
+        dataset = SameEpisodeHistoryDataset(
+            dataset,
+            data_config.transition_history_offsets,
+            image_key=data_config.transition_history_image_key,
+        )
     dataset = transform_dataset(dataset, data_config, skip_norm_stats=skip_norm_stats)
 
     # Use TorchDataLoader for both frameworks

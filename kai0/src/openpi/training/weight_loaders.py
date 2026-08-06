@@ -60,12 +60,139 @@ class CheckpointWeightLoader(WeightLoader):
         #   .*lmwm_hint_proj.*        — pi05×LMWM hint 投影层 (A1/A2, warm-start pi05_base 时新增,
         #   .*lmwm_live_pred_.*       — A3 live-target LMWM predictor, also new vs pi05_base
         #   .*lmwm_spatial_adapter.*  — spatial future-condition adapter, also new vs pi05_base
+        #   .*lmwm_transition_adapter.* — action-expert milestone-transition route
+        #   .*lmwm_transition_tracker.* — MT3 learned stage tracker
         #                                pi05_base 无此键 → 保留随机初始化, 其余载 pi05_base)
         return _merge_params(
             loaded_params,
             params,
-            missing_regex=".*(lora|soft_prompt_hub|action_head_cond_hub|lmwm_hint_proj|lmwm_live_pred_|lmwm_spatial_adapter).*",
+            missing_regex=".*(lora|soft_prompt_hub|action_head_cond_hub|lmwm_hint_proj|lmwm_live_pred_|lmwm_spatial_adapter|lmwm_transition_adapter|lmwm_transition_tracker|lmwm_local_adapter|predictive_action_adapter|recurrence_action_adapter).*",
         )
+
+
+def convert_mt3_torch_tracker_state(
+    state: dict[str, np.ndarray], candidate: str
+) -> dict[str, np.ndarray]:
+    """Convert a frozen tracker-only PyTorch state to NNX parameter layout."""
+    if candidate == "current_frame":
+        names = {
+            "hidden1/kernel": "backbone.0.weight",
+            "hidden1/bias": "backbone.0.bias",
+            "hidden2/kernel": "backbone.2.weight",
+            "hidden2/bias": "backbone.2.bias",
+            "current_head/kernel": "current_head.weight",
+            "current_head/bias": "current_head.bias",
+            "next_head/kernel": "next_head.weight",
+            "next_head/bias": "next_head.bias",
+        }
+    elif candidate == "history_proprio":
+        names = {
+            "input_proj/kernel": "temporal.weight_ih_l0",
+            "input_proj/bias": "temporal.bias_ih_l0",
+            "recurrent_proj/kernel": "temporal.weight_hh_l0",
+            "recurrent_proj/bias": "temporal.bias_hh_l0",
+            "current_head/kernel": "current_head.weight",
+            "current_head/bias": "current_head.bias",
+            "next_head/kernel": "next_head.weight",
+            "next_head/bias": "next_head.bias",
+        }
+    else:
+        raise ValueError(f"unknown MT3 tracker candidate: {candidate!r}")
+
+    missing = sorted(set(names.values()) - set(state))
+    if missing:
+        raise ValueError(f"MT3 tracker checkpoint is missing tensors: {missing}")
+    converted = {}
+    for target, source in names.items():
+        value = np.asarray(state[source])
+        converted[target] = value.T if target.endswith("/kernel") else value
+    return converted
+
+
+@dataclasses.dataclass(frozen=True)
+class CheckpointWithMT3TrackerWeightLoader(WeightLoader):
+    """Load pi0.5 initialization, then overlay a selected tracker-only checkpoint."""
+
+    params_path: str
+    tracker_path: str
+    candidate: str
+
+    def load(self, params: at.Params) -> at.Params:
+        import torch
+
+        merged = CheckpointWeightLoader(self.params_path).load(params)
+        # Parameter-free NNX modules still occupy an empty node in the model
+        # PyTree, which flatten/unflatten-based checkpoint merging drops.
+        if "lmwm_transition_dropout" in params:
+            merged["lmwm_transition_dropout"] = params["lmwm_transition_dropout"]
+        checkpoint = torch.load(
+            download.maybe_download(self.tracker_path), map_location="cpu", weights_only=False
+        )
+        checkpoint_candidate = str(checkpoint.get("candidate", ""))
+        if checkpoint_candidate != self.candidate:
+            raise ValueError(
+                f"tracker candidate mismatch: checkpoint={checkpoint_candidate!r}, expected={self.candidate!r}"
+            )
+        torch_state = {
+            name: tensor.detach().cpu().numpy()
+            for name, tensor in checkpoint["model"].items()
+        }
+        tracker = convert_mt3_torch_tracker_state(torch_state, self.candidate)
+        flat = flax.traverse_util.flatten_dict(merged, sep="/")
+        for relative_name, value in tracker.items():
+            name = f"lmwm_transition_tracker/{relative_name}"
+            if name not in flat:
+                raise ValueError(f"model parameter tree is missing selected tracker tensor: {name}")
+            if value.shape != flat[name].shape:
+                raise ValueError(
+                    f"tracker tensor shape mismatch for {name}: checkpoint={value.shape}, model={flat[name].shape}"
+                )
+            flat[name] = value.astype(flat[name].dtype, copy=False)
+        return flax.traverse_util.unflatten_dict(flat, sep="/")
+
+
+@dataclasses.dataclass(frozen=True)
+class CheckpointWithPredictiveAdapterWeightLoader(WeightLoader):
+    """Load official pi0.5 parameters and overlay only a gated P0 adapter."""
+
+    params_path: str
+    adapter_params_path: str
+
+    def load(self, params: at.Params) -> at.Params:
+        merged = CheckpointWeightLoader(self.params_path).load(params)
+        adapter_checkpoint = _model.restore_params(
+            download.maybe_download(self.adapter_params_path), restore_type=np.ndarray
+        )
+        flat = flax.traverse_util.flatten_dict(merged, sep="/")
+        flat_adapter_checkpoint = flax.traverse_util.flatten_dict(
+            adapter_checkpoint, sep="/"
+        )
+        adapter_names = sorted(
+            name
+            for name in flat_adapter_checkpoint
+            if "predictive_action_adapter" in name
+        )
+        if not adapter_names:
+            raise ValueError("P0 checkpoint contains no predictive adapter parameters")
+        expected_names = sorted(
+            name for name in flat if "predictive_action_adapter" in name
+        )
+        if adapter_names != expected_names:
+            missing = sorted(set(expected_names) - set(adapter_names))
+            unexpected = sorted(set(adapter_names) - set(expected_names))
+            raise ValueError(
+                "P0 predictive adapter tree mismatch: "
+                f"missing={missing}, unexpected={unexpected}"
+            )
+        for name in adapter_names:
+            value = np.asarray(flat_adapter_checkpoint[name])
+            if value.shape != flat[name].shape:
+                raise ValueError(
+                    f"P0 adapter shape mismatch for {name}: "
+                    f"checkpoint={value.shape}, model={flat[name].shape}"
+                )
+            flat[name] = value.astype(flat[name].dtype, copy=False)
+        return flax.traverse_util.unflatten_dict(flat, sep="/")
 
 
 @dataclasses.dataclass(frozen=True)

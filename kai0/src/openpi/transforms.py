@@ -314,6 +314,10 @@ class ResizeImages(DataTransformFn):
 
     def __call__(self, data: DataDict) -> DataDict:
         data["image"] = {k: image_tools.resize_with_pad(v, self.height, self.width) for k, v in data["image"].items()}
+        if "lmwm_transition_history_images" in data:
+            data["lmwm_transition_history_images"] = image_tools.resize_with_pad(
+                data["lmwm_transition_history_images"], self.height, self.width
+            )
         return data
 
 

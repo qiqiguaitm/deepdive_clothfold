@@ -138,6 +138,22 @@ class Observation(Generic[ArrayT]):
     # images after from_dict conversion. Mask is 1 when a mined target exists.
     lmwm_target_image: at.Float[ArrayT, "*b h w c"] | None = None
     lmwm_target_mask: at.Bool[ArrayT, "*b"] | None = None
+    # Automatically mined milestone-transition labels. IDs are task-local;
+    # the task ID disambiguates equal stage ordinals across tasks.
+    lmwm_transition_task: at.Int[ArrayT, "*b"] | None = None
+    lmwm_transition_current: at.Int[ArrayT, "*b"] | None = None
+    lmwm_transition_next: at.Int[ArrayT, "*b"] | None = None
+    lmwm_transition_mask: at.Bool[ArrayT, "*b"] | None = None
+    # MT3 history candidate inputs. Images are three base-camera frames at the
+    # frozen offsets; state contains the aligned 14D proprioception.
+    lmwm_transition_history_images: at.Float[ArrayT, "*b ht h w c"] | None = None
+    lmwm_transition_history_state: at.Float[ArrayT, "*b ht ps"] | None = None
+    # Frozen CRAVE-v2 fixed-horizon teacher targets. These are training-only
+    # scalars and are never appended to the policy prefix.
+    crave_progress_change: at.Float[ArrayT, "*b"] | None = None
+    crave_target_density: at.Float[ArrayT, "*b"] | None = None
+    crave_boundary_crossing: at.Bool[ArrayT, "*b"] | None = None
+    crave_target_mask: at.Bool[ArrayT, "*b"] | None = None
 
     @classmethod
     def from_dict(cls, data: at.PyTree[ArrayT]) -> "Observation[ArrayT]":
@@ -165,6 +181,13 @@ class Observation(Generic[ArrayT]):
                 data["lmwm_target_image"] = data["lmwm_target_image"].astype(np.float32) / 255.0 * 2.0 - 1.0
             elif hasattr(data["lmwm_target_image"], "dtype") and data["lmwm_target_image"].dtype == torch.uint8:
                 data["lmwm_target_image"] = data["lmwm_target_image"].to(torch.float32) / 255.0 * 2.0 - 1.0
+
+        if data.get("lmwm_transition_history_images", None) is not None:
+            history = data["lmwm_transition_history_images"]
+            if history.dtype == np.uint8:
+                data["lmwm_transition_history_images"] = history.astype(np.float32) / 255.0 * 2.0 - 1.0
+            elif hasattr(history, "dtype") and history.dtype == torch.uint8:
+                data["lmwm_transition_history_images"] = history.to(torch.float32) / 255.0 * 2.0 - 1.0
         
         return cls(
             images=data["image"],
@@ -185,6 +208,16 @@ class Observation(Generic[ArrayT]):
             lmwm_hint=data.get("lmwm_hint", None),
             lmwm_target_image=data.get("lmwm_target_image", None),
             lmwm_target_mask=data.get("lmwm_target_mask", None),
+            lmwm_transition_task=data.get("lmwm_transition_task", None),
+            lmwm_transition_current=data.get("lmwm_transition_current", None),
+            lmwm_transition_next=data.get("lmwm_transition_next", None),
+            lmwm_transition_mask=data.get("lmwm_transition_mask", None),
+            lmwm_transition_history_images=data.get("lmwm_transition_history_images", None),
+            lmwm_transition_history_state=data.get("lmwm_transition_history_state", None),
+            crave_progress_change=data.get("crave_progress_change", None),
+            crave_target_density=data.get("crave_target_density", None),
+            crave_boundary_crossing=data.get("crave_boundary_crossing", None),
+            crave_target_mask=data.get("crave_target_mask", None),
         )
 
     def to_dict(self) -> at.PyTree[ArrayT]:
@@ -286,6 +319,15 @@ def preprocess_observation(
         else:
             out_masks[key] = jnp.asarray(observation.image_masks[key])
 
+    history_images = observation.lmwm_transition_history_images
+    if history_images is not None:
+        history_images = jnp.asarray(history_images)
+        batch_size, history_length = history_images.shape[:2]
+        if history_images.shape[2:4] != image_resolution:
+            flattened = history_images.reshape(batch_size * history_length, *history_images.shape[2:])
+            flattened = image_tools.resize_with_pad(flattened, *image_resolution)
+            history_images = flattened.reshape(batch_size, history_length, *flattened.shape[1:])
+
     return Observation(
         images=out_images,
         image_masks=out_masks,
@@ -303,6 +345,16 @@ def preprocess_observation(
         lmwm_hint=observation.lmwm_hint,
         lmwm_target_image=None if observation.lmwm_target_image is None else jnp.asarray(observation.lmwm_target_image),
         lmwm_target_mask=None if observation.lmwm_target_mask is None else jnp.asarray(observation.lmwm_target_mask),
+        lmwm_transition_task=None if observation.lmwm_transition_task is None else jnp.asarray(observation.lmwm_transition_task),
+        lmwm_transition_current=None if observation.lmwm_transition_current is None else jnp.asarray(observation.lmwm_transition_current),
+        lmwm_transition_next=None if observation.lmwm_transition_next is None else jnp.asarray(observation.lmwm_transition_next),
+        lmwm_transition_mask=None if observation.lmwm_transition_mask is None else jnp.asarray(observation.lmwm_transition_mask),
+        lmwm_transition_history_images=history_images,
+        lmwm_transition_history_state=None if observation.lmwm_transition_history_state is None else jnp.asarray(observation.lmwm_transition_history_state),
+        crave_progress_change=None if observation.crave_progress_change is None else jnp.asarray(observation.crave_progress_change),
+        crave_target_density=None if observation.crave_target_density is None else jnp.asarray(observation.crave_target_density),
+        crave_boundary_crossing=None if observation.crave_boundary_crossing is None else jnp.asarray(observation.crave_boundary_crossing),
+        crave_target_mask=None if observation.crave_target_mask is None else jnp.asarray(observation.crave_target_mask),
     )
 
 
