@@ -12,6 +12,7 @@ Conventions:
 
 # Standard Library
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,7 @@ import re
 from typing import Optional, Tuple
 from torch.utils.data import DataLoader
 import time
+import tempfile
 
 # Third-Party Libraries
 import torch
@@ -291,6 +293,8 @@ class VLATrainer(TrainerUtils):
             # Strict finetune initialization from a full model checkpoint, if configured.
             self._init_checkpointing()
 
+        self._write_initialization_audit()
+
         #  print model trainable parameters:
         self.print_trainable_parameters(self.model)
 
@@ -319,6 +323,73 @@ class VLATrainer(TrainerUtils):
             self._load_checkpoint(Path(str(resume_checkpoint)))
 
         self._init_wandb()
+
+    def _write_initialization_audit(self):
+        output_value = os.getenv("LAWAM_INITIALIZATION_AUDIT_PATH")
+        rank = int(self.accelerator.process_index)
+        if not output_value or rank != 0:
+            return
+        named_parameters = dict(self.model.named_parameters())
+        parameter_tree = [
+            [name, list(parameter.shape), str(parameter.dtype)]
+            for name, parameter in named_parameters.items()
+        ]
+        trainable_tree = [row for row in parameter_tree if named_parameters[row[0]].requires_grad]
+
+        def json_digest(value) -> str:
+            return hashlib.sha256(
+                json.dumps(value, separators=(",", ":"), sort_keys=True).encode("utf-8")
+            ).hexdigest()
+
+        payload_hasher = hashlib.sha256()
+        for name, value in self.model.state_dict().items():
+            payload_hasher.update(name.encode("utf-8") + b"\0")
+            payload_hasher.update(str(tuple(value.shape)).encode("ascii") + b"\0")
+            payload_hasher.update(str(value.dtype).encode("ascii") + b"\0")
+            dense = value.detach().to(device="cpu").contiguous().view(torch.uint8).numpy()
+            payload_hasher.update(memoryview(dense))
+
+        id_to_name = {id(parameter): name for name, parameter in named_parameters.items()}
+        optimizer_groups = []
+        for group in self.optimizer.param_groups:
+            optimizer_groups.append(
+                {
+                    "name": str(group.get("name", "")),
+                    "parameters": [id_to_name[id(parameter)] for parameter in group["params"]],
+                    "betas": list(group.get("betas", ())),
+                    "eps": group.get("eps"),
+                    "weight_decay": group.get("weight_decay"),
+                }
+            )
+        payload = {
+            "schema_version": 1,
+            "protocol": "lawam_matched_initialization_v1",
+            "arm": os.getenv("TG2_ARM"),
+            "training_seed": int(os.getenv("TG2_TRAIN_SEED", self.config.seed)),
+            "parameter_count": len(parameter_tree),
+            "trainable_parameter_count": len(trainable_tree),
+            "parameter_tree_sha256": json_digest(parameter_tree),
+            "trainable_tree_sha256": json_digest(trainable_tree),
+            "initialization_payload_sha256": payload_hasher.hexdigest(),
+            "optimizer_tree_sha256": json_digest(optimizer_groups),
+            "optimizer_state_entries_before_training": len(self.optimizer.state),
+            "route": {
+                "lawam_future_off": os.getenv("LAWAM_FUTURE_OFF") == "1",
+                "milestone_target": os.getenv("LMWM_MILESTONE_TARGET"),
+                "milestone_target_compact": os.getenv("LMWM_TARGET_COMPACT"),
+                "require_full_target_coverage": os.getenv("LMWM_REQUIRE_FULL_TARGET_COVERAGE")
+                == "1",
+                "dual_route": os.getenv("LMWM_DUAL") == "1"
+                or os.getenv("LMWM_DUAL_2Q") == "1",
+            },
+        }
+        target = Path(output_value)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile("w", dir=target.parent, delete=False) as stream:
+            json.dump(payload, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+            temporary = Path(stream.name)
+        os.replace(temporary, target)
 
     def _calculate_total_batch_size(self):
         """calculate global batch size"""
@@ -483,6 +554,48 @@ class VLATrainer(TrainerUtils):
     def _create_data_iterators(self):
         """create data iterators"""
         self.vla_iter = iter(self.vla_train_dataloader)
+        self._data_order_hasher = None
+        self._data_order_microbatches = 0
+        self._data_order_samples = 0
+        if os.getenv("LAWAM_DATA_ORDER_AUDIT_DIR"):
+            self._data_order_hasher = hashlib.sha256()
+
+    def _audit_data_order(self, batch_vla):
+        if self._data_order_hasher is None:
+            return
+        for key in ("episode_index", "frame_index"):
+            if key not in batch_vla or not torch.is_tensor(batch_vla[key]):
+                raise KeyError(f"LAWAM_DATA_ORDER_AUDIT_DIR requires tensor batch key `{key}`")
+            value = batch_vla[key].detach().to(device="cpu", dtype=torch.int64).contiguous()
+            self._data_order_hasher.update(key.encode("ascii") + b"\0")
+            self._data_order_hasher.update(str(tuple(value.shape)).encode("ascii") + b"\0")
+            self._data_order_hasher.update(value.numpy().tobytes(order="C"))
+        self._data_order_microbatches += 1
+        self._data_order_samples += int(batch_vla["episode_index"].shape[0])
+
+    def _write_data_order_audit(self):
+        if self._data_order_hasher is None:
+            return
+        output_dir = Path(os.environ["LAWAM_DATA_ORDER_AUDIT_DIR"])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        rank = dist.get_rank() if dist.is_initialized() else 0
+        payload = {
+            "schema_version": 1,
+            "protocol": "lawam_exact_data_order_v1",
+            "arm": os.getenv("TG2_ARM"),
+            "training_seed": int(os.getenv("TG2_TRAIN_SEED", self.config.seed)),
+            "rank": rank,
+            "world_size": dist.get_world_size() if dist.is_initialized() else 1,
+            "microbatches": self._data_order_microbatches,
+            "samples": self._data_order_samples,
+            "sha256": self._data_order_hasher.hexdigest(),
+        }
+        target = output_dir / f"rank{rank}.json"
+        with tempfile.NamedTemporaryFile("w", dir=output_dir, delete=False) as stream:
+            json.dump(payload, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+            temporary = Path(stream.name)
+        os.replace(temporary, target)
 
     def _get_next_batch(self):
         """get next batch (automatically handle data loop)"""
@@ -529,6 +642,7 @@ class VLATrainer(TrainerUtils):
             # so the displayed `data_times` includes any H2D transfer done by the dataloader wrapper.
             t_start_data_wait = time.perf_counter()
             batch_vla = self._get_next_batch()
+            self._audit_data_order(batch_vla)
             t_end_data_wait = time.perf_counter()
 
             # Pure training-step compute time for the current process.
@@ -801,6 +915,7 @@ class VLATrainer(TrainerUtils):
 
     def _finalize_training(self):
         """training end processing"""
+        self._write_data_order_audit()
         # save final model
         if self.accelerator.is_main_process:
             final_checkpoint = os.path.join(self.config.output_dir, "final_model")
@@ -827,6 +942,8 @@ def main(cfg) -> None:
 
     # create output directory and save config
     setup_directories(cfg=cfg)
+    if os.getenv("LAWAM_DETERMINISTIC_MODEL_INIT") == "1":
+        set_seed(int(cfg.seed))
     # build model
     vla = build_framework(cfg)
     vla = apply_training_freeze_policy(vla, cfg)

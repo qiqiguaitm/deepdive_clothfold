@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from collections import defaultdict, deque
 import hashlib
+import inspect
 import json
 import multiprocessing as mp
 from multiprocessing.connection import wait as mp_wait
@@ -52,6 +53,34 @@ from examples.Robotwin.eval_files.robotwin_eval_common import (  # noqa: E402
 
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+def reset_model_for_episode(
+    model: Any,
+    *,
+    slot_id: int,
+    episode_id: int,
+    scene_seed: int,
+    eval_seed: int,
+) -> None:
+    values = {
+        "slot_id": int(slot_id),
+        "episode_id": int(episode_id),
+        "scene_seed": int(scene_seed),
+        "eval_seed": int(eval_seed),
+    }
+    parameters = inspect.signature(model.reset).parameters
+    accepts_kwargs = any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+    model.reset(
+        **{
+            key: value
+            for key, value in values.items()
+            if accepts_kwargs or key in parameters
+        }
+    )
 
 
 def strip_ansi(text: str) -> str:
@@ -951,7 +980,13 @@ def run_batched_eval(usr_args: dict[str, Any]) -> int:
                     episode_id = next_episode_id
                     next_episode_id += 1
                     outstanding_episodes += 1
-                    model.reset(slot_id=slot_id)
+                    reset_model_for_episode(
+                        model,
+                        slot_id=slot_id,
+                        episode_id=episode_id,
+                        scene_seed=int(message["seed"]),
+                        eval_seed=int(seed),
+                    )
                     parent_conns[slot_id].send({"cmd": "accept_candidate", "episode_id": episode_id})
                     slot_state[slot_id] = {
                         "mode": "starting",

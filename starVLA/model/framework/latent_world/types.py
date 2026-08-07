@@ -30,6 +30,7 @@ class LatentWorldPolicyInferExample(TypedDict, total=False):
     state: NotRequired[TensorLike2D]
     state_mask: NotRequired[TensorLike2D]
     wrist_image: NotRequired[ImageViews]
+    temporal_grounding_context: NotRequired[dict]
 
 
 class LatentWorldPolicyInferBatch(TypedDict):

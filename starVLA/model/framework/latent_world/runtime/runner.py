@@ -43,6 +43,9 @@ class LatentWorldPolicyRunner:
     ) -> Dict[str, Any]:
         if len(examples) == 0:
             raise ValueError("`infer_step` requires at least one example.")
+        temporal_grounding_contexts = [
+            example.get("temporal_grounding_context") for example in examples
+        ]
         batch = self.infer_batch_builder.build_infer_batch(examples)
         batch_size = int(batch["action_hz"].shape[0])
         if batch_size != len(examples):
@@ -75,6 +78,7 @@ class LatentWorldPolicyRunner:
 
         actions = self.policy_backend.predict_action(
             batch=batch,
+            temporal_grounding_contexts=temporal_grounding_contexts,
             return_intermediates=bool(return_intermediates),
             guidance_scale=guidance_scale,
             num_inference_steps=num_inference_steps,

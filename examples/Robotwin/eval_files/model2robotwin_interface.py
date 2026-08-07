@@ -159,13 +159,28 @@ class _SlotState:
     action_cursor: int = 0
     executed_steps: int = 0
     action_ensemble_history: list[dict[str, Any]] = field(default_factory=list)
+    episode_id: int | None = None
+    scene_seed: int | None = None
+    eval_seed: int | None = None
+    query_index: int = 0
 
-    def reset(self, task_description: str | None = None) -> None:
+    def reset(
+        self,
+        task_description: str | None = None,
+        *,
+        episode_id: int | None = None,
+        scene_seed: int | None = None,
+        eval_seed: int | None = None,
+    ) -> None:
         self.task_description = task_description
         self.raw_actions = None
         self.action_cursor = 0
         self.executed_steps = 0
         self.action_ensemble_history.clear()
+        self.episode_id = episode_id
+        self.scene_seed = scene_seed
+        self.eval_seed = eval_seed
+        self.query_index = 0
 
     def needs_query(self) -> bool:
         return self.raw_actions is None or self.action_cursor >= int(self.raw_actions.shape[0])
@@ -269,8 +284,21 @@ class ModelClient:
     def close(self) -> None:
         self.client.close()
 
-    def reset(self, task_description: str = "", slot_id: int = 0) -> None:
-        self._get_slot_state(slot_id).reset(task_description=task_description)
+    def reset(
+        self,
+        task_description: str = "",
+        slot_id: int = 0,
+        *,
+        episode_id: int | None = None,
+        scene_seed: int | None = None,
+        eval_seed: int | None = None,
+    ) -> None:
+        self._get_slot_state(slot_id).reset(
+            task_description=task_description,
+            episode_id=episode_id,
+            scene_seed=scene_seed,
+            eval_seed=eval_seed,
+        )
 
     def reset_slots(self, slot_ids: Optional[Iterable[int]] = None) -> None:
         if slot_ids is None:
@@ -284,7 +312,12 @@ class ModelClient:
         if task_description is not None:
             resolved_task = str(task_description)
             if resolved_task != slot_state.task_description:
-                slot_state.reset(task_description=resolved_task)
+                slot_state.reset(
+                    task_description=resolved_task,
+                    episode_id=slot_state.episode_id,
+                    scene_seed=slot_state.scene_seed,
+                    eval_seed=slot_state.eval_seed,
+                )
         return slot_state.needs_query()
 
     def step_cached(self, slot_id: int = 0, task_description: Optional[str] = None) -> np.ndarray:
@@ -329,11 +362,31 @@ class ModelClient:
             prepared_examples.append(prepared)
             task_description = str(prepared["lang"])
             if task_description != slot_state.task_description:
-                slot_state.reset(task_description=task_description)
+                slot_state.reset(
+                    task_description=task_description,
+                    episode_id=slot_state.episode_id,
+                    scene_seed=slot_state.scene_seed,
+                    eval_seed=slot_state.eval_seed,
+                )
 
             if slot_state.needs_query():
                 slots_to_query.append(idx)
-                query_examples.append(self._build_infer_example(prepared))
+                infer_example = self._build_infer_example(prepared)
+                if os.getenv("LAWAM_FUTURE_INTERVENTION") or os.getenv(
+                    "LAWAM_FUTURE_CAPTURE_ROOT"
+                ):
+                    if None in (slot_state.episode_id, slot_state.scene_seed, slot_state.eval_seed):
+                        raise RuntimeError(
+                            "Temporal-grounding evaluation requires episode_id, scene_seed, and eval_seed."
+                        )
+                    infer_example["temporal_grounding_context"] = {
+                        "task": os.environ.get("ROBOTWIN_ACTIVE_TASK", ""),
+                        "eval_seed": int(slot_state.eval_seed),
+                        "scene_seed": int(slot_state.scene_seed),
+                        "episode_id": int(slot_state.episode_id),
+                        "query_index": int(slot_state.query_index),
+                    }
+                query_examples.append(infer_example)
 
         if query_examples:
             response = self.client.predict_action({"examples": query_examples})
@@ -373,6 +426,7 @@ class ModelClient:
                     raise RuntimeError("Inference returned empty action chunk.")
                 slot_state.raw_actions = raw_actions
                 slot_state.action_cursor = 0
+                slot_state.query_index += 1
 
         for idx, slot_id in enumerate(slot_ids):
             output_actions[idx] = self._pop_slot_action(int(slot_id))

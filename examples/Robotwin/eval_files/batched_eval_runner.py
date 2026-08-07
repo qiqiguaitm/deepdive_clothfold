@@ -683,6 +683,7 @@ def worker_main(args: argparse.Namespace) -> int:
 
             task_log_path = worker_dir / f"{current_task_name}.log"
             log_line(worker_log, f"worker={worker_index} start task={current_task_name}")
+            bridge_env["ROBOTWIN_ACTIVE_TASK"] = current_task_name
             with open(task_log_path, "w", encoding="utf-8") as task_log:
                 current_task_proc = subprocess.Popen(
                     build_bridge_command(

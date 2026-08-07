@@ -283,6 +283,14 @@ class LatentWorldPolicyBackend(nn.Module):
         # [编码器塑形消融 B] LMWM_LOCAL_DETACH_BACKBONE=1: 连局部 t+7(LaWM)通道也 detach →
         # 两个 WM 通道都不反传共享编码器, 编码器只由动作损失驱动(A=只 t+7 塑形 / B=两者都不塑形)。
         self._local_detach_bb = _os.environ.get("LMWM_LOCAL_DETACH_BACKBONE") == "1"
+        self._future_off = _os.environ.get("LAWAM_FUTURE_OFF") == "1"
+        if self._future_off and not bool(self.model_cfg.future_prediction):
+            raise ValueError(
+                "LAWAM_FUTURE_OFF requires future_prediction=true so parameter and trainable trees "
+                "remain matched to active TG2 arms."
+            )
+        if self._future_off and self._lmwm_dual:
+            raise ValueError("LAWAM_FUTURE_OFF is defined only for the matched single future route.")
         self._lmwm_dec = None      # V8 全局通道 decoder(生成器); dual 时挂
         self._lmwm_inv = None      # V8 全局通道 teacher(InverseEnc, 冻); dual 时挂
         if _os.environ.get("LMWM_CKPT"):
@@ -903,7 +911,7 @@ class LatentWorldPolicyBackend(nn.Module):
             loss_distill = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
             loss_distill_local = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
             loss_distill_ms = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
-            if bool(self.model_cfg.enable_loss_distill):
+            if bool(self.model_cfg.enable_loss_distill) and not self._future_off:
                 # 局部通道(LaWM teacher): dual 时 self.lam 是纯 LaWM, 蒸馏目标=LaWM code
                 loss_distill_local = self._compute_distill_loss(
                     pred_latent=shared.pred_action_emb,
@@ -922,7 +930,7 @@ class LatentWorldPolicyBackend(nn.Module):
 
             loss_perceptual_local = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
             loss_perceptual_ms = torch.tensor(0.0, device=device, dtype=lam_stage_dtype)
-            if self.model_cfg.future_prediction:
+            if self.model_cfg.future_prediction and not self._future_off:
                 loss_perceptual_local = F.mse_loss(shared.h_t1_pred, shared.h_t1_gt)
                 loss_perceptual = loss_perceptual_local
                 if _dual:
@@ -947,6 +955,12 @@ class LatentWorldPolicyBackend(nn.Module):
                 h_t1_pred=h_t1_pred_rep,
                 h_t1_gt=h_t1_gt_rep,
             )
+            if self._future_off:
+                from starVLA.model.framework.latent_world.runtime.future_condition_interventions import (
+                    future_off_condition,
+                )
+
+                h_t1_cond_rep = future_off_condition(h_t1_cond_rep, enabled=True)
             # [V8 dual] 全局通道条件(scheduled sampling 逐通道复用同一函数)
             h_ms_cond_rep = None
             if _dual:
@@ -990,6 +1004,14 @@ class LatentWorldPolicyBackend(nn.Module):
                 + self.model_cfg.perceptual_weight * loss_perceptual
                 + self.model_cfg.lam_encoder_distill_weight * loss_distill
             )
+            if self._future_off:
+                from starVLA.model.framework.latent_world.runtime.future_condition_interventions import (
+                    future_off_zero_tether,
+                )
+
+                loss_total = loss_total + future_off_zero_tether(
+                    shared.h_t1_pred, enabled=True
+                )
 
         zero = torch.tensor(0.0, device=device, dtype=loss_total.dtype)
         out = {
@@ -1012,6 +1034,7 @@ class LatentWorldPolicyBackend(nn.Module):
         self,
         *,
         batch: LatentWorldPolicyInferBatch,
+        temporal_grounding_contexts: Optional[list[dict | None]] = None,
         guidance_scale: Optional[float] = None,
         num_inference_steps: Optional[int] = None,
         return_intermediates: bool = False,
@@ -1035,6 +1058,37 @@ class LatentWorldPolicyBackend(nn.Module):
             lam_features_with_no_grad=False,
         )
         attn_flow = prepared_batch["attention_mask"] == 1
+
+        if self._future_off:
+            from starVLA.model.framework.latent_world.runtime.future_condition_interventions import (
+                future_off_condition,
+            )
+
+            shared.h_t1_pred = future_off_condition(shared.h_t1_pred, enabled=True)
+
+        import os as _os_tg
+        if self._future_off and (
+            _os_tg.environ.get("LAWAM_FUTURE_INTERVENTION")
+            or _os_tg.environ.get("LAWAM_FUTURE_CAPTURE_ROOT")
+        ):
+            raise ValueError("TG1 fixed-checkpoint interventions cannot be combined with LAWAM_FUTURE_OFF.")
+        if (
+            _os_tg.environ.get("LAWAM_FUTURE_INTERVENTION")
+            or _os_tg.environ.get("LAWAM_FUTURE_CAPTURE_ROOT")
+        ):
+            from starVLA.model.framework.latent_world.runtime.future_condition_interventions import (
+                FutureConditionIntervention,
+            )
+
+            intervention = getattr(self, "_future_condition_intervention", None)
+            if intervention is None:
+                intervention = FutureConditionIntervention.from_environment()
+                self._future_condition_intervention = intervention
+            shared.h_t1_pred = intervention.apply(
+                predicted=shared.h_t1_pred,
+                current=shared.h_t,
+                contexts=temporal_grounding_contexts,
+            )
 
         _dual = getattr(self, "_lmwm_dual", False)
         # ---------------------------------------------------------------------
