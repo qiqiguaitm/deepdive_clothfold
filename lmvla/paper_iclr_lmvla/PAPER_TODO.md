@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:03 UTC
+Updated: 2026-08-07 19:12 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -267,6 +267,15 @@ quota, and fairness policy remains authoritative.
 
 The dependent pool contains ten 4-GPU evaluations: TG1A shuffled and nine TG2
 checkpoint evaluations. Their dependencies are immutable and cannot be waived.
+
+The frozen four-GPU evaluation launchers were also audited against completed
+East H20 runs before admitting the dependent wave. Each launcher starts one
+eval seed per GPU, with all four workers entering the sweep within about one
+minute. The same all6 stack completed its `E=36` sweep in 2.655 hours and its
+`E=50` sweep in 2.765 hours, including runtime setup and the frozen three
+fixed-scene attempts. The 24-hour platform deadline therefore retains at least
+an 8.68x wall-time margin without changing workers, episodes, seeds, or the
+frozen evaluation recipe.
 
 ## 5. TG1A — released-checkpoint content use
 
