@@ -113,6 +113,11 @@ Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
 
+At 16:54 UTC, all six Running jobs crossed step 4000 and retained healthy
+heartbeats. The frozen `save_interval=20000` intentionally produces no
+intermediate step-4000 checkpoint, so resumability and final-checkpoint
+integrity cannot be claimed before the fixed final step.
+
 Runtime v3 attempts produced no summary and exposed one operational mismatch:
 the policy server used Transformers 4.53.2 and loaded the frozen Qwen3 weights
 through an incompatible tokenizer object. Runtime v4 selects the existing
