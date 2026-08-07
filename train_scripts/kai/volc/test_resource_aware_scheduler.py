@@ -5295,7 +5295,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         assert task["candidates"][0]["gpus"] == 4
         assert task["candidates"][0]["env"]["TG1A_CONDITION"] == condition
         assert task["candidates"][0]["yaml"].endswith(
-            "temporal_grounding_tg1a_east_runtime_v3_4h20.yaml"
+            "temporal_grounding_tg1a_east_runtime_v4_4h20.yaml"
         )
 
     assert {
@@ -5312,7 +5312,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     }
     assert all(
         task["candidates"][0]["yaml"].endswith(
-            "temporal_grounding_tg1b_east_runtime_v3_4h20.yaml"
+            "temporal_grounding_tg1b_east_runtime_v4_4h20.yaml"
         )
         for task in tg1b.values()
     )

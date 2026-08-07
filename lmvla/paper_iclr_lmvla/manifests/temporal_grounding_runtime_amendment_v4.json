@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v4",
+  "supersedes": "temporal_grounding_runtime_amendment_v3",
+  "superseded_manifest_sha256": "8b8a5bf16137675bf4e35071b4b90a418d91aee1e05a56ff7b702a45faab54df",
+  "created_at": "2026-08-07T08:45:00Z",
+  "scope": "TG1 policy-server Python runtime selection and fail-fast processor verification only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "observations": {
+    "runtime_v3_failure": "The frozen policy server loaded Qwen3 weights through transformers 4.53.2 as Qwen2TokenizerFast, then configure_latent_world_processor failed because the returned object had no tokenizer attribute.",
+    "validated_runtime": "The existing shared LaWAM Python environment uses torch 2.6.0+cu124 and transformers 5.2.0 and loads the same frozen qwen3_weights directory as Qwen3VLProcessor with a Qwen2Tokenizer child."
+  },
+  "changes": [
+    "Set STAR_VLA_PYTHON for TG1A and TG1B to the existing shared LaWAM environment.",
+    "Before formal evaluation, fail fast unless the frozen qwen3_weights directory loads as Qwen3VLProcessor and exposes its tokenizer.",
+    "For the normal arm only, preserve the empty root-owned feature directory left by runtime v3 under a failed_runtime_v3 suffix; refuse the operation if it contains any file or if a capture marker exists."
+  ],
+  "runtime_identity": {
+    "python": "/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python",
+    "python_sha256": "2cb3b3c8d61c52a7b2d85aa048b8b5bf2840cf4c1616a1d5e4aa012fa3a174d0",
+    "python_version": "3.10",
+    "torch_version": "2.6.0+cu124",
+    "transformers_version": "5.2.0",
+    "transformers_init_sha256": "91b2c544c6848f4ce8213c770aaa705ce682ee656c995f4ce58352c4b7368ee7",
+    "processor_smoke_result": "Qwen3VLProcessor Qwen2Tokenizer"
+  },
+  "invariants": [
+    "All frozen admission manifests, formal runners, model code, data, checkpoints, arms, seeds, task panels, optimizer settings, training steps, gates, and result selection remain unchanged.",
+    "TG2 training remains on runtime amendment v3 and its already submitted jobs are not modified.",
+    "Framework, mounts, renderer preparation, Git trust, and entrypoint audit logging remain unchanged from runtime amendment v3."
+  ],
+  "runtime_files": {
+    "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v4_4h20.yaml": "ab7967545004999a3f6a75b918570d234d1cf03fbafb46008f0b3d4ba272290b",
+    "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v4_4h20.yaml": "df11a4211e79b2689837e5dcdbaf1ea50c0d8166184abbe30924d0402521ac80"
+  }
+}

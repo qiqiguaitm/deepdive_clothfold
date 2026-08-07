@@ -8513,14 +8513,16 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg2_path = manifests / "temporal_grounding_tg2_admission_v1.json"
     north_path = manifests / "temporal_grounding_tg2_north_staging_amendment_v1.json"
     runtime_v2_path = manifests / "temporal_grounding_runtime_amendment_v2.json"
-    runtime_path = manifests / "temporal_grounding_runtime_amendment_v3.json"
+    runtime_v3_path = manifests / "temporal_grounding_runtime_amendment_v3.json"
+    runtime_v4_path = manifests / "temporal_grounding_runtime_amendment_v4.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
         tg2_path: "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
         north_path: "7905e39a7a228d8833b0c7c643c0ae0246c8de9b6594d56a324fb5bb4062dbd0",
         runtime_v2_path: "284f80125492aee1e24281c4d611c26dd02fd16d8d83aba4ca832c2b3788ea5b",
-        runtime_path: "8b8a5bf16137675bf4e35071b4b90a418d91aee1e05a56ff7b702a45faab54df",
+        runtime_v3_path: "8b8a5bf16137675bf4e35071b4b90a418d91aee1e05a56ff7b702a45faab54df",
+        runtime_v4_path: "bb40a4802464b07489048be5b85cf28ae20639b8a68c53bbad792ca309dfff3e",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8535,7 +8537,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1a_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1a_east_4h20.yaml"
     tg1a_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v3_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v4_4h20.yaml"
     )
     tg1a_hashes = [
         {"path": str(tg1a_path), "sha256": manifest_hashes[tg1a_path]},
@@ -8547,10 +8549,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "path": str(tg1a_yaml),
             "sha256": tg1a["file_sha256"][str(tg1a_yaml.relative_to(REPO))],
         },
-        {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
+        {"path": str(runtime_v4_path), "sha256": manifest_hashes[runtime_v4_path]},
         {
             "path": str(tg1a_runtime_yaml),
-            "sha256": "c6b8cafbffe8b13500b152719ebd8547ca5b01bacabe9be5b09afa3b41e5858d",
+            "sha256": "ab7967545004999a3f6a75b918570d234d1cf03fbafb46008f0b3d4ba272290b",
         },
     ]
     capture_marker = REPO / "logs/temporal_grounding/tg1a/normal_capture_complete.json"
@@ -8564,7 +8566,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             str(REPO / tg1a["checkpoint"]["path"]),
             str(tg1a_runner),
             str(tg1a_yaml),
-            str(runtime_path),
+            str(runtime_v4_path),
             str(tg1a_runtime_yaml),
         ]
         if condition == "shuffled":
@@ -8579,7 +8581,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "id": task_id,
                 "priority": 0,
                 "description": f"Frozen TG1A {condition} evaluation",
-                "rearm_after_ready_file": str(runtime_path),
+                "rearm_after_ready_file": str(runtime_v4_path),
                 "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                 "completion_min_count": 24,
                 "ready_files": ready_files,
@@ -8606,7 +8608,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1b_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1b_east_4h20.yaml"
     tg1b_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v3_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v4_4h20.yaml"
     )
     tg1b_hashes = [
         {"path": str(tg1b_path), "sha256": manifest_hashes[tg1b_path]},
@@ -8618,10 +8620,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "path": str(tg1b_yaml),
             "sha256": tg1b["file_sha256"][str(tg1b_yaml.relative_to(REPO))],
         },
-        {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
+        {"path": str(runtime_v4_path), "sha256": manifest_hashes[runtime_v4_path]},
         {
             "path": str(tg1b_runtime_yaml),
-            "sha256": "80d6c61e70c4aaa7f23c0509a77558d04c0d527164256a650afe699db1c62713",
+            "sha256": "df11a4211e79b2689837e5dcdbaf1ea50c0d8166184abbe30924d0402521ac80",
         },
     ]
     for checkpoint_arm in ("future_off", "local_wm"):
@@ -8640,7 +8642,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 1,
                     "description": f"Frozen TG1B {checkpoint_arm} E={cadence} evaluation",
-                    "rearm_after_ready_file": str(runtime_path),
+                    "rearm_after_ready_file": str(runtime_v4_path),
                     "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                     "completion_min_count": 24,
                     "ready_files": [
@@ -8649,7 +8651,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(checkpoint),
                         str(tg1b_runner),
                         str(tg1b_yaml),
-                        str(runtime_path),
+                        str(runtime_v4_path),
                         str(tg1b_runtime_yaml),
                     ],
                     "ready_hashes": tg1b_hashes,
@@ -8713,7 +8715,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "path": str(north_yaml),
             "sha256": "1185896575f6d42283ec09d7afa1ae874c2fc90d8f3c2ae39ed23363b61b1758",
         },
-        {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
+        {"path": str(runtime_v3_path), "sha256": manifest_hashes[runtime_v3_path]},
         {
             "path": str(east_runtime_yaml),
             "sha256": "ab23b822a4cd82e37df51b360dd53ac00c6309a0e7c287005ea4574a166e7e90",
@@ -8735,7 +8737,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 2,
                     "description": f"Frozen TG2 arm={arm} seed={seed} training",
-                    "rearm_after_ready_file": str(runtime_path),
+                    "rearm_after_ready_file": str(runtime_v3_path),
                     "completion_locations": [
                         {
                             "label": "east",
@@ -8759,7 +8761,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(tg2_runner),
                         str(east_yaml),
                         str(north_yaml),
-                        str(runtime_path),
+                        str(runtime_v3_path),
                         str(east_runtime_yaml),
                         str(north_runtime_yaml),
                     ],

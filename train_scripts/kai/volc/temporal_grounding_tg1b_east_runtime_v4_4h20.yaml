@@ -1,0 +1,85 @@
+TaskName: "temporal-grounding-tg1b-east4g"
+Description: "Frozen TG1B execution-cadence diagnostic with pinned policy runtime"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: TG1B_CHECKPOINT_ARM
+    Value: "future_off"
+  - Name: TG1B_EXECUTION_CADENCE
+    Value: "36"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR="$REPO/logs/temporal_grounding/entrypoint"
+  mkdir -p "$LOG_DIR"
+  LOG_FILE="$LOG_DIR/tg1b_${TG1B_CHECKPOINT_ARM}_e${TG1B_EXECUTION_CADENCE}_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG_FILE") 2>&1
+  echo "TG1B_ENTRYPOINT_START arm=$TG1B_CHECKPOINT_ARM cadence=$TG1B_EXECUTION_CADENCE host=$(hostname)"
+  git config --global --add safe.directory "$REPO"
+  git config --global --add safe.directory "$REPO/lmvla/lawam"
+  test -f "$REPO/logs/resource_markers/robotwin_renderer_east.ok"
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  export STAR_VLA_PYTHON=/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python
+  test -x "$STAR_VLA_PYTHON"
+  cd "$REPO/lmvla/lawam"
+  "$STAR_VLA_PYTHON" - <<'PY'
+  import sys
+  import transformers
+  from transformers import AutoProcessor
+  processor = AutoProcessor.from_pretrained(
+      "results/Checkpoints/qwen3_weights", local_files_only=True
+  )
+  assert type(processor).__name__ == "Qwen3VLProcessor", type(processor).__name__
+  assert hasattr(processor, "tokenizer")
+  print(
+      "TG_POLICY_RUNTIME_OK",
+      sys.executable,
+      transformers.__version__,
+      type(processor).__name__,
+      type(processor.tokenizer).__name__,
+  )
+  PY
+  cd "$REPO"
+  export ROBOTWIN_PATH=/vePFS/HuanQian/RoboTwin
+  export ROBOTWIN_PYTHON="$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh"
+  export TORCH_CUDA_ARCH_LIST=9.0
+  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/eval/run_temporal_grounding_tg1b_formal.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"
