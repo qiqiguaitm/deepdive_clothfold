@@ -300,6 +300,13 @@ EAST_TRAIN_WATCH_TASKS = {
         "expected_steps": 50000,
     },
 }
+for seed in (1000, 1001, 1002):
+    EAST_TRAIN_WATCH_TASKS[f"tg2_fixed_endpoint_seed{seed}"] = {
+        "log_glob": REPO
+        / "logs/temporal_grounding/entrypoint"
+        / f"tg2_fixed_endpoint_s{seed}_east_*.log",
+        "expected_steps": 20000,
+    }
 NORTH_TRAIN_WATCH_TASKS = {
     variant: {
         "log_glob": (
@@ -310,6 +317,16 @@ NORTH_TRAIN_WATCH_TASKS = {
     }
     for variant in ("nowm", "combo")
 }
+for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+    for seed in (1000, 1001, 1002):
+        NORTH_TRAIN_WATCH_TASKS[f"tg2_{arm}_seed{seed}"] = {
+            "log_glob": (
+                "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
+                "logs/temporal_grounding/entrypoint/"
+                f"tg2_{arm}_s{seed}_north_*.log"
+            ),
+            "expected_steps": 20000,
+        }
 NORTH_TRAIN_WATCH_TASKS["pi05_a0_public_recipe"] = {
     "log_glob": (
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/logs/"
@@ -400,6 +417,15 @@ TRAIN_WATCH_MANAGED_TASK_IDS = {
     ("Beijing", "heldout_fold0"): "lawam_heldout_predictor_fold0",
     ("Beijing", "heldout_fold1"): "lawam_heldout_predictor_fold1",
 }
+for seed in (1000, 1001, 1002):
+    TRAIN_WATCH_MANAGED_TASK_IDS[
+        ("Robot-East-H20", f"tg2_fixed_endpoint_seed{seed}")
+    ] = f"temporal_grounding_tg2_fixed_endpoint_seed{seed}_train"
+for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+    for seed in (1000, 1001, 1002):
+        TRAIN_WATCH_MANAGED_TASK_IDS[
+            ("Beijing", f"tg2_{arm}_seed{seed}")
+        ] = f"temporal_grounding_tg2_{arm}_seed{seed}_train"
 NORTH_WATCH_TASKS = {
     "pi05_a2_residual": ("pi05_rt_a2_residual_prefix_official_v4", 24),
     "pi05_a0": ("pi05_rt_a0_official_v2", 24),
@@ -13246,6 +13272,20 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
             managed = snapshot.get("scheduler_tasks", {}).get(managed_id, {})
             if managed_id and managed.get("status") != "running":
                 continue
+            if managed_id:
+                attempts = managed.get("attempts") or []
+                latest_attempt = attempts[-1] if attempts else {}
+                expected_resource = (
+                    "Robot-North-H20" if resource == "Beijing" else resource
+                )
+                if (
+                    latest_attempt.get("kind") == "platform"
+                    and (
+                        latest_attempt.get("last_state") != "Running"
+                        or latest_attempt.get("resource") != expected_resource
+                    )
+                ):
+                    continue
             rate = status.get("seconds_per_step")
             rate_text = (
                 f"{rate:.2f} s/step"

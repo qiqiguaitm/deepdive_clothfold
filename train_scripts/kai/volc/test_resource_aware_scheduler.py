@@ -5666,3 +5666,96 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         == {"Robot-East-H20"}
         for task in evals.values()
     )
+
+    for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+        for seed in (1000, 1001, 1002):
+            task_id = f"temporal_grounding_tg2_{arm}_seed{seed}_train"
+            north_label = f"tg2_{arm}_seed{seed}"
+            north_watch = scheduler.NORTH_TRAIN_WATCH_TASKS[north_label]
+            assert north_watch["expected_steps"] == 20000
+            assert f"tg2_{arm}_s{seed}_north_*.log" in north_watch["log_glob"]
+            assert scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[
+                ("Beijing", north_label)
+            ] == task_id
+
+            if arm == "fixed_endpoint":
+                east_label = f"tg2_fixed_endpoint_seed{seed}"
+                east_watch = scheduler.EAST_TRAIN_WATCH_TASKS[east_label]
+                assert east_watch["expected_steps"] == 20000
+                assert f"tg2_fixed_endpoint_s{seed}_east_*.log" in str(
+                    east_watch["log_glob"]
+                )
+                assert scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[
+                    ("Robot-East-H20", east_label)
+                ] == task_id
+
+
+def test_markdown_training_heartbeat_requires_platform_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(scheduler, "SNAPSHOT_MARKDOWN_PATH", tmp_path / "snapshot.md")
+    label = "tg2_future_off_seed1002"
+    task_id = scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[("Beijing", label)]
+    snapshot = {
+        "timestamp": "2026-08-07T00:00:00Z",
+        "resources": {
+            "beijing": {
+                "owned_active_gpus": 0,
+                "owned_queueing": [],
+                "active_gpus_all_users": 0,
+                "queueing_all_users": [],
+                "watched_tasks": {
+                    label: {
+                        "status": "STALE_LOG",
+                        "step": 100,
+                        "seconds_per_step": 2.0,
+                    }
+                },
+            },
+            "robot-task": {
+                "owned_active_gpus": 0,
+                "owned_queueing": [],
+                "active_gpus_all_users": 0,
+                "queueing_all_users": [],
+                "count": 0,
+                "free_count": 0,
+                "submission_enabled": False,
+                "watched_tasks": {},
+            },
+            "Robot-East-H20": {
+                "active_gpus_all_users": 0,
+                "queueing_all_users": [],
+                "watched_tasks": {},
+            },
+            "gf1": {"count": 0, "free_count": 0, "watched_tasks": {}},
+            "local": {"count": 0, "free_count": 0, "watched_tasks": {}},
+        },
+        "scheduler_tasks": {
+            task_id: {
+                "status": "running",
+                "attempts": [
+                    {
+                        "kind": "platform",
+                        "last_state": "Queueing",
+                        "resource": "Robot-North-H20",
+                    }
+                ],
+            }
+        },
+    }
+
+    scheduler.write_markdown_snapshot(snapshot)
+    assert f"`{label}`" not in scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
+
+    snapshot["scheduler_tasks"][task_id]["attempts"][-1]["last_state"] = "Running"
+    snapshot["scheduler_tasks"][task_id]["attempts"][-1]["resource"] = (
+        "Robot-East-H20"
+    )
+    scheduler.write_markdown_snapshot(snapshot)
+    assert f"`{label}`" not in scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
+
+    snapshot["scheduler_tasks"][task_id]["attempts"][-1]["resource"] = (
+        "Robot-North-H20"
+    )
+    scheduler.write_markdown_snapshot(snapshot)
+    assert f"`{label}`" in scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
