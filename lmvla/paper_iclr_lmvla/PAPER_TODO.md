@@ -72,6 +72,13 @@ Updated: 2026-08-07 07:36 UTC.
   Primary North quota had 9 GPUs free and backup quota had 20 GPUs free. The
   scheduler still owns admission; manual submission remains prohibited and
   no scheduler code or configuration was changed for this program.
+- North TG2 inputs were subsequently verified in place against the frozen
+  hashes. A detached clean worktree at outer `11fb843` and LaWAM `71803a3`
+  passed the 23-file TG2 runtime verifier without modifying the dirty North
+  development tree. Its scheduler-only candidate and audit are frozen in
+  `temporal_grounding_tg2_north_staging_amendment_v1.json`; the Volc request
+  body also passed dry-run validation. This makes North execution-ready but
+  does not authorize submission or count as GPU progress.
 
 ## TG1A: released LaWAM fixed-checkpoint content panel
 
