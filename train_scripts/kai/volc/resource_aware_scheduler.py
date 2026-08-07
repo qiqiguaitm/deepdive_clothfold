@@ -8315,7 +8315,7 @@ def add_pi05_predictive_adapter_p345_tasks(queue: dict[str, Any]) -> None:
                             "region": "cn-beijing",
                             "gpus": 4,
                             "queue_timeout_seconds": 300,
-                            "retry_cooldown_seconds": 900,
+                            "retry_cooldown_seconds": 60,
                             "yaml": "train_scripts/kai/volc/pi05_predictive_adapter_p3_a0_eval_north_4h20.yaml",
                             "task_name": f"pi05-p3-a0-s{seed}-eval-north4g",
                             "env": {"SEED": str(seed), "PORT_BASE_OFFSET": str(22400 + (seed - 1001) * 100)},

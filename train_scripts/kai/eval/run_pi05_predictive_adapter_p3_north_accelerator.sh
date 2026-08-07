@@ -9,6 +9,7 @@ MARKER=$STAGE/logs/resource_markers/pi05_predictive_adapter_p3_north_accelerator
 LOG_DIR=$STAGE/logs/predictive/p3_north_accelerator
 STAMP=$(date -u +%Y%m%d_%H%M%SZ)
 WAIT_SECONDS=${P3_ACCELERATOR_WAIT_SECONDS:-7200}
+LANES=${P3_ACCELERATOR_LANES:-1001:0,1001:1,1001:2,1001:3,1002:0,1002:1,1002:2,1002:3}
 
 mkdir -p "$LOG_DIR" "$(dirname "$MARKER")"
 exec >>"$LOG_DIR/launcher_${STAMP}.log" 2>&1
@@ -67,7 +68,7 @@ run_lane() {
     REPO="$STAGE" \
     SEED="$eval_seed" \
     GPU_INDEX="$gpu" \
-    WORKER_INDEX_OFFSET="$((32000 + training_seed * 20 + eval_seed))" \
+    WORKER_INDEX_OFFSET="$((100 + (training_seed - 1000) * 20 + eval_seed))" \
     PORT_BASE_OFFSET="$((30000 + gpu * 100))" \
     RESULT_NAME="$result_name" \
     ROBOTWIN_ATTACH_RUN_TAG="$run_tag" \
@@ -82,14 +83,18 @@ run_lane() {
 pids=()
 status=0
 gpu=0
-for training_seed in 1001 1002; do
-  for eval_seed in 0 1 2 3; do
-    run_lane "$training_seed" "$eval_seed" "$gpu" \
-      >"$LOG_DIR/train${training_seed}_eval${eval_seed}_${STAMP}.log" 2>&1 &
-    pids+=("$!")
-    gpu=$((gpu + 1))
-    sleep 5
-  done
+IFS=',' read -r -a lanes <<<"$LANES"
+for lane in "${lanes[@]}"; do
+  IFS=: read -r training_seed eval_seed extra <<<"$lane"
+  [[ -z "${extra:-}" && "$training_seed" =~ ^100[12]$ && "$eval_seed" =~ ^[0-3]$ ]] || {
+    echo "invalid P3 accelerator lane: $lane" >&2
+    exit 2
+  }
+  run_lane "$training_seed" "$eval_seed" "$gpu" \
+    >"$LOG_DIR/train${training_seed}_eval${eval_seed}_${STAMP}.log" 2>&1 &
+  pids+=("$!")
+  gpu=$((gpu + 1))
+  sleep 5
 done
 
 for pid in "${pids[@]}"; do
@@ -97,5 +102,7 @@ for pid in "${pids[@]}"; do
 done
 test "$status" -eq 0
 
-printf 'completed=%s\ntraining_seeds=1001,1002\nevaluation_seeds=0,1,2,3\nhelper_workers=8\n' \
-  "$(date -u +%FT%TZ)" >"$MARKER"
+printf 'completed=%s\ntraining_seeds=1001,1002\nevaluation_seeds=0,1,2,3\n' \
+  "$(date -u +%FT%TZ)" >"$MARKER.tmp"
+printf 'lanes=%s\nhelper_workers=%s\n' "$LANES" "${#lanes[@]}" >>"$MARKER.tmp"
+mv "$MARKER.tmp" "$MARKER"

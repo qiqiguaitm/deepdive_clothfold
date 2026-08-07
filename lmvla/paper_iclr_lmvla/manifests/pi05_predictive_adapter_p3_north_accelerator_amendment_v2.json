@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p3_north_accelerator_amendment_v2",
+  "created_at": "2026-08-07T01:00:00Z",
+  "status": "evaluation_acceleration_only",
+  "supersedes": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_north_accelerator_amendment_v1.json",
+    "sha256": "3c4dc884bc93a60044dbf90d343b3877b25c4c6097062adb2d228a70411677cc"
+  },
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_protocol.json",
+    "sha256": "77c1a891db99fcccaaabdf0e7f57d06069143544926358e753894014a8ab557f"
+  },
+  "authorization": {
+    "task": "pi05_predictive_adapter_p3_north_accelerator",
+    "resource": "Robot-North-H20",
+    "gpu_count": 4,
+    "lanes": ["1001:0", "1001:1", "1002:0", "1002:1"],
+    "helper_workers_per_selected_scheduler": 1,
+    "slots_per_worker": 1
+  },
+  "reason": "Only six North GPUs were physically free after the two canonical four-GPU parents started. Four balanced helper lanes were immediately runnable; waiting for an eight-GPU allocation would lengthen the critical path.",
+  "invariants": [
+    "The four helper GPUs attach to two evaluation-seed schedulers for each training seed, preserving balanced acceleration across the matched pair.",
+    "Each helper claims only pending whole tasks through the existing lock-protected scheduler; no episode is split or duplicated.",
+    "The canonical parent jobs remain the sole verifier, summarizer, and completion-marker owners.",
+    "The final checkpoints, model and action bridge, normalization, task set, evaluation seeds, fixed scene manifest, and accepted episode count remain unchanged.",
+    "The North stage runtime repair copied the already frozen evaluation scripts and bridge sources without changing any protocol or checkpoint artifact."
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "train_scripts/kai/eval/attach_pi05_a0_confirmatory_local.sh": "bb2878b90e0579d9727c61b296fdb94d070796f71e55c42b6605226096218615",
+    "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p3_north_accelerator.sh": "e14fa73a44cba5e635c4f0aa08348015872a57525638920c380742a924e2ed8e",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p3_eval_accelerator_north_4h20.yaml": "7966aba02799b4351ec2c05e1ba8b8a33013be3e39fdf1ae350cf564e2e72a22",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p3_eval_accelerator_north_8h20.yaml": "56714d67b65b54fe0acfce40990ed3da3d1beb59f193f88252f2449f30942baa"
+  }
+}

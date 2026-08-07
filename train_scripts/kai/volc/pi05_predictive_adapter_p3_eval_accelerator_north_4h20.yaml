@@ -1,0 +1,40 @@
+TaskName: "pi05-p3-eval-accelerator-north4g"
+Description: "Four balanced task-level helper workers for the two frozen P3 evaluations"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    SubPath: "/vis_robot"
+    MountPath: "/vePFS-North-E/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  ROOT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  STAGE=$ROOT/.staging/pi05_p1_failover_20260804T1034Z
+  exec env ROOT="$ROOT" P3_EVAL_REPO="$STAGE" P345_VERIFY_REPO="$ROOT" \
+    P3_ACCELERATOR_LANES="1001:0,1001:1,1002:0,1002:1" \
+    bash "$ROOT/train_scripts/kai/eval/run_pi05_predictive_adapter_p3_north_accelerator.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+AccessType: "Public"
