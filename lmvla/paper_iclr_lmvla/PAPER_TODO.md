@@ -108,7 +108,11 @@ but are not experiment progress: two are stuck Deploying and five are Queueing.
 The scheduler refuses
 to count them as current work and retries conservative cleanup, but the platform
 denies `StopJob`; their exact states are reported separately in the resource
-scheduler snapshot.
+scheduler snapshot. The five Queueing attempts remain schedulable when backup
+quota is released, including obsolete attempts for all three not-yet-running
+cells. They must be stopped through the platform console before that release to
+avoid duplicate execution or output-directory races; API credentials available
+to the scheduler cannot perform `StopJob` or `DeleteJob`.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
