@@ -7,6 +7,11 @@ LAWAM="$REPO/lmvla/lawam"
 CHECKPOINT_ARM="${TG1B_CHECKPOINT_ARM:?TG1B_CHECKPOINT_ARM must be future_off or local_wm}"
 CADENCE="${TG1B_EXECUTION_CADENCE:?TG1B_EXECUTION_CADENCE must be 36 or 50}"
 SCENES="$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"
+BUNDLE="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1b_admission_v1.json"
+
+"$REPO/kai0/.venv/bin/python" \
+  "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py" \
+  --repo "$REPO" --manifest "$BUNDLE" --bundle TG1B
 
 case "$CHECKPOINT_ARM" in
   future_off)

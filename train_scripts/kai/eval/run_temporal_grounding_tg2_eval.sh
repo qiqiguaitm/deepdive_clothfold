@@ -7,6 +7,11 @@ LAWAM="$REPO/lmvla/lawam"
 ARM="${TG2_ARM:?TG2_ARM must be future_off, fixed_endpoint, or raw_milestone}"
 TRAIN_SEED="${TG2_TRAIN_SEED:?TG2_TRAIN_SEED must be 1000, 1001, or 1002}"
 SCENES="$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"
+BUNDLE="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json"
+
+"$REPO/kai0/.venv/bin/python" \
+  "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py" \
+  --repo "$REPO" --manifest "$BUNDLE" --bundle TG2
 case "$ARM" in future_off|fixed_endpoint|raw_milestone) ;; *) exit 2 ;; esac
 case "$TRAIN_SEED" in 1000|1001|1002) ;; *) exit 2 ;; esac
 

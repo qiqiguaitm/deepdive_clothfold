@@ -10,6 +10,10 @@ DATA_MIX=robotwin2_lmwm_all6_v2
 DATASET="$LAWAM/dataset/robotwin2_lmwm_all6_v2_v30"
 MILESTONES="$REPO/lmvla/lmwm/data/robotwin_milestone_all6_v2"
 PY="$REPO/kai0/.venv/bin/python"
+BUNDLE="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json"
+
+"$PY" "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py" \
+  --repo "$REPO" --manifest "$BUNDLE" --bundle TG2
 
 case "$ARM" in
   future_off|fixed_endpoint|raw_milestone) ;;

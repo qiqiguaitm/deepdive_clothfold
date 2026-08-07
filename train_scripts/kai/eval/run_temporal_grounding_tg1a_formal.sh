@@ -12,6 +12,11 @@ FEATURE_ROOT="$REPO/logs/temporal_grounding/tg1a/predicted_endpoint_features"
 RESULT_ROOT="$LAWAM/results/eval_runs/robotwin/temporal_grounding_tg1a_${CONDITION}"
 LOG_DIR="$REPO/logs/temporal_grounding/tg1a/platform"
 STAMP="$(date -u +%Y%m%d_%H%M%S)"
+BUNDLE="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_admission_v1.json"
+
+"$REPO/kai0/.venv/bin/python" \
+  "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py" \
+  --repo "$REPO" --manifest "$BUNDLE" --bundle TG1A
 
 case "$CONDITION" in
   normal|shuffled|null|persistence) ;;
