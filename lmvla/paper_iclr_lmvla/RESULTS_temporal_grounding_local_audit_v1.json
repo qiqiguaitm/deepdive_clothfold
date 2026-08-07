@@ -1,0 +1,156 @@
+{
+  "protocol": "temporal_grounding_local_audit_v1",
+  "date_utc": "2026-08-07",
+  "evidence_class": "CPU-only descriptive source/data audit; no policy utility or causal mechanism claim",
+  "command": "python lmvla/lmwm/scripts/audit_temporal_grounding_contract.py",
+  "contracts": {
+    "released_lawam_robotwin_checkpoint": {
+      "data_mix": "robotwin_eef_30hz",
+      "fps": 30.0,
+      "fps_evidence": "frozen evaluator mapping; original release dataset directory is not local",
+      "sec_chunk": 1.2,
+      "padded_action_length": 50,
+      "valid_action_count_H": 36,
+      "last_valid_offset_h": 35,
+      "sampled_two_frame_offsets": [0, 35],
+      "executed_actions_per_query": 36,
+      "target_inside_executed_prefix": true
+    },
+    "completed_local_lmwm_all6_matrix": {
+      "data_mix": "robotwin2_lmwm_all6_v2",
+      "fps": 50.0,
+      "fps_evidence": "local frozen dataset meta/info.json",
+      "sec_chunk": 1.0,
+      "padded_action_length": 50,
+      "valid_action_count_H": 50,
+      "last_valid_offset_h": 49,
+      "sampled_two_frame_offsets": [0, 49],
+      "executed_actions_per_query": 36,
+      "target_inside_executed_prefix": false
+    },
+    "released_lawam_libero_recipe": {
+      "data_mix": "libero",
+      "fps": 20.0,
+      "fps_evidence": "local dataset meta/info.json",
+      "sec_chunk": 0.4,
+      "padded_action_length": 50,
+      "valid_action_count_H": 8,
+      "last_valid_offset_h": 7,
+      "sampled_two_frame_offsets": [0, 7],
+      "executed_actions_per_query": null
+    }
+  },
+  "tg1b_checkpoint_pair": {
+    "training_seed": 2027,
+    "data_mix": "robotwin2_lmwm_all6_v2",
+    "local_wm": "lmvla/lawam/results/Checkpoints/robotwin/20260730_234942+robotwin_all6_v2_local_seed2027/final_model/pytorch_model.pt",
+    "future_off": "lmvla/lawam/results/Checkpoints/robotwin/20260731_172204+robotwin_all6_v2_nowm_seed2027/final_model/pytorch_model.pt",
+    "identity_checks": {
+      "same_training_seed": true,
+      "same_data_mix": true,
+      "local_future_prediction_and_distillation_enabled": true,
+      "future_off_prediction_and_distillation_disabled": true
+    }
+  },
+  "milestone_artifact": {
+    "pairs": 420238,
+    "episodes": 1200,
+    "tasks": 6,
+    "checks": {
+      "unique_episode_frame_pairs": true,
+      "complete_per_episode_frame_coverage": true,
+      "target_not_before_current": true,
+      "target_inside_source_episode": true,
+      "target_sequence_monotone": true,
+      "one_task_per_episode": true,
+      "terminal_fallback_on_every_episode": true,
+      "source_audit_hash_matches": true
+    },
+    "global": {
+      "mean_horizon_frames": 117.446409,
+      "median_horizon_frames": 107.0,
+      "within_training_chunk_rate_h_le_49": 0.19351653,
+      "beyond_training_chunk_rate_h_gt_49": 0.80648347,
+      "within_executed_prefix_rate_h_le_35": 0.12504105,
+      "beyond_executed_prefix_rate_h_gt_35": 0.87495895,
+      "mean_g_training_h49": 2.396865,
+      "mean_g_execution_h35": 3.355612,
+      "adjacent_same_target_rate": 0.99424873,
+      "terminal_target_pair_rate": 0.32976075
+    },
+    "by_task": {
+      "hammer": {
+        "mean_horizon_frames": 53.641455,
+        "within_training_chunk_rate_h_le_49": 0.47699387,
+        "within_executed_prefix_rate_h_le_35": 0.34250657,
+        "adjacent_same_target_rate": 0.99734748,
+        "mean_distinct_targets_per_episode": 1.3
+      },
+      "handover": {
+        "mean_horizon_frames": 111.704214,
+        "within_training_chunk_rate_h_le_49": 0.19276494,
+        "within_executed_prefix_rate_h_le_35": 0.13601351,
+        "adjacent_same_target_rate": 0.99659384,
+        "mean_distinct_targets_per_episode": 1.965
+      },
+      "stack_two": {
+        "mean_horizon_frames": 114.769662,
+        "within_training_chunk_rate_h_le_49": 0.2204096,
+        "within_executed_prefix_rate_h_le_35": 0.14134755,
+        "adjacent_same_target_rate": 0.99417106,
+        "mean_distinct_targets_per_episode": 2.82
+      },
+      "ranking_rgb": {
+        "mean_horizon_frames": 120.035661,
+        "within_training_chunk_rate_h_le_49": 0.17845943,
+        "within_executed_prefix_rate_h_le_35": 0.10839976,
+        "adjacent_same_target_rate": 0.99313589,
+        "mean_distinct_targets_per_episode": 4.145
+      },
+      "ranking_size": {
+        "mean_horizon_frames": 122.766686,
+        "within_training_chunk_rate_h_le_49": 0.16453466,
+        "within_executed_prefix_rate_h_le_35": 0.10232563,
+        "adjacent_same_target_rate": 0.99345921,
+        "mean_distinct_targets_per_episode": 4.0
+      },
+      "stack_three": {
+        "mean_horizon_frames": 130.441189,
+        "within_training_chunk_rate_h_le_49": 0.15034894,
+        "within_executed_prefix_rate_h_le_35": 0.09326436,
+        "adjacent_same_target_rate": 0.99399623,
+        "mean_distinct_targets_per_episode": 3.82
+      }
+    }
+  },
+  "task_strata_frozen_before_new_policy_outcomes": {
+    "ordered_construction": [
+      "stack_blocks_two",
+      "stack_blocks_three",
+      "stack_bowls_two",
+      "stack_bowls_three"
+    ],
+    "reactive_contact": ["beat_block_hammer", "click_bell", "stamp_seal"],
+    "fine_grained_geometry": ["blocks_ranking_size", "place_object_scale"],
+    "relational_transfer": ["handover_block", "handover_mic"]
+  },
+  "sha256": {
+    "release_checkpoint": "a52031302c6dc5b813982227255add8d2acb839149a4b90908b179a8f66adbeb",
+    "release_config": "2ddf8f7af321ee166c7afb428460f65815d71d5bed2043e9ec7557ff216ab982",
+    "release_statistics": "1700bf8ca4eaddaa380a4786a58b09bdbf7474a6ef22fbe558e81c081e9599f0",
+    "tg1b_local_checkpoint": "29ecbc3ee19585b5d9f3d3aa4bade8842e4bb016f88a3f0a3c97646164be321d",
+    "tg1b_local_config": "b968f6614c5b28df598d694cc16c61adb59e5ac33074a13e95aa850f39ec6639",
+    "tg1b_future_off_checkpoint": "dfcf547f6d472a9540a71ea43f3da04925228cd7ccc17166290c68af04e6c538",
+    "tg1b_future_off_config": "b7c94758a0b9041f2d36c05357390088feea30fe17cf96726d0acd40ffc6c7fc",
+    "local_robotwin_info": "265da39a37405213f1ca0501de96b434672afdb2b618d44df9656429626f465d",
+    "libero_info": "005480d58e4e5d121851e55be5ca398a4c389b7c1dbbf341db91f0a5644f6e36",
+    "milestone_pairs": "592f1e739105951e927ab5f3afdd022a68aad31d779382ea760a4b1f4842a2a0",
+    "milestone_source_audit": "4353c725f7e55f9cb506da252df0495069643f2ea68321a556256cfc07f86ff6"
+  },
+  "limitations": [
+    "The original released RoboTwin training dataset is not present locally; its 30 Hz value is audited from the frozen evaluator mapping rather than original dataset metadata.",
+    "The release artifact does not include the exact original training source/config field for num_frames; [0,35] is the endpoint implied by the audited current two-frame loader rule, not an independent reconstruction of the original training sample stream.",
+    "The milestone pair schema indexes tgt_fi within cur_ep and does not store an independent tgt_ep field.",
+    "Temporal alignment and horizon distributions are descriptive and do not establish control utility or a temporal mechanism."
+  ]
+}

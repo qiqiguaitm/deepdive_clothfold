@@ -1,6 +1,6 @@
 # MINT-VLA Completed Evidence Archive
 
-Updated: 2026-08-06 10:10 UTC
+Updated: 2026-08-07 UTC
 
 This document preserves completed evidence and execution notes removed from
 `PAPER_TODO.md`. It is a lookup record, not an active task list. Canonical JSON
@@ -1706,3 +1706,68 @@ Canonical records:
 - `lmvla/lmwm/docs/pi05_predictive_adapter_p4_intervention_gate.json`
 - `lmvla/lmwm/docs/pi05_predictive_adapter_p5_public_paired.json`
 - `lmvla/paper_iclr_lmvla/PAPER_TODO.md` at commit `46244e7`
+
+## 41. CPU temporal-contract and milestone-horizon audit
+
+The result-independent TG0 audit completed locally on 2026-08-07. It loaded
+no policy and ran no rollout. All 420,238 frozen milestone pairs from 1,200
+episodes pass unique `(episode, frame)` coverage, within-episode target bounds,
+nonnegative horizon, monotone target sequence, one-task-per-episode, terminal
+fallback, and source-hash checks. The pair schema defines `tgt_fi` within
+`cur_ep`; it has no independent `tgt_ep` field.
+
+The audit corrects the earlier approximate action-horizon description. The
+released RoboTwin LaWAM checkpoint uses the `robotwin_eef_30hz` contract with
+`sec_chunk=1.2`, so it has 36 valid actions and last offset 35; the frozen
+evaluator executes 36 actions per query. The released checkpoint's
+SHA-256 is
+`a52031302c6dc5b813982227255add8d2acb839149a4b90908b179a8f66adbeb`.
+Under the audited current two-frame loader rule, the sampled offsets would be
+`[0,35]`. The original released training dataset and exact training source are
+not present locally, so 30 Hz is verified from the frozen evaluator mapping
+rather than its original `meta/info.json`, and `[0,35]` is not an independent
+reconstruction of the original sample stream.
+
+The completed local all6 LMWM matrix obeys a different contract. Its local
+dataset metadata reports 50 Hz and its recipe uses `sec_chunk=1.0`, yielding
+50 valid training actions and last offset 49, while the historical evaluator
+executes only the first 36 actions before replanning. Thus the local fixed
+future target is aligned with the model's training window but not with the
+historical executed prefix. This distinction invalidates any blanket claim
+that every historical local-WM condition shared the released checkpoint's
+execution alignment.
+
+Across the milestone artifact, the mean raw target horizon is 117.45 frames
+and the median is 107. Only 19.35% of pairs fall within the local 50-action
+training chunk (`tau(t)-t <= 49`), and 12.50% fall within the 36-action
+executed prefix (`tau(t)-t <= 35`). Task means and within-window rates are:
+
+| Task | Mean horizon (frames) | Within training chunk (%) | Within executed prefix (%) | Mean targets/episode |
+|---|---:|---:|---:|---:|
+| Hammer | 53.64 | 47.70 | 34.25 | 1.30 |
+| Handover | 111.70 | 19.28 | 13.60 | 1.97 |
+| Stack two | 114.77 | 22.04 | 14.13 | 2.82 |
+| Ranking RGB | 120.04 | 17.85 | 10.84 | 4.15 |
+| Ranking size | 122.77 | 16.45 | 10.23 | 4.00 |
+| Stack three | 130.44 | 15.03 | 9.33 | 3.82 |
+
+Consecutive frames retain the same target 99.42% of the time. The milestone
+condition therefore supplies a persistent, usually multi-chunk target without
+an explicit time-to-go. These results establish target-time distributions and
+contract differences only. They do not show that temporal mismatch causes a
+control regression or that released LaWAM uses correct future content.
+
+The two same-seed checkpoints required for the GPU cadence diagnostic also
+pass local identity checks. Both use training seed 2027 and the exact
+`robotwin2_lmwm_all6_v2` data mix. The local-WM checkpoint enables future
+prediction and distillation and has SHA-256
+`29ecbc3ee19585b5d9f3d3aa4bade8842e4bb016f88a3f0a3c97646164be321d`;
+the future-off checkpoint disables both and has SHA-256
+`dfcf547f6d472a9540a71ea43f3da04925228cd7ccc17166290c68af04e6c538`.
+This closes checkpoint selection locally but supplies no new rollout evidence.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_local_audit_v1.json`
+- `lmvla/lmwm/scripts/audit_temporal_grounding_contract.py`
+- `lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/AUDIT.json`

@@ -21,13 +21,16 @@ The new paper asks a broader and testable question:
 > When does a predicted future representation provide a usable constraint for
 > fixed-horizon VLA action generation?
 
-The proposed explanation is temporal grounding. LaWAM predicts the visual
-state at the endpoint of the action chunk. Recurrence milestones represent
-later task stages at variable, often multi-chunk horizons. A distant subgoal
-may identify eventual progress without specifying how much progress the
-current chunk should make. This explanation is not yet a result; the new
-experiments must distinguish it from predictor error, extra capacity,
-pretraining, gradient shaping, and task heterogeneity.
+The proposed explanation is temporal grounding. The released RoboTwin LaWAM
+contract has a 36-action model window and executes 36 actions per query; under
+the current two-frame loader rule, its fixed future is the coincident endpoint.
+Recurrence milestones represent later task stages at variable, usually
+multi-chunk horizons. A distant subgoal may identify eventual progress without
+specifying how much progress the current chunk should make. This explanation
+is not yet a result; the new experiments must distinguish it from predictor
+error, extra capacity, pretraining, gradient shaping, execution cadence, and
+task heterogeneity. The original released training dataset and exact training
+source are not local, so the new protocol must retain this provenance limit.
 
 ## 2. Systems and terminology
 
@@ -36,8 +39,8 @@ Use the following names consistently:
 - **LaWAM system:** the released architecture, pretraining, fixed-near-future
   target, and action expert. A public system score does not isolate any one
   component.
-- **Fixed-endpoint condition:** the LaWAM-style target sampled at `t+H`, where
-  `H` is the valid action-chunk horizon.
+- **Fixed-endpoint condition:** the LaWAM-style target sampled at `t+h`, where
+  `H` is the valid action count and `h=H-1` is its last discrete offset.
 - **LMWM:** the historical LaWAM testbed that replaces or augments the fixed
   target with a recurrence-defined milestone. Historical experiments are
   diagnostic unless they meet the new matched-seed protocol.
@@ -55,18 +58,25 @@ representation` or `latent visual subgoal` where exact.
 
 ### Established and admissible
 
-1. LaWAM's loader and runtime align the future frame and valid action window in
-   physical time.
-2. Recurrence milestones have variable horizons and no time-to-go; frozen
-   RoboTwin task means range from 53.6 to 130.4 frames against an approximately
-   30-action chunk.
-3. MINT prediction is nontrivial: latent cosine is 0.8134 versus 0.7479 for
+1. The released RoboTwin LaWAM checkpoint has 36 valid actions at 30 Hz over
+   1.2 s (`h=35`), and its evaluator executes 36 actions per query. Under the
+   audited current two-frame loader rule, the public contract is endpoint-
+   aligned; the exact original training sample stream is not independently
+   reconstructed.
+2. The historical local all6 LMWM matrix is different: 50 Hz over 1.0 s gives
+   50 valid training actions (`h=49`), but its evaluator executes only 36
+   actions before replanning. Its fixed target is not the endpoint of the
+   executed prefix.
+3. Recurrence milestones have variable horizons and no time-to-go. Their task
+   means range from 53.64 to 130.44 frames; only 19.35% fall within the local
+   50-action training chunk and 12.50% within the executed 36-action prefix.
+4. MINT prediction is nontrivial: latent cosine is 0.8134 versus 0.7479 for
    persistence.
-4. MINT control utility is rejected: -8.58 points versus matched no hint, with
+5. MINT control utility is rejected: -8.58 points versus matched no hint, with
    95% interval `[-11.47,-5.75]`, and all six tasks regress.
-5. Correct-content and privileged controls do not establish action
+6. Correct-content and privileged controls do not establish action
    sufficiency.
-6. A +11.61-point fixed-A0 adapter result becomes +1.94 points with interval
+7. A +11.61-point fixed-A0 adapter result becomes +1.94 points with interval
    `[-5.78,+12.75]` after independent matched A0 training.
 
 ### Descriptive or hypothesis-generating only
@@ -80,6 +90,9 @@ representation` or `latent visual subgoal` where exact.
    tasks, but duration, stage count, and horizon are confounded.
 4. Timeout-heavy failures are compatible with an under-specified long-horizon
    condition, but no trajectory-level causal analysis establishes that link.
+5. The historical local fixed target lies beyond the executed prefix. This is
+   a measured protocol mismatch, not evidence that it caused the local-WM
+   regression.
 
 ### Prohibited before new gates
 
@@ -143,9 +156,10 @@ evidence.
 Contribution order should reflect the scientific question, not development
 history:
 
-1. **Temporal contract.** Formalize the relation between valid action count
-   `H`, last sampled offset `h=H-1`, future-target horizon `tau(t)-t`, target
-   content, and the action expert's conditioning interface.
+1. **Temporal contract.** Formalize the relation between valid model action
+   count `H`, executed actions per query `E`, their last offsets, future-target
+   horizon `tau(t)-t`, target content, and the action expert's conditioning
+   interface.
 2. **Causal evaluation.** Introduce matched training seeds and fixed-checkpoint
    content, route, persistence, oracle, and time interventions that separate
    representation prediction, training-package utility, and content use.
@@ -165,19 +179,24 @@ Let the action expert predict a chunk with `H` valid actions
 
 `A_t = (a_t, ..., a_{t+H-1})`.
 
-and let `h=H-1` denote the last sampled discrete offset under the released
-loader. Let a future-conditioning module produce target representation
+and let `h_H=H-1` denote its last sampled discrete offset. Let the evaluator
+execute `E <= H` actions before querying the policy again, with
+`h_E=E-1`. The released RoboTwin checkpoint has `H=E=36`; the completed local
+all6 matrix has `H=50` and `E=36`. Let a future-conditioning module produce
+target representation
 
 `z_t^* = E(o_{tau(t)})`
 
 and prediction `z_hat_t`. Define normalized temporal displacement
 
-`g_t = (tau(t)-t)/h`.
+`g_t^H = (tau(t)-t)/h_H` and `g_t^E = (tau(t)-t)/h_E`.
 
-- Fixed endpoint: `g_t = 1` by construction and target `z_{t+h}`.
-- Within-chunk target: `0 < g_t <= 1`.
-- Multi-chunk milestone: `g_t > 1`.
-- Unspecified milestone: the policy receives `z_hat_t` but not `g_t`.
+- Training-window endpoint: `g_t^H = 1` and target `z_{t+h_H}`.
+- Executed-prefix endpoint: `g_t^E = 1` and target `z_{t+h_E}`.
+- Execution-aligned condition: `H=E` and the two endpoints coincide.
+- Multi-query milestone: `g_t^E > 1`.
+- Unspecified milestone: the policy receives `z_hat_t` but neither temporal
+  displacement.
 
 The paper separates four questions:
 
@@ -192,8 +211,9 @@ No answer implies another.
 
 ### Experiment 1: establish the temporal contracts
 
-Report the LaWAM chunk endpoint and the milestone `g_t` distribution without
-policy outcomes. This is a descriptive result and the first panel of Figure 1.
+Report `H`, `E`, both endpoints, and the milestone `g_t^H` and `g_t^E`
+distributions without policy outcomes. This CPU-only descriptive result is
+complete and belongs in the first panel of Figure 1.
 
 ### Experiment 2: test whether LaWAM uses future content
 
@@ -205,9 +225,10 @@ route or capacity, constrains actions.
 
 ### Experiment 3: compare training targets under one architecture
 
-Train future-off, fixed endpoint, and raw milestone at matched seeds. This is
-the primary policy table. It answers whether active future prediction helps
-and whether target horizon changes the effect.
+Train future-off, fixed endpoint, and raw milestone at matched seeds with
+`E=H` frozen before training. This is the primary policy table. It answers
+whether active future prediction helps and whether target horizon changes the
+effect without inheriting the historical 50-versus-36 contract mismatch.
 
 ### Experiment 4: intervene on temporal grounding
 
@@ -269,7 +290,8 @@ the original paper and released code have been verified.
 
 ### 3. Temporal contract: 0.8 pages
 
-- Define `H`, `tau(t)`, `g_t`, target content, and action chunk.
+- Define `H`, `E`, `tau(t)`, both normalized displacements, target content,
+  training window, and executed prefix.
 - Show why a fixed endpoint is a boundary condition while a variable milestone
   is a high-level subgoal.
 - State that a multi-chunk target can still help if timing or a hierarchical
@@ -329,8 +351,10 @@ One result, one implication, one boundary. Do not end by marketing MINT.
 
 Four panels:
 
-1. A fixed action chunk with `H` actions and last sampled index `t+h`.
-2. LaWAM target at the chunk endpoint.
+1. A model window with `H` actions, an executed prefix with `E` actions, and
+   their last sampled indices.
+2. The released LaWAM target at the coincident `H=E=36` endpoint and the
+   historical local `H=50,E=36` distinction.
 3. Recurrence milestone targets at variable `tau(t)`, with within- and
    multi-chunk examples.
 4. The evidence ladder: prediction, package utility, content use, temporal use.
@@ -340,8 +364,9 @@ accepted effect and interval.
 
 ### Figure 2: target-horizon distributions
 
-Show per-task distributions of `g_t`, not only means. Mark `g=1`, report sample
-counts, and use task strata rather than outcome-selected ordering.
+Show per-task distributions of `g_t^H` and `g_t^E`, not only means. Mark
+`g=1`, report sample counts, and use task strata rather than outcome-selected
+ordering.
 
 ### Figure 3: matched policy effects
 
@@ -423,12 +448,17 @@ captions defining `n`, seeds, resampling, intervals, and multiplicity control.
 9. Run claim-to-artifact audit, page-limit build, citation audit, and anonymous
    artifact-link check.
 
-## 14. Immediate non-execution actions
+## 14. Current handoff
 
-1. Complete TG0 protocol and artifact audit without policy rollout.
-2. Verify the exact released LaWAM checkpoint and intervention hook required by
-   TG1.
-3. Draft frozen TG1/TG2 manifests and analysis schema for review.
-4. Estimate training/evaluation cost without submitting jobs.
-5. Keep the current manuscript unchanged until the protocol is frozen and the
-   user explicitly authorizes the new evidence program for scheduler intake.
+The CPU temporal-contract and milestone audit is complete. Its canonical
+summary is `RESULTS_temporal_grounding_local_audit_v1.json`; the full
+reproducible command is
+`python lmvla/lmwm/scripts/audit_temporal_grounding_contract.py`. The active
+`PAPER_TODO.md` now contains only GPU training and closed-loop evaluation.
+
+Each GPU item still requires an immutable admission bundle containing its
+intervention hook, source and checkpoint hashes, paired scene manifest, report
+schema, analysis command, resource estimate, and stop rule. Preparing and
+admitting that bundle does not authorize manual launch. Keep the current
+claim-bearing manuscript unchanged until the GPU gates select an admissible
+paper branch.
