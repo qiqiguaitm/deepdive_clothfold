@@ -8519,6 +8519,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v6_path = manifests / "temporal_grounding_runtime_amendment_v6.json"
     runtime_v7_path = manifests / "temporal_grounding_runtime_amendment_v7.json"
     runtime_v8_path = manifests / "temporal_grounding_runtime_amendment_v8.json"
+    posttraining_path = manifests / "temporal_grounding_tg2_posttraining_pipeline_v1.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8531,6 +8532,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v6_path: "3b165566d2098133b5c1992996a5323b501354332474606564db8f19fd2d74db",
         runtime_v7_path: "13dac0becb33bbc4b36ccaba459ee2817374023d7d59f746d1344bf6f342c61f",
         runtime_v8_path: "597459d4c346830416637b64eb0a14857affbdd8922840b969761c1b6522e678",
+        posttraining_path: "590e80cb71faf191a9278a75d783b3b221518373a934a8013fe20ba9e4709bd4",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8539,6 +8541,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1a = json.loads(tg1a_path.read_text())
     tg1b = json.loads(tg1b_path.read_text())
     tg2 = json.loads(tg2_path.read_text())
+    posttraining = json.loads(posttraining_path.read_text())
+    posttraining_hashes = [
+        {"path": str(posttraining_path), "sha256": manifest_hashes[posttraining_path]},
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in posttraining["files"].items()
+        ),
+    ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
 
     tg1a_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg1a_formal.sh"
@@ -8852,6 +8862,142 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             )
             existing.add(task_id)
 
+    materialize_ids = []
+    sync_script = REPO / "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh"
+    sync_tree_script = REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"
+    for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+        for seed in (1000, 1001, 1002):
+            parent_id = f"temporal_grounding_tg2_{arm}_seed{seed}_train"
+            task_id = f"{parent_id}_materialize_north"
+            materialize_ids.append(task_id)
+            if task_id in existing:
+                continue
+            marker = REPO / "logs/resource_markers" / f"{parent_id}_materialized.ok"
+            queue["tasks"].append(
+                {
+                    "id": task_id,
+                    "priority": 2,
+                    "description": f"Materialize North TG2 arm={arm} seed={seed}",
+                    "materialize_north_result_for": parent_id,
+                    "completion_glob": str(marker),
+                    "completion_min_count": 1,
+                    "ready_files": [
+                        str(posttraining_path),
+                        str(sync_script),
+                        str(sync_tree_script),
+                    ],
+                    "ready_hashes": posttraining_hashes,
+                    "candidates": [
+                        {
+                            "kind": "local",
+                            "resource": "local",
+                            "gpus": 0,
+                            "retry_cooldown_seconds": 300,
+                            "max_failures": 1,
+                            "status_dir": str(
+                                REPO / "logs/temporal_grounding/tg2/materialize" / f"{arm}_seed{seed}"
+                            ),
+                            "command": shlex.join(
+                                [
+                                    "env",
+                                    f"TG2_ARM={arm}",
+                                    f"TG2_TRAIN_SEED={seed}",
+                                    "bash",
+                                    str(sync_script),
+                                ]
+                            ),
+                        }
+                    ],
+                }
+            )
+            existing.add(task_id)
+
+    integrity_id = "temporal_grounding_tg2_training_integrity"
+    integrity_marker = (
+        REPO / "logs/resource_markers/temporal_grounding_tg2_training_integrity.ok"
+    )
+    integrity_script = REPO / "train_scripts/kai/run_temporal_grounding_tg2_integrity.sh"
+    seed_audit = (
+        REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py"
+    )
+    if integrity_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": integrity_id,
+                "priority": 2,
+                "description": "Run joint TG2 checkpoint and seed-independence audits",
+                "requires_completed_tasks": materialize_ids,
+                "completion_glob": str(integrity_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(posttraining_path),
+                    str(integrity_script),
+                    str(seed_audit),
+                    str(REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py"),
+                ],
+                "ready_hashes": posttraining_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 1,
+                        "status_dir": str(REPO / "logs/temporal_grounding/tg2/integrity"),
+                        "command": shlex.join(["bash", str(integrity_script)]),
+                    }
+                ],
+            }
+        )
+        existing.add(integrity_id)
+
+    eval_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_eval_east_4h20.yaml"
+    eval_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg2_eval.sh"
+    renderer_marker = REPO / "logs/resource_markers/robotwin_renderer_east.ok"
+    for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+        for seed in (1000, 1001, 1002):
+            task_id = f"temporal_grounding_tg2_{arm}_seed{seed}_eval"
+            if task_id in existing:
+                continue
+            result_root = (
+                REPO
+                / "lmvla/lawam/results/eval_runs/robotwin"
+                / f"temporal_grounding_tg2_{arm}_seed{seed}"
+            )
+            queue["tasks"].append(
+                {
+                    "id": task_id,
+                    "priority": 3,
+                    "description": f"Frozen TG2 arm={arm} seed={seed} paired evaluation",
+                    "requires_completed_tasks": [integrity_id],
+                    "completion_glob": str(result_root / "seed*/**/summary.json"),
+                    "completion_min_count": 24,
+                    "ready_files": [
+                        str(posttraining_path),
+                        str(integrity_marker),
+                        str(eval_runner),
+                        str(eval_yaml),
+                        str(renderer_marker),
+                    ],
+                    "ready_hashes": posttraining_hashes,
+                    "candidates": [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-East-H20",
+                            "region": "cn-shanghai",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 180,
+                            "retry_cooldown_seconds": 900,
+                            "max_failures": 1,
+                            "yaml": str(eval_yaml.relative_to(REPO)),
+                            "task_name": f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-eval-east4g",
+                            "env": {"TG2_ARM": arm, "TG2_TRAIN_SEED": str(seed)},
+                        }
+                    ],
+                }
+            )
+            existing.add(task_id)
+
 
 def validate_queue(queue: dict[str, Any]) -> None:
     """Reject queue edits that would silently invalidate confirmatory evidence."""
@@ -8861,6 +9007,14 @@ def validate_queue(queue: dict[str, Any]) -> None:
         raise ValueError("resource queue contains duplicate task ids")
 
     tasks_by_id = {task["id"]: task for task in tasks}
+    for task in tasks:
+        missing_dependencies = sorted(
+            set(task.get("requires_completed_tasks", [])) - tasks_by_id.keys()
+        )
+        if missing_dependencies:
+            raise ValueError(
+                f"{task['id']} requires unknown tasks: {', '.join(missing_dependencies)}"
+            )
     router_catalog = submission_router.load_json(submission_router.DEFAULT_CATALOG)
     router_resources = set(router_catalog.get("resources", {}))
     for task in tasks:
@@ -13741,6 +13895,16 @@ def dispatch(
             continue
         task_state = state["tasks"][task["id"]]
         if task_state["status"] != "pending":
+            continue
+        incomplete_dependencies = [
+            task_id
+            for task_id in task.get("requires_completed_tasks", [])
+            if state["tasks"].get(task_id, {}).get("status") != "completed"
+        ]
+        if incomplete_dependencies:
+            task_state["waiting_reason"] = (
+                "waiting for completed tasks: " + ", ".join(incomplete_dependencies)
+            )
             continue
         parent_id = task.get("materialize_north_result_for")
         if parent_id and north_materialization_required(

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_tg2_posttraining_pipeline_v1",
+  "extends": [
+    "temporal_grounding_tg2_admission_v1",
+    "temporal_grounding_tg2_seed_independence_amendment_v1"
+  ],
+  "created_at": "2026-08-07T14:49:42Z",
+  "scope": "TG2 post-training materialization, integrity gating, and frozen evaluation orchestration",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "execution_owner": "resource_aware_scheduler",
+  "pipeline": [
+    "For every training parent completed on North, transfer the complete run tree into an incoming directory, verify every source hash, and atomically install it on East.",
+    "For a training parent completed on East, satisfy materialization without a transfer.",
+    "Require all nine materialization tasks before running the frozen matrix-integrity verifier and the seed-independence extension.",
+    "Require the joint integrity marker before releasing any of the nine frozen 1,200-episode evaluation jobs.",
+    "Run evaluations only on Robot-East-H20, where the admitted renderer and materialized checkpoints are available."
+  ],
+  "safety": [
+    "An existing incomplete destination is never deleted or overwritten.",
+    "North transfers are serialized by a shared file lock and installed only after full-tree hash verification.",
+    "Final model and optimizer state must each exceed one billion bytes and trainer_state must report exactly step 20000.",
+    "Evaluation cannot become resource-eligible from checkpoint existence alone; both integrity audits must pass."
+  ],
+  "files": {
+    "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh": "63717c4d2a5c796fd936ea80ffda61e03ed3e5ff5616e8effbccf8c137d1e6b4",
+    "train_scripts/kai/run_temporal_grounding_tg2_integrity.sh": "2b726405c15da9ea516aeeda112f90617d88d82a7231cc4897320cdf13a154e2",
+    "train_scripts/kai/sync_tree_from_north_verified.sh": "b2b233c1d92f68582fc25dccd1df3837c1e40a4472ec93cbdf7719712a1e3a63",
+    "train_scripts/kai/eval/run_temporal_grounding_tg2_eval.sh": "34f867b736baf89e6fccc06db26f618fb47b315d7b7e0180d1aa3195f50275b9",
+    "train_scripts/kai/volc/temporal_grounding_tg2_eval_east_4h20.yaml": "b5d4e80684c17347e2efd93aebc551b283d2e94205d0cd7514eb91a1710feb33",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py": "b3acf4584368a114e7d2e3edf7740ed7bffe204fd053003a5856b5322a717710",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py": "74325ed6c9f4f93519f1653252c185f6c7d3d28f5e1340056d94a3015c5dcd34",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json": "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_seed_independence_amendment_v1.json": "83cfad44a5f54b17d3c086e04807ee596948779844e59673a314de2811d73599"
+  }
+}

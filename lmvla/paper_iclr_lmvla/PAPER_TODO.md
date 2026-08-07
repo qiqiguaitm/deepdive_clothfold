@@ -72,6 +72,7 @@ The following immutable admission bundles are frozen and were reverified on
 | TG2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json` | 23 | Passed |
 | TG2 North staging | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_north_staging_amendment_v1.json` | 23 | Passed in detached clean worktree |
 | TG2 seed independence | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_seed_independence_amendment_v1.json` | Post-training audit | Admitted; awaits nine data-order records |
+| TG2 post-training pipeline | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_posttraining_pipeline_v1.json` | Runtime-only | Admitted; nine materializers, joint gate, and nine evals registered |
 | Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
 | Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
 | Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |
@@ -326,6 +327,13 @@ tree, trainable tree, within-seed initialization payload, exact rank data order,
 cross-seed order distinction, normalization, optimizer parameter/state, target
 coverage, and final-checkpoint checks. These CPU audits are automatic
 dependencies, not GPU TODO items.
+
+The scheduler now owns this entire transition. A checkpoint completed on North
+is copied through a hash-verified incoming directory and atomically installed
+on East; an East checkpoint requires no transfer. Transfers are serialized,
+and an existing incomplete destination is never overwritten. Only after all
+nine location-aware materializers and both integrity audits complete can any
+TG2 evaluation enter resource recommendation.
 
 ### Evaluation jobs
 

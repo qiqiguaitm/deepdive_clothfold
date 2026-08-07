@@ -2245,6 +2245,42 @@ def test_dispatch_does_not_materialize_pending_north_parent(
     )
 
 
+def test_dispatch_waits_for_all_required_completed_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependencies = [
+        {"id": "first", "priority": 0, "enabled": False},
+        {"id": "second", "priority": 0, "enabled": False},
+    ]
+    dependent = {
+        "id": "dependent",
+        "priority": 1,
+        "enabled": True,
+        "requires_completed_tasks": ["first", "second"],
+        "candidates": [{"kind": "local", "resource": "local", "gpus": 0}],
+    }
+    state = {
+        "tasks": {
+            "first": {"status": "completed", "attempts": []},
+            "second": {"status": "pending", "attempts": []},
+            "dependent": {"status": "pending", "attempts": []},
+        }
+    }
+    monkeypatch.setattr(
+        scheduler,
+        "ordered_dispatch_candidates",
+        lambda *_args: pytest.fail("dependent task reached candidate selection"),
+    )
+
+    scheduler.dispatch(
+        {"tasks": [*dependencies, dependent]}, state, {"resources": {}}
+    )
+
+    assert state["tasks"]["dependent"]["waiting_reason"] == (
+        "waiting for completed tasks: second"
+    )
+
+
 def test_north_parent_completion_rearms_only_precompletion_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2579,6 +2615,23 @@ def test_mt_gate_consumer_requires_auditable_decision_json() -> None:
         ]
     }
     with pytest.raises(ValueError, match="without gate decision"):
+        scheduler.validate_queue(queue)
+
+
+def test_validate_queue_rejects_unknown_completed_task_dependency() -> None:
+    queue = {
+        "tasks": [
+            {
+                "id": "dependent",
+                "requires_completed_tasks": ["missing_parent"],
+                "candidates": [],
+            }
+        ]
+    }
+
+    with pytest.raises(
+        ValueError, match="dependent requires unknown tasks: missing_parent"
+    ):
         scheduler.validate_queue(queue)
 
 
@@ -5492,7 +5545,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 17
+    assert len(tasks) == 36
     tg1a = {
         task_id: task for task_id, task in tasks.items() if "tg1a" in task_id
     }
@@ -5500,7 +5553,9 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         task_id: task for task_id, task in tasks.items() if "tg1b" in task_id
     }
     tg2 = {
-        task_id: task for task_id, task in tasks.items() if "tg2" in task_id
+        task_id: task
+        for task_id, task in tasks.items()
+        if "tg2" in task_id and task_id.endswith("_train")
     }
     assert len(tg1a) == 4
     assert len(tg1b) == 4
@@ -5579,4 +5634,30 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "temporal_grounding_runtime_amendment_v8.json"
         )
         assert north["ready_files_remote"]
-    assert not any("_eval" in task_id for task_id in tg2)
+    materializers = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if task_id.startswith("temporal_grounding_tg2_")
+        and task_id.endswith("_train_materialize_north")
+    }
+    assert len(materializers) == 9
+    assert all(task["materialize_north_result_for"] in tg2 for task in materializers.values())
+    integrity = tasks["temporal_grounding_tg2_training_integrity"]
+    assert set(integrity["requires_completed_tasks"]) == set(materializers)
+    evals = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if task_id.startswith("temporal_grounding_tg2_") and task_id.endswith("_eval")
+    }
+    assert len(evals) == 9
+    assert all(
+        task["requires_completed_tasks"]
+        == ["temporal_grounding_tg2_training_integrity"]
+        for task in evals.values()
+    )
+    assert all(task["completion_min_count"] == 24 for task in evals.values())
+    assert all(
+        {candidate["resource"] for candidate in task["candidates"]}
+        == {"Robot-East-H20"}
+        for task in evals.values()
+    )
