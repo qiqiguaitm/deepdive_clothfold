@@ -116,6 +116,38 @@ def test_visible_superseded_attempts_excludes_stopped_and_sanitizes_errors() -> 
     ]
 
 
+def test_jobs_for_known_profile_covers_current_and_superseded_attempts() -> None:
+    state = {
+        "tasks": {
+            "current": {
+                "attempts": [
+                    {
+                        "job_id": "backup-current",
+                        "credential_profile": "backup",
+                    }
+                ]
+            },
+            "old": {
+                "superseded_platform_attempts": [
+                    {
+                        "job_id": "backup-old",
+                        "credential_profile": "backup",
+                    }
+                ]
+            },
+            "primary": {"attempts": [{"job_id": "primary-current"}]},
+        }
+    }
+    jobs = [
+        {"Id": "backup-current", "CreatedBy": "backup-owner"},
+        {"Id": "backup-old", "CreatedBy": "backup-owner"},
+        {"Id": "unmanaged-backup", "CreatedBy": "backup-owner"},
+        {"Id": "primary-current", "CreatedBy": "primary-owner"},
+    ]
+
+    assert scheduler.jobs_for_known_profile(jobs, state, "backup") == jobs[:3]
+
+
 def test_readiness_hashes_require_exact_file_identity(tmp_path: Path) -> None:
     source = tmp_path / "source.py"
     source.write_text("frozen\n")
@@ -1261,6 +1293,24 @@ def test_north_candidate_respects_configured_submitted_job_quota() -> None:
     assert not scheduler.candidate_available(candidate, snapshot, "backup")
 
 
+def test_backup_candidate_uses_identity_wide_quota_not_managed_subset() -> None:
+    candidate = north_candidate(4)
+    snapshot = north_snapshot(primary=20, all_users=40)
+    backup = snapshot["resources"]["beijing"]["backup"]
+    backup.update(
+        {
+            "identity_active_gpus": 8,
+            "identity_queued_gpus": 12,
+            "identity_queueing": ["old-1", "old-2", "old-3"],
+            "identity_submitted_jobs": 5,
+        }
+    )
+
+    assert backup["managed_active_gpus"] == 0
+    assert not scheduler.candidate_available(candidate, snapshot, "backup")
+    assert scheduler.north_queue_credential_profile(candidate, snapshot) != "backup"
+
+
 def test_submitted_job_states_include_all_pre_running_wait_states() -> None:
     assert scheduler.SUBMITTED_JOB_STATES == (
         "Running",
@@ -1559,6 +1609,9 @@ def test_north_queue_sink_respects_primary_and_backup_job_limits() -> None:
     assert beijing["backup"]["managed_queued_gpus"] == 4
 
     beijing["backup"]["managed_submitted_jobs"] = beijing["backup"][
+        "max_submitted_jobs"
+    ]
+    beijing["backup"]["identity_submitted_jobs"] = beijing["backup"][
         "max_submitted_jobs"
     ]
     assert scheduler.north_queue_credential_profile(candidate, snapshot) is None

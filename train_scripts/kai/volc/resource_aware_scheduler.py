@@ -12945,6 +12945,41 @@ def managed_platform_job_ids(
     return job_ids
 
 
+def known_platform_job_ids_for_profile(
+    state: dict[str, Any] | None, credential_profile: str
+) -> set[str]:
+    job_ids: set[str] = set()
+    if not state:
+        return job_ids
+    for task_state in state.get("tasks", {}).values():
+        attempts = [
+            *task_state.get("attempts", []),
+            *task_state.get("superseded_platform_attempts", []),
+        ]
+        for attempt in attempts:
+            if (
+                attempt.get("job_id")
+                and attempt.get("credential_profile", "primary")
+                == credential_profile
+            ):
+                job_ids.add(str(attempt["job_id"]))
+    return job_ids
+
+
+def jobs_for_known_profile(
+    jobs: list[dict[str, Any]],
+    state: dict[str, Any] | None,
+    credential_profile: str,
+) -> list[dict[str, Any]]:
+    known_ids = known_platform_job_ids_for_profile(state, credential_profile)
+    owners = {
+        job.get("CreatedBy")
+        for job in jobs
+        if job.get("Id") in known_ids and job.get("CreatedBy")
+    }
+    return [job for job in jobs if job.get("CreatedBy") in owners]
+
+
 def cleanup_superseded_platform_attempts(state: dict[str, Any]) -> None:
     """Stop detached obsolete jobs without ever touching a running worker."""
     now = datetime.now(timezone.utc)
@@ -13039,6 +13074,10 @@ def make_snapshot(state: dict[str, Any] | None = None) -> dict[str, Any]:
         "managed_queueing": [],
         "personal_limit": NORTH_BACKUP_PERSONAL_LIMIT,
         "managed_submitted_jobs": 0,
+        "identity_active_gpus": 0,
+        "identity_queued_gpus": 0,
+        "identity_queueing": [],
+        "identity_submitted_jobs": 0,
         "max_submitted_jobs": NORTH_BACKUP_MAX_JOBS,
     }
     if backup_enabled:
@@ -13048,6 +13087,7 @@ def make_snapshot(state: dict[str, Any] | None = None) -> dict[str, Any]:
             backup_jobs = list_jobs("cn-beijing", NORTH_QUEUE, "backup")
             managed_ids = managed_platform_job_ids(state, "backup")
             managed_jobs = [job for job in backup_jobs if job.get("Id") in managed_ids]
+            identity_jobs = jobs_for_known_profile(backup_jobs, state, "backup")
             backup_north.update(
                 {
                     "available": True,
@@ -13067,6 +13107,22 @@ def make_snapshot(state: dict[str, Any] | None = None) -> dict[str, Any]:
                         if job["_state"] in WAITING_STATES
                     ],
                     "managed_submitted_jobs": len(managed_jobs),
+                    "identity_active_gpus": sum(
+                        job["_gpus"]
+                        for job in identity_jobs
+                        if job["_state"] in ACTIVE_STATES
+                    ),
+                    "identity_queued_gpus": sum(
+                        job["_gpus"]
+                        for job in identity_jobs
+                        if job["_state"] in WAITING_STATES
+                    ),
+                    "identity_queueing": [
+                        job.get("Id")
+                        for job in identity_jobs
+                        if job["_state"] in WAITING_STATES
+                    ],
+                    "identity_submitted_jobs": len(identity_jobs),
                 }
             )
         except Exception as exc:
@@ -13269,10 +13325,10 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
         rows.insert(
             1,
             (
-                "Beijing backup managed",
-                backup.get("managed_active_gpus", 0),
+                "Beijing backup identity",
+                backup.get("identity_active_gpus", 0),
                 backup.get("personal_limit", NORTH_BACKUP_PERSONAL_LIMIT),
-                len(backup.get("managed_queueing", [])),
+                len(backup.get("identity_queueing", [])),
             ),
         )
     lines = [
@@ -13308,9 +13364,9 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
     if backup.get("enabled"):
         lines.append(
             "| backup | "
-            f"{backup.get('managed_submitted_jobs', 0)} | "
+            f"{backup.get('identity_submitted_jobs', 0)} | "
             f"{backup.get('max_submitted_jobs', NORTH_BACKUP_MAX_JOBS)} | "
-            f"{backup.get('managed_active_gpus', 0)} | "
+            f"{backup.get('identity_active_gpus', 0)} | "
             f"{backup.get('personal_limit', NORTH_BACKUP_PERSONAL_LIMIT)} |"
         )
     scheduler_tasks = snapshot.get("scheduler_tasks", {})
@@ -13581,12 +13637,19 @@ def candidate_available(
             )
             and backup.get("enabled")
             and backup.get("available")
-            and not backup.get("managed_queueing")
+            and not backup.get("identity_queueing", backup.get("managed_queueing", []))
             and not state.get("queueing_all_users")
-            and backup.get("managed_submitted_jobs", 0) + 1
+            and backup.get(
+                "identity_submitted_jobs", backup.get("managed_submitted_jobs", 0)
+            )
+            + 1
             <= backup.get("max_submitted_jobs", NORTH_BACKUP_MAX_JOBS)
-            and backup.get("managed_active_gpus", 0)
-            + backup.get("managed_queued_gpus", 0)
+            and backup.get(
+                "identity_active_gpus", backup.get("managed_active_gpus", 0)
+            )
+            + backup.get(
+                "identity_queued_gpus", backup.get("managed_queued_gpus", 0)
+            )
             + gpus
             <= backup.get("personal_limit", NORTH_BACKUP_PERSONAL_LIMIT)
             and physical_free >= max(gpus, min_dispatch_free)
@@ -13629,6 +13692,13 @@ def reserve_dispatched_candidate(
             state["backup"]["managed_submitted_jobs"] = (
                 state["backup"].get("managed_submitted_jobs", 0) + 1
             )
+            state["backup"]["identity_active_gpus"] = state["backup"].get(
+                "identity_active_gpus", state["backup"]["managed_active_gpus"] - gpus
+            ) + gpus
+            state["backup"]["identity_submitted_jobs"] = state["backup"].get(
+                "identity_submitted_jobs",
+                state["backup"]["managed_submitted_jobs"] - 1,
+            ) + 1
         else:
             state["owned_active_gpus"] += gpus
             state["owned_submitted_jobs"] = state.get("owned_submitted_jobs", 0) + 1
@@ -13772,11 +13842,15 @@ def north_queue_credential_profile(
         <= state["personal_limit"]
     )
     backup = state.get("backup", {})
-    backup_jobs_fit = backup.get("managed_submitted_jobs", 0) + 1 <= backup.get(
+    backup_jobs_fit = backup.get(
+        "identity_submitted_jobs", backup.get("managed_submitted_jobs", 0)
+    ) + 1 <= backup.get(
         "max_submitted_jobs", NORTH_BACKUP_MAX_JOBS
     )
-    backup_gpus_fit = backup.get("managed_active_gpus", 0) + backup.get(
-        "managed_queued_gpus", 0
+    backup_gpus_fit = backup.get(
+        "identity_active_gpus", backup.get("managed_active_gpus", 0)
+    ) + backup.get(
+        "identity_queued_gpus", backup.get("managed_queued_gpus", 0)
     ) + gpus <= backup.get("personal_limit", NORTH_BACKUP_PERSONAL_LIMIT)
     backup_usable = (
         backup.get("enabled")
@@ -13803,6 +13877,12 @@ def reserve_queued_north_candidate(
         backup = state["backup"]
         backup["managed_submitted_jobs"] = backup.get("managed_submitted_jobs", 0) + 1
         backup["managed_queued_gpus"] = backup.get("managed_queued_gpus", 0) + gpus
+        backup["identity_submitted_jobs"] = backup.get(
+            "identity_submitted_jobs", backup["managed_submitted_jobs"] - 1
+        ) + 1
+        backup["identity_queued_gpus"] = backup.get(
+            "identity_queued_gpus", backup["managed_queued_gpus"] - gpus
+        ) + gpus
     else:
         state["owned_submitted_jobs"] = state.get("owned_submitted_jobs", 0) + 1
         state["owned_queued_gpus"] = state.get("owned_queued_gpus", 0) + gpus
@@ -14590,7 +14670,7 @@ def poll_once(queue: dict[str, Any], state: dict[str, Any]) -> None:
     log(
         "resources "
         f"bj={resources['beijing']['owned_active_gpus']}/{NORTH_PERSONAL_LIMIT} queued={len(resources['beijing']['owned_queueing'])} "
-        f"bj_backup={backup.get('managed_active_gpus', 0)}/{backup.get('personal_limit', NORTH_BACKUP_PERSONAL_LIMIT)} "
+        f"bj_backup={backup.get('identity_active_gpus', backup.get('managed_active_gpus', 0))}/{backup.get('personal_limit', NORTH_BACKUP_PERSONAL_LIMIT)} "
         f"backup_enabled={backup.get('enabled', False)} backup_available={backup.get('available', False)} "
         f"sh={resources['robot-task']['active_gpus_all_users']}/{SH_CAPACITY} queued={len(resources['robot-task']['queueing_all_users'])} "
         f"sh_owned={resources['robot-task']['owned_active_gpus']}/{SH_PERSONAL_LIMIT} "
