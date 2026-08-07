@@ -13263,12 +13263,18 @@ def visible_superseded_attempts(
             if attempt.get("stopped") or not attempt.get("job_id"):
                 continue
             error = str(attempt.get("cleanup_error") or "")
+            status = str(attempt.get("cleanup_status") or "")
             if "AccessDenied" in error:
-                cleanup = "stop denied (AccessDenied)"
+                cleanup = (
+                    f"{status}; last stop denied (AccessDenied)"
+                    if status
+                    else "stop denied (AccessDenied)"
+                )
             elif error:
-                cleanup = f"cleanup failed ({error.split(':', 1)[0]})"
+                failure = f"cleanup failed ({error.split(':', 1)[0]})"
+                cleanup = f"{status}; {failure}" if status else failure
             else:
-                cleanup = str(attempt.get("cleanup_status") or "pending cleanup")
+                cleanup = status or "pending cleanup"
             rows.append(
                 {
                     "task_id": task_id,

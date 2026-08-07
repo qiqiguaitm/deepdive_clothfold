@@ -84,6 +84,7 @@ def test_visible_superseded_attempts_excludes_stopped_and_sanitizes_errors() -> 
                     "credential_profile": "backup",
                     "cleanup_last_state": "Deploying",
                     "cleanup_last_checked_at": "2026-08-07T16:09:18Z",
+                    "cleanup_status": "waiting; stop retry throttled",
                     "cleanup_error": "Exception: AccessDenied with private detail",
                 },
                 {"job_id": "already-stopped", "stopped": True},
@@ -110,7 +111,9 @@ def test_visible_superseded_attempts_excludes_stopped_and_sanitizes_errors() -> 
             "job_id": "old-running",
             "credential_profile": "backup",
             "platform_state": "Deploying",
-            "cleanup": "stop denied (AccessDenied)",
+            "cleanup": (
+                "waiting; stop retry throttled; last stop denied (AccessDenied)"
+            ),
             "checked_at": "2026-08-07T16:09:18Z",
         },
     ]
