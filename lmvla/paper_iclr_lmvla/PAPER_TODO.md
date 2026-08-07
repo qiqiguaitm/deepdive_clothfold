@@ -134,6 +134,10 @@ but an artifact audit confirmed distinct seed-qualified checkpoint roots,
 configs, statistics, and W&B directories. Thus their model outputs do not
 collide; runtime v8 remains required for pending launches because a third
 same-second v7 launch previously failed on the shared auxiliary config copy.
+The four active North initialization sidecars were also copied read-only and
+bound to their formal Job IDs and SHA-256 digests in
+`AUDIT_temporal_grounding_tg2_initialization_snapshot_2026-08-07.md`, preserving
+their pre-overwrite evidence while detached superseded jobs remain visible.
 
 Runtime v3 attempts produced no summary and exposed one operational mismatch:
 the policy server used Transformers 4.53.2 and loaded the frozen Qwen3 weights
