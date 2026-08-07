@@ -412,6 +412,14 @@ Analyze only after all nine evaluations pass exact scene pairing.
 Expected result:
 `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json`.
 
+**Analysis execution blocker:** the frozen analyzer currently computes
+`tg3_authorized` from `fixed_endpoint - raw_milestone` alone and can therefore
+authorize TG3 when fixed endpoint fails against `future_off`. The synthetic
+counterexample and required protocol-preserving repair are recorded in
+`AUDIT_temporal_grounding_analysis_gate_2026-08-07.md`. Do not execute the TG2
+analysis command or admit TG3 until an explicitly authorized amendment repairs
+this mismatch and registers the scheduler-owned final CPU analysis task.
+
 ## 8. Result-driven branch table
 
 TG1A and TG1B do not gate TG2 completion. They constrain interpretation. TG2
