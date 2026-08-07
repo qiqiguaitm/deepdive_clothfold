@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 18:53 UTC
+Updated: 2026-08-07 18:57 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -137,6 +137,14 @@ The scheduler now probes every visible superseded attempt every five minutes,
 while retaining a 30-minute `StopJob` retry throttle and refusing to stop any
 attempt already in a non-waiting state. This shortens detection latency without
 increasing denied stop-call pressure or changing experiment execution.
+At 18:57 UTC, a completion-capacity audit measured 9.7 TiB available on the
+East vePFS and 9.0 TiB on the North GPFS mount
+`/vePFS-North-E/vis_robot`, with 91% and 99% of inodes free respectively. A
+historical complete LaWAM step-20000 state occupies about 16 GiB (7.30 GB model
+plus 9.34 GB optimizer), so nine comparable final states require about 140 GiB.
+Checkpoint finalization and North-to-East materialization therefore have ample
+filesystem capacity. The 40 GB figure from `/vePFS-North-E` itself describes
+the gsy host root filesystem, not the nested North GPFS mount used by jobs.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
