@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "bundle": "TG1B",
+  "protocol": "temporal_grounding_tg1b_execution_cadence_panel_v1",
+  "created_at": "2026-08-07T07:30:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "admission_status": "ready_for_scheduler_admission",
+  "source": {
+    "outer_implementation_commit": "db88e943ddfecf25be0ee83a332b542b5d4419ae",
+    "lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a"
+  },
+  "checkpoints": {
+    "future_off": {
+      "path": "lmvla/lawam/results/Checkpoints/robotwin/20260731_172204+robotwin_all6_v2_nowm_seed2027/final_model/pytorch_model.pt",
+      "sha256": "dfcf547f6d472a9540a71ea43f3da04925228cd7ccc17166290c68af04e6c538"
+    },
+    "local_wm": {
+      "path": "lmvla/lawam/results/Checkpoints/robotwin/20260730_234942+robotwin_all6_v2_local_seed2027/final_model/pytorch_model.pt",
+      "sha256": "29ecbc3ee19585b5d9f3d3aa4bade8842e4bb016f88a3f0a3c97646164be321d"
+    }
+  },
+  "evaluation": {
+    "tasks": ["beat_block_hammer", "blocks_ranking_size", "blocks_ranking_rgb", "handover_block", "stack_blocks_two", "stack_blocks_three"],
+    "cells": ["future_off_e36", "future_off_e50", "local_wm_e36", "local_wm_e50"],
+    "eval_seeds": [0, 1, 2, 3],
+    "episodes_per_task_seed_cell": 50,
+    "episodes_per_cell": 1200,
+    "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "accepted_episode_rule": "All 50 frozen scene seeds must appear exactly once per task/eval-seed/cell. Retry the same scene seed at most three times; never replace a seed. Any missing, duplicate, or substituted seed invalidates the cell.",
+    "checkpoint_selection": "two frozen seed-2027 final checkpoints; no retraining and no outcome-based selection"
+  },
+  "parallel_plan": {
+    "independent_cells": ["future_off_e36", "future_off_e50", "local_wm_e36", "local_wm_e50"],
+    "gpu_per_cell": 4,
+    "preferred_queue": "Robot-East-H20",
+    "queue_policy": "all cells are independent and scheduler may admit any subset fitting current capacity"
+  },
+  "analysis": {
+    "report_schema": "temporal_grounding_tg1b_execution_cadence_panel_v1",
+    "bootstrap_levels": ["task", "eval_seed_within_task", "paired_episode"],
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20260808,
+    "analysis_command": "kai0/.venv/bin/python lmvla/lmwm/scripts/analyze_temporal_grounding_tg1b.py --future-off-e36 lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e36 --future-off-e50 lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e50 --local-wm-e36 lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e36 --local-wm-e50 lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50 --scene-manifest lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json --bootstrap-samples 20000 --output lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1b.json --marker logs/resource_markers/temporal_grounding_tg1b_gate.ok",
+    "stop_rule": "Report the paired difference-in-differences. A positive hierarchical CI lower bound establishes checkpoint-specific cadence sensitivity only, never future-content causality."
+  },
+  "file_sha256": {
+    "lmvla/lawam/results/Checkpoints/robotwin/20260731_172204+robotwin_all6_v2_nowm_seed2027/final_model/pytorch_model.pt": "dfcf547f6d472a9540a71ea43f3da04925228cd7ccc17166290c68af04e6c538",
+    "lmvla/lawam/results/Checkpoints/robotwin/20260730_234942+robotwin_all6_v2_local_seed2027/final_model/pytorch_model.pt": "29ecbc3ee19585b5d9f3d3aa4bade8842e4bb016f88a3f0a3c97646164be321d",
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lawam/examples/Robotwin/eval_files/batched_eval_runner.py": "0e2dabf0d30e06d9c2259a41c000894e22810599d6160b72a14a39c2d847b86b",
+    "lmvla/lawam/examples/Robotwin/eval_files/model2robotwin_interface.py": "fc17098d3c3b673aa178d182f93e4ffd0bab99100517588004e62a3faaa81dcc",
+    "lmvla/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py": "52e36094a9546d5066013611a4a35ca6bd0e596c34a04d87abdcc38665a85172",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py": "63584909da2cf2c5950ed781e6599f9dd378bfd642a286275537d30c6d9f7108",
+    "lmvla/lmwm/scripts/analyze_temporal_grounding_tg1a.py": "2bc8bcf0439c12d455484386ba2ce202f118ece0d54b67deb9fbe2b3a3bc565e",
+    "lmvla/lmwm/scripts/analyze_temporal_grounding_tg1b.py": "7feb87971fd023fc536aec0eac28e3790e214fa981525751e9a93d84ee552429",
+    "train_scripts/kai/eval/run_temporal_grounding_tg1b_formal.sh": "8ac82597765b1de779bd648681cde9ed7f69c40eda2b2ba21663f0375224f385",
+    "train_scripts/kai/volc/temporal_grounding_tg1b_east_4h20.yaml": "590bbbbfcff9fbc9e3d13749935261c9cbf6b3036c7fb21df79383a4a0fb6a02"
+  }
+}

@@ -46,6 +46,33 @@ configuration for this program.
 TG1A, TG1B, and TG2 are the minimum new GPU evidence. TG3--TG5 are forbidden
 unless their stated upstream gates pass.
 
+## Execution status
+
+Updated: 2026-08-07 07:36 UTC.
+
+- TG1A, TG1B, and TG2 now have frozen, runtime-verified admission bundles:
+  `temporal_grounding_tg1a_admission_v1.json`,
+  `temporal_grounding_tg1b_admission_v1.json`, and
+  `temporal_grounding_tg2_admission_v1.json`. They pin outer implementation
+  commit `db88e943`, LaWAM commit `71803a3`, input hashes, paired scenes,
+  accepted-episode rules, report schemas, exact analysis commands, and stop
+  rules. Bundle verification passed for 14, 11, and 23 files respectively.
+- GPU progress remains zero for the checkboxes below. The scheduler snapshot
+  contains no pending or running TODO task, so no GPU result is claimed from
+  bundle preparation or unit tests.
+- The admissible first wave is TG1A `normal`/`null`/`persistence`, the four
+  independent TG1B cells, and the nine independent TG2 training arms. TG1A
+  `shuffled` must wait for verified normal feature capture. All TG2 evaluation
+  jobs must wait for the complete nine-arm training-integrity audit.
+- This is 3 immediately independent TG1A evaluations, 4 TG1B evaluations, and
+  9 TG2 training jobs. The later required wave contains 1 TG1A shuffled
+  evaluation and 9 TG2 evaluations. Every job requests 4 GPUs.
+- At the recorded snapshot, `Robot-East-H20` had 8 free GPUs, local had 2 free
+  GPUs, and North had 12 globally free GPUs but eight other-user queued jobs.
+  Primary North quota had 9 GPUs free and backup quota had 20 GPUs free. The
+  scheduler still owns admission; manual submission remains prohibited and
+  no scheduler code or configuration was changed for this program.
+
 ## TG1A: released LaWAM fixed-checkpoint content panel
 
 Use only the released RoboTwin checkpoint with SHA-256

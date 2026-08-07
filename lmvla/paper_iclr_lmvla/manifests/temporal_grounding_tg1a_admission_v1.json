@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "bundle": "TG1A",
+  "protocol": "temporal_grounding_tg1a_released_checkpoint_content_panel_v1",
+  "created_at": "2026-08-07T07:30:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "admission_status": "ready_for_scheduler_admission",
+  "source": {
+    "outer_implementation_commit": "db88e943ddfecf25be0ee83a332b542b5d4419ae",
+    "lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a"
+  },
+  "checkpoint": {
+    "path": "lmvla/lawam/results/Checkpoints/robotwin/lawam_robotwin_sft_release/final_model/pytorch_model.pt",
+    "sha256": "a52031302c6dc5b813982227255add8d2acb839149a4b90908b179a8f66adbeb",
+    "selection": "released final checkpoint only; no training or outcome-based selection"
+  },
+  "evaluation": {
+    "tasks": ["beat_block_hammer", "blocks_ranking_size", "blocks_ranking_rgb", "handover_block", "stack_blocks_two", "stack_blocks_three"],
+    "conditions": ["normal", "shuffled", "null", "persistence"],
+    "eval_seeds": [0, 1, 2, 3],
+    "episodes_per_task_seed_condition": 50,
+    "episodes_per_condition": 1200,
+    "control_hz": 30,
+    "prediction_horizon": 36,
+    "execution_cadence": 36,
+    "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "accepted_episode_rule": "All 50 frozen scene seeds must appear exactly once per task/eval-seed/condition. Retry the same scene seed at most three times; never replace a seed. Any missing, duplicate, or substituted seed invalidates the cell.",
+    "intervention_seed_rule": "The frozen within-task and within-eval-seed derangement in temporal_grounding_tg1a_shuffle_v1.json is the only shuffle mapping. Source query index is target query index modulo the frozen source episode query count; outcomes are never inspected.",
+    "oracle": "excluded_from_closed_loop_gate: no audited exact same-scene expert endpoint-feature mapping is available"
+  },
+  "parallel_plan": {
+    "stage_1": ["normal", "null", "persistence"],
+    "stage_2_after_normal_capture_verification": ["shuffled"],
+    "gpu_per_condition": 4,
+    "preferred_queue": "Robot-East-H20",
+    "queue_policy": "scheduler may run any subset fitting current capacity; stage_2 dependency is mandatory"
+  },
+  "analysis": {
+    "report_schema": "temporal_grounding_tg1a_released_checkpoint_content_panel_v1",
+    "bootstrap_levels": ["task", "eval_seed_within_task", "paired_episode"],
+    "bootstrap_samples": 20000,
+    "bootstrap_seed": 20260807,
+    "analysis_command": "kai0/.venv/bin/python lmvla/lmwm/scripts/analyze_temporal_grounding_tg1a.py --normal lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_normal --shuffled lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_shuffled --null lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_null --persistence lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_persistence --scene-manifest lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json --bootstrap-samples 20000 --output lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json --marker logs/resource_markers/temporal_grounding_tg1a_gate.ok",
+    "stop_rule": "If normal does not beat shuffled with hierarchical paired CI lower bound > 0 and Holm-adjusted paired p < 0.05, reject correct-future-content use for this checkpoint. Preserve all task regressions."
+  },
+  "file_sha256": {
+    "lmvla/lawam/results/Checkpoints/robotwin/lawam_robotwin_sft_release/final_model/pytorch_model.pt": "a52031302c6dc5b813982227255add8d2acb839149a4b90908b179a8f66adbeb",
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_shuffle_v1.json": "0843341173b71d5009337e6eecd0eee89f28f034c698ce44840e1b08529804f7",
+    "lmvla/lawam/starVLA/model/framework/latent_world/runtime/future_condition_interventions.py": "057025b56cd39070882d830fe66dd890d46ad3a725729367f068079881068e74",
+    "lmvla/lawam/starVLA/model/framework/latent_world/runtime/runner.py": "bf2db9370d03230b285377af653bd3f4e996590e1f2eb064c4e9b43716704fd9",
+    "lmvla/lawam/starVLA/model/framework/vlas/lawam.py": "cf6d1b89f3482482e965e9ecac4e5a571ce91374ac000af67b970fb462e280cd",
+    "lmvla/lawam/examples/Robotwin/eval_files/batched_eval_runner.py": "0e2dabf0d30e06d9c2259a41c000894e22810599d6160b72a14a39c2d847b86b",
+    "lmvla/lawam/examples/Robotwin/eval_files/model2robotwin_interface.py": "fc17098d3c3b673aa178d182f93e4ffd0bab99100517588004e62a3faaa81dcc",
+    "lmvla/lawam/examples/Robotwin/eval_files/robotwin_batch_bridge.py": "52e36094a9546d5066013611a4a35ca6bd0e596c34a04d87abdcc38665a85172",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py": "63584909da2cf2c5950ed781e6599f9dd378bfd642a286275537d30c6d9f7108",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_feature_capture.py": "c13404798437dae86af9acf679d0919dd761624be0575d6ddba05760bf5f6343",
+    "lmvla/lmwm/scripts/analyze_temporal_grounding_tg1a.py": "2bc8bcf0439c12d455484386ba2ce202f118ece0d54b67deb9fbe2b3a3bc565e",
+    "train_scripts/kai/eval/run_temporal_grounding_tg1a_formal.sh": "ef4bd5f64a60320dbbe59fe8b6f357979c4f8ed20fa18f7d2ca91f599a241844",
+    "train_scripts/kai/volc/temporal_grounding_tg1a_east_4h20.yaml": "618eeb9e04a628dd9bdc2af41dd1088f6f3763ce863e7bec39387d12290b07e1"
+  }
+}
