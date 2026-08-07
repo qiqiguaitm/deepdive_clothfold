@@ -98,10 +98,13 @@ reached steps 3258 and 3272 at 2.29--2.31 s/step; East fixed seeds reached
 steps 3263 and 3257 at 2.27--2.29 s/step; and North future-off seeds reached
 steps 3175 and 3150 at 2.04--2.07 s/step. DataLoader time remains about 0.04 s,
 with running-job ETAs of roughly 9.5--10.7 hours. The remaining three v8 cells
-are submitted in the North backup profile and are Queueing because that profile
-currently lacks sufficient personal GPU quota. No final TG2 checkpoint exists
-yet. Six detached backup-profile attempts remain visible but are not experiment
-progress: two are stuck Deploying and four are Queueing. The scheduler refuses
+are Queueing on North: future-off seed 1002 is now under the primary profile,
+while fixed-endpoint seed 1002 and raw-milestone seed 1000 remain under the
+backup profile. The primary-profile retry reports insufficient queue capacity;
+the backup-profile retries report insufficient personal quota. No final TG2
+checkpoint exists yet. Seven detached backup-profile attempts remain visible
+but are not experiment progress: two are stuck Deploying and five are Queueing.
+The scheduler refuses
 to count them as current work and retries conservative cleanup, but the platform
 denies `StopJob`; their exact states are reported separately in the resource
 scheduler snapshot.
@@ -321,7 +324,7 @@ training-schedule claim may be based on seed 1000 alone.
   Train `future_off`, seed 1000; 4 GPUs.
 - [ ] **TG2-T02 [RUNNING-V7: `t-20260807223247-sjmmb`, North]**
   Train `future_off`, seed 1001; 4 GPUs.
-- [ ] **TG2-T03 [QUEUEING-V8: `t-20260807223921-4rhkv`, backup]**
+- [ ] **TG2-T03 [QUEUEING-V8: `t-20260808003004-r7g8d`, North primary]**
   Train `future_off`, seed 1002; 4 GPUs.
 - [ ] **TG2-T04 [RUNNING-V7: `t-20260807221602-j6sww`, East]**
   Train `fixed_endpoint`, seed 1000; 4 GPUs.
