@@ -6060,3 +6060,29 @@ def test_markdown_training_heartbeat_requires_platform_running(
     )
     scheduler.write_markdown_snapshot(snapshot)
     assert f"`{label}`" in scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "loss=nan",
+        "grad_norm = -inf",
+        "{'train_loss': nan, 'data_time': 0.04}",
+        "'train_loss':\n    inf,",
+        '\"lmwm_loss\": -Inf',
+    ],
+)
+def test_training_health_pattern_detects_nonfinite_metrics(line: str) -> None:
+    assert scheduler.TRAIN_HEALTH_PATTERN.search(line)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "{'train_loss': 0.0052, 'data_time': 0.04}",
+        "loss=1.0",
+        "inference finished successfully",
+    ],
+)
+def test_training_health_pattern_ignores_finite_metrics(line: str) -> None:
+    assert scheduler.TRAIN_HEALTH_PATTERN.search(line) is None

@@ -140,7 +140,7 @@ TRAIN_HEALTH_PATTERN = re.compile(
     r"Traceback \(most recent call last\)|"
     r"CUDA out of memory|OutOfMemoryError|CUDNN_STATUS|"
     r"NCCL[^\n]*(?:error|failed)|FloatingPointError|"
-    r"(?:loss|grad_norm|lmwm_loss|main_loss)=(?:nan|inf|-inf)\b",
+    r"(?:loss|grad_norm|lmwm_loss|main_loss)['\"]?\s*[:=]\s*(?:nan|inf|-inf)\b",
     re.IGNORECASE,
 )
 GF1 = [
