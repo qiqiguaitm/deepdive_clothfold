@@ -8547,7 +8547,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v8_path = manifests / "temporal_grounding_runtime_amendment_v8.json"
     runtime_v9_path = manifests / "temporal_grounding_runtime_amendment_v9.json"
     runtime_v10_path = manifests / "temporal_grounding_runtime_amendment_v10.json"
-    posttraining_path = manifests / "temporal_grounding_tg2_posttraining_pipeline_v1.json"
+    posttraining_path = manifests / "temporal_grounding_tg2_posttraining_pipeline_v2.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8562,7 +8562,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v8_path: "597459d4c346830416637b64eb0a14857affbdd8922840b969761c1b6522e678",
         runtime_v9_path: "cc28d480647c8da5f274352fe2c0ba7e88509997e15c3e891bbf0a4db494005c",
         runtime_v10_path: "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e",
-        posttraining_path: "590e80cb71faf191a9278a75d783b3b221518373a934a8013fe20ba9e4709bd4",
+        posttraining_path: "a954b31f94883d2097a259181f7c785d701c2204b04e83e08c57a8c379843fd6",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8934,6 +8934,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     materialize_ids = []
     sync_script = REPO / "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh"
     sync_tree_script = REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"
+    sidecar_validator = (
+        REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py"
+    )
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
         for seed in (1000, 1001, 1002):
             parent_id = f"temporal_grounding_tg2_{arm}_seed{seed}_train"
@@ -8946,7 +8949,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 {
                     "id": task_id,
                     "priority": 2,
-                    "description": f"Materialize North TG2 arm={arm} seed={seed}",
+                    "description": f"Materialize North TG2 arm={arm} seed={seed} artifacts",
                     "materialize_north_result_for": parent_id,
                     "completion_glob": str(marker),
                     "completion_min_count": 1,
@@ -8954,6 +8957,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(posttraining_path),
                         str(sync_script),
                         str(sync_tree_script),
+                        str(sidecar_validator),
                     ],
                     "ready_hashes": posttraining_hashes,
                     "candidates": [
@@ -8986,6 +8990,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO / "logs/resource_markers/temporal_grounding_tg2_training_integrity.ok"
     )
     integrity_script = REPO / "train_scripts/kai/run_temporal_grounding_tg2_integrity.sh"
+    integrity_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_1h20.yaml"
+    )
     seed_audit = (
         REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py"
     )
@@ -9001,19 +9009,27 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "ready_files": [
                     str(posttraining_path),
                     str(integrity_script),
+                    str(integrity_yaml),
                     str(seed_audit),
                     str(REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py"),
+                    str(
+                        REPO
+                        / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training_v2.py"
+                    ),
                 ],
                 "ready_hashes": posttraining_hashes,
                 "candidates": [
                     {
-                        "kind": "local",
-                        "resource": "local",
-                        "gpus": 0,
-                        "retry_cooldown_seconds": 300,
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 1,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 600,
                         "max_failures": 1,
-                        "status_dir": str(REPO / "logs/temporal_grounding/tg2/integrity"),
-                        "command": shlex.join(["bash", str(integrity_script)]),
+                        "runtime_revision": "temporal_grounding_posttraining_v2",
+                        "yaml": str(integrity_yaml.relative_to(REPO)),
+                        "task_name": "temporal-grounding-tg2-integrity-east1g",
                     }
                 ],
             }

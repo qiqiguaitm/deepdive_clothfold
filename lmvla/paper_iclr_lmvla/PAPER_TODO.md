@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 15:32 UTC
+Updated: 2026-08-07 15:58 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -73,6 +73,7 @@ The following immutable admission bundles are frozen and were reverified on
 | TG2 North staging | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_north_staging_amendment_v1.json` | 23 | Passed in detached clean worktree |
 | TG2 seed independence | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_seed_independence_amendment_v1.json` | Post-training audit | Admitted; awaits nine data-order records |
 | TG2 post-training pipeline | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_posttraining_pipeline_v1.json` | Runtime-only | Admitted; nine materializers, joint gate, and nine evals registered |
+| TG2 post-training pipeline v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_posttraining_pipeline_v2.json` | Runtime-only | Passed; strict sidecar validation, North sidecar staging, East integrity worker, and exact marker contract |
 | Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
 | Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
 | Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |
@@ -89,16 +90,17 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-At 15:31 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
+At 15:57 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
 East; raw-milestone seeds 1001--1002 and future-off seeds 1000--1001 on North.
 All six passed the Qwen3 unequal-length batch smoke and sustained optimization
 beyond the first step with frozen global batch 128. North raw seeds 1001--1002
-reached steps 1891 and 1904 at 2.27--2.29 s/step; East fixed seeds reached
-steps 1884 and 1883 at 2.25--2.29 s/step; and North future-off seeds reached
-steps 1642 and 1606 at 2.03--2.04 s/step. DataLoader time remains about 0.04 s,
-with running-job ETAs of roughly 10.4--11.5 hours. The remaining three v8 cells are
-submitted in the North backup profile and are Queueing because Beijing has no
-free 4-GPU shape. No final TG2 checkpoint exists yet.
+reached steps 2561 and 2574 at 2.29--2.30 s/step; East fixed seeds reached
+steps 2560 and 2555 at 2.26--2.28 s/step; and North future-off seeds reached
+steps 2391 and 2356 at 2.05--2.09 s/step. DataLoader time remains about 0.04 s,
+with running-job ETAs of roughly 10.0--11.1 hours. The remaining three v8 cells
+are submitted in the North backup profile and are Queueing because that profile
+currently lacks sufficient personal GPU quota. No final TG2 checkpoint exists
+yet.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
@@ -344,10 +346,16 @@ dependencies, not GPU TODO items.
 
 The scheduler now owns this entire transition. A checkpoint completed on North
 is copied through a hash-verified incoming directory and atomically installed
-on East; an East checkpoint requires no transfer. Transfers are serialized,
-and an existing incomplete destination is never overwritten. Only after all
-nine location-aware materializers and both integrity audits complete can any
-TG2 evaluation enter resource recommendation.
+on East. Its root-owned initialization record and four rank-order records are
+strictly validated at the North source, hash-copied into a user-readable East
+staging root, and validated again. An East checkpoint requires no transfer; the
+joint integrity audit runs as a one-GPU East platform task so it can read the
+canonical root-owned East sidecars. A partial staged sidecar set is rejected,
+transfers are serialized, and an existing incomplete checkpoint destination is
+never overwritten. The North end-to-end materialization probe passed, including
+the scheduler-compatible `_train_materialized.ok` marker. Only after all nine
+location-aware materializers and both integrity audits complete can any TG2
+evaluation enter resource recommendation.
 
 ### Evaluation jobs
 

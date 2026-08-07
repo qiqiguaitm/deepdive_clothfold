@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_tg2_posttraining_pipeline_v2",
+  "extends": [
+    "temporal_grounding_tg2_posttraining_pipeline_v1",
+    "temporal_grounding_runtime_amendment_v10"
+  ],
+  "extended_manifest_sha256": {
+    "temporal_grounding_tg2_posttraining_pipeline_v1": "590e80cb71faf191a9278a75d783b3b221518373a934a8013fe20ba9e4709bd4",
+    "temporal_grounding_runtime_amendment_v10": "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e"
+  },
+  "created_at": "2026-08-07T15:50:00Z",
+  "scope": "TG2 successful-training sidecar verification and location-aware North-to-East materialization",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "execution_owner": "resource_aware_scheduler",
+  "observed_failure": {
+    "stage": "pre-completion post-training audit",
+    "checkpoint_status": "six training jobs still running; no final checkpoint reused",
+    "issue": [
+      "North materialization copied only the checkpoint run tree, while matrix integrity also requires initialization and per-rank data-order sidecars stored outside that tree.",
+      "Platform workers create those JSON sidecars through NamedTemporaryFile with root-only mode 0600, so the local scheduler cannot read East sidecars or transferred mode-preserving files."
+    ]
+  },
+  "change": [
+    "Keep one dependency task per completed TG2 parent; East parents satisfy it in place, while North parents launch the materialization helper.",
+    "Validate initialization route identity and exactly four nonempty rank data-order records at the source before any transfer.",
+    "For North parents, hash-copy the checkpoint into the canonical East checkpoint root and the five sidecars into a user-writable scheduler staging root, quarantine differing pre-completion artifacts, and revalidate locally.",
+    "Run the joint integrity gate as a one-GPU East platform task so it can read root-owned canonical East sidecars; its resolver selects staged sidecars only for North runs.",
+    "Write the North materialization marker only after checkpoint state and all five sidecars pass local verification, using the exact marker name expected by the scheduler."
+  ],
+  "invariants": [
+    "No training process, recipe, checkpoint, optimizer state, initialization payload, data order, model weight, task, scene, seed, intervention, or evaluation protocol is changed.",
+    "No sidecar from a failed pre-step or partial attempt is accepted merely because its filename matches; source identity, route, ranks, world size, and nonempty audit counts must pass.",
+    "A differing staged sidecar is preserved under a pre_materialization_quarantine suffix rather than deleted.",
+    "A partial staged sidecar directory is rejected instead of silently falling back to canonical data.",
+    "The nine-arm integrity gate and all nine evaluations remain blocked until all nine location-aware materializers complete."
+  ],
+  "files": {
+    "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh": "2e90d0c8ac64068b816411ec4fad4ed4d0acb3ec764132bd9658ca054a32481a",
+    "train_scripts/kai/run_temporal_grounding_tg2_integrity.sh": "ab0ad9c750a9aa38ac4b0ed067a6ac8e2fdd8cf77b3e312860a059dfb94a68bd",
+    "train_scripts/kai/sync_tree_from_north_verified.sh": "b2b233c1d92f68582fc25dccd1df3837c1e40a4472ec93cbdf7719712a1e3a63",
+    "train_scripts/kai/eval/run_temporal_grounding_tg2_eval.sh": "34f867b736baf89e6fccc06db26f618fb47b315d7b7e0180d1aa3195f50275b9",
+    "train_scripts/kai/volc/temporal_grounding_tg2_eval_east_4h20.yaml": "b5d4e80684c17347e2efd93aebc551b283d2e94205d0cd7514eb91a1710feb33",
+    "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_1h20.yaml": "eca286242e1a710970d2f3d9d8da45f7bd9561266af8d9288a802cf57460f010",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py": "b3acf4584368a114e7d2e3edf7740ed7bffe204fd053003a5856b5322a717710",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training_v2.py": "bfa8d84e834cdbed6d6a5676b3cef26b2b72f033de7aae42443c2d2846c8ed67",
+    "lmvla/lmwm/scripts/test_verify_temporal_grounding_tg2_training.py": "92ca75e541f6cf5d16a603ffa840ebb04e168c320998c855e187ec739b66946d",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py": "53da2d224bfdc3a1bfe518261d195362b7135f1c8f054bcb0ea80ff3b3200902",
+    "lmvla/lmwm/scripts/test_verify_temporal_grounding_tg2_seed_independence.py": "a34bd30a2776b79d6e7dcb3b8a0d9b5e6a2bb277347f809ebac7a3f868237c21",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py": "66f0a80540870db1815407e3beb07ec8ec6c7ada7d36c201e5a68cc72d247bbf",
+    "lmvla/lmwm/scripts/test_verify_temporal_grounding_tg2_sidecars.py": "ed58212d23f3f748021ed1fe50924a8c2d33a306d39999ce924b12f80aaca3cd",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json": "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_seed_independence_amendment_v1.json": "83cfad44a5f54b17d3c086e04807ee596948779844e59673a314de2811d73599",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v10.json": "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e"
+  },
+  "validation": {
+    "sidecar_and_integrity_unit_tests": "11 passed",
+    "north_materialization_probe": "passed with a pre-existing sparse final checkpoint and four root-owned mode-0600 rank sidecars; verified staged mode 0664, report, and scheduler-compatible marker",
+    "source_path_probe": "North staging and non-staging checkpoint roots resolve to the same inode",
+    "permission_probe": "East and North initialization sidecars confirmed root:root mode 0600 before completion",
+    "permission_resolution": "East integrity executes under the platform worker identity; North sidecars are hash-copied into the scheduler staging root without mutating source permissions"
+  }
+}

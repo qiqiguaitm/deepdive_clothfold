@@ -2210,7 +2210,6 @@ def test_north_materialization_is_only_required_for_completed_north_parent() -> 
         is True
     )
 
-
 def test_dispatch_does_not_materialize_pending_north_parent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -5650,8 +5649,38 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     }
     assert len(materializers) == 9
     assert all(task["materialize_north_result_for"] in tg2 for task in materializers.values())
+    assert all(
+        any(
+            path.endswith("verify_temporal_grounding_tg2_sidecars.py")
+            for path in task["ready_files"]
+        )
+        for task in materializers.values()
+    )
+    materializer_script = (
+        scheduler.REPO
+        / "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh"
+    ).read_text()
+    assert "${RUN_ID}_train_materialized.ok" in materializer_script
     integrity = tasks["temporal_grounding_tg2_training_integrity"]
     assert set(integrity["requires_completed_tasks"]) == set(materializers)
+    assert any(
+        path.endswith("verify_temporal_grounding_tg2_training_v2.py")
+        for path in integrity["ready_files"]
+    )
+    assert integrity["candidates"] == [
+        {
+            "kind": "platform",
+            "resource": "Robot-East-H20",
+            "region": "cn-shanghai",
+            "gpus": 1,
+            "queue_timeout_seconds": 180,
+            "retry_cooldown_seconds": 600,
+            "max_failures": 1,
+            "runtime_revision": "temporal_grounding_posttraining_v2",
+            "yaml": "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_1h20.yaml",
+            "task_name": "temporal-grounding-tg2-integrity-east1g",
+        }
+    ]
     evals = {
         task_id: task
         for task_id, task in tasks.items()

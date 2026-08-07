@@ -9,17 +9,27 @@ SEED=${TG2_TRAIN_SEED:?set TG2_TRAIN_SEED}
 RUN_ID=temporal_grounding_tg2_${ARM}_seed${SEED}
 REMOTE_BASE=$NORTH_REPO/lmvla/lawam/results/Checkpoints/robotwin
 LOCAL_BASE=$REPO/lmvla/lawam/results/Checkpoints/robotwin
-MARKER=$REPO/logs/resource_markers/${RUN_ID}_materialized.ok
+REMOTE_AUDIT=$NORTH_REPO/logs/temporal_grounding/tg2
+REMOTE_INIT=$REMOTE_AUDIT/initialization/$RUN_ID.json
+REMOTE_ORDER=$REMOTE_AUDIT/data_order/$RUN_ID
+SIDECAR_BASE=$REPO/logs/resource_scheduler_local/temporal_grounding_tg2_sidecars/$RUN_ID
+LOCAL_INIT=$SIDECAR_BASE/initialization.json
+LOCAL_ORDER=$SIDECAR_BASE/data_order
+REPORT=$SIDECAR_BASE/materialization.json
+MARKER=$REPO/logs/resource_markers/${RUN_ID}_train_materialized.ok
 LOCK=$REPO/logs/locks/temporal_grounding_tg2_materialize.lock
+VALIDATOR=$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py
+HOST=${NORTH_HOST:-root@124.174.16.237}
+PORT=${NORTH_PORT:-16370}
 
 case "$ARM" in future_off|fixed_endpoint|raw_milestone) ;; *) exit 2 ;; esac
 case "$SEED" in 1000|1001|1002) ;; *) exit 2 ;; esac
-mkdir -p "$(dirname "$LOCK")" "$(dirname "$MARKER")" "$LOCAL_BASE"
+mkdir -p "$(dirname "$LOCK")" "$(dirname "$MARKER")" "$LOCAL_BASE" "$SIDECAR_BASE"
 exec 9>"$LOCK"
 flock 9
 
 mapfile -t sources < <(
-  ssh -p 16370 -o BatchMode=yes root@124.174.16.237 \
+  ssh -p "$PORT" -o BatchMode=yes "$HOST" \
     "find '$REMOTE_BASE' -mindepth 1 -maxdepth 1 -type d -name '*+$RUN_ID' -print | sort"
 )
 if [[ "${#sources[@]}" -ne 1 ]]; then
@@ -42,6 +52,10 @@ verify_run() {
     "$root/checkpoints/steps_20000_state/trainer_state.json")" = 20000
 }
 
+ssh -p "$PORT" -o BatchMode=yes "$HOST" \
+  python3 - --initialization "$REMOTE_INIT" --data-order-dir "$REMOTE_ORDER" \
+    --arm "$ARM" --seed "$SEED" <"$VALIDATOR" >/dev/null
+
 if [[ -e "$DST" ]]; then
   verify_run "$DST" || {
     echo "refusing to replace incomplete existing destination: $DST" >&2
@@ -53,11 +67,70 @@ else
   verify_run "$DST"
 fi
 
+sync_remote_file() {
+  local src=$1
+  local dst=$2
+  local expected temporary actual quarantine
+  expected=$(ssh -p "$PORT" -o BatchMode=yes "$HOST" "sha256sum '$src'" | awk '{print $1}')
+  temporary=$(mktemp "${dst}.incoming.XXXXXX")
+  ssh -p "$PORT" -o BatchMode=yes "$HOST" "cat '$src'" >"$temporary"
+  actual=$(sha256sum "$temporary" | awk '{print $1}')
+  test "$actual" = "$expected"
+  if [[ -e "$dst" ]]; then
+    actual=$(sha256sum "$dst" | awk '{print $1}')
+    if [[ "$actual" = "$expected" ]]; then
+      rm -f "$temporary"
+      return
+    fi
+    quarantine="${dst}.pre_materialization_quarantine.$(date -u +%Y%m%d_%H%M%S)"
+    mv "$dst" "$quarantine"
+  fi
+  chmod 0664 "$temporary"
+  mv "$temporary" "$dst"
+}
+
+tree_digest_remote() {
+  ssh -p "$PORT" -o BatchMode=yes "$HOST" \
+    "cd '$1' && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum" \
+    | awk '{print $1}'
+}
+
+tree_digest_local() {
+  (cd "$1" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum) \
+    | awk '{print $1}'
+}
+
+sync_remote_file "$REMOTE_INIT" "$LOCAL_INIT"
+remote_order_digest=$(tree_digest_remote "$REMOTE_ORDER")
+local_order_digest=""
+if [[ -d "$LOCAL_ORDER" ]]; then
+  local_order_digest=$(tree_digest_local "$LOCAL_ORDER")
+fi
+if [[ "$local_order_digest" != "$remote_order_digest" ]]; then
+  if [[ -e "$LOCAL_ORDER" ]]; then
+    mv "$LOCAL_ORDER" \
+      "${LOCAL_ORDER}.pre_materialization_quarantine.$(date -u +%Y%m%d_%H%M%S)"
+  fi
+  SRC="$REMOTE_ORDER" DST="$LOCAL_ORDER" \
+    bash "$REPO/train_scripts/kai/sync_tree_from_north_verified.sh"
+fi
+
+report_tmp=$(mktemp "${REPORT}.incoming.XXXXXX")
+"$REPO/kai0/.venv/bin/python" "$VALIDATOR" \
+  --initialization "$LOCAL_INIT" --data-order-dir "$LOCAL_ORDER" \
+  --arm "$ARM" --seed "$SEED" >"$report_tmp"
+chmod 0664 "$report_tmp"
+mv "$report_tmp" "$REPORT"
+
 cat >"$MARKER" <<EOF
 materialized=$(date -u +%FT%TZ)
 run_id=$RUN_ID
+parent_resource=Robot-North-H20
 source=$SRC
 destination=$DST
 final_model_bytes=$(stat -c %s "$DST/final_model/pytorch_model.pt")
 optimizer_bytes=$(stat -c %s "$DST/checkpoints/steps_20000_state/optimizer.bin")
+sidecar_report=$REPORT
+initialization_sha256=$(sha256sum "$LOCAL_INIT" | awk '{print $1}')
+data_order_tree_sha256=$(tree_digest_local "$LOCAL_ORDER")
 EOF

@@ -8,7 +8,7 @@ OUT=$REPO/logs/temporal_grounding/tg2
 MARKER=$REPO/logs/resource_markers/temporal_grounding_tg2_training_integrity.ok
 mkdir -p "$OUT" "$(dirname "$MARKER")"
 
-"$PY" "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py" \
+"$PY" "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training_v2.py" \
   --repo "$REPO" --output "$OUT/training_integrity.json"
 "$PY" "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py" \
   --repo "$REPO" --output "$OUT/seed_independence.json"

@@ -6,6 +6,11 @@ import json
 import os
 from pathlib import Path
 
+try:
+    from .verify_temporal_grounding_tg2_sidecars import resolve_sidecars
+except ImportError:
+    from verify_temporal_grounding_tg2_sidecars import resolve_sidecars
+
 
 ARMS = ("future_off", "fixed_endpoint", "raw_milestone")
 SEEDS = (1000, 1001, 1002)
@@ -19,14 +24,14 @@ def atomic_write(path: Path, payload: dict) -> None:
 
 
 def audit(repo: Path) -> dict:
-    order_root = repo / "logs/temporal_grounding/tg2/data_order"
     order_by_seed: dict[int, tuple[str, ...]] = {}
     records: dict[str, dict] = {}
     for seed in SEEDS:
         arm_orders: dict[str, tuple[str, ...]] = {}
         for arm in ARMS:
             run_id = f"temporal_grounding_tg2_{arm}_seed{seed}"
-            paths = sorted((order_root / run_id).glob("rank*.json"))
+            _, order_dir = resolve_sidecars(repo, run_id)
+            paths = sorted(order_dir.glob("rank*.json"))
             if len(paths) != 4:
                 raise ValueError(f"Expected four rank audits for {run_id}, found {len(paths)}")
             rows = [json.loads(path.read_text()) for path in paths]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -52,6 +53,10 @@ def test_tg2_training_integrity_verifier(tmp_path: Path) -> None:
                 "dual_route": False,
             }
             initialization = {
+                "schema_version": 1,
+                "protocol": "lawam_matched_initialization_v1",
+                "arm": arm,
+                "training_seed": seed,
                 "parameter_tree_sha256": "parameter-tree",
                 "trainable_tree_sha256": "trainable-tree",
                 "initialization_payload_sha256": f"payload-seed-{seed}",
@@ -64,11 +69,33 @@ def test_tg2_training_integrity_verifier(tmp_path: Path) -> None:
             audit_dir.mkdir(parents=True)
             for rank in range(4):
                 (audit_dir / f"rank{rank}.json").write_text(
-                    json.dumps({"rank": rank, "world_size": 4, "sha256": f"seed{seed}-rank{rank}"})
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "protocol": "lawam_exact_data_order_v1",
+                            "arm": arm,
+                            "training_seed": seed,
+                            "rank": rank,
+                            "world_size": 4,
+                            "microbatches": 20000,
+                            "samples": 320000,
+                            "sha256": f"{seed * 10 + rank:064x}",
+                        }
+                    )
                 )
 
+    staged_run = "temporal_grounding_tg2_fixed_endpoint_seed1000"
+    staged = (
+        tmp_path
+        / "logs/resource_scheduler_local/temporal_grounding_tg2_sidecars"
+        / staged_run
+    )
+    staged.mkdir(parents=True)
+    shutil.move(init_root / f"{staged_run}.json", staged / "initialization.json")
+    shutil.move(order_root / staged_run, staged / "data_order")
+
     output = tmp_path / "integrity.json"
-    script = Path(__file__).with_name("verify_temporal_grounding_tg2_training.py")
+    script = Path(__file__).with_name("verify_temporal_grounding_tg2_training_v2.py")
     subprocess.run(
         [
             sys.executable,
@@ -85,3 +112,5 @@ def test_tg2_training_integrity_verifier(tmp_path: Path) -> None:
     result = json.loads(output.read_text())
     assert result["complete"] is True
     assert all(result["checks"].values())
+    assert result["protocol"] == "temporal_grounding_tg2_training_integrity_v2"
+    assert staged_run in result["sidecar_audits"]
