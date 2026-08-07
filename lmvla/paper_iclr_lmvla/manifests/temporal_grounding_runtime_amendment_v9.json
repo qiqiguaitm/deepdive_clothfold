@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v9",
+  "supersedes_for_tg1a": "temporal_grounding_runtime_amendment_v4",
+  "superseded_manifest_sha256": "bb40a4802464b07489048be5b85cf28ae20639b8a68c53bbad792ca309dfff3e",
+  "created_at": "2026-08-07T15:05:00Z",
+  "scope": "TG1A inference metadata batch compatibility and failed-runtime isolation only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "observed_failure": {
+    "affected_conditions": [
+      "normal",
+      "null",
+      "persistence"
+    ],
+    "summaries_per_condition": 0,
+    "failed_task_statuses_per_condition": 24,
+    "server_logs_per_condition": 4,
+    "error": "LatentWorldPolicyInferExample declares temporal_grounding_context and the runner extracts it before tensor batching, but LatentWorldPolicyInferBatchBuilder rejected that metadata key before the backend could consume it."
+  },
+  "change": [
+    "Add the already-declared temporal_grounding_context metadata key to the inference batch builder allowlist.",
+    "Retain runner extraction and backend intervention logic unchanged.",
+    "Before retry, archive a prior result only when it has zero summaries, exactly 24 failed task statuses, and all four server logs contain the diagnosed schema error.",
+    "For normal only, archive the empty failed capture directory and refuse any non-empty capture or completed capture marker."
+  ],
+  "invariants": [
+    "Checkpoint, model weights, processor, images, actions, action frequency, H=E=36, tasks, scenes, seeds, retry limit, intervention definitions, shuffle mapping, result selection, and analysis remain unchanged.",
+    "The metadata context is excluded from the tensor batch exactly as before and is passed separately to the frozen backend intervention route.",
+    "No episode or summary from runtime v4 is reused."
+  ],
+  "source_identity": {
+    "lawam_commit": "7ca170c9b98e15026ecd9004d91f0ad9c73ba5f7",
+    "parent_lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a",
+    "outer_parent_commit": "ab4cc7725ae6021a1fba9f7d065407742963741d"
+  },
+  "files": {
+    "lmvla/lawam/starVLA/model/framework/latent_world/batch_builder.py": "9aa91654c274f9cbfc6f6d08066c8188ab84731baf81de64148b058c8885bc22",
+    "lmvla/lawam/starVLA/model/framework/latent_world/runtime/test_temporal_grounding_context.py": "df79416a78b4d0f46b87b6dae996cdd11c916aad87fc4192934152e4de941a17",
+    "lmvla/lmwm/scripts/prepare_temporal_grounding_tg1a_retry.py": "9e226ea73b61a281b9d2719b10249ab4d6068b8fc5e285fb27b726a583fd5dd7",
+    "lmvla/lmwm/scripts/test_prepare_temporal_grounding_tg1a_retry.py": "d1fd89cae41243d40ac6c431338c3d002be495b83a686533bf9f6ee98c3bb5c7",
+    "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v9_4h20.yaml": "b9b83237799cfa75975eaf8e44d7a0ac8dc4caeae4b74c51018d88f2131774ab"
+  },
+  "validation": {
+    "lawam_runtime_regression": "passed",
+    "retry_preflight_tests": "5 passed",
+    "existing_failed_outputs_check_only": "normal, null, and persistence passed"
+  }
+}

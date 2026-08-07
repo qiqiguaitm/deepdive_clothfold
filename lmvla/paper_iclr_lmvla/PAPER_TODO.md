@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 14:20 UTC
+Updated: 2026-08-07 15:07 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -80,6 +80,7 @@ The following immutable admission bundles are frozen and were reverified on
 | Runtime v6 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v6.json` | Runtime-only | Superseded before step 0; Qwen3 package overlay validated |
 | Runtime v7 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v7.json` | Runtime-only | Healthy jobs retained; Qwen3 padding bridge passed |
 | Runtime v8 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v8.json` | Runtime-only | Active for pending cells; collision-safe arm/seed run timestamps |
+| Runtime v9 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v9.json` | Runtime-only | Passed; TG1A metadata batch bridge and strict failed-v4 isolation |
 
 The bundles pin outer implementation commit `db88e943`, LaWAM commit
 `71803a3`, inputs, checkpoints, scene identities, report schemas, analysis
@@ -124,14 +125,17 @@ of the unchanged runner and appends the frozen arm and seed to its timestamp;
 this isolates operational log/checkpoint directories without changing any
 training argument. Healthy Running v7 jobs were not restarted.
 
-The v4 executions exposed two admission blockers, so failed cells must not be
-blindly retried:
+The v4 executions exposed two blockers, so failed cells must not be blindly
+retried:
 
 - TG1A normal, null, and persistence all reached the policy server, but every
   task failed at first inference because `LatentWorldPolicyInferExample`
   declares `temporal_grounding_context` while the runtime batch builder rejects
-  that key. No summary was produced. Repair requires a reviewed source and
-  admission-manifest amendment.
+  that key. No summary was produced. Runtime v9 admits the reviewed one-key
+  metadata allowlist repair, verifies the runner-to-backend context route, and
+  permits a retry only after proving and archiving the complete zero-summary
+  v4 schema failure. The scheduler has released all four TG1A cells; shuffled
+  remains artifact-blocked until normal capture completes.
 - TG1B `future_off,E=36` produced 20/24 summaries and `local_wm,E=50` produced
   18/24. Missing cells exhausted the frozen three attempts for fixed scene
   seeds that remained invalid. Re-running those seeds or replacing them cannot
@@ -183,13 +187,13 @@ Admission source:
 
 ### GPU cells
 
-- [ ] **TG1A-E1 [BLOCKED after failed run: `t-20260807165006-b4pqr`]**
+- [ ] **TG1A-E1 [READY-RUNTIME-V9; prior failed run: `t-20260807165006-b4pqr`]**
   Evaluate `normal`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
-- [ ] **TG1A-E2 [BLOCKED after failed run: `t-20260807165010-gk4h7`]**
+- [ ] **TG1A-E2 [READY-RUNTIME-V9; prior failed run: `t-20260807165010-gk4h7`]**
   Evaluate `null`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
-- [ ] **TG1A-E3 [BLOCKED after failed run: `t-20260807171443-psgh6`]**
+- [ ] **TG1A-E3 [READY-RUNTIME-V9; prior failed run: `t-20260807171443-psgh6`]**
   Evaluate `persistence`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
 - [ ] **TG1A-E4 [BLOCKED by TG1A-E1 capture]** Verify the complete normal

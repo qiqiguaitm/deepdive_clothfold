@@ -5568,15 +5568,20 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert capture_marker in tg1a["temporal_grounding_tg1a_shuffled_eval"][
         "ready_files"
     ]
+    assert all(task.get("enabled", True) for task in tg1a.values())
     for condition in ("normal", "null", "persistence"):
         task = tg1a[f"temporal_grounding_tg1a_{condition}_eval"]
-        assert not task["enabled"]
-        assert "source and admission amendment" in task["disabled_reason"]
         assert capture_marker not in task["ready_files"]
         assert task["candidates"][0]["gpus"] == 4
         assert task["candidates"][0]["env"]["TG1A_CONDITION"] == condition
+        assert task["candidates"][0]["runtime_revision"] == (
+            "temporal_grounding_runtime_v9"
+        )
         assert task["candidates"][0]["yaml"].endswith(
-            "temporal_grounding_tg1a_east_runtime_v4_4h20.yaml"
+            "temporal_grounding_tg1a_east_runtime_v9_4h20.yaml"
+        )
+        assert task["rearm_after_ready_file"].endswith(
+            "temporal_grounding_runtime_amendment_v9.json"
         )
 
     assert {

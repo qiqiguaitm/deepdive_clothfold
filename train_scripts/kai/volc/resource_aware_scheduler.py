@@ -8519,6 +8519,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v6_path = manifests / "temporal_grounding_runtime_amendment_v6.json"
     runtime_v7_path = manifests / "temporal_grounding_runtime_amendment_v7.json"
     runtime_v8_path = manifests / "temporal_grounding_runtime_amendment_v8.json"
+    runtime_v9_path = manifests / "temporal_grounding_runtime_amendment_v9.json"
     posttraining_path = manifests / "temporal_grounding_tg2_posttraining_pipeline_v1.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
@@ -8532,6 +8533,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v6_path: "3b165566d2098133b5c1992996a5323b501354332474606564db8f19fd2d74db",
         runtime_v7_path: "13dac0becb33bbc4b36ccaba459ee2817374023d7d59f746d1344bf6f342c61f",
         runtime_v8_path: "597459d4c346830416637b64eb0a14857affbdd8922840b969761c1b6522e678",
+        runtime_v9_path: "cc28d480647c8da5f274352fe2c0ba7e88509997e15c3e891bbf0a4db494005c",
         posttraining_path: "590e80cb71faf191a9278a75d783b3b221518373a934a8013fe20ba9e4709bd4",
     }
     for path, expected in manifest_hashes.items():
@@ -8555,7 +8557,19 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1a_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1a_east_4h20.yaml"
     tg1a_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v4_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v9_4h20.yaml"
+    )
+    tg1a_batch_builder = (
+        REPO
+        / "lmvla/lawam/starVLA/model/framework/latent_world/batch_builder.py"
+    )
+    tg1a_context_test = (
+        REPO
+        / "lmvla/lawam/starVLA/model/framework/latent_world/runtime/"
+        "test_temporal_grounding_context.py"
+    )
+    tg1a_retry_preflight = (
+        REPO / "lmvla/lmwm/scripts/prepare_temporal_grounding_tg1a_retry.py"
     )
     tg1a_hashes = [
         {"path": str(tg1a_path), "sha256": manifest_hashes[tg1a_path]},
@@ -8567,10 +8581,22 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "path": str(tg1a_yaml),
             "sha256": tg1a["file_sha256"][str(tg1a_yaml.relative_to(REPO))],
         },
-        {"path": str(runtime_v4_path), "sha256": manifest_hashes[runtime_v4_path]},
+        {"path": str(runtime_v9_path), "sha256": manifest_hashes[runtime_v9_path]},
         {
             "path": str(tg1a_runtime_yaml),
-            "sha256": "ab7967545004999a3f6a75b918570d234d1cf03fbafb46008f0b3d4ba272290b",
+            "sha256": "b9b83237799cfa75975eaf8e44d7a0ac8dc4caeae4b74c51018d88f2131774ab",
+        },
+        {
+            "path": str(tg1a_batch_builder),
+            "sha256": "9aa91654c274f9cbfc6f6d08066c8188ab84731baf81de64148b058c8885bc22",
+        },
+        {
+            "path": str(tg1a_context_test),
+            "sha256": "df79416a78b4d0f46b87b6dae996cdd11c916aad87fc4192934152e4de941a17",
+        },
+        {
+            "path": str(tg1a_retry_preflight),
+            "sha256": "9e226ea73b61a281b9d2719b10249ab4d6068b8fc5e285fb27b726a583fd5dd7",
         },
     ]
     capture_marker = REPO / "logs/temporal_grounding/tg1a/normal_capture_complete.json"
@@ -8584,8 +8610,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             str(REPO / tg1a["checkpoint"]["path"]),
             str(tg1a_runner),
             str(tg1a_yaml),
-            str(runtime_v4_path),
+            str(runtime_v9_path),
             str(tg1a_runtime_yaml),
+            str(tg1a_batch_builder),
+            str(tg1a_context_test),
+            str(tg1a_retry_preflight),
         ]
         if condition == "shuffled":
             ready_files.append(str(capture_marker))
@@ -8599,12 +8628,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "id": task_id,
                 "priority": 0,
                 "description": f"Frozen TG1A {condition} evaluation",
-                "enabled": False,
-                "disabled_reason": (
-                    "TG1A blocked pending reviewed source and admission amendment "
-                    "for temporal_grounding_context batch support"
-                ),
-                "rearm_after_ready_file": str(runtime_v4_path),
+                "rearm_after_ready_file": str(runtime_v9_path),
                 "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                 "completion_min_count": 24,
                 "ready_files": ready_files,
@@ -8618,6 +8642,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "queue_timeout_seconds": 180,
                         "retry_cooldown_seconds": 600,
                         "max_failures": 1,
+                        "runtime_revision": "temporal_grounding_runtime_v9",
                         "yaml": str(tg1a_runtime_yaml.relative_to(REPO)),
                         "task_name": f"temporal-grounding-tg1a-{condition}-east4g",
                         "env": {"TG1A_CONDITION": condition},
