@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p3_finalizer_amendment_v1",
+  "created_at": "2026-08-07T02:20:00Z",
+  "status": "canonical_output_recovery_only",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_protocol.json",
+    "sha256": "77c1a891db99fcccaaabdf0e7f57d06069143544926358e753894014a8ab557f"
+  },
+  "accelerator_parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_north_accelerator_amendment_v3.json",
+    "sha256": "a2d7f72715695098ac2f08ab79c83c49a5aa140b8a05b33af1ce8107e2d833b2"
+  },
+  "authorization": {
+    "trigger": "all four frozen evaluation schedulers for a training seed contain six completed tasks, no in-progress tasks, no pending tasks, and no failed tasks, while the canonical marker is absent",
+    "operation": "rerun only the frozen protocol verifier, exact fixed-seed verifier, deterministic summarizer, and atomic canonical marker write",
+    "gpu_count": 0
+  },
+  "invariants": [
+    "The finalizer launches no simulator, policy server, model inference, episode retry, or task worker.",
+    "It cannot alter scheduler state, accepted episode records, checkpoint parameters, normalization, task definitions, or scene seeds.",
+    "The same frozen verifier and summarizer used by the formal parent remain authoritative.",
+    "The finalizer is idempotent and runs only after all 24 cells are complete."
+  ],
+  "file_sha256": {
+    "kai0/scripts/verify_pi05_predictive_adapter_p345_protocol.py": "ee53550567cf8cebb3d2c3aba2dd2cdaf9b766bcf4d8fb698f57c9bf897fe8e6",
+    "lmvla/lmwm/scripts/summarize_robotwin_eval.py": "3236f44b1bff55166379e36555af888a38c1ab1c9fcd210d55906fe215c96c7f",
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "train_scripts/kai/eval/finalize_pi05_predictive_adapter_p3_a0_eval.sh": "898dbca0a572eab34ca60bc15791a624428258230d78cabba12596f71982c367"
+  }
+}
