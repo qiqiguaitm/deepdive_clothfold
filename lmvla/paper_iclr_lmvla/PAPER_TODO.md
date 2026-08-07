@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 08:53 UTC
+Updated: 2026-08-07 14:20 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -74,6 +74,9 @@ The following immutable admission bundles are frozen and were reverified on
 | Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
 | Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
 | Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |
+| Runtime v5 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v5.json` | Runtime-only | Passed; cached North image and deployment timeout |
+| Runtime v6 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v6.json` | Runtime-only | Superseded before step 0; Qwen3 package overlay validated |
+| Runtime v7 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v7.json` | Runtime-only | Active; Qwen3 padding bridge and unequal-length batch smoke passed |
 
 The bundles pin outer implementation commit `db88e943`, LaWAM commit
 `71803a3`, inputs, checkpoints, scene identities, report schemas, analysis
@@ -81,13 +84,17 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-At 08:53 UTC, TG1A normal and null are running on all 8 East GPUs. Both passed
-the renderer, frozen-bundle, and pinned-policy-runtime checks and reached the
-formal four-seed evaluator. All nine TG2 training jobs have platform IDs on
-North: two primary-profile jobs are Deploying and seven jobs are Queueing. The
-North queue reports GPU fragmentation for the five backup-profile jobs and
-personal quota pressure for two primary-profile jobs. Mutable resource counts
-remain authoritative only in `logs/resource_scheduler_snapshot.{md,json}` and
+At 14:20 UTC, four v7 TG2 jobs are Running: fixed-endpoint seeds 1000--1001
+on East and raw-milestone seeds 1001--1002 on North. All four passed the
+Qwen3 unequal-length batch smoke and sustained optimization beyond the first
+step with frozen global batch 128. At the latest heartbeat, North raw seeds
+1001--1002 reached step 47 at 2.28--2.29 s/step and East fixed seeds 1000--1001
+reached step 26 at 2.30--2.36 s/step; DataLoader time is about 0.04 s. Five
+older backup-profile jobs still represent future-off seeds 1000--1002,
+fixed-endpoint seed 1002, and raw-milestone seed 1000 while the scheduler waits
+for their platform states. No final TG2 checkpoint exists yet.
+Mutable resource counts and platform states remain authoritative only in
+`logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
 
 Runtime v3 attempts produced no summary and exposed one operational mismatch:
@@ -96,6 +103,31 @@ through an incompatible tokenizer object. Runtime v4 selects the existing
 LaWAM Transformers 5.2.0 environment and fails fast unless it obtains
 `Qwen3VLProcessor` with a tokenizer. Failed v3 output roots were preserved
 under `.failed_runtime_v3` suffixes; no episode result was reused.
+
+TG2 runtime v5 fixed North image staging but exposed that the repository
+environment's Transformers 4.53.2 maps the frozen Qwen3-VL checkpoint to an
+incompatible Qwen2.5 processor. Runtime v6 loaded Qwen3 correctly and built
+the full model, then failed on the first DataLoader batch because the frozen
+`processor_kwargs={"padding": true}` API spelling was not forwarded by the
+Qwen3 processor. Runtime v7 adds a hash-pinned compatibility bridge that only
+forwards this already-requested padding flag; both 5.2 and 4.57 probes establish
+that version rollback alone does not fix it. All v5/v6 attempts stopped before
+optimizer step 0. Their output directories were audited and preserved under
+`.runtime_v5_pre_step0_quarantine` or `.runtime_v6_pre_step0_quarantine`.
+
+The v4 executions exposed two admission blockers, so failed cells must not be
+blindly retried:
+
+- TG1A normal, null, and persistence all reached the policy server, but every
+  task failed at first inference because `LatentWorldPolicyInferExample`
+  declares `temporal_grounding_context` while the runtime batch builder rejects
+  that key. No summary was produced. Repair requires a reviewed source and
+  admission-manifest amendment.
+- TG1B `future_off,E=36` produced 20/24 summaries and `local_wm,E=50` produced
+  18/24. Missing cells exhausted the frozen three attempts for fixed scene
+  seeds that remained invalid. Re-running those seeds or replacing them cannot
+  be treated as the currently frozen protocol without an explicit protocol
+  decision.
 
 ## 4. Dependency graph and admission waves
 
@@ -142,12 +174,15 @@ Admission source:
 
 ### GPU cells
 
-- [ ] **TG1A-E1 [RUNNING: `t-20260807165006-b4pqr`]** Evaluate `normal`;
-  4 GPUs, 1,200 accepted episodes.
-- [ ] **TG1A-E2 [RUNNING: `t-20260807165010-gk4h7`]** Evaluate `null`;
-  4 GPUs, 1,200 accepted episodes.
-- [ ] **TG1A-E3 [READY; waiting for East]** Evaluate `persistence`; 4 GPUs,
-  1,200 accepted episodes.
+- [ ] **TG1A-E1 [BLOCKED after failed run: `t-20260807165006-b4pqr`]**
+  Evaluate `normal`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
+  rejected the frozen intervention field; 0/24 summaries.
+- [ ] **TG1A-E2 [BLOCKED after failed run: `t-20260807165010-gk4h7`]**
+  Evaluate `null`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
+  rejected the frozen intervention field; 0/24 summaries.
+- [ ] **TG1A-E3 [BLOCKED after failed run: `t-20260807171443-psgh6`]**
+  Evaluate `persistence`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
+  rejected the frozen intervention field; 0/24 summaries.
 - [ ] **TG1A-E4 [BLOCKED by TG1A-E1 capture]** Verify the complete normal
   feature capture, then evaluate the frozen within-task different-episode
   `shuffled` mapping; 4 GPUs, 1,200 accepted episodes.
@@ -185,14 +220,16 @@ Admission source:
 
 ### GPU cells
 
-- [ ] **TG1B-E1 [READY; waiting for East]** Evaluate `future_off`, `E=36`;
-  4 GPUs, 1,200 episodes.
-- [ ] **TG1B-E2 [READY; waiting for East]** Evaluate `future_off`, `E=50`;
-  4 GPUs, 1,200 episodes.
-- [ ] **TG1B-E3 [READY; waiting for East]** Evaluate `local_wm`, `E=36`;
-  4 GPUs, 1,200 episodes.
-- [ ] **TG1B-E4 [READY; waiting for East]** Evaluate `local_wm`, `E=50`;
-  4 GPUs, 1,200 episodes.
+- [ ] **TG1B-E1 [BLOCKED at 20/24: `t-20260807171446-sprsg`]** Evaluate
+  `future_off`, `E=36`; 4 GPUs, 1,200 episodes. Four cells exhausted the
+  fixed-scene validity retry limit.
+- [ ] **TG1B-E2 [NOT RUN under v4]** Evaluate `future_off`, `E=50`; 4 GPUs,
+  1,200 episodes. Do not launch until the fixed-scene blocker is resolved.
+- [ ] **TG1B-E3 [NOT RUN under v4]** Evaluate `local_wm`, `E=36`; 4 GPUs,
+  1,200 episodes. Do not launch until the fixed-scene blocker is resolved.
+- [ ] **TG1B-E4 [BLOCKED at 18/24: `t-20260807173250-nfv8r`]** Evaluate
+  `local_wm`, `E=50`; 4 GPUs, 1,200 episodes. Six cells exhausted the
+  fixed-scene validity retry limit.
 
 ### Completion and claims
 
@@ -221,25 +258,51 @@ Admission sources:
 - `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_north_staging_amendment_v1.json`
   when the scheduler selects North.
 
+### What is separate and what is jointly trained
+
+TG2 separates the three scientific conditions into distinct checkpoints. This
+is required for a causal arm comparison: mixing `future_off`, `fixed_endpoint`,
+and `raw_milestone` targets within one checkpoint would no longer identify
+which target caused a policy difference. Within each active-target checkpoint,
+however, training is already joint: one optimizer minimizes action-flow loss
+plus weighted future-perceptual and latent-distillation losses while updating
+their shared trainable trunk. `future_off` preserves the parameter and
+trainable trees but removes future losses and future conditioning.
+
+All arms start from the same released LaWAM pretraining package. TG2 therefore
+tests the effect of **joint downstream fine-tuning from that initialization**;
+it does not compare predictor-only pretraining followed by a frozen predictor
+against end-to-end joint training, and it does not test a fixed-plus-milestone
+target mixture. Those are distinct conditional questions in Section 9.
+
+Seeds 1000--1002 are three stochastic replications of each condition, not
+three modules or three sequential training stages. Within a seed, all three
+arms receive an identical deterministic initialization payload and rank data
+order; across seeds, initialization and data order vary. Training seed is the
+top statistical unit because one rollout seed panel measures evaluation noise,
+not variation in learned policies. Earlier single-seed screens changed verdict
+after matched replications, so no method or training-schedule claim may be based
+on seed 1000 alone.
+
 ### Training jobs
 
-- [ ] **TG2-T01 [SUBMITTED-QUEUEING: `t-20260807163508-kspsv`, backup]**
+- [ ] **TG2-T01 [SUBMITTED-DEPLOYING: `t-20260807163508-kspsv`, backup]**
   Train `future_off`, seed 1000; 4 GPUs.
 - [ ] **TG2-T02 [SUBMITTED-QUEUEING: `t-20260807163513-q6x7f`, backup]**
   Train `future_off`, seed 1001; 4 GPUs.
 - [ ] **TG2-T03 [SUBMITTED-QUEUEING: `t-20260807163518-c8vk6`, backup]**
   Train `future_off`, seed 1002; 4 GPUs.
-- [ ] **TG2-T04 [SUBMITTED-DEPLOYING: `t-20260807163452-hj776`, primary]**
+- [ ] **TG2-T04 [RUNNING-V7: `t-20260807221602-j6sww`, East]**
   Train `fixed_endpoint`, seed 1000; 4 GPUs.
-- [ ] **TG2-T05 [SUBMITTED-DEPLOYING: `t-20260807163457-qrwfh`, primary]**
+- [ ] **TG2-T05 [RUNNING-V7: `t-20260807221607-bckk5`, East]**
   Train `fixed_endpoint`, seed 1001; 4 GPUs.
-- [ ] **TG2-T06 [SUBMITTED-QUEUEING: `t-20260807163503-5h92f`, backup]**
+- [ ] **TG2-T06 [SUBMITTED-DEPLOYING: `t-20260807163503-5h92f`, backup]**
   Train `fixed_endpoint`, seed 1002; 4 GPUs.
 - [ ] **TG2-T07 [SUBMITTED-QUEUEING: `t-20260807163641-rk49r`, backup]**
   Train `raw_milestone`, seed 1000; 4 GPUs.
-- [ ] **TG2-T08 [SUBMITTED-QUEUEING: `t-20260807163646-dl67q`, primary]**
+- [ ] **TG2-T08 [RUNNING-V7: `t-20260807221612-kpqwj`, North]**
   Train `raw_milestone`, seed 1001; 4 GPUs.
-- [ ] **TG2-T09 [SUBMITTED-QUEUEING: `t-20260807163652-4f72m`, primary]**
+- [ ] **TG2-T09 [RUNNING-V7: `t-20260807221617-7hcmw`, North]**
   Train `raw_milestone`, seed 1002; 4 GPUs.
 
 Each row is one 4-GPU training job. Check a row only after its fixed step-20,000
@@ -325,7 +388,7 @@ least half the TG2 fixed-minus-raw mean gap. A temporal-use claim additionally
 requires correct time-to-go to beat time-shuffled timing. If this gate fails,
 stop temporal repair; do not add post-hoc horizons, gates, or selectors.
 
-### TG4 — source of active future utility
+### TG4 — source of active future utility and training protocol
 
 Eligibility requires TG1A content use or a task-safe TG2 active-target utility
 gate. Reuse compatible TG2 `future_off` and accepted active checkpoints rather
@@ -336,6 +399,47 @@ Attribute pretraining only from `future_off - clean`, downstream shaping only
 from `auxiliary_only - future_off`, and inference content only from
 `conditioning_only - parameter_matched_null`. Each label needs its own
 positive-lower-bound interval and task-safety check.
+
+#### TG4A — joint versus staged predictor training
+
+This branch is eligible only after one target has task-safe TG2 utility. Select
+exactly that target before adding jobs; do not choose the target from schedule
+outcomes. Compare three matched training protocols at seeds 1000--1002:
+
+- end-to-end joint optimization of action, future-perceptual, and distillation
+  losses;
+- target-specific predictor pretraining followed by a frozen-predictor policy
+  stage;
+- the same predictor pretraining followed by joint unfreezing during the policy
+  stage.
+
+Add a compute- and data-exposure-matched staged null so an extra training stage
+cannot be credited to future prediction. Every seed must receive its own
+predictor pretraining trajectory; reusing one seed-1000 predictor across all
+three policy seeds is not an independent end-to-end replication. Freeze equal
+sample exposure, optimizer updates, initialization ancestry, checkpoint rule,
+and paired scenes before admission. A schedule claim requires its hierarchical
+95% interval against end-to-end joint training to exclude zero and task safety
+to pass. If compute exposure cannot be matched, report a systems tradeoff, not
+a causal schedule advantage.
+
+#### TG4B — fixed-plus-milestone target mixture
+
+This is a different question from staged training. It becomes eligible only if
+TG2 shows prespecified task-level complementarity: fixed endpoint and raw
+milestone must each beat `future_off` on at least one non-overlapping task
+stratum without either failing the global task-safety gate. Otherwise stop; do
+not mix two unsupported targets to search for a positive macro.
+
+The minimum matrix is the better single active arm, a fixed-plus-milestone
+mixture, and a parameter-matched duplicate-target control at seeds 1000--1002.
+The mixture must beat the **better single arm**, not their average, with a
+positive hierarchical 95% lower bound and task safety. Report every task and
+include route-specific fixed-checkpoint null/shuffle interventions before
+claiming that both target contents are used. Mixing losses, alternating target
+samples, and adding parallel conditioning routes are different mechanisms;
+freeze exactly one implementation before training and do not compare them
+post hoc.
 
 ### TG5 — external replication
 
