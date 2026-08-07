@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 18:57 UTC
+Updated: 2026-08-07 18:58 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -145,6 +145,10 @@ plus 9.34 GB optimizer), so nine comparable final states require about 140 GiB.
 Checkpoint finalization and North-to-East materialization therefore have ample
 filesystem capacity. The 40 GB figure from `/vePFS-North-E` itself describes
 the gsy host root filesystem, not the nested North GPFS mount used by jobs.
+All active TG2 YAMLs set a 24-hour platform deadline; the current heartbeats
+project less than 13 hours from container start through step 20000. Two prior
+complete 16 GiB states wrote their model and optimizer files in 12.4--12.5
+seconds, leaving more than 11 hours of deadline margin for finalization.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
