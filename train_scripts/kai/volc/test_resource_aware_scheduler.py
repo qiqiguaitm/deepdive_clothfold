@@ -2462,6 +2462,46 @@ def test_dispatch_does_not_materialize_pending_north_parent(
     )
 
 
+def test_dispatch_completes_materializer_for_non_north_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = {"id": "parent", "priority": 0, "enabled": False}
+    materialize = {
+        "id": "materialize",
+        "priority": 0,
+        "enabled": True,
+        "materialize_north_result_for": "parent",
+        "completion_glob": "/tmp/non-north-materializer-report.json",
+        "candidates": [{"kind": "local", "resource": "local", "gpus": 0}],
+    }
+    state = {
+        "tasks": {
+            "parent": {
+                "status": "completed",
+                "attempts": [{"resource": "Robot-East-H20"}],
+            },
+            "materialize": {
+                "status": "pending",
+                "attempts": [],
+                "waiting_reason": "stale waiting reason",
+            },
+        }
+    }
+    monkeypatch.setattr(
+        scheduler,
+        "ordered_dispatch_candidates",
+        lambda *_args: pytest.fail("East materializer reached candidate selection"),
+    )
+
+    scheduler.dispatch({"tasks": [parent, materialize]}, state, {"resources": {}})
+
+    materialize_state = state["tasks"]["materialize"]
+    assert materialize_state["status"] == "completed"
+    assert materialize_state["attempts"] == []
+    assert materialize_state["satisfied_by_task"] == "parent"
+    assert "waiting_reason" not in materialize_state
+
+
 def test_dispatch_waits_for_all_required_completed_tasks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
