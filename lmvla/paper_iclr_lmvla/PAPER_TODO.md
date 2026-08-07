@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 15:58 UTC
+Updated: 2026-08-07 17:34 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -121,6 +121,19 @@ At 16:54 UTC, all six Running jobs crossed step 4000 and retained healthy
 heartbeats. The frozen `save_interval=20000` intentionally produces no
 intermediate step-4000 checkpoint, so resumability and final-checkpoint
 integrity cannot be claimed before the fixed final step.
+
+At 17:33 UTC, all six Running jobs crossed step 5000 (25%) with healthy
+heartbeats and no non-finite loss report. The exact step-5000 total losses were
+0.00524/0.00546 for North future-off seeds 1000--1001,
+0.00935/0.01261 for North raw-milestone seeds 1001--1002, and
+0.02683/0.02553 for East fixed-endpoint seeds 1000--1001. DataLoader time
+remained 0.036--0.041 s and model time 2.03--2.29 s. These optimization losses
+are health evidence only and do not determine task utility. The two healthy
+East v7 jobs share the auxiliary timestamped `train_lawam_ddp` log directory,
+but an artifact audit confirmed distinct seed-qualified checkpoint roots,
+configs, statistics, and W&B directories. Thus their model outputs do not
+collide; runtime v8 remains required for pending launches because a third
+same-second v7 launch previously failed on the shared auxiliary config copy.
 
 Runtime v3 attempts produced no summary and exposed one operational mismatch:
 the policy server used Transformers 4.53.2 and loaded the frozen Qwen3 weights
