@@ -5866,6 +5866,82 @@ def test_running_task_polls_remote_completion_before_local_materialization(
     assert attempt["stopped_after_completion_artifact"]
 
 
+def test_running_task_waits_for_terminal_state_when_completion_file_is_visible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = tmp_path / "final_model" / "pytorch_model.pt"
+    marker.parent.mkdir()
+    marker.write_bytes(b"still-writing")
+    task = {
+        "id": "tg2_train",
+        "completion_locations": [
+            {"label": "east", "glob": str(marker), "remote": False}
+        ],
+        "completion_min_count": 1,
+        "completion_requires_terminal_state": True,
+    }
+    attempt = {
+        "kind": "platform",
+        "region": "cn-shanghai",
+        "job_id": "job-running",
+        "credential_profile": "primary",
+        "last_state": "Running",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    stopped = []
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Running", "message": ""},
+    )
+    monkeypatch.setattr(
+        scheduler, "stop_managed_attempt", lambda value: stopped.append(value)
+    )
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "running"
+    assert state["artifacts_complete"] is True
+    assert stopped == []
+    assert "stopped_after_completion_artifact" not in attempt
+
+
+def test_terminal_task_accepts_completion_file_after_clean_platform_exit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = tmp_path / "final_model" / "pytorch_model.pt"
+    marker.parent.mkdir()
+    marker.write_bytes(b"complete")
+    task = {
+        "id": "tg2_train",
+        "completion_locations": [
+            {"label": "east", "glob": str(marker), "remote": False}
+        ],
+        "completion_min_count": 1,
+        "completion_requires_terminal_state": True,
+    }
+    attempt = {
+        "kind": "platform",
+        "region": "cn-shanghai",
+        "job_id": "job-completed",
+        "credential_profile": "primary",
+        "last_state": "Running",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Completed", "message": ""},
+    )
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "completed"
+    assert state["artifacts_complete"] is True
+    assert attempt["last_state"] == "Completed"
+    assert "stopped_after_completion_artifact" not in attempt
+
+
 def test_load_state_reopens_terminal_fallback_without_declared_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

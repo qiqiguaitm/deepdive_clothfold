@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:40 UTC
+Updated: 2026-08-07 19:44 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -165,7 +165,14 @@ their post-training-v2 hashes; no checkpoint, dependency, integrity gate, or
 evaluation protocol changed. A same-poll state transition is also guarded: when
 an East parent becomes complete during platform monitoring, its North
 materializer is satisfied before candidate selection instead of briefly
-launching an unnecessary transfer. All 157 scheduler tests pass.
+launching an unnecessary transfer. A finalization audit also found that the
+TG2 completion glob names `final_model/pytorch_model.pt`, which becomes visible
+while the multi-gigabyte `torch.save` is still writing it. The scheduler now
+records that early artifact as progress but requires a clean platform terminal
+state before completing any of the nine TG2 training tasks; it can no longer
+issue `StopJob` against an in-progress final save. This is scheduler lifecycle
+protection only and does not change the frozen training or completion artifact.
+All 159 scheduler tests pass, including Running and Completed regression cases.
 At 19:27 UTC, a live initialization audit covered the five current North
 jobs. Their initialization payload, parameter-tree, trainable-tree, and
 optimizer-tree SHA-256 values are each identical across arms and seeds
