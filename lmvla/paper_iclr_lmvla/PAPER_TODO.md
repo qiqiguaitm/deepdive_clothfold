@@ -1,15 +1,17 @@
 # Predictive-Adapter Evidence-Strengthening TODO
 
-Updated: 2026-08-07 02:35 UTC
+Updated: 2026-08-07 02:49 UTC
 
-This file contains only unfinished evidence and current publication gates.
-Completed MINT-VLA, P0--P2, R0--R4, efficiency, and execution history remain in
+**Status: complete under the frozen evidence plan.** P3--P5 are complete, P6
+and P7 are closed by their stop conditions, all publication gates below are
+satisfied, and no experiment remains authorized. Completed MINT-VLA, P0--P2,
+R0--R4, efficiency, and earlier execution history remain in
 `PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`. Canonical JSON results take precedence
-over this plan.
+over this closure record.
 
-P3--P5 are registered in the resource-aware scheduler after frozen preflights.
-The scheduler owns their training, evaluation, analysis, and retry lifecycle;
-do not manually launch, stop, restart, or reprioritize a job.
+The resource-aware scheduler completed the frozen P3--P5 training, evaluation,
+analysis, synchronization, and retry lifecycle. Do not reopen or reprioritize
+their terminal jobs.
 
 ## Execution snapshot
 
@@ -71,14 +73,13 @@ do not manually launch, stop, restart, or reprioritize a job.
 | Priority | ID | Question | New work | Claim unlocked only if gate passes |
 |---|---|---|---|---|
 | Required | P3 | Does the P2 effect survive independent matched A0 training seeds? | Complete; gate rejected | No independently matched utility claim |
-| Required | P4 | Does the policy use the correct predicted action content? | 6 fixed-checkpoint control evaluations | Content-, route-, or action-conditioning causality, comparison by comparison |
-| High | P5 | Does the adapter improve the mature public initialization? | Audit/recover or rerun 1 public evaluation | Improvement beyond the pretrained checkpoint rather than only weak-finetuning recovery |
+| Required | P4 | Does the policy use the correct predicted action content? | Complete; all three mechanism gates rejected | No content-, route-, or action-conditioning claim |
+| High | P5 | Does the adapter improve the mature public initialization? | Complete; gate rejected | No improvement claim over the mature public checkpoint |
 | Conditional | P6 | If content remains unresolved, which training component produces utility? | Closed without execution because P3 failed | None |
 | Reviewer-triggered | P7 | Does the matched effect persist on unseen scene seeds? | Closed unless a reviewer explicitly reopens it | None |
 
-P3--P5 answer distinct questions and may be prepared in parallel after their
-protocols are frozen. P6 is blocked until P3--P5 finish. P7 is not part of the
-default compute plan.
+P3--P5 answered distinct questions under frozen protocols. P6 and P7 remain
+closed by the decisions recorded below.
 
 ## P3: independent matched-baseline replication
 
@@ -187,16 +188,10 @@ using idle GPUs for these arms would be an unregistered post-hoc expansion.
 2. `random_init_no_aux`: the same adapter tree and route with per-seed frozen
    random initialization and predictive auxiliary-loss weight zero.
 
-- [ ] Audit equality of inherited pi0.5 parameters, data order, optimizer,
-  scheduler, batch, updates, parameter count, and action bridge across full
-  candidate and both controls. Document the intentionally different adapter
-  initialization and auxiliary-loss fields.
-- [ ] Train both controls at seeds 1000--1002 to fixed step 49,999 and evaluate
-  every checkpoint on the same 24 cells and 1,200 episodes.
-- [ ] Analyze three preregistered contrasts with hierarchical intervals and
-  Holm correction: full candidate minus `p0_init_no_aux` (continued auxiliary
-  supervision), `p0_init_no_aux` minus `random_init_no_aux` (P0 predictive
-  pretraining), and `random_init_no_aux` minus A0 (parameter/route capacity).
+- [x] Close the planned parameter-equality audit, six control trainings, six
+  evaluations, and three-contrast analysis without execution. These operations
+  were conditional on a positive P3 gate and therefore never became authorized
+  work.
 
 No component receives a causal label unless its own interval excludes zero.
 If all contrasts are unresolved, report the positive result as utility of the
@@ -226,12 +221,11 @@ considered.
   new claim-bearing figure must use a white canvas, 6--8 pt sans-serif text,
   strokes at least 0.5 pt, sentence-case labels, colourblind-safe colours plus
   marker/line-style cues, and captions defining samples and interval hierarchy.
-- [ ] Keep the paper within the ICLR main-text limit. Prefer replacing the
+- [x] Keep the paper within the ICLR main-text limit. Prefer replacing the
   current P2 table with a consolidated P3/P4 table rather than adding pages.
-  The P2 table has been replaced by the consolidated P3 table, but the compiled
-  draft still places references after approximately 16 main-text pages (23
-  pages including references and appendix). Structural compression remains a
-  publication task; it does not authorize additional experiments.
+  The compressed draft uses nine main-text pages, with references beginning on
+  page 9 and the appendix on page 11. The complete PDF has 15 pages. Full
+  control and audit details remain in the appendix and canonical JSON records.
 
 ## Stop and scope rules
 

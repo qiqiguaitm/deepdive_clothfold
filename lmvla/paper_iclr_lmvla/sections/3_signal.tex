@@ -1,61 +1,22 @@
-\section{Problem Setting and Controlled Comparisons}\label{sec:setup}
-Let $h_t=E_\theta(o_t)$ be the current policy representation, $y_t$ the feature
-of a future milestone frame, and $q_t$ the token presented to the action policy:
+\section{Problem Setting}\label{sec:setup}
+Let $h_t=E_\theta(o_t)$ be the policy representation, $y_t$ a future milestone
+feature, and $q_t$ the condition presented to the action policy:
 \begin{equation}
   a_t=\pi_\psi(h_t,q_t,l),
 \end{equation}
-where $l$ is the task instruction.  When $E_\theta$ changes during fine-tuning,
-future conditioning introduces four separable design choices.
+where $l$ is the instruction.  A future-conditioned VLA couples four choices:
+which future frame defines the target; whether its feature comes from an
+external, frozen, or current encoder; whether the policy receives an absolute
+feature or displacement; and whether the auxiliary gradient updates shared
+features.  A projection aligns dimensions but not semantic neighborhoods, and
+cached targets cannot follow a trainable encoder.
 
-\paragraph{Target selection.}
-A fixed horizon, terminal frame, random future, or recurrent milestone encodes
-a different claim about which future state is useful.
-
-\paragraph{Representation space.}
-The target may come from an external encoder, an earlier policy encoder, or
-the current encoder.  A projection matches dimensions but does not align
-semantic neighborhoods, and saved features do not follow encoder drift.
-
-\paragraph{Parameterization and forward path.}
-The model may predict an absolute feature $y_t$ or a displacement
-$y_t-h_t$, and may inject that prediction into the policy or use it only as an
-auxiliary objective.  A residual target can emphasize change without being a
-natural standalone conditioning input.
-
-\paragraph{Backward path.}
-With milestone loss
-$\mathcal L=\mathcal L_{\rm act}+\lambda\mathcal L_{\rm ms}$, the auxiliary
-gradient can reshape shared current features.  A performance change may thus
-come from forward guidance, representation shaping, or both.
-
-Table~\ref{tab:evidence-contract} specifies the minimum comparison for each
-paper claim.  Simulator seeds estimate rollout variation for one checkpoint;
-only independent training seeds measure optimization robustness.
-
-\begin{table}[t]
-\centering\small
-\setlength{\tabcolsep}{3pt}
-\caption{Evidence required for each claim.  The completed confirmatory and
-diagnostic rows bound the tested interface; closed extensions are not inferred
-from the legacy pilot.}
-\begin{tabular}{p{0.05\linewidth}p{0.23\linewidth}p{0.48\linewidth}p{0.13\linewidth}}
-\toprule
- & Claim & Required comparison & Status \\
-\midrule
-Q1 & matched control performance & corrected-recipe A0 vs. A2-Abs vs. MINT-VLA & complete: $-3.94$/$-8.58$ pp \\
-Q2 & correct content guides action & fixed checkpoint: correct/zero/within-task/cross-task & complete: null \\
-Q3 & spatial target is action-sufficient & no-goal/current/privileged $4\!\times\!4$ target & complete: adverse \\
-Q4 & robustness, task scope, and efficiency & train seeds, mature policy, predeclared tasks, cost & seeds/cost complete; scope closed \\
-Q5 & use with a second VLA architecture & same target protocol with the second VLA's native input & withdrawn after Q1 gate \\
-Q6 & preserve pretrained policy while adding dynamics & action-conditioned adapter vs. matched A0 and route/action controls & fixed-A0 screen passed; matched-seed gate rejected \\
-Q7 & outcome-calibrated demonstration weighting & terminal outcome vs. ordinary and outcome-free CRAVE weighting & seed 1000 passed; three-seed gate rejected \\
-\bottomrule
-\end{tabular}
-\label{tab:evidence-contract}
-\end{table}
-
-The legacy A0--A3 matrix is retained as exploratory evidence because
-its arms are internally matched, but it does not close Q1 under the intended
-$\pi_{0.5}$ training setting; the completed confirmatory matrix does.  LaWAM and LIBERO are supporting diagnostics only: the
-former lacks a clean VLA-from-base comparison, while the latter is near
-saturation for the policies studied here.
+These choices require distinct evidence.  Matched no-condition training tests
+overall utility; fixed-checkpoint zero and shuffled controls test route use and
+content use; privileged semantic and spatial targets separate predictor error
+from interface capacity; independent training seeds measure optimization
+robustness; and a mature public checkpoint bounds recovery from weak
+fine-tuning.  Simulator seeds estimate rollout variation for one checkpoint
+and cannot replace training seeds.  LaWAM and LIBERO are supporting diagnostics
+because the former lacks a clean VLA-from-base comparison and the latter is
+near saturation for the studied policies.

@@ -1,82 +1,23 @@
 \section{Discussion and Conclusion}\label{sec:conclusion}
-The current results expose a gap between future-state predictability and
-control utility.  MINT-VLA predicts held-out milestone representations better
-than persistence, yet correct future content does not outperform five control
-conditions at fixed $\pi_{0.5}$ checkpoints on 518 common scenes.  Nine
-supporting six-task LaWAM comparisons are also null, and their only
-multiplicity-corrected task-level difference is adverse.  Better retrieval
-content leaves control unchanged.  These interventions therefore reject the
-claim that the tested one-token policies improve because they use the correct
-predicted future.
+MINT-VLA improves held-out future-feature prediction, but the corrected
+three-seed control experiment rejects action utility: A2-Abs and MINT-VLA are
+$-3.94$ and $-8.58$ points below matched no-hint training, respectively.
+Correct content also fails to beat fixed-checkpoint replacements.  Oracle stage
+transitions, explicit next-subtask semantics, and privileged spatial targets do
+not reverse the result.  A later visual state can identify progress without
+specifying path, contact, arm assignment, or timing, so predictability and
+representation alignment are not sufficient evidence of action sufficiency.
 
-Changing the representation alone does not repair this gap.  Explicit correct
-next-subtask prompts reach 77.08\% on a fixed public $\pi_{0.5}$ checkpoint,
-below no subtask at 80.83\% and indistinguishable from within-task shuffled
-semantics; a 12.5-point Stack-3 gain is accompanied by a 25.0-point Handover
-regression.  One-token compression is also not a sufficient explanation.  A
-topology-preserving privileged $4\!\times\!4$ milestone fails to beat both
-no-goal and current-image controls on Stack-3 and significantly increases
-Hammer endpoint error.  Because this probe supplies the true future target, it
-removes predictor error from the comparison.  Its failure points to a deeper
-action-sufficiency problem: a later visual state can identify a task stage
-without specifying the path, contact transition, arm assignment, or timing
-needed for the next action.  This interpretation is consistent with the
-Handover result, where a same-task foreign hint is less harmful than the
-correct future.
+Preserving pretrained pathways does not yield a stable exception.  The
+predictive adapter has a strong seed-1000 screen and a positive comparison with
+one fixed A0, but independent matched A0s change the three seed effects to
++13.42, -5.50, and -2.08 points (mean +1.94; 95\% CI
+[$-5.78$,$+12.75$]).  Its correct-versus-shuffled, route, mature-public, and
+task-safety gates also fail.  Recurrence-aligned auxiliary training and
+outcome-calibrated weighting provide further negative replication results.
 
-These findings have a deliberately bounded scope.  The spatial probe is a
-1,000-update offline action-flow experiment on two tasks, not a closed-loop
-test of every spatial or generative subgoal interface.  Methods that generate
-instruction-aligned subgoals, condition predictions on candidate actions, or
-refresh targets online pose different hypotheses.  Our results instead show
-that representation alignment, prediction accuracy, and low deployment cost
-are individually insufficient evidence for control benefit.
-
-Outcome-linked recurrence statistics sharpen this interpretation without
-changing it.  In a frozen 120-episode rollout panel, progress, regression, and
-stall statistics separate successful and failed trajectories, but the
-regression, stall, and low-density alarms have success false-positive rates of
-38.4\%, 89.9\%, and 99.0\%.  The representation therefore contains diagnostic
-information, but neither this correlation nor the semantic prompt screen
-establishes a usable value function or control interface.
-
-The corrected three-seed comparison supports the diagnostic branch.  Across
-10,800 frozen-scene rollouts, A0 reaches 79.39\%, A2-Abs 75.44\%, and A3
-70.81\%.  Relative to matched A0 seeds, the paired hierarchical differences
-are $-3.94$ points for A2-Abs (95\% CI [$-6.58$,$-0.97$]) and $-8.58$ points for
-A3 ([$-11.47$,$-5.75$]).  A3 regresses on all six tasks and A2-Abs improves
-only Stack-2 by 0.50 points.  The tested native-space milestone interfaces
-therefore do not improve control under the corrected $\pi_{0.5}$ recipe.  A
-separate privileged oracle-transition arm also fails its predeclared gate:
-its difference from A0 is $+0.53$ points (95\% CI [$-2.06$,$+3.00$]), seed
-1002 reverses direction, and three task means regress despite positive results
-on the three multistage tasks.  We close the tracker, selector,
-mature-initialization, task-expansion, and second-VLA gates rather than tune
-them against these replicated negative results.
-
-The independently designed, policy-preserving predictive adapter provides a
-bounded positive screen, not a replicated method effect.  Relative to the
-fixed seed-1000 A0 at 69.00\%, candidate success is 82.42\%, 78.08\%, and
-81.33\%, producing a +11.61-point candidate-seed mean.  Independently matched
-A0s instead reach 69.00\%, 83.58\%, and 83.42\%; the three matched effects are
-+13.42, -5.50, and -2.08 points, with mean +1.94 and hierarchical 95\% CI
-[$-5.78$,$+12.75$].  The frozen P3 gate therefore rejects replicated utility.
-Across three seeds, normal inference
-exceeds shuffled action conditioning by only $+0.53$ points (95\% CI
-[$-2.14$,$+3.08$]; Holm-adjusted $p{=}0.534$); zero-route and masked-action
-contrasts also fail their gates.  We therefore do not attribute the fixed-A0
-gain to correct predicted action content, route necessity, or action
-conditioning.  The exact-paired mature public checkpoint reaches 78.17\%; the
-candidate mean is only $+2.44$ points higher with 95\% CI
-[$-0.72$,$+5.39$], so improvement over that initialization is also not
-established.  The failed recurrence-aligned R1 model remains
-evidence against that auxiliary extension, not against the parent adapter.
-
-Outcome-calibrated demonstration weighting is also a bounded negative result.
-At seed 1000, terminal-outcome weighting reaches 77.58\%, 3.33 points above
-ordinary and 6.50 points above outcome-free CRAVE weighting.  Across three
-training seeds, the mean differences remain positive at 2.81 and 3.81 points,
-but their hierarchical 95\% intervals are [$-0.94$,$+6.58$] and
-[$-0.25$,$+7.97$].  The frozen replication gate therefore rejects a replicated
-benefit.  This result also does not turn recurrence statistics into a value,
-reward, or planning claim.
+The conclusion is deliberately scoped to the tested $\pi_{0.5}$ one-token
+interfaces and six-task RoboTwin panel.  It does not rule out generative,
+action-conditioned, spatial, or planning-oriented world models.  It does show
+that latent prediction metrics, one-seed gains, and extra conditioning routes
+must not substitute for matched training seeds and causal content controls.

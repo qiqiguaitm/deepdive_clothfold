@@ -1,187 +1,84 @@
 \section{Results}\label{sec:results}
 
-\subsection{Calibration: the evaluator supports a mature $\pi_{0.5}$}
-The published $\pi_{0.5}$ checkpoint obtains \piRTPublic\% on the same six-task,
-four-seed bridge (938/1,200 successes): 93.0 hammer, 91.0 ranking-RGB, 63.5
-ranking-size, 55.0 handover, 95.0 Stack-2, and 71.5 Stack-3.  This result is an
-evaluator calibration, not a matched baseline, because its training mixture and
-recipe differ.  The calibration nevertheless shows that the pilot A0 score is mainly
-a policy-training issue rather than a globally broken evaluation bridge.
+\subsection{Corrected training rejects the milestone interfaces}
+The published $\pi_{0.5}$ checkpoint reaches 78.17\% on our frozen six-task,
+four-seed RoboTwin evaluator (1,200 episodes), showing that the bridge supports
+a mature policy.  It is a calibration rather than a matched baseline because
+its training mixture differs.  We therefore train A0 (no hint), A2-Abs
+(offline absolute milestone), and A3 (MINT-VLA) from the same official
+initialization under the corrected public recipe at seeds 1000--1002.
 
-\subsection{Legacy matched pilot: useful signal, insufficient baseline}
-Table~\ref{tab:pi05rt} reports the completed legacy pilot.  Every conditioned
-method improves its six-task macro over A0.  A2-Abs gains 13.25 points and A3
-gains \piRTAThreeVsZero{} points.  However, the absolute success levels remain
-far below the public calibration, each row has one training seed, and A3 exceeds
-A2-Abs by only \piRTAThreeVsAbs{} points.  We therefore use this result to choose
-the confirmatory arms, not as the final MINT-VLA performance claim.
+Across 10,800 rollouts, A0 reaches 79.39\%, A2-Abs 75.44\%, and A3 70.81\%.
+The matched hierarchical differences are $-3.94$ points for A2-Abs (95\% CI
+[$-6.58$,$-0.97$]) and $-8.58$ for A3
+([$-11.47$,$-5.75$]).  A3 regresses on all six tasks; A2-Abs improves only
+Stack-2 by 0.50 points.  Thus the internally matched but weak legacy pilot,
+where every conditioned arm improved over A0, does not survive the corrected
+training protocol.  Full seed-by-task success rates and the legacy matrix are
+reported in Appendix~\ref{sec:appendix}.
 
-\begin{table}[H]
+\begin{table}[t]
 \centering\small
-\caption{Legacy matched $\pi_{0.5}$ RoboTwin pilot: joint-delta actions,
-quantile normalization, batch 64, 20k updates.  Each cell averages 200 accepted
-episodes; each row has one training seed.}
-\resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrrrrrr}
-\toprule
-Method & Hammer & Rank RGB & Rank size & Handover & Stack-3 & Stack-2 & Macro \\
-\midrule
-A0: no hint & 70.0 & 50.5 & 24.0 & 9.0 & 17.5 & 42.0 & \piRTAZero \\
-A1: external absolute & 79.5 & 52.5 & 24.5 & 5.5 & 22.0 & 63.0 & \piRTAOne \\
-A2: offline absolute & 78.0 & 65.0 & 30.5 & 19.5 & 30.5 & 69.0 & \piRTATwoAbs \\
-A2: offline residual & 76.5 & 52.5 & 34.5 & 18.0 & 25.0 & 56.5 & \piRTATwoResid \\
-A3: MINT-VLA current-encoder & 66.0 & 70.5 & 25.5 & 26.0 & 35.5 & 74.0 & \piRTAThree \\
-\bottomrule
-\end{tabular}}
-\label{tab:pi05rt}
-\end{table}
-
-The task profile is heterogeneous (Fig.~\ref{fig:pi05tasks}).  A3 improves
-ranking-RGB, handover, and stacking but loses on hammer and ranking-size versus
-A2-Abs.  Offline residualization is 4.92 points below offline absolute, so
-``more change-focused'' is not equivalent to ``more useful as a policy token.''
-The A2-to-A3 contrast further changes target computation, predictor capacity, auxiliary
-loss, and the injected value; it motivates Q3 but does not identify which factor
-caused the difference.
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.88\linewidth]{figures/fig2_redundancy.pdf}
-  \caption{Legacy-pilot task deltas relative to A0.  Each cell contains 200
-  accepted episodes from one trained checkpoint.  The methods shift
-  gains across tasks; none dominates every task.}
-  \label{fig:pi05tasks}
-\end{figure}
-
-\subsection{Both milestone-conditioned arms regress across corrected training seeds}
-All nine A0/A2-Abs/A3 checkpoints pass the frozen checkpoint, configuration,
-normalization, dataset, 24-cell scene-manifest, launch-provenance, and
-source-hash audits.  Across training seeds 1000--1002, A0 reaches 79.39\%,
-A2-Abs 75.44\%, and A3 70.81\% (Table~\ref{tab:confirmatory}).  Relative to its
-matched A0 seed, A2-Abs changes success by $-5.50$, $-5.33$, and $-1.00$
-points; A3 changes it by $-8.58$, $-11.08$, and $-6.08$ points.  The paired
-hierarchical mean differences are $-3.94$ points for A2-Abs (95\% CI
-[$-6.58$,$-0.97$]) and $-8.58$ points for A3
-([$-11.47$,$-5.75$]).  Thus neither conclusion is controlled by one training
-seed.  At the task-mean level, A2-Abs improves only Stack-2 by 0.50 points and
-A3 regresses on all six tasks.
-
-\begin{table}[H]
-\centering\small
-\caption{Confirmatory public-recipe RoboTwin matrix.  Each training-seed row
-uses four evaluation seeds and 50 frozen scenes per task--evaluation-seed cell
-(1,200 episodes).  Across 3,600 paired episodes per contrast, A2-Abs--A0 is
-$-3.94$ points (hierarchical 95\% CI [$-6.58$,$-0.97$]) and A3--A0 is
-$-8.58$ points ([$-11.47$,$-5.75$]).}
+\caption{Corrected three-seed RoboTwin result.  Each method contains 3,600
+paired episodes.  Task entries are mean percentage-point effects versus the
+matched A0; intervals resample training seeds and paired scenes within task.}
 \setlength{\tabcolsep}{3pt}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{lrrrrrrrr}
 \toprule
-Method & Train seed & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Macro \\
+Method & Success & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & $\Delta$ A0 (95\% CI) \\
 \midrule
-A0 no hint & 1000 & 88.0 & 94.0 & 61.5 & 52.0 & 87.0 & 70.5 & 75.5 \\
-A0 no hint & 1001 & 90.0 & 95.0 & 60.5 & 60.0 & 95.0 & 79.5 & 80.0 \\
-A0 no hint & 1002 & 90.5 & 96.0 & 63.5 & 67.5 & 96.5 & 82.0 & 82.67 \\
-\textbf{A0 mean} & -- & \textbf{89.50} & \textbf{95.00} & \textbf{61.83} & \textbf{59.83} & \textbf{92.83} & \textbf{77.33} & \textbf{79.39} \\
-\midrule
-A2 offline absolute & 1000 & 92.0 & 81.0 & 53.0 & 46.0 & 90.0 & 58.0 & 70.0 \\
-A2 offline absolute & 1001 & 74.0 & 91.5 & 59.0 & 47.0 & 96.0 & 80.5 & 74.67 \\
-A2 offline absolute & 1002 & 93.0 & 95.0 & 55.5 & 70.0 & 94.0 & 82.5 & 81.67 \\
-\textbf{A2 mean} & -- & \textbf{86.33} & \textbf{89.17} & \textbf{55.83} & \textbf{54.33} & \textbf{93.33} & \textbf{73.67} & \textbf{75.44} \\
-\midrule
-A3 MINT-VLA & 1000 & 83.5 & 90.0 & 40.5 & 45.5 & 84.0 & 58.0 & 66.92 \\
-A3 MINT-VLA & 1001 & 72.5 & 90.0 & 58.0 & 43.0 & 92.5 & 57.5 & 68.92 \\
-A3 MINT-VLA & 1002 & 86.5 & 85.5 & 48.0 & 64.5 & 93.5 & 81.5 & 76.58 \\
-\textbf{A3 mean} & -- & \textbf{80.83} & \textbf{88.50} & \textbf{48.83} & \textbf{51.00} & \textbf{90.00} & \textbf{65.67} & \textbf{70.81} \\
+A0 & 79.39 & -- & -- & -- & -- & -- & -- & -- \\
+A2-Abs & 75.44 & -3.17 & -5.83 & -6.00 & -5.50 & +0.50 & -3.67 & -3.94 [$-6.58$,$-0.97$] \\
+MINT-VLA & 70.81 & -8.67 & -6.50 & -13.00 & -8.83 & -2.83 & -11.67 & -8.58 [$-11.47$,$-5.75$] \\
 \bottomrule
 \end{tabular}}
 \label{tab:confirmatory}
 \end{table}
 
-\begin{figure}[t]
-  \centering
-  \includegraphics{figures/fig4_confirmatory.pdf}
-  \caption{The corrected milestone interfaces reduce control success.  (a)
-  Macro success for each independent training seed; line style and marker
-  shape distinguish the three arms, and higher is better.  Each point averages
-  1,200 frozen-scene episodes.  (b) Three-training-seed mean task differences
-  relative to matched A0; triangles denote A2-Abs and squares denote A3, with
-  positive values favouring the conditioned arm.  The paired hierarchical
-  macro differences are $-3.94$ points for A2-Abs (95\% CI
-  [$-6.58$,$-0.97$]) and $-8.58$ points for A3
-  ([$-11.47$,$-5.75$]); each contrast contains 3,600 paired episodes.}
-  \label{fig:confirmatory}
-\end{figure}
+\subsection{Prediction quality and privileged targets do not imply action utility}
+The predictor is nontrivial: over two task-stratified held-out folds (480
+episodes), latent cosine is 0.8134 versus 0.7479 for persistence, with 46.9\%
+top-1 and 80.8\% top-5 milestone retrieval.  At fixed A2 and A3 checkpoints,
+however, correct predictions do not outperform current, zero, feature-permuted,
+cross-task, or within-task replacements on the common 518 scenes; all pooled
+Holm-adjusted $p$-values equal 1.  Nine six-task LaWAM comparisons give the
+same null result, with one corrected task-level difference and it is adverse.
 
-Completed step-20k midpoint panels and step-40k safety probes remain diagnostic
-only: they use unmatched checkpoints or lack a matched A0 and do not enter this
-confirmatory table.
+Three privileged controls further isolate the failure.  First, oracle stage
+transitions change success by only $+0.53$ points over matched A0 across three
+training seeds (95\% CI [$-2.06$,$+3.00$]).  Second, a correct next-subtask
+prompt reaches 77.08\% on a fixed public policy, below no subtask at 80.83\%
+and statistically indistinguishable from shuffled semantics; Handover regresses
+by 25 points.  Third, a ground-truth $4\!\times\!4$ milestone grid does not beat
+both no-goal and current-image controls in the two-task offline action probe and
+significantly worsens Hammer endpoint error.  These tests remove predictor
+error, semantic ambiguity, or global pooling in turn, but none establishes that
+the future condition is action-sufficient.
 
-\subsection{A predictive adapter passes its screen but not matched-seed replication}
-The separate action-conditioned predictive branch passes its preregistered P1
-screen at training seed 1000.  The normal adapter reaches \pOneNormal\%,
-compared with \pOneAZero\% for its matched current-source A0, a
-\pOneVsAZero{}-point difference over 1,200 paired episodes
-(pooled Holm-adjusted $p{=}7.02\!\times\!10^{-16}$).  It improves on A0 on all
-six tasks: +8.5 points on Hammer, +13.5 on ranking-RGB, +15.5 on ranking-size,
-+14.0 on Handover, +2.0 on Stack-2, and +27.0 on Stack-3.  The absence of a
-task regression and higher point estimates than all three route/action
-controls satisfy the directional gate and authorize P2 replication.
+\subsection{A policy-preserving adapter also fails independent replication}
+A separately scoped predictive adapter preserves inherited visual-language
+and action paths and routes a zero-initialized, action-conditioned branch only
+to the action expert.  Its seed-1000 screen improves over matched A0 by 13.42
+points without a task regression.  Replicating only candidate training against
+that fixed A0 also appears positive (+11.61 points; 95\% CI
+[$+8.31$,$+14.67$]), but this denominator omits baseline-training variation.
 
-The action-content attribution remains unresolved after the frozen three-seed
-intervention panel.  Normal minus shuffled actions is $+0.53$ points
-(hierarchical 95\% CI [$-2.14$,$+3.08$]; Holm-adjusted $p{=}0.534$), normal
-minus zero route is $+1.50$ points ([$-1.31$,$+4.39$]; adjusted $p{=}0.205$),
-and normal minus masked actions is $+1.33$ points
-([$-2.22$,$+4.86$]; adjusted $p{=}0.224$).  None passes its predeclared gate,
-and seed- and task-level effects change sign.  The adapter package therefore
-has positive fixed-A0 evidence, but these interventions do not identify
-correct-content use, route necessity, or action-conditioning use.
+P3 independently trains the missing A0 seeds.  The matched effects become
++13.42, -5.50, and -2.08 points (Table~\ref{tab:predictive-p3}); their mean is
++1.94 with hierarchical 95\% CI [$-5.78$,$+12.75$].  The primary gate fails,
+as does task safety.  An exact-paired mature public reference likewise gives
+only $+2.44$ points ([$-0.72$,$+5.39$]).  Across candidate seeds, normal minus
+shuffled actions is $+0.53$ points ([$-2.14$,$+3.08$]); zero-route and
+masked-action contrasts also cross zero after Holm correction.  The fixed-A0
+screen therefore establishes neither an independently replicated method effect
+nor use of correct predicted content.
 
-\begin{table}[H]
+\begin{table}[t]
 \centering\small
-\caption{Seed-1000 predictive-adapter and recurrence-extension screens.  Every
-row contains 24 frozen task--evaluation-seed cells and 1,200 episodes.  P1
-conditions share the predictive checkpoint except for matched A0; R1 is a
-separate recurrence-aligned training extension.  The table reports every task
-to expose heterogeneous effects.}
-\setlength{\tabcolsep}{2.7pt}
-\resizebox{\linewidth}{!}{%
-\begin{tabular}{llrrrrrrr}
-\toprule
-Branch & Condition & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Macro \\
-\midrule
-P1 & Matched A0 & 84.5 & 82.0 & 49.0 & 42.0 & 95.5 & 61.0 & 69.00 \\
-P1 & Predictive normal & 93.0 & 95.5 & 64.5 & 56.0 & 97.5 & 88.0 & 82.42 \\
-P1 & Zero route & 83.0 & 96.0 & 54.5 & 52.5 & 96.5 & 88.5 & 78.50 \\
-P1 & Shuffled actions & 81.0 & 96.5 & 67.5 & 57.0 & 97.5 & 87.5 & 81.17 \\
-P1 & Masked actions & 84.0 & 95.0 & 55.0 & 51.5 & 97.5 & 85.0 & 78.00 \\
-\midrule
-R1 & CRAVE only & 86.5 & 93.0 & 47.5 & 38.0 & 89.5 & 57.5 & 68.67 \\
-R1 & Predictive + CRAVE & 83.0 & 85.0 & 42.5 & 35.5 & 84.5 & 47.0 & 62.92 \\
-R1 & Combined, zero route & 87.5 & 85.0 & 46.0 & 35.0 & 76.5 & 43.0 & 62.17 \\
-R1 & Combined, shuffled actions & 87.5 & 88.0 & 45.5 & 32.5 & 85.0 & 49.5 & 64.67 \\
-\bottomrule
-\end{tabular}}
-\label{tab:predictive-p1-r1}
-\end{table}
-
-P2 passes its predeclared candidate-seed gate against one fixed A0: candidate
-macro success is 82.42\%, 78.08\%, and 81.33\% at seeds 1000--1002, yielding
-a mean +11.61-point effect (95\% CI [$+8.31$,$+14.67$]) relative to the 69.00\%
-seed-1000 A0.  P3 closes the missing denominator by independently training A0
-at seeds 1001 and 1002.  Those A0s reach 83.58\% and 83.42\%, and the matched
-candidate effects become +13.42, -5.50, and -2.08 points.  Their equal-seed
-mean is only +1.94 points, with hierarchical 95\% CI [$-5.78$,$+12.75$].
-The interval crosses zero, with three seed--task regressions below -5 points,
-so both the primary and task-safety gates fail.
-
-\begin{table}[H]
-\centering\small
-\caption{Frozen P3 independent matched-baseline replication.  Each seed pairs
-1,200 candidate and A0 episodes over 24 task--evaluation-seed cells.  Task
-columns are candidate-minus-A0 percentage-point effects; the final column is
-their equally weighted macro.}
+\caption{P3 independent matched-baseline replication.  Each seed pairs 1,200
+candidate and A0 episodes.  Task columns are candidate-minus-A0 percentage
+points; Effect is their equally weighted macro.}
 \setlength{\tabcolsep}{3pt}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{lrrrrrrrrr}
@@ -198,274 +95,22 @@ Mean & 78.67 & 80.61 & +2.17 & +2.33 & -0.83 & +3.17 & -0.67 & +5.50 & +1.94 \\
 \label{tab:predictive-p3}
 \end{table}
 
-P4 now replicates the intervention panel but, as reported above, does not
-identify the utility mechanism.  Together, P3 and P4 demote P2 to a positive
-fixed-A0 screen: neither an independently replicated method effect nor use of
-the correct predicted content is established.
+The adapter adds 16.82 million parameters (0.50\%).  Direct-model latency
+rises by 0.93\,ms (1.63\%), WebSocket round-trip latency by 2.76\,ms (2.48\%),
+and matched four-GPU peak training memory by 18\,MiB (0.027\%).  These modest
+costs do not rescue the rejected utility and mechanism gates.
 
-The exact-paired public-checkpoint reference also fails its predeclared gate.
-Candidate-minus-public effects are $+4.25$, $-0.08$, and $+3.17$ points at
-seeds 1000--1002.  Their equal-seed mean is $+2.44$ points, with hierarchical
-95\% CI [$-0.72$,$+5.39$].  The candidates improve Stack-3 by 12.5 points on
-average but regress Hammer by 4.0 points and ranking-size by 2.83 points.  We
-therefore do not claim improvement over the mature public initialization.  This
-fixed public denominator is reported beside, and does not replace, the failed
-independent matched-A0 comparison in Table~\ref{tab:predictive-p3}.
+\subsection{Additional extensions remain negative}
+Adding recurrence-derived CRAVE targets to the adapter lowers seed-1000 success
+to 62.92\%, 6.08 points below A0.  Terminal-outcome demonstration weighting
+passes a one-seed directional screen, but across three seeds its mean gains are
+only +2.81 points over ordinary training (95\% CI [$-0.94$,$+6.58$]) and +3.81
+over outcome-free CRAVE weighting ([$-0.25$,$+7.97$]).  Both replication gates
+therefore fail.  Correlated recurrence statistics remain useful diagnostics,
+not evidence for a reward, value function, or model-predictive controller.
 
-The adapter adds 16.82 million parameters (3.353 to 3.370 billion; 0.50\%).
-On one matched 80-GiB GPU, mean direct-model latency rises from 57.10 to
-58.03\,ms (+0.93\,ms; 1.63\%), WebSocket round-trip latency rises from
-111.57 to 114.33\,ms (+2.76\,ms; 2.48\%), and throughput changes from
-8.96 to 8.75 requests/s.  Compiled XLA cost analysis reports 172.29 versus
-164.92 GFLOPs per request, so it does not indicate an increase in compiled
-FLOPs despite the added parameters.  In a matched four-GPU, batch-16, ten-step
-training probe, peak memory is 66,789 versus 66,807\,MiB (+18\,MiB;
-0.027\%).
-
-\subsection{Recurrence alignment harms the predictive branch at seed 1000}
-The corrected dense-target R1 extension does not preserve the P1 improvement.
-Predictive-plus-CRAVE reaches \rOneCombined\%, below matched A0 by
-\rOneCombinedVsAZero{} points (paired bootstrap 95\% CI
-[$-9.33$,$-2.75$]), below CRAVE-only by \rOneCombinedVsCrave{} points
-([$-9.00$,$-2.50$]), and below the parent predictive adapter by 19.50 points
-([$-22.50$,$-16.50$]).  Relative to A0, it regresses ranking-size and Handover
-by 6.5 points, Stack-2 by 11.0 points, and Stack-3 by 14.0 points; only ranking-
-RGB improves (+3.0).  The preregistered R1 gate is rejected, so its additional
-training seeds are disabled.  This is a negative result for the
-recurrence-aligned auxiliary extension, not evidence that the P1 adapter is
-ineffective.
-
-\subsection{Terminal-outcome weighting passes its seed-1000 screen}
-At the fixed seed-1000 checkpoint, terminal-outcome weighting reaches
-\rFourTerminal\% macro success, compared with \rFourOrdinary\% for ordinary
-fine-tuning and \rFourCrave\% for outcome-free CRAVE weighting
-(Table~\ref{tab:r4-screen}).  The corresponding differences are
-\rFourVsOrdinary{} and \rFourVsCrave{} points.  The paired hierarchical 95\%
-interval is [$-2.25$,$+8.92$] points against ordinary and
-[$+0.33$,$+12.92$] against outcome-free CRAVE.  Because the first interval
-crosses zero, this accepted gate is a directional screen and replication
-trigger, not a replicated method effect.
-
-\begin{table}[H]
-\centering\small
-\caption{Seed-1000 outcome-calibrated demonstration-weighting screen.  Every
-row contains 24 frozen task--evaluation-seed cells and 1,200 episodes.  The
-full task profile is shown because the positive macro includes a Stack-2
-regression.}
-\setlength{\tabcolsep}{3pt}
-\resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrrrrrr}
-\toprule
-Condition & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Macro \\
-\midrule
-Ordinary & 86.0 & 93.5 & 57.5 & 49.0 & 92.5 & 67.0 & \rFourOrdinary \\
-Outcome-free CRAVE & 83.5 & 91.0 & 61.0 & 42.0 & 91.0 & 58.0 & \rFourCrave \\
-Terminal outcome & 92.0 & 94.0 & 65.5 & 57.5 & 89.0 & 67.5 & \rFourTerminal \\
-\bottomrule
-\end{tabular}}
-\label{tab:r4-screen}
-\end{table}
-
-Relative to ordinary weighting, the terminal arm changes Hammer, ranking-RGB,
-ranking-size, Handover, Stack-2, and Stack-3 by $+6.0$, $+0.5$, $+8.0$,
-$+8.5$, $-3.5$, and $+0.5$ points.  Relative to outcome-free CRAVE, the same
-task differences are $+8.5$, $+3.0$, $+4.5$, $+15.5$, $-2.0$, and $+9.5$
-points.  No task crosses the predeclared five-point regression guard, but the
-Stack-2 losses and two 0.5-point gains prevent a uniform-benefit claim.
-
-\subsection{The outcome-weighting screen does not pass replication}
-The two additional training seeds preserve positive mean effects but expose
-substantial seed variation (Table~\ref{tab:r4-replication}).  Averaged equally
-over training seeds, terminal-outcome weighting reaches
-\rFourRepTerminal\%, versus \rFourRepOrdinary\% ordinary and
-\rFourRepCrave\% outcome-free CRAVE.  The terminal differences are
-\rFourRepVsOrdinary{} and \rFourRepVsCrave{} points, respectively.  Their
-predeclared hierarchical 95\% intervals are [$-0.94$,$+6.58$] and
-[$-0.25$,$+7.97$] points.  Both lower bounds fail the positive-interval gate,
-so the seed-1000 direction does not establish a replicated utility effect.
-
-\begin{table}[H]
-\centering\small
-\caption{Frozen three-seed R4 replication.  Each condition--seed entry contains
-24 task--evaluation-seed cells and 1,200 paired episodes.  Mean is an equal
-average over training seeds; intervals use the predeclared hierarchy over
-training seed, task, evaluation seed, and paired scene.}
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lrrrrr}
-\toprule
-Training seed & Ordinary & Outcome-free CRAVE & Terminal outcome & $\Delta$ ordinary & $\Delta$ CRAVE \\
-\midrule
-1000 & 74.25 & 71.08 & 77.58 & +3.33 & +6.50 \\
-1001 & 70.67 & 70.17 & 70.75 & +0.08 & +0.58 \\
-1002 & 71.50 & 72.17 & 76.50 & +5.00 & +4.33 \\
-\midrule
-Mean & \rFourRepOrdinary & \rFourRepCrave & \rFourRepTerminal &
-\rFourRepVsOrdinary & \rFourRepVsCrave \\
-\bottomrule
-\end{tabular}
-\label{tab:r4-replication}
-\end{table}
-
-No training-seed/task contrast regresses by more than the predeclared five
-points, so the safety guard passes.  This guard does not rescue the utility
-claim: seed 1001 contributes only $+0.08$ points against ordinary and $+0.58$
-against outcome-free CRAVE.  We retain the complete seed-1000 screen as
-directional evidence and report the replication rejection without inferring
-reward, value, advantage, or model-predictive control from demonstration
-weights.
-
-\subsection{Correct future content does not improve the tested one-token interface}
-The predictor contains nontrivial future information: across two held-out
-task-stratified folds (480 episodes), latent cosine is 0.8134 versus 0.7479 for
-persistence, and milestone retrieval reaches 46.9\% top-1 and 80.8\% top-5.
-Prediction quality nevertheless does not imply control utility.  At fixed
-$\pi_{0.5}$ A2 and A3 checkpoints, correct predictions do not outperform
-current, zero, feature-permuted, cross-task, or within-task replacements on the
-common 518-scene intersection (Table~\ref{tab:pi05content}); all pooled
-Holm-adjusted $p$-values are 1.
-
-\begin{table}[H]
-\centering\small
-\caption{Fixed-$\pi_{0.5}$ content interventions.  Values are success rates
-(\%) on the same 518 scenes for every condition.  No correct-versus-control
-pooled contrast is significant after Holm correction (all adjusted $p{=}1$).}
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lrrrrrr}
-\toprule
-Checkpoint & Correct & Current & Zero & Permuted & Cross & Within \\
-\midrule
-A2-Abs & 70.46 & 70.27 & 66.80 & 72.20 & 71.04 & 69.88 \\
-A3 & 71.24 & 72.97 & 72.97 & 72.97 & 72.20 & 74.13 \\
-\bottomrule
-\end{tabular}
-\label{tab:pi05content}
-\end{table}
-
-Two supporting LaWAM diagnostics reach the same boundary.  A
-state-dependent retrieval milestone changes pooled success by only +0.34
-points over 1,161 paired episodes ($p{=}0.738$).  Across Absolute, Residual,
-and Residual+stop-gradient, correct hints fail to beat zero, cross-task, or
-within-task controls in all nine six-task pooled comparisons (1,200 paired
-episodes each; all Holm-adjusted $p{=}1$).  The only corrected task-level
-difference is adverse: Residual+stop-gradient obtains 72.5\% on Handover with
-the correct hint and 82.5\% with a same-task foreign-instance hint (difference
-$-10.0$ points; Holm-adjusted $p{=}0.0337$).  Together, the $\pi_{0.5}$ and
-LaWAM results rule out a future-content claim for these one-token interfaces;
-they do not establish that every world-model interface is ineffective.
-
-\subsection{Oracle stage transitions do not establish replicated control utility}
-All three oracle-transition checkpoints and their evaluations pass the frozen
-checkpoint, provenance, and 24-cell protocol audits.  The arm reaches 77.75\%,
-81.00\%, and 81.00\% at training seeds 1000--1002, compared with 75.50\%,
-80.00\%, and 82.67\% for matched A0 (Table~\ref{tab:mt1oracle}).  The resulting
-seed effects are $+2.25$, $+1.00$, and $-1.67$ points.  Across 3,600 paired
-episodes, the hierarchical mean difference is $+0.53$ points (95\% CI
-[$-2.06$,$+3.00$]).  The interval includes zero, so MT1 fails its predeclared
-utility gate.
-
-The task means preserve the heterogeneous result.  Handover, Stack-2, and
-Stack-3 improve by $+1.67$, $+2.17$, and $+3.17$ points, whereas Hammer,
-ranking-RGB, and ranking-size regress by $-1.50$, $-0.83$, and $-1.50$ points.
-The oracle route therefore does not provide a reliable control benefit, and
-the positive multistage average cannot support a method claim.  Because the
-upstream utility gate fails, we do not train the automatic tracker or infer
-transition-content use from the seed-1000 controls.
-
-\begin{table}[H]
-\centering\small
-\caption{Privileged oracle-transition follow-up.  Every training-seed row uses
-24 frozen cells and 1,200 episodes.  The mean difference from matched A0 is
-$+0.53$ points (paired hierarchical 95\% CI [$-2.06$,$+3.00$]) over 3,600
-paired episodes.  The final row reports every task-level difference rather
-than only the positive multistage subset.}
-\setlength{\tabcolsep}{3pt}
-\resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrrrrrrr}
-\toprule
-Method & Train seed & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Macro \\
-\midrule
-Oracle transition & 1000 & 88.5 & 93.5 & 56.0 & 60.5 & 91.5 & 76.5 & 77.75 \\
-Oracle transition & 1001 & 88.0 & 95.5 & 62.0 & 64.0 & 96.0 & 80.5 & 81.00 \\
-Oracle transition & 1002 & 87.5 & 93.5 & 63.0 & 60.0 & 97.5 & 84.5 & 81.00 \\
-\textbf{Oracle mean} & -- & \textbf{88.00} & \textbf{94.17} & \textbf{60.33} & \textbf{61.50} & \textbf{95.00} & \textbf{80.50} & \textbf{79.92} \\
-\textbf{Mean $\Delta$ vs. A0} & -- & \textbf{$-1.50$} & \textbf{$-0.83$} & \textbf{$-1.50$} & \textbf{$+1.67$} & \textbf{$+2.17$} & \textbf{$+3.17$} & \textbf{$+0.53$} \\
-\bottomrule
-\end{tabular}}
-\label{tab:mt1oracle}
-\end{table}
-
-\subsection{Explicit next-subtask semantics do not restore control utility}
-We next replace the visual future condition with an explicit semantic upper
-bound.  A fixed public $\pi_{0.5}$ checkpoint receives one of five prompts on
-the same 240 scenes: no subtask, a generic stage identifier, the current
-subtask, the correct next subtask, or a within-task shuffled next subtask.  The
-correct next-subtask prompt reaches 77.08\%, below no subtask at 80.83\% and
-within-task shuffled semantics at 77.50\%.  Its paired difference from no
-subtask is $-3.75$ points (95\% CI [$-10.42$,$+2.92$]); its difference from
-shuffled semantics is $-0.42$ points ([$-7.08$,$+6.25$]).  Although the correct
-next subtask improves Stack-3 by 12.5 points, it regresses Handover by 25.0
-points and Hammer by 7.5 points.  The predeclared confidence-interval,
-content-control, and task-safety gates all fail, so we do not train a semantic
-predictor.  This screen bounds prompting an unchanged pretrained policy; it
-does not test a learned latent or token adapter trained to use subtask labels.
-
-\begin{table}[H]
-\centering\small
-\caption{Privileged semantic-subtask screen on a fixed public $\pi_{0.5}$
-checkpoint. Values are success rates (\%); each arm uses four evaluation seeds
-and 240 paired episodes.}
-\setlength{\tabcolsep}{3pt}
-\resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrrrrrr}
-\toprule
-Condition & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Macro \\
-\midrule
-Generic stage & 97.5 & 80.0 & 62.5 & 22.5 & 82.5 & 47.5 & 65.42 \\
-No subtask & 87.5 & 97.5 & 70.0 & 67.5 & 95.0 & 67.5 & 80.83 \\
-Semantic current & 92.5 & 95.0 & 77.5 & 32.5 & 92.5 & 70.0 & 76.67 \\
-Semantic next & 80.0 & 97.5 & 65.0 & 42.5 & 97.5 & 80.0 & 77.08 \\
-Shuffled semantic & 92.5 & 100.0 & 62.5 & 42.5 & 92.5 & 75.0 & 77.50 \\
-\bottomrule
-\end{tabular}}
-\label{tab:r3semantic}
-\end{table}
-
-\subsection{Preserving privileged spatial topology does not recover action utility}
-The privileged $4\!\times\!4$ probe tests whether global pooling is the sole
-bottleneck before training a spatial predictor.  On Stack-3, privileged
-endpoint L2 is 0.3378 versus 0.3274 for no goal and 0.3580 for current-image
-patches, so it does not beat both controls.  On Hammer, privileged error is
-0.3080 versus 0.2355 and 0.2403.  The paired episode bootstrap estimates a
-privileged-minus-no-goal Hammer difference of +0.0725 (95\% CI
-[+0.0391,+0.1110]); lower is better.  The prespecified gate therefore fails,
-and we stop the predicted spatial expansion.  Because this is a 1,000-update,
-two-task offline action endpoint probe rather than closed-loop evaluation, it
-isolates the failed interface hypothesis without ruling out action-conditioned
-subgoals that encode path, contact, assignment, or timing.
-
-\subsection{Replicated negative utility closes the planned scope expansions}
-The three independent training seeds measure optimization variation rather
-than only rollout variation.  The ordered-construction hypothesis from the
-legacy pilot does not survive the corrected matrix: A3 loses 11.67 points on
-Stack-3 and 2.83 points on Stack-2 relative to A0, averaged across training
-seeds.  A2-Abs gains only 0.50 points on Stack-2 while losing on the other five
-tasks.  Because the preregistered positive-utility gate fails, we do not tune
-selectors, add a mature-initialization transfer, or broaden the task panel
-against this result.  Exact parameter counts, predictor FLOPs, paired memory,
-and latency are reported in the appendix.
-
-\subsection{The evidence is restricted to the tested $\pi_{0.5}$ interfaces}
-The current RoboTwin experiment instantiates MINT-VLA only on $\pi_{0.5}$.  It
-tests the one-token prefix implementation, not its use with another VLA
-architecture.  We therefore make no multi-architecture claim and close the
-planned second-VLA expansion after the primary positive-utility gate fails.
-
-\subsection{Supporting boundary diagnostics}
-LaWAM interventions show why Q2 is necessary: correct hints are not reliably
-better than zero, instance-shuffled, or cross-task hints, and the former ``no-WM'' arm
-inherits WM-aware pretraining and current DINO conditioning.  It is therefore
-named \emph{LaWAM-init/Future-off} and used only to diagnose downstream
-integration.  LIBERO is similarly auxiliary: its near-saturated four-suite
-aggregate is neutral to negative under milestone conditioning.  Full tables
-and multiplicity-aware analyses belong in Appendix~\ref{sec:appendix}; neither
-diagnostic substitutes for the completed matched $\pi_{0.5}$ matrix.
+The three independent negative branches close the preregistered selector,
+tracker, task-expansion, second-VLA, and component-factorization paths.  We do
+not tune new variants against these outcomes.  The evidence is restricted to
+the evaluated $\pi_{0.5}$ interfaces and RoboTwin panel; complete controls,
+per-seed task tables, audits, and scope qualifications are in the appendix.

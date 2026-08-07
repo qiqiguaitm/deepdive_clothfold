@@ -1,156 +1,59 @@
 \section{Experimental Design}\label{sec:design}
 
-\subsection{Benchmark, evaluator, and evidence tiers}
-RoboTwin 2.0 is the primary benchmark.  We evaluate hammering, ranking by
-color, ranking by size, handover, stacking two blocks, and stacking three
-blocks.  Each completed pilot cell contains four simulator seed groups and 50
-accepted expert-feasible episodes per group (200 episodes per task and 1,200
-per method).  Policies predict 50 actions and replan after executing 50.
-Accepted scene identifiers must be intersected across conditions for paired
-tests.  LIBERO is reported only as an auxiliary saturation and negative-transfer
-diagnostic.
+\paragraph{Benchmark and pairing.}
+The main experiment uses six RoboTwin 2.0 tasks spanning contact, ranking,
+handover, and two- or three-stage stacking.  Each accepted checkpoint is
+evaluated on four simulator seeds and 50 frozen scenes per task--seed cell
+(1,200 episodes).  Contrasts pair identical scene and episode keys.  Training
+seed is the top-level uncertainty unit in a hierarchical bootstrap; paired
+episodes are resampled within each equally weighted task.  We report every task
+and require the 95\% interval for the macro difference to exclude zero.  A
+task-safe claim additionally permits no seed--task regression below -5 points.
 
-We separate three evidence tiers.  The \emph{external calibration} is the
-published $\pi_{0.5}$ checkpoint evaluated through our bridge.  The
-\emph{legacy pilot} starts every arm from \texttt{pi05\_base} but uses
-joint-delta actions, quantile normalization, batch 64, and 20k updates.  The
-\emph{confirmatory matrix} uses absolute actions, mean/std normalization,
-batch 16, 50k updates, and the published optimizer schedule for every arm.
-Only the confirmatory matrix can support the final Q1 claim.
+\paragraph{Matched policy comparison.}
+The corrected $\pi_{0.5}$ recipe uses absolute actions, mean/std normalization,
+batch 16, 50,000 updates, and the published optimizer schedule.  At training
+seeds 1000--1002 we compare A0 (no milestone), A2-Abs (an offline absolute
+milestone token), and A3 (the current-encoder MINT-VLA token).  All nine final
+step-49,999 checkpoints pass source, initialization, dataset, normalization,
+optimizer, and evaluator-manifest audits.  This matrix is the primary utility
+test; earlier joint-delta, batch-64, 20k-update runs are exploratory only.
 
-\subsection{Q1: matched control performance}
-The claim-bearing comparison is A0 (no hint), A2-Abs (offline absolute
-milestone), and A3/MINT-VLA (current-encoder residual predictor), trained from
-the same initialization and data under the confirmatory recipe.  A0 has no
-hint field, milestone loss, or milestone-specific parameters.  We report each
-training seed, the seed mean and interval, and all task-level results.
+\paragraph{Fixed-checkpoint content controls.}
+To ask whether action depends on the predicted future rather than an extra
+route or correlated token, we replace the correct condition with current,
+zero, feature-permuted, cross-task, and within-task content while holding the
+checkpoint and scenes fixed.  A separate three-seed adapter panel compares
+normal inference with shuffled actions, a zeroed route, and masked actions,
+with Holm correction over the three preregistered mechanism contrasts.
 
-All nine A0/A2-Abs/A3 checkpoints and evaluations pass the frozen checkpoint,
-configuration, dataset, 24-cell scene-manifest, launch-provenance, and source
-audits.  Every arm uses training seeds 1000--1002 and 1,200 frozen-scene
-rollouts per seed.  Paired hierarchical intervals use training seed as the
-top-level resampling unit and preserve episode pairing within task and scene.
+\paragraph{Privileged upper bounds.}
+Three controls remove distinct possible bottlenecks before training further
+predictors: same-scene oracle stage transitions, explicit correct-next-subtask
+prompts on a frozen public policy, and a ground-truth $4\!\times\!4$ spatial
+milestone in a two-task offline action probe.  Each has a frozen no-condition
+or current-condition baseline and a content-shuffled control where applicable.
+Failure stops the corresponding tracker, semantic predictor, or spatial
+predictor expansion.
 
-\subsection{Q2: effect of the predicted token content}
-For each trained A2-Abs and A3 checkpoint, we hold weights fixed and replace the
-correct prediction with (i) the current-state feature, (ii) zeros, (iii) a
-within-task shuffled future, and (iv) a cross-task future.  A completed
-feature-dimension permutation is reported separately because it tests feature
-structure, not instance relevance.  Conditions use the
-same accepted scene identifiers.  Correct-versus-current tests temporal content;
-correct-versus-shuffled tests instance relevance while preserving a plausible
-feature distribution; zero tests removal of the token; cross-task tests semantic
-misdirection.  We report paired success differences and exact McNemar tests
-with Holm correction.  The completed $\pi_{0.5}$ intervention uses the common
-intersection of 518 scenes for every A2 and A3 condition.  A supporting LaWAM
-diagnosis uses 1,200 paired episodes for each of nine method--control contrasts.
+\paragraph{Policy-preserving predictive branch.}
+This independently designed branch leaves inherited $\pi_{0.5}$ visual-language
+and action paths intact, stops predictive gradients at inherited features, and
+routes a zero-initialized action-conditioned adapter only into the action
+expert.  P1 screens seed 1000 against a current-source A0 and route/action
+controls.  P2 trains candidate seeds 1001 and 1002 against the fixed seed-1000
+A0.  P3 supplies the decisive denominator by independently training matched A0
+seeds 1001 and 1002; only the three seed-matched comparison can support a
+replicated method claim.  P4 tests content, route, and action-conditioning use,
+and P5 compares the candidates with the exact public checkpoint.  The adapter
+cost is measured by parameter count, compiled cost, memory, direct inference,
+WebSocket latency, and throughput.
 
-\subsection{Q3: privileged spatial action-utility gate}
-To test whether global pooling alone removes useful geometry, we preserve the
-current encoder's $4\!\times\!4$ patch topology and compare three
-parameter-matched conditions: no goal, current-image patches, and the
-privileged future milestone.  All conditions train for 1,000 updates on fixed
-Stack-3 and Hammer splits; evaluation uses 40 held-out episodes per task and
-four frozen frames per episode.  Endpoint L2 error is the prespecified primary
-offline action-flow measure.  Predictor expansion is allowed only if the
-privileged condition beats both controls on Stack-3 and does not regress
-Hammer.  This gate tests whether the supplied future representation is usable
-by the adapter before adding prediction error; it is not a closed-loop success
-experiment.
-
-\subsection{Oracle stage-transition follow-up}
-We separately test whether privileged task-stage information is sufficient for
-closed-loop control.  MT1 aligns the current joint state monotonically to
-automatically mined task-local transition boundaries along the same-scene
-expert trajectory and routes the resulting oracle transition through the
-action expert.  The three independent training seeds use the corrected
-50,000-update recipe and the same 24-cell, 1,200-episode evaluation manifest as
-A0.  The predeclared gate requires a positive paired hierarchical difference
-whose 95\% interval excludes zero, together with improvements on at least two
-of Handover, Stack-2, and Stack-3.  This experiment tests a privileged oracle
-upper bound; it does not test an automatic stage tracker.
-
-\subsection{Privileged semantic-subtask follow-up}
-We test a second task-stage upper bound without changing policy weights.  A
-fixed public $\pi_{0.5}$ checkpoint receives no subtask, a generic stage, the
-current semantic subtask, the correct next semantic subtask, or a within-task
-shuffled next subtask.  All five conditions use the same 24 cells and 240
-episodes.  The predeclared gate requires the paired episode-bootstrap 95\%
-lower bound for correct-next minus no-subtask success to exceed zero, a higher
-correct-next point estimate than generic-stage, semantic-current, and shuffled
-semantics, and no task regression greater than 5 points.  This experiment
-tests privileged prompting of an unchanged policy; it does not evaluate a
-learned semantic predictor.
-
-\subsection{Pretrained-policy-preserving predictive branch}
-The completed negative MINT-VLA experiment motivates a separate hypothesis
-rather than a post-hoc repair of the same method.  The new branch preserves the
-official $\pi_{0.5}$ visual-language and action paths, stops the predictive loss
-at every inherited feature, and routes a zero-initialized action-conditioned
-adapter only into the action expert.  Its offline P0 gate compares normal,
-shuffled, and masked action conditioning on held-out latent prediction; this
-gate can authorize control training but cannot establish utility.
-
-P1 trains a current-source A0 and the predictive candidate at seed 1000 under
-matched data, normalization, optimizer, update count, and source identity.  At
-the final checkpoint, normal inference is compared on the same 24 cells with
-A0, a zeroed route, shuffled action conditioning, and masked actions.  The
-directional screen requires the normal candidate to exceed every control and
-permits no task regression larger than five points.  P2 replicates candidate
-training at seeds 1001 and 1002 against the fixed seed-1000 A0.  P3 then
-independently trains the missing A0 seeds; only a hierarchical 95\% interval
-for the three seed-matched candidate-minus-A0 pairs that excludes zero permits
-a replicated utility claim.
-
-R1 adds dense recurrence-derived CRAVE targets to the predictive branch.  Its
-necessary gate compares the combined model with A0, the parent predictive
-adapter, CRAVE-only training, zero-route, and shuffled-action controls.  A
-failed R1 gate rejects this auxiliary extension; it does not retroactively
-negate a P1 result.
-
-\subsection{Outcome-calibrated demonstration weighting}
-R4 tests a distinct use of milestone-derived information: weighting expert
-demonstration action chunks rather than injecting a predicted future token.
-The ordinary arm assigns every chunk unit weight.  The outcome-free CRAVE arm
-uses the task-normalized change in recurrence progress between adjacent query
-observations without terminal labels, whereas the terminal-outcome arm uses
-the aligned query rollout's terminal success.  The three arms share 6,313
-expert-supervised query--action chunks, initialization, optimizer, 5,000-update
-recipe, and fixed-checkpoint evaluation protocol.
-
-The seed-1000 gate is directional: terminal-outcome weighting must exceed both
-controls in macro success and may not regress by more than five points on any
-task.  Passing this screen authorizes the frozen seed-1001/1002 replication.
-The final gate requires the paired hierarchical 95\% interval to exclude zero
-against both controls and repeats the task-level regression guard.  These are
-sample-weighting experiments over expert demonstrations; they do not estimate
-a Q-value, action advantage, reward model, world critic, or model-predictive
-controller.
-
-\subsection{Q4: robustness, scope, and efficiency}
-Training seed is the top-level uncertainty unit.  We use the preregistered
-hierarchical bootstrap over training seed and paired scenes within each fixed
-task, averaging the six task estimates with equal weight and retaining
-task-level values to expose heterogeneous effects.  Transfer is tested by
-matched fine-tuning from a mature initialization, not by comparing against an
-unrelated public checkpoint.  The task-scope hypothesis is predeclared on block
-and bowl stacking, with reactive/contact and fine-grained geometric tasks as
-controls.
-We report added parameters, training FLOPs, peak memory, inference latency, and
-throughput relative to A0.
-
-Training-seed replication and the paired deployment-cost benchmark are
-complete.  The positive matched-utility gate failed, so mature-initialization
-and predeclared task-group expansions are not run; this prevents post-hoc
-selector tuning against the confirmatory result.
-
-\subsection{Q5: instantiation on a second VLA architecture}
-The milestone target and predictor are defined independently of the
-$\pi_{0.5}$ prefix.  A future test with another architecture would retain the
-milestone selection, native-space objective, data, and evaluation protocol;
-size the predictor to the second VLA's visual feature width; and connect it
-through that VLA's native conditioning input.  The identifying comparison is
-MINT-VLA versus a matched no-milestone baseline within the second architecture,
-not raw success differences between two VLA families.  We do not make a
-multi-architecture claim and close this expansion after the primary
-$\pi_{0.5}$ utility gate fails.
+\paragraph{Predeclared stopping.}
+Recurrence-aligned auxiliary training and outcome-calibrated demonstration
+weighting are evaluated as separate extensions.  A one-seed directional screen
+may authorize replication but cannot establish a method effect.  New task
+panels, a second VLA, or component-factorization training are launched only if
+their upstream utility gates pass.  Complete configurations, intervention
+identities, multiplicity families, and audit hashes are in
+Appendix~\ref{sec:appendix}.
