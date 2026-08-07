@@ -24,6 +24,7 @@ class LatentWorldPolicyInferBatchBuilder:
         "embodiment_id",
         "state",
         "state_mask",
+        "temporal_grounding_context",
         "wrist_image",
     }
     _REQUIRED_INFER_KEYS = {"lang", "primary_image", "action_hz", "embodiment_id"}
