@@ -1,0 +1,77 @@
+{
+  "a0_macro_success_rates": {
+    "1000": 0.69,
+    "1001": 0.8358333333333333,
+    "1002": 0.8341666666666667
+  },
+  "accepted": false,
+  "candidate_macro_success_rates": {
+    "1000": 0.8241666666666666,
+    "1001": 0.7808333333333333,
+    "1002": 0.8133333333333334
+  },
+  "checks": {
+    "exact_episode_pairing": true,
+    "hierarchical_95ci_excludes_zero_positive": false,
+    "no_seed_task_effect_below_minus_5_points": false,
+    "three_independently_matched_training_seeds": true
+  },
+  "complete": true,
+  "hierarchical_paired_bootstrap": {
+    "ci95": [
+      -0.05777777777777778,
+      0.1275
+    ],
+    "hierarchy": "resample training seeds, then paired episodes within each equally weighted task",
+    "random_seed": 20260806,
+    "samples": 20000
+  },
+  "mean_matched_seed_effect": 0.019444444444444455,
+  "protocol": "pi05_predictive_adapter_p3_matched_seed_gate_v1",
+  "schema_version": 1,
+  "seed_effects_candidate_minus_a0": {
+    "1000": 0.13416666666666668,
+    "1001": -0.055,
+    "1002": -0.020833333333333332
+  },
+  "task_effects_candidate_minus_a0": {
+    "1000": {
+      "beat_block_hammer": 0.085,
+      "blocks_ranking_rgb": 0.135,
+      "blocks_ranking_size": 0.155,
+      "handover_block": 0.14,
+      "stack_blocks_three": 0.27,
+      "stack_blocks_two": 0.02
+    },
+    "1001": {
+      "beat_block_hammer": -0.04,
+      "blocks_ranking_rgb": -0.01,
+      "blocks_ranking_size": -0.13,
+      "handover_block": -0.015,
+      "stack_blocks_three": -0.09,
+      "stack_blocks_two": -0.045
+    },
+    "1002": {
+      "beat_block_hammer": 0.02,
+      "blocks_ranking_rgb": -0.055,
+      "blocks_ranking_size": -0.05,
+      "handover_block": -0.03,
+      "stack_blocks_three": -0.015,
+      "stack_blocks_two": 0.005
+    }
+  },
+  "task_safe": false,
+  "tasks": [
+    "beat_block_hammer",
+    "blocks_ranking_rgb",
+    "blocks_ranking_size",
+    "handover_block",
+    "stack_blocks_three",
+    "stack_blocks_two"
+  ],
+  "training_seeds": [
+    1000,
+    1001,
+    1002
+  ]
+}

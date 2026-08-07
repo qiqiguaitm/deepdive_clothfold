@@ -79,8 +79,11 @@ current-source A0 by 13.42 points (82.42\% versus 69.00\%) without a task-level
 regression.  The frozen P2 replication yields candidate effects of +13.42,
 +9.08, and +12.33 points across training seeds, with a mean +11.61-point
 effect and hierarchical 95\% interval [$+8.31$,$+14.67$].  This establishes
-replicated candidate utility relative to the fixed matched A0, but not
-content-specific causality: across three seeds the margin over shuffled action
+candidate-seed replication relative to the fixed matched A0.  Once A0 is
+independently trained at all three seeds, however, the matched effects are
++13.42, -5.50, and -2.08 points; their mean is +1.94 points with hierarchical
+95\% CI [$-5.78$,$+12.75$].  The adapter also lacks content-specific
+causality: across three seeds the margin over shuffled action
 conditioning is $+0.53$ points (95\% CI [$-2.14$,$+3.08$]; Holm-adjusted
 $p{=}0.534$).  Adding recurrence-derived CRAVE
 targets reduces success to 62.92\%; this rejects that auxiliary extension
@@ -105,8 +108,9 @@ This paper makes three contributions:
   predictor need not improve control: both conditioned arms regress, correct
   content has no resolved advantage, and a privileged oracle-transition route
   also fails its replicated closed-loop utility gate.  A separately scoped
-  policy-preserving adapter passes its three-seed utility gate relative to a
-  fixed matched A0, while its content-specific intervention remains unresolved.
+  policy-preserving adapter passes a candidate-seed gate against one fixed A0,
+  but fails the independent matched-A0 gate and its content-specific
+  intervention remains unresolved.
   Outcome-calibrated weighting also passes a one-seed directional screen, but
   its completed three-seed gate rejects a replicated method effect.
 \end{itemize}

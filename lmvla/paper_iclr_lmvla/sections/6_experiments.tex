@@ -117,7 +117,7 @@ Completed step-20k midpoint panels and step-40k safety probes remain diagnostic
 only: they use unmatched checkpoints or lack a matched A0 and do not enter this
 confirmatory table.
 
-\subsection{A policy-preserving predictive adapter passes its screen and replication gate}
+\subsection{A predictive adapter passes its screen but not matched-seed replication}
 The separate action-conditioned predictive branch passes its preregistered P1
 screen at training seed 1000.  The normal adapter reaches \pOneNormal\%,
 compared with \pOneAZero\% for its matched current-source A0, a
@@ -135,8 +135,8 @@ minus zero route is $+1.50$ points ([$-1.31$,$+4.39$]; adjusted $p{=}0.205$),
 and normal minus masked actions is $+1.33$ points
 ([$-2.22$,$+4.86$]; adjusted $p{=}0.224$).  None passes its predeclared gate,
 and seed- and task-level effects change sign.  The adapter package therefore
-has closed-loop utility relative to the fixed A0, but these interventions do
-not identify correct-content use, route necessity, or action-conditioning use.
+has positive fixed-A0 evidence, but these interventions do not identify
+correct-content use, route necessity, or action-conditioning use.
 
 \begin{table}[H]
 \centering\small
@@ -166,50 +166,51 @@ R1 & Combined, shuffled actions & 87.5 & 88.0 & 45.5 & 32.5 & 85.0 & 49.5 & 64.6
 \label{tab:predictive-p1-r1}
 \end{table}
 
-The frozen P2 replication passes its predeclared utility gate.  Candidate
-macro success is 82.42\%, 78.08\%, and 81.33\% at training seeds 1000,
-1001, and 1002, respectively, compared with 69.00\% for the fixed matched A0
-checkpoint.  The corresponding seed effects are +13.42, +9.08, and +12.33
-points.  Averaging candidate training seeds gives a +11.61-point effect; the
-hierarchical paired bootstrap over training seed and paired episodes gives a
-95\% interval of [$+8.31$,$+14.67$] points.  The interval excludes zero, so
-P2 establishes replicated candidate utility relative to this matched A0.
+P2 passes its predeclared candidate-seed gate against one fixed A0: candidate
+macro success is 82.42\%, 78.08\%, and 81.33\% at seeds 1000--1002, yielding
+a mean +11.61-point effect (95\% CI [$+8.31$,$+14.67$]) relative to the 69.00\%
+seed-1000 A0.  P3 closes the missing denominator by independently training A0
+at seeds 1001 and 1002.  Those A0s reach 83.58\% and 83.42\%, and the matched
+candidate effects become +13.42, -5.50, and -2.08 points.  Their equal-seed
+mean is only +1.94 points, with hierarchical 95\% CI [$-5.78$,$+12.75$].
+The interval crosses zero, with three seed--task regressions below -5 points,
+so both the primary and task-safety gates fail.
 
 \begin{table}[H]
 \centering\small
-\caption{Frozen P2 predictive-adapter replication.  Each candidate seed
-contains 24 task--evaluation-seed cells and 1,200 episodes paired to the fixed
-seed-1000 matched A0 report.  Mean task effects average candidate training
-seeds; the macro interval is the predeclared hierarchical paired bootstrap.}
+\caption{Frozen P3 independent matched-baseline replication.  Each seed pairs
+1,200 candidate and A0 episodes over 24 task--evaluation-seed cells.  Task
+columns are candidate-minus-A0 percentage-point effects; the final column is
+their equally weighted macro.}
 \setlength{\tabcolsep}{3pt}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrrrrrrr}
+\begin{tabular}{lrrrrrrrrr}
 \toprule
-Candidate seed & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Macro & Effect vs. A0 \\
+Seed & A0 & Candidate & Hammer & Rank RGB & Rank size & Handover & Stack-2 & Stack-3 & Effect \\
 \midrule
-1000 & 93.0 & 95.5 & 64.5 & 56.0 & 97.5 & 88.0 & 82.42 & +13.42 \\
-1001 & 85.5 & 94.5 & 56.0 & 60.5 & 94.5 & 77.5 & 78.08 & +9.08 \\
-1002 & 88.5 & 88.0 & 61.5 & 65.0 & 98.5 & 86.5 & 81.33 & +12.33 \\
+1000 & 69.00 & 82.42 & +8.5 & +13.5 & +15.5 & +14.0 & +2.0 & +27.0 & +13.42 \\
+1001 & 83.58 & 78.08 & -4.0 & -1.0 & -13.0 & -1.5 & -4.5 & -9.0 & -5.50 \\
+1002 & 83.42 & 81.33 & +2.0 & -5.5 & -5.0 & -3.0 & +0.5 & -1.5 & -2.08 \\
 \midrule
-Mean effect & +4.50 & +10.67 & +11.67 & +18.50 & +1.33 & +23.00 & -- & +11.61 \\
+Mean & 78.67 & 80.61 & +2.17 & +2.33 & -0.83 & +3.17 & -0.67 & +5.50 & +1.94 \\
 \bottomrule
 \end{tabular}}
-\label{tab:predictive-p2}
+\label{tab:predictive-p3}
 \end{table}
 
 P4 now replicates the intervention panel but, as reported above, does not
-identify the utility mechanism.  P2 also uses one fixed matched A0 training
-seed, so its interval captures candidate-seed and paired-episode variation
-rather than independent baseline-training variation.
+identify the utility mechanism.  Together, P3 and P4 demote P2 to a positive
+fixed-A0 screen: neither an independently replicated method effect nor use of
+the correct predicted content is established.
 
 The exact-paired public-checkpoint reference also fails its predeclared gate.
 Candidate-minus-public effects are $+4.25$, $-0.08$, and $+3.17$ points at
 seeds 1000--1002.  Their equal-seed mean is $+2.44$ points, with hierarchical
 95\% CI [$-0.72$,$+5.39$].  The candidates improve Stack-3 by 12.5 points on
 average but regress Hammer by 4.0 points and ranking-size by 2.83 points.  We
-therefore do not claim improvement over the mature public initialization; this
-fixed public denominator is reported beside, and does not replace, the pending
-independent matched-A0 comparison.
+therefore do not claim improvement over the mature public initialization.  This
+fixed public denominator is reported beside, and does not replace, the failed
+independent matched-A0 comparison in Table~\ref{tab:predictive-p3}.
 
 The adapter adds 16.82 million parameters (3.353 to 3.370 billion; 0.50\%).
 On one matched 80-GiB GPU, mean direct-model latency rises from 57.10 to

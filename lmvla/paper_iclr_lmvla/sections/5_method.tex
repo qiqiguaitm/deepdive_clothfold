@@ -96,10 +96,11 @@ matched data, normalization, optimizer, update count, and source identity.  At
 the final checkpoint, normal inference is compared on the same 24 cells with
 A0, a zeroed route, shuffled action conditioning, and masked actions.  The
 directional screen requires the normal candidate to exceed every control and
-permits no task regression larger than five points.  P2 is a separate
-replication gate: seeds 1001 and 1002 must finish the frozen recipe, and the
-hierarchical 95\% interval for candidate minus matched A0 must exclude zero
-before we claim a replicated utility effect.
+permits no task regression larger than five points.  P2 replicates candidate
+training at seeds 1001 and 1002 against the fixed seed-1000 A0.  P3 then
+independently trains the missing A0 seeds; only a hierarchical 95\% interval
+for the three seed-matched candidate-minus-A0 pairs that excludes zero permits
+a replicated utility claim.
 
 R1 adds dense recurrence-derived CRAVE targets to the predictive branch.  Its
 necessary gate compares the combined model with A0, the parent predictive

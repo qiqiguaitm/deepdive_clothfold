@@ -54,16 +54,17 @@ on the three multistage tasks.  We close the tracker, selector,
 mature-initialization, task-expansion, and second-VLA gates rather than tune
 them against these replicated negative results.
 
-These failures do not make every method proposed in this study ineffective.
-The independently designed, policy-preserving predictive adapter has direct
-positive closed-loop evidence across three candidate training seeds.  Relative
-to the fixed matched A0 at 69.00\%, candidate success is 82.42\%, 78.08\%, and
-81.33\%; the mean effect is +11.61 points (hierarchical 95\% CI
-[$+8.31$,$+14.67$]).  The frozen P2 gate therefore accepts replicated utility
-relative to that baseline.  Across three seeds, however, normal inference
+The independently designed, policy-preserving predictive adapter provides a
+bounded positive screen, not a replicated method effect.  Relative to the
+fixed seed-1000 A0 at 69.00\%, candidate success is 82.42\%, 78.08\%, and
+81.33\%, producing a +11.61-point candidate-seed mean.  Independently matched
+A0s instead reach 69.00\%, 83.58\%, and 83.42\%; the three matched effects are
++13.42, -5.50, and -2.08 points, with mean +1.94 and hierarchical 95\% CI
+[$-5.78$,$+12.75$].  The frozen P3 gate therefore rejects replicated utility.
+Across three seeds, normal inference
 exceeds shuffled action conditioning by only $+0.53$ points (95\% CI
 [$-2.14$,$+3.08$]; Holm-adjusted $p{=}0.534$); zero-route and masked-action
-contrasts also fail their gates.  We therefore do not attribute the replicated
+contrasts also fail their gates.  We therefore do not attribute the fixed-A0
 gain to correct predicted action content, route necessity, or action
 conditioning.  The exact-paired mature public checkpoint reaches 78.17\%; the
 candidate mean is only $+2.44$ points higher with 95\% CI

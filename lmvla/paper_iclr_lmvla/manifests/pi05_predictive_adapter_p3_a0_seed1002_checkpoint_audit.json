@@ -1,0 +1,36 @@
+{
+  "checkpoint": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z/kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/pi05_predictive_adapter_p1_a0_seed1002/49999",
+  "checks": {
+    "atomic_commit": true,
+    "dataset_identity": true,
+    "final_step": true,
+    "normalization_exact": true,
+    "optimizer_moments_present": true,
+    "optimizer_tree_matches_seed1000_a0": true,
+    "parameter_tree_matches_seed1000_a0": true,
+    "payload_nonempty": true,
+    "required_files": true,
+    "source_freeze": true
+  },
+  "dataset": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z/datasets/robotwin2.0_official_prompts_v21/meta/episodes.jsonl",
+  "files": {
+    "_CHECKPOINT_METADATA": true,
+    "assets/robotwin2.0_absolute_meanstd/norm_stats.json": true,
+    "params/_METADATA": true,
+    "params/_sharding": true,
+    "params/manifest.ocdbt": true,
+    "train_state/_METADATA": true,
+    "train_state/_sharding": true,
+    "train_state/manifest.ocdbt": true
+  },
+  "passed": true,
+  "payload_bytes": {
+    "params": 41052,
+    "train_state": 77541
+  },
+  "protocol": "pi05_predictive_adapter_p3_checkpoint_audit_v1",
+  "reference_checkpoint": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z/kai0/checkpoints/pi05_predictive_adapter_p1_a0_exact/pi05_predictive_adapter_p1_a0_seed1000/49999",
+  "schema_version": 1,
+  "seed": 1002,
+  "source_preflight": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/pi05_p1_failover_20260804T1034Z/logs/predictive/p1_preflight/source_freeze_a0_seed1002.json"
+}

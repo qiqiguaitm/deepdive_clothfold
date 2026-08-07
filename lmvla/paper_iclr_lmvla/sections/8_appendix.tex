@@ -79,16 +79,28 @@ fixed seed-1000 matched A0.  The equal-seed mean effect is +11.61 points; the
 predeclared hierarchical paired 95\% interval is [$+8.31$,$+14.67$].  Mean
 task effects in Hammer, ranking-RGB, ranking-size, Handover, Stack-2, and
 Stack-3 order are +4.50, +10.67, +11.67, +18.50, +1.33, and +23.00 points.
-The utility gate is accepted.  P4 repeats the normal--shuffled, zero-route, and
+    The fixed-A0 candidate-seed gate is accepted.  P4 repeats the normal--shuffled, zero-route, and
 masked-action interventions across all three candidate seeds, but their mean
 effects are only $+0.53$, $+1.50$, and $+1.33$ points; all hierarchical 95\%
 intervals cross zero and all Holm-adjusted paired tests exceed 0.20.  The
-mechanism gates therefore fail.  Because P2 holds the A0 training seed fixed,
-it establishes candidate-seed replication relative to that A0, not
-content-specific causality or independent baseline-seed replication.  The
-canonical records are
+    mechanism gates therefore fail.  Because P2 holds the A0 training seed fixed,
+    it establishes candidate-seed replication relative to that A0, not
+    content-specific causality or independent baseline-seed replication.
+
+P3 independently trains the missing A0 seeds.  A0 macros at seeds 1000--1002
+are 69.00\%, 83.58\%, and 83.42\%, versus candidate macros of 82.42\%,
+78.08\%, and 81.33\%.  The matched effects are therefore +13.42, -5.50, and
+-2.08 points; their equal-seed mean is +1.94 points and the hierarchical 95\%
+interval is [$-5.78$,$+12.75$].  The primary gate rejects independent
+matched-seed utility.  Task effects for seeds 1000/1001/1002, in Hammer,
+ranking-RGB, ranking-size, Handover, Stack-2, and Stack-3 order, are
+(+8.5,+13.5,+15.5,+14.0,+2.0,+27.0),
+(-4.0,-1.0,-13.0,-1.5,-4.5,-9.0), and
+(+2.0,-5.5,-5.0,-3.0,+0.5,-1.5) points.  The task-safety gate also fails.
+The canonical records are
 \texttt{RESULTS\_pi05\_predictive\_adapter\_p2\_gate.json} and
-\texttt{RESULTS\_pi05\_predictive\_adapter\_p2\_efficiency.json}.
+\texttt{RESULTS\_pi05\_predictive\_adapter\_p2\_efficiency.json}, together
+with \texttt{pi05\_predictive\_adapter\_p3\_matched\_seed\_gate.json}.
 
 P5 reevaluates the exact public checkpoint on the same 24 cells and recovers
 all 1,200 episode identities.  It obtains 78.17\% success.  Candidate-minus-

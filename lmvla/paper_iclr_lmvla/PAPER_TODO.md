@@ -1,6 +1,6 @@
 # Predictive-Adapter Evidence-Strengthening TODO
 
-Updated: 2026-08-07 00:02 UTC
+Updated: 2026-08-07 02:35 UTC
 
 This file contains only unfinished evidence and current publication gates.
 Completed MINT-VLA, P0--P2, R0--R4, efficiency, and execution history remain in
@@ -13,17 +13,12 @@ do not manually launch, stop, restart, or reprioritize a job.
 
 ## Execution snapshot
 
-- P3 A0 seeds 1001 and 1002 restarted from the official initialization on
+- P3 A0 seeds 1001 and 1002 completed from the official initialization on
   North 8xH20 each as `t-20260807015907-2jh5j` and
-  `t-20260807015912-m47wd`; both passed the frozen source/data checks and logged
-  step 0. Their preceding attempts reached step 20,000 but stopped when the
-  per-directory North quota rejected the asynchronous step-15,000 checkpoint.
-  A resume from the valid step-10,000 checkpoints was deliberately rejected:
-  the current trainer restores model/optimizer state but not data-loader state,
-  so it would repeat the beginning of each seeded data stream. The incomplete
-  attempts were excluded, their A0 outputs were removed, and the fixed recipe
-  now runs from step 0 with a sidecar that deletes an older intermediate only
-  after a newer checkpoint has complete parameter and train-state metadata.
+  `t-20260807015912-m47wd`. Both fixed step-49,999 checkpoints pass the frozen
+  source, data, normalization, parameter-tree, optimizer-state, payload, and
+  atomic-commit audits. Their 24-cell/1,200-episode evaluations are complete,
+  exactly paired, and contain no failed task.
 - P4 masked, shuffled, and zero-gate seeds 1001 and 1002 completed on East
   8xH20 as `t-20260806224622-vnfhj`, `t-20260807013535-jr5mk`, and
   `t-20260807042808-g8gsz`. All six 1,200-episode reports passed the frozen
@@ -34,11 +29,11 @@ do not manually launch, stop, restart, or reprioritize a job.
   checkpoint reaches 78.17%; the candidate mean difference is +2.44 points
   with hierarchical 95% CI `[-0.72,+5.39]`, so the mature-initialization gate
   fails.
-- Current claim-bearing allocation is North 16 GPUs; East and local 2xA100 are
-  free. The P3 runs have reached approximately step 43,000.
-  The P3 quota sidecar is zero-GPU operational infrastructure and does not alter
-  optimization, data order, checkpoint frequency, or model selection. The P3
-  zero-GPU analysis node is frozen and waits on both final reports.
+- P3 evaluation used 16 North H20s at peak through non-overlapping formal and
+  helper workers. The seed-1002 canonical report was finalized from all 24
+  completed cells after the GPU wrapper found no unclaimed task; no episode was
+  rerun or omitted. P3 analysis is complete. No claim-bearing GPU job remains,
+  and no further training is authorized by this TODO.
 
 ## Current evidence boundary
 
@@ -49,6 +44,12 @@ do not manually launch, stop, restart, or reprioritize a job.
 - P2 does **not** include independently trained A0 seeds 1001 and 1002. Its
   interval captures candidate-seed and paired-episode variation, not baseline-
   training variation.
+- P3 rejects independent matched-seed utility. Matched candidate-minus-A0
+  effects are +13.42, -5.50, and -2.08 points at seeds 1000--1002. Their
+  equal-seed mean is +1.94 points with hierarchical 95% CI
+  `[-5.78,+12.75]`; the interval crosses zero and the task-safety gate also
+  fails. P2 is therefore demoted to candidate-seed replication against one
+  fixed A0 rather than an independently matched method effect.
 - P4 does not identify the mechanism. Across three candidate seeds,
   normal-minus-shuffled is +0.53 points with hierarchical 95% CI
   `[-2.14,+3.08]` and Holm-adjusted `p=0.534`; normal-minus-zero-gate is +1.50
@@ -69,11 +70,11 @@ do not manually launch, stop, restart, or reprioritize a job.
 
 | Priority | ID | Question | New work | Claim unlocked only if gate passes |
 |---|---|---|---|---|
-| Required | P3 | Does the P2 effect survive independent matched A0 training seeds? | 2 A0 trainings + 2 evaluations | Three independently matched seed-pair utility |
+| Required | P3 | Does the P2 effect survive independent matched A0 training seeds? | Complete; gate rejected | No independently matched utility claim |
 | Required | P4 | Does the policy use the correct predicted action content? | 6 fixed-checkpoint control evaluations | Content-, route-, or action-conditioning causality, comparison by comparison |
 | High | P5 | Does the adapter improve the mature public initialization? | Audit/recover or rerun 1 public evaluation | Improvement beyond the pretrained checkpoint rather than only weak-finetuning recovery |
-| Conditional | P6 | If content remains unresolved, which training component produces utility? | 2 parameter-matched arms x 3 seeds | Predictive-pretraining, auxiliary-loss, or capacity attribution |
-| Reviewer-triggered | P7 | Does the matched effect persist on unseen scene seeds? | 6 checkpoint evaluations on a new frozen panel | Within-benchmark scene robustness only |
+| Conditional | P6 | If content remains unresolved, which training component produces utility? | Closed without execution because P3 failed | None |
+| Reviewer-triggered | P7 | Does the matched effect persist on unseen scene seeds? | Closed unless a reviewer explicitly reopens it | None |
 
 P3--P5 answer distinct questions and may be prepared in parallel after their
 protocols are frozen. P6 is blocked until P3--P5 finish. P7 is not part of the
@@ -88,15 +89,15 @@ the exact current-source P1/P2 recipe.
 - [x] Freeze a P3 protocol that pins the existing source audit, official pi0.5
   initialization, dataset, mean/std normalization, batch 16, 50,000 updates,
   optimizer, final step 49,999, and the existing 24-cell scene manifest.
-- [ ] Train A0 seeds 1001 and 1002 with `pi05_predictive_adapter_p1_a0_exact`.
+- [x] Train A0 seeds 1001 and 1002 with `pi05_predictive_adapter_p1_a0_exact`.
   Intermediate checkpoints, loss curves, and smoke tests are health telemetry
   only; select the fixed final checkpoint without evaluation-based selection.
-- [ ] Audit both final checkpoints for source, data, normalization, parameter
+- [x] Audit both final checkpoints for source, data, normalization, parameter
   tree, optimizer state, payload, and atomic commit identity.
-- [ ] Evaluate both A0 checkpoints on 24 task-by-evaluation-seed cells and 1,200
+- [x] Evaluate both A0 checkpoints on 24 task-by-evaluation-seed cells and 1,200
   episodes each, with exact episode pairing to the corresponding existing P2
   candidate seed.
-- [ ] Analyze candidate-minus-A0 for matched training seeds 1000--1002 with
+- [x] Analyze candidate-minus-A0 for matched training seeds 1000--1002 with
   training seed as the top-level resampling unit and paired episodes nested
   within each of the six equally weighted tasks. Use at least 20,000 frozen
   bootstrap draws and report every seed and task effect.
@@ -106,6 +107,11 @@ three matched candidate-minus-A0 pairs must exceed zero. A statement that the
 gain is task-safe additionally requires no seed/task effect below -5 points.
 If the interval crosses zero, demote P2 to replicated-candidate evidence against
 one fixed A0 and do not describe it as independent matched-seed replication.
+
+**P3 result:** rejected. The mean matched-seed effect is +1.94 points with
+hierarchical 95% CI `[-5.78,+12.75]`. Seed effects are +13.42, -5.50, and
+-2.08 points, and seed 1001 contains task regressions below -5 points. The
+result is not independently replicated and is not task-safe.
 
 ## P4: three-seed inference intervention panel
 
@@ -171,6 +177,10 @@ content. Its purpose is to distinguish a useful predictive objective from P0
 initialization and extra action-expert capacity. Freeze two parameter-matched
 controls before training:
 
+**Closed without execution:** P4 failed its content gate, but P3 did not
+confirm matched utility. The conjunction required to authorize P6 is false;
+using idle GPUs for these arms would be an unregistered post-hoc expansion.
+
 1. `p0_init_no_aux`: the same adapter tree and P0 overlay as the accepted
    candidate, but predictive auxiliary-loss weight zero during policy training;
    the action objective may still train the route.
@@ -200,22 +210,28 @@ evaluate matched A0/candidate seeds 1000--1002 without retraining. Use the same
 six tasks, four evaluation seeds, 50 accepted episodes per cell, and the P3
 hierarchical analysis. This can support robustness to new scenes within
 RoboTwin only; it cannot support new-task, real-robot, or second-VLA claims.
+P3 failed, so P7 is closed under the current plan even before reviewer cost is
+considered.
 
 ## Publication and reporting gates
 
-- [ ] Do not change the abstract's replicated-utility wording until P3 finishes.
+- [x] Update the abstract's replicated-utility wording after P3 finishes.
   P3, not the already accepted P2 gate, determines whether “matched training
   seeds” is admissible.
 - [x] Add a content-specific statement only if P4's normal-minus-shuffled gate
   passes. Otherwise preserve the current explicit null attribution.
-- [ ] Present P5 beside, not instead of, P3 so a strong or weak public reference
+- [x] Present P5 beside, not instead of, P3 so a strong or weak public reference
   cannot obscure the matched-training comparison.
-- [ ] Any new main-paper table must show all training seeds and six tasks. Any
+- [x] Any new main-paper table must show all training seeds and six tasks. Any
   new claim-bearing figure must use a white canvas, 6--8 pt sans-serif text,
   strokes at least 0.5 pt, sentence-case labels, colourblind-safe colours plus
   marker/line-style cues, and captions defining samples and interval hierarchy.
 - [ ] Keep the paper within the ICLR main-text limit. Prefer replacing the
   current P2 table with a consolidated P3/P4 table rather than adding pages.
+  The P2 table has been replaced by the consolidated P3 table, but the compiled
+  draft still places references after approximately 16 main-text pages (23
+  pages including references and appendix). Structural compression remains a
+  publication task; it does not authorize additional experiments.
 
 ## Stop and scope rules
 
