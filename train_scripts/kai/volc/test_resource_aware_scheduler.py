@@ -22,6 +22,37 @@ def test_primary_north_operational_limits_are_25() -> None:
     assert scheduler.NORTH_PRIMARY_MAX_JOBS == 25
 
 
+def test_managed_execution_counts_separates_platform_queue_state() -> None:
+    tasks = {
+        "running": {
+            "status": "running",
+            "attempts": [{"kind": "platform", "last_state": "Running"}],
+        },
+        "deploying": {
+            "status": "running",
+            "attempts": [{"kind": "platform", "last_state": "Deploying"}],
+        },
+        "queueing": {
+            "status": "running",
+            "attempts": [{"kind": "platform", "last_state": "Queueing"}],
+        },
+        "local": {
+            "status": "running",
+            "attempts": [{"kind": "local"}],
+        },
+        "pending": {"status": "pending", "attempts": []},
+    }
+
+    assert scheduler.managed_execution_counts(tasks) == {
+        "managed": 4,
+        "platform_running": 1,
+        "platform_deploying": 1,
+        "platform_queueing": 1,
+        "local_or_ssh": 1,
+        "platform_other": 0,
+    }
+
+
 def test_readiness_hashes_require_exact_file_identity(tmp_path: Path) -> None:
     source = tmp_path / "source.py"
     source.write_text("frozen\n")

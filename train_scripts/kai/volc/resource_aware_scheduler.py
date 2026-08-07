@@ -13156,6 +13156,36 @@ def make_snapshot(state: dict[str, Any] | None = None) -> dict[str, Any]:
     }
 
 
+def managed_execution_counts(
+    scheduler_tasks: dict[str, dict[str, Any]],
+) -> dict[str, int]:
+    counts = {
+        "managed": 0,
+        "platform_running": 0,
+        "platform_deploying": 0,
+        "platform_queueing": 0,
+        "local_or_ssh": 0,
+        "platform_other": 0,
+    }
+    for state in scheduler_tasks.values():
+        if state.get("status") != "running":
+            continue
+        counts["managed"] += 1
+        attempts = state.get("attempts", [])
+        attempt = attempts[-1] if attempts else {}
+        if attempt.get("kind") != "platform":
+            counts["local_or_ssh"] += 1
+            continue
+        platform_state = str(attempt.get("last_state") or "")
+        key = {
+            "Running": "platform_running",
+            "Deploying": "platform_deploying",
+            "Queueing": "platform_queueing",
+        }.get(platform_state, "platform_other")
+        counts[key] += 1
+    return counts
+
+
 def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
     resources = snapshot["resources"]
     rows = [
@@ -13251,8 +13281,9 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
             f"{backup.get('managed_active_gpus', 0)} | "
             f"{backup.get('personal_limit', NORTH_BACKUP_PERSONAL_LIMIT)} |"
         )
-    scheduler_states = list(snapshot.get("scheduler_tasks", {}).values())
-    running_count = sum(state.get("status") == "running" for state in scheduler_states)
+    scheduler_tasks = snapshot.get("scheduler_tasks", {})
+    scheduler_states = list(scheduler_tasks.values())
+    execution_counts = managed_execution_counts(scheduler_tasks)
     resource_wait_count = sum(
         state.get("status") == "pending"
         and state.get("waiting_reason") == "waiting for an eligible resource"
@@ -13269,7 +13300,11 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
             "",
             "## Dispatch Readiness",
             "",
-            f"- Running: `{running_count}`",
+            f"- Managed active/submitted: `{execution_counts['managed']}`",
+            f"- Platform Running: `{execution_counts['platform_running']}`",
+            f"- Platform Deploying: `{execution_counts['platform_deploying']}`",
+            f"- Platform Queueing: `{execution_counts['platform_queueing']}`",
+            f"- Local/SSH active: `{execution_counts['local_or_ssh']}`",
             f"- Ready but waiting for a resource: `{resource_wait_count}`",
             f"- Waiting for checkpoint, input, or gate: `{input_blocked_count}`",
         ]
