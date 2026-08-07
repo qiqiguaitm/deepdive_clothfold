@@ -8504,6 +8504,257 @@ def add_pi05_predictive_adapter_p345_tasks(queue: dict[str, Any]) -> None:
         )
 
 
+def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
+    """Register the 16 frozen, operator-authorized first-wave TG jobs."""
+    existing = {task.get("id") for task in queue.get("tasks", [])}
+    manifests = REPO / "lmvla/paper_iclr_lmvla/manifests"
+    tg1a_path = manifests / "temporal_grounding_tg1a_admission_v1.json"
+    tg1b_path = manifests / "temporal_grounding_tg1b_admission_v1.json"
+    tg2_path = manifests / "temporal_grounding_tg2_admission_v1.json"
+    north_path = manifests / "temporal_grounding_tg2_north_staging_amendment_v1.json"
+    manifest_hashes = {
+        tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
+        tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
+        tg2_path: "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
+        north_path: "7905e39a7a228d8833b0c7c643c0ae0246c8de9b6594d56a324fb5bb4062dbd0",
+    }
+    for path, expected in manifest_hashes.items():
+        if sha256_file(path) != expected:
+            raise ValueError(f"temporal-grounding frozen manifest drift: {path}")
+
+    tg1a = json.loads(tg1a_path.read_text())
+    tg1b = json.loads(tg1b_path.read_text())
+    tg2 = json.loads(tg2_path.read_text())
+    scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
+
+    tg1a_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg1a_formal.sh"
+    tg1a_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1a_east_4h20.yaml"
+    tg1a_hashes = [
+        {"path": str(tg1a_path), "sha256": manifest_hashes[tg1a_path]},
+        {
+            "path": str(tg1a_runner),
+            "sha256": tg1a["file_sha256"][str(tg1a_runner.relative_to(REPO))],
+        },
+        {
+            "path": str(tg1a_yaml),
+            "sha256": tg1a["file_sha256"][str(tg1a_yaml.relative_to(REPO))],
+        },
+    ]
+    capture_marker = REPO / "logs/temporal_grounding/tg1a/normal_capture_complete.json"
+    for condition in ("normal", "null", "persistence", "shuffled"):
+        task_id = f"temporal_grounding_tg1a_{condition}_eval"
+        if task_id in existing:
+            continue
+        ready_files = [
+            str(tg1a_path),
+            str(scene_manifest),
+            str(REPO / tg1a["checkpoint"]["path"]),
+            str(tg1a_runner),
+            str(tg1a_yaml),
+        ]
+        if condition == "shuffled":
+            ready_files.append(str(capture_marker))
+        result_root = (
+            REPO
+            / "lmvla/lawam/results/eval_runs/robotwin"
+            / f"temporal_grounding_tg1a_{condition}"
+        )
+        queue["tasks"].append(
+            {
+                "id": task_id,
+                "priority": 0,
+                "description": f"Frozen TG1A {condition} evaluation",
+                "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
+                "completion_min_count": 24,
+                "ready_files": ready_files,
+                "ready_hashes": tg1a_hashes,
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 600,
+                        "max_failures": 1,
+                        "yaml": str(tg1a_yaml.relative_to(REPO)),
+                        "task_name": f"temporal-grounding-tg1a-{condition}-east4g",
+                        "env": {"TG1A_CONDITION": condition},
+                    }
+                ],
+            }
+        )
+        existing.add(task_id)
+
+    tg1b_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg1b_formal.sh"
+    tg1b_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1b_east_4h20.yaml"
+    tg1b_hashes = [
+        {"path": str(tg1b_path), "sha256": manifest_hashes[tg1b_path]},
+        {
+            "path": str(tg1b_runner),
+            "sha256": tg1b["file_sha256"][str(tg1b_runner.relative_to(REPO))],
+        },
+        {
+            "path": str(tg1b_yaml),
+            "sha256": tg1b["file_sha256"][str(tg1b_yaml.relative_to(REPO))],
+        },
+    ]
+    for checkpoint_arm in ("future_off", "local_wm"):
+        checkpoint = REPO / tg1b["checkpoints"][checkpoint_arm]["path"]
+        for cadence in (36, 50):
+            task_id = f"temporal_grounding_tg1b_{checkpoint_arm}_e{cadence}_eval"
+            if task_id in existing:
+                continue
+            result_root = (
+                REPO
+                / "lmvla/lawam/results/eval_runs/robotwin"
+                / f"temporal_grounding_tg1b_{checkpoint_arm}_e{cadence}"
+            )
+            queue["tasks"].append(
+                {
+                    "id": task_id,
+                    "priority": 1,
+                    "description": f"Frozen TG1B {checkpoint_arm} E={cadence} evaluation",
+                    "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
+                    "completion_min_count": 24,
+                    "ready_files": [
+                        str(tg1b_path),
+                        str(scene_manifest),
+                        str(checkpoint),
+                        str(tg1b_runner),
+                        str(tg1b_yaml),
+                    ],
+                    "ready_hashes": tg1b_hashes,
+                    "candidates": [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-East-H20",
+                            "region": "cn-shanghai",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 180,
+                            "retry_cooldown_seconds": 600,
+                            "max_failures": 1,
+                            "yaml": str(tg1b_yaml.relative_to(REPO)),
+                            "task_name": (
+                                "temporal-grounding-tg1b-"
+                                f"{checkpoint_arm.replace('_', '-')}-e{cadence}-east4g"
+                            ),
+                            "env": {
+                                "TG1B_CHECKPOINT_ARM": checkpoint_arm,
+                                "TG1B_EXECUTION_CADENCE": str(cadence),
+                            },
+                        }
+                    ],
+                }
+            )
+            existing.add(task_id)
+
+    tg2_runner = REPO / "train_scripts/kai/run_temporal_grounding_tg2_train.sh"
+    east_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_east_4h20.yaml"
+    north_yaml = (
+        REPO / "train_scripts/kai/volc/temporal_grounding_tg2_north_staged_4h20.yaml"
+    )
+    north_stage = (
+        "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
+        ".staging/temporal_grounding_11fb843"
+    )
+    north_results = (
+        "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
+        "lmvla/lawam/results/Checkpoints/robotwin"
+    )
+    tg2_hashes = [
+        {"path": str(tg2_path), "sha256": manifest_hashes[tg2_path]},
+        {"path": str(north_path), "sha256": manifest_hashes[north_path]},
+        {
+            "path": str(tg2_runner),
+            "sha256": tg2["file_sha256"][str(tg2_runner.relative_to(REPO))],
+        },
+        {
+            "path": str(east_yaml),
+            "sha256": tg2["file_sha256"][str(east_yaml.relative_to(REPO))],
+        },
+        {
+            "path": str(north_yaml),
+            "sha256": "1185896575f6d42283ec09d7afa1ae874c2fc90d8f3c2ae39ed23363b61b1758",
+        },
+    ]
+    for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+        for seed in (1000, 1001, 1002):
+            task_id = f"temporal_grounding_tg2_{arm}_seed{seed}_train"
+            if task_id in existing:
+                continue
+            suffix = f"+temporal_grounding_tg2_{arm}_seed{seed}/final_model/pytorch_model.pt"
+            env = {"TG2_ARM": arm, "TG2_TRAIN_SEED": str(seed)}
+            queue["tasks"].append(
+                {
+                    "id": task_id,
+                    "priority": 2,
+                    "description": f"Frozen TG2 arm={arm} seed={seed} training",
+                    "completion_locations": [
+                        {
+                            "label": "east",
+                            "glob": str(
+                                REPO
+                                / "lmvla/lawam/results/Checkpoints/robotwin"
+                                / f"*{suffix}"
+                            ),
+                            "remote": False,
+                        },
+                        {
+                            "label": "north",
+                            "glob": f"{north_results}/*{suffix}",
+                            "remote": True,
+                        },
+                    ],
+                    "completion_min_count": 1,
+                    "ready_files": [
+                        str(tg2_path),
+                        str(north_path),
+                        str(tg2_runner),
+                        str(east_yaml),
+                        str(north_yaml),
+                    ],
+                    "ready_hashes": tg2_hashes,
+                    "candidates": [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-East-H20",
+                            "region": "cn-shanghai",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 180,
+                            "retry_cooldown_seconds": 900,
+                            "max_failures": 1,
+                            "yaml": str(east_yaml.relative_to(REPO)),
+                            "task_name": (
+                                f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-east4g"
+                            ),
+                            "env": env,
+                        },
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-North-H20",
+                            "region": "cn-beijing",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 300,
+                            "retry_cooldown_seconds": 900,
+                            "max_failures": 1,
+                            "yaml": str(north_yaml.relative_to(REPO)),
+                            "task_name": (
+                                f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-north4g"
+                            ),
+                            "env": env,
+                            "ready_files_remote": [
+                                f"{north_stage}/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json",
+                                f"{north_stage}/lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py",
+                                f"{north_stage}/kai0/.venv/bin/python",
+                            ],
+                        },
+                    ],
+                }
+            )
+            existing.add(task_id)
+
+
 def validate_queue(queue: dict[str, Any]) -> None:
     """Reject queue edits that would silently invalidate confirmatory evidence."""
     tasks = queue.get("tasks", [])
@@ -13723,6 +13974,7 @@ def main() -> None:
     add_pi05_mt6_train_memory_task(queue)
     add_pi05_mt3_eval_attach_tasks(queue)
     add_pi05_predictive_adapter_p345_tasks(queue)
+    add_temporal_grounding_tasks(queue)
     apply_frozen_source_readiness(queue)
     validate_queue(queue)
     apply_permanent_resource_policy(queue)
@@ -13756,6 +14008,7 @@ def main() -> None:
             add_pi05_mt6_train_memory_task(queue)
             add_pi05_mt3_eval_attach_tasks(queue)
             add_pi05_predictive_adapter_p345_tasks(queue)
+            add_temporal_grounding_tasks(queue)
             apply_frozen_source_readiness(queue)
             validate_queue(queue)
             apply_permanent_resource_policy(queue)

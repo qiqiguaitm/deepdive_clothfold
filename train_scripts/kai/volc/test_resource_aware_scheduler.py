@@ -5247,3 +5247,68 @@ def test_load_state_reopens_report_only_p1_materialization(
     assert task_state["artifacts_complete"] is False
     assert "completed_at" not in task_state
     assert task_state["attempts"][-1]["completion_misclassification_repaired"]
+
+
+def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
+    queue = {"tasks": []}
+
+    scheduler.add_temporal_grounding_tasks(queue)
+
+    tasks = {task["id"]: task for task in queue["tasks"]}
+    assert len(tasks) == 17
+    tg1a = {
+        task_id: task for task_id, task in tasks.items() if "tg1a" in task_id
+    }
+    tg1b = {
+        task_id: task for task_id, task in tasks.items() if "tg1b" in task_id
+    }
+    tg2 = {
+        task_id: task for task_id, task in tasks.items() if "tg2" in task_id
+    }
+    assert len(tg1a) == 4
+    assert len(tg1b) == 4
+    assert len(tg2) == 9
+
+    capture_marker = str(
+        scheduler.REPO
+        / "logs/temporal_grounding/tg1a/normal_capture_complete.json"
+    )
+    assert capture_marker in tg1a["temporal_grounding_tg1a_shuffled_eval"][
+        "ready_files"
+    ]
+    for condition in ("normal", "null", "persistence"):
+        task = tg1a[f"temporal_grounding_tg1a_{condition}_eval"]
+        assert capture_marker not in task["ready_files"]
+        assert task["candidates"][0]["gpus"] == 4
+        assert task["candidates"][0]["env"]["TG1A_CONDITION"] == condition
+
+    assert {
+        (
+            task["candidates"][0]["env"]["TG1B_CHECKPOINT_ARM"],
+            task["candidates"][0]["env"]["TG1B_EXECUTION_CADENCE"],
+        )
+        for task in tg1b.values()
+    } == {
+        ("future_off", "36"),
+        ("future_off", "50"),
+        ("local_wm", "36"),
+        ("local_wm", "50"),
+    }
+
+    for task in tg2.values():
+        assert task["completion_min_count"] == 1
+        assert {candidate["resource"] for candidate in task["candidates"]} == {
+            "Robot-East-H20",
+            "Robot-North-H20",
+        }
+        assert {candidate["gpus"] for candidate in task["candidates"]} == {4}
+        north = next(
+            candidate
+            for candidate in task["candidates"]
+            if candidate["resource"] == "Robot-North-H20"
+        )
+        assert north["yaml"].endswith(
+            "temporal_grounding_tg2_north_staged_4h20.yaml"
+        )
+        assert north["ready_files_remote"]
+    assert not any("_eval" in task_id for task_id in tg2)
