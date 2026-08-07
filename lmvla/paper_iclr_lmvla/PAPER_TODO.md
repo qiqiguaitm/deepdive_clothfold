@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 08:08 UTC
+Updated: 2026-08-07 08:53 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -71,6 +71,9 @@ The following immutable admission bundles are frozen and were reverified on
 | TG1B | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1b_admission_v1.json` | 11 | Passed |
 | TG2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json` | 23 | Passed |
 | TG2 North staging | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_north_staging_amendment_v1.json` | 23 | Passed in detached clean worktree |
+| Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
+| Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
+| Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |
 
 The bundles pin outer implementation commit `db88e943`, LaWAM commit
 `71803a3`, inputs, checkpoints, scene identities, report schemas, analysis
@@ -78,11 +81,21 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-The latest scheduler snapshot and canonical state both report zero pending and
-zero running task. Their completed/disabled bookkeeping differs, so mutable
-resource counts and queue totals remain only in
-`logs/resource_scheduler_snapshot.{md,json}` and
-`logs/resource_scheduler_state.json`, not in this plan.
+At 08:53 UTC, TG1A normal and null are running on all 8 East GPUs. Both passed
+the renderer, frozen-bundle, and pinned-policy-runtime checks and reached the
+formal four-seed evaluator. All nine TG2 training jobs have platform IDs on
+North: two primary-profile jobs are Deploying and seven jobs are Queueing. The
+North queue reports GPU fragmentation for the five backup-profile jobs and
+personal quota pressure for two primary-profile jobs. Mutable resource counts
+remain authoritative only in `logs/resource_scheduler_snapshot.{md,json}` and
+`logs/resource_scheduler_state.json`.
+
+Runtime v3 attempts produced no summary and exposed one operational mismatch:
+the policy server used Transformers 4.53.2 and loaded the frozen Qwen3 weights
+through an incompatible tokenizer object. Runtime v4 selects the existing
+LaWAM Transformers 5.2.0 environment and fails fast unless it obtains
+`Qwen3VLProcessor` with a tokenizer. Failed v3 output roots were preserved
+under `.failed_runtime_v3` suffixes; no episode result was reused.
 
 ## 4. Dependency graph and admission waves
 
@@ -129,9 +142,12 @@ Admission source:
 
 ### GPU cells
 
-- [ ] **TG1A-E1 [READY]** Evaluate `normal`; 4 GPUs, 1,200 accepted episodes.
-- [ ] **TG1A-E2 [READY]** Evaluate `null`; 4 GPUs, 1,200 accepted episodes.
-- [ ] **TG1A-E3 [READY]** Evaluate `persistence`; 4 GPUs, 1,200 accepted episodes.
+- [ ] **TG1A-E1 [RUNNING: `t-20260807165006-b4pqr`]** Evaluate `normal`;
+  4 GPUs, 1,200 accepted episodes.
+- [ ] **TG1A-E2 [RUNNING: `t-20260807165010-gk4h7`]** Evaluate `null`;
+  4 GPUs, 1,200 accepted episodes.
+- [ ] **TG1A-E3 [READY; waiting for East]** Evaluate `persistence`; 4 GPUs,
+  1,200 accepted episodes.
 - [ ] **TG1A-E4 [BLOCKED by TG1A-E1 capture]** Verify the complete normal
   feature capture, then evaluate the frozen within-task different-episode
   `shuffled` mapping; 4 GPUs, 1,200 accepted episodes.
@@ -169,10 +185,14 @@ Admission source:
 
 ### GPU cells
 
-- [ ] **TG1B-E1 [READY]** Evaluate `future_off`, `E=36`; 4 GPUs, 1,200 episodes.
-- [ ] **TG1B-E2 [READY]** Evaluate `future_off`, `E=50`; 4 GPUs, 1,200 episodes.
-- [ ] **TG1B-E3 [READY]** Evaluate `local_wm`, `E=36`; 4 GPUs, 1,200 episodes.
-- [ ] **TG1B-E4 [READY]** Evaluate `local_wm`, `E=50`; 4 GPUs, 1,200 episodes.
+- [ ] **TG1B-E1 [READY; waiting for East]** Evaluate `future_off`, `E=36`;
+  4 GPUs, 1,200 episodes.
+- [ ] **TG1B-E2 [READY; waiting for East]** Evaluate `future_off`, `E=50`;
+  4 GPUs, 1,200 episodes.
+- [ ] **TG1B-E3 [READY; waiting for East]** Evaluate `local_wm`, `E=36`;
+  4 GPUs, 1,200 episodes.
+- [ ] **TG1B-E4 [READY; waiting for East]** Evaluate `local_wm`, `E=50`;
+  4 GPUs, 1,200 episodes.
 
 ### Completion and claims
 
@@ -203,15 +223,24 @@ Admission sources:
 
 ### Training jobs
 
-- [ ] **TG2-T01 [READY]** Train `future_off`, seed 1000; 4 GPUs.
-- [ ] **TG2-T02 [READY]** Train `future_off`, seed 1001; 4 GPUs.
-- [ ] **TG2-T03 [READY]** Train `future_off`, seed 1002; 4 GPUs.
-- [ ] **TG2-T04 [READY]** Train `fixed_endpoint`, seed 1000; 4 GPUs.
-- [ ] **TG2-T05 [READY]** Train `fixed_endpoint`, seed 1001; 4 GPUs.
-- [ ] **TG2-T06 [READY]** Train `fixed_endpoint`, seed 1002; 4 GPUs.
-- [ ] **TG2-T07 [READY]** Train `raw_milestone`, seed 1000; 4 GPUs.
-- [ ] **TG2-T08 [READY]** Train `raw_milestone`, seed 1001; 4 GPUs.
-- [ ] **TG2-T09 [READY]** Train `raw_milestone`, seed 1002; 4 GPUs.
+- [ ] **TG2-T01 [SUBMITTED-QUEUEING: `t-20260807163508-kspsv`, backup]**
+  Train `future_off`, seed 1000; 4 GPUs.
+- [ ] **TG2-T02 [SUBMITTED-QUEUEING: `t-20260807163513-q6x7f`, backup]**
+  Train `future_off`, seed 1001; 4 GPUs.
+- [ ] **TG2-T03 [SUBMITTED-QUEUEING: `t-20260807163518-c8vk6`, backup]**
+  Train `future_off`, seed 1002; 4 GPUs.
+- [ ] **TG2-T04 [SUBMITTED-DEPLOYING: `t-20260807163452-hj776`, primary]**
+  Train `fixed_endpoint`, seed 1000; 4 GPUs.
+- [ ] **TG2-T05 [SUBMITTED-DEPLOYING: `t-20260807163457-qrwfh`, primary]**
+  Train `fixed_endpoint`, seed 1001; 4 GPUs.
+- [ ] **TG2-T06 [SUBMITTED-QUEUEING: `t-20260807163503-5h92f`, backup]**
+  Train `fixed_endpoint`, seed 1002; 4 GPUs.
+- [ ] **TG2-T07 [SUBMITTED-QUEUEING: `t-20260807163641-rk49r`, backup]**
+  Train `raw_milestone`, seed 1000; 4 GPUs.
+- [ ] **TG2-T08 [SUBMITTED-QUEUEING: `t-20260807163646-dl67q`, primary]**
+  Train `raw_milestone`, seed 1001; 4 GPUs.
+- [ ] **TG2-T09 [SUBMITTED-QUEUEING: `t-20260807163652-4f72m`, primary]**
+  Train `raw_milestone`, seed 1002; 4 GPUs.
 
 Each row is one 4-GPU training job. Check a row only after its fixed step-20,000
 checkpoint is durable. Losses and checkpoint existence are not policy evidence.
