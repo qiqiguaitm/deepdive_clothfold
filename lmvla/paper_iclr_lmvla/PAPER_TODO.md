@@ -90,17 +90,21 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-At 15:57 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
+At 16:24 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
 East; raw-milestone seeds 1001--1002 and future-off seeds 1000--1001 on North.
 All six passed the Qwen3 unequal-length batch smoke and sustained optimization
 beyond the first step with frozen global batch 128. North raw seeds 1001--1002
-reached steps 2561 and 2574 at 2.29--2.30 s/step; East fixed seeds reached
-steps 2560 and 2555 at 2.26--2.28 s/step; and North future-off seeds reached
-steps 2391 and 2356 at 2.05--2.09 s/step. DataLoader time remains about 0.04 s,
-with running-job ETAs of roughly 10.0--11.1 hours. The remaining three v8 cells
+reached steps 3258 and 3272 at 2.29--2.31 s/step; East fixed seeds reached
+steps 3263 and 3257 at 2.27--2.29 s/step; and North future-off seeds reached
+steps 3175 and 3150 at 2.04--2.07 s/step. DataLoader time remains about 0.04 s,
+with running-job ETAs of roughly 9.5--10.7 hours. The remaining three v8 cells
 are submitted in the North backup profile and are Queueing because that profile
 currently lacks sufficient personal GPU quota. No final TG2 checkpoint exists
-yet.
+yet. Six detached backup-profile attempts remain visible but are not experiment
+progress: two are stuck Deploying and four are Queueing. The scheduler refuses
+to count them as current work and retries conservative cleanup, but the platform
+denies `StopJob`; their exact states are reported separately in the resource
+scheduler snapshot.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
