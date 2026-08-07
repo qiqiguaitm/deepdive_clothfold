@@ -76,7 +76,8 @@ The following immutable admission bundles are frozen and were reverified on
 | Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |
 | Runtime v5 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v5.json` | Runtime-only | Passed; cached North image and deployment timeout |
 | Runtime v6 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v6.json` | Runtime-only | Superseded before step 0; Qwen3 package overlay validated |
-| Runtime v7 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v7.json` | Runtime-only | Active; Qwen3 padding bridge and unequal-length batch smoke passed |
+| Runtime v7 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v7.json` | Runtime-only | Healthy jobs retained; Qwen3 padding bridge passed |
+| Runtime v8 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v8.json` | Runtime-only | Active for pending cells; collision-safe arm/seed run timestamps |
 
 The bundles pin outer implementation commit `db88e943`, LaWAM commit
 `71803a3`, inputs, checkpoints, scene identities, report schemas, analysis
@@ -84,15 +85,15 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-At 14:20 UTC, four v7 TG2 jobs are Running: fixed-endpoint seeds 1000--1001
-on East and raw-milestone seeds 1001--1002 on North. All four passed the
-Qwen3 unequal-length batch smoke and sustained optimization beyond the first
-step with frozen global batch 128. At the latest heartbeat, North raw seeds
-1001--1002 reached step 47 at 2.28--2.29 s/step and East fixed seeds 1000--1001
-reached step 26 at 2.30--2.36 s/step; DataLoader time is about 0.04 s. Five
-older backup-profile jobs still represent future-off seeds 1000--1002,
-fixed-endpoint seed 1002, and raw-milestone seed 1000 while the scheduler waits
-for their platform states. No final TG2 checkpoint exists yet.
+At 14:42 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
+East; raw-milestone seeds 1001--1002 and future-off seeds 1000--1001 on North.
+All six passed the Qwen3 unequal-length batch smoke and sustained optimization
+beyond the first step with frozen global batch 128. North raw seeds 1001--1002
+reached about step 570 at 2.26--2.28 s/step, and North future-off seeds
+1000--1001 reached about steps 157 and 117 at 2.02--2.04 s/step; DataLoader
+time remains about 0.04 s. The remaining three v8 cells are submitted in the
+North backup profile and are Queueing because Beijing has no free 4-GPU shape.
+No final TG2 checkpoint exists yet.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
@@ -114,6 +115,12 @@ forwards this already-requested padding flag; both 5.2 and 4.57 probes establish
 that version rollback alone does not fix it. All v5/v6 attempts stopped before
 optimizer step 0. Their output directories were audited and preserved under
 `.runtime_v5_pre_step0_quarantine` or `.runtime_v6_pre_step0_quarantine`.
+One v7 fixed-endpoint seed-1002 retry passed every runtime and input check but
+failed before optimizer step 0 when concurrent jobs selected the same
+second-resolution LaWAM log directory. Runtime v8 generates an ephemeral copy
+of the unchanged runner and appends the frozen arm and seed to its timestamp;
+this isolates operational log/checkpoint directories without changing any
+training argument. Healthy Running v7 jobs were not restarted.
 
 The v4 executions exposed two admission blockers, so failed cells must not be
 blindly retried:
@@ -286,19 +293,19 @@ on seed 1000 alone.
 
 ### Training jobs
 
-- [ ] **TG2-T01 [SUBMITTED-DEPLOYING: `t-20260807163508-kspsv`, backup]**
+- [ ] **TG2-T01 [RUNNING-V7: `t-20260807223242-bt4fv`, North]**
   Train `future_off`, seed 1000; 4 GPUs.
-- [ ] **TG2-T02 [SUBMITTED-QUEUEING: `t-20260807163513-q6x7f`, backup]**
+- [ ] **TG2-T02 [RUNNING-V7: `t-20260807223247-sjmmb`, North]**
   Train `future_off`, seed 1001; 4 GPUs.
-- [ ] **TG2-T03 [SUBMITTED-QUEUEING: `t-20260807163518-c8vk6`, backup]**
+- [ ] **TG2-T03 [QUEUEING-V8: `t-20260807223921-4rhkv`, backup]**
   Train `future_off`, seed 1002; 4 GPUs.
 - [ ] **TG2-T04 [RUNNING-V7: `t-20260807221602-j6sww`, East]**
   Train `fixed_endpoint`, seed 1000; 4 GPUs.
 - [ ] **TG2-T05 [RUNNING-V7: `t-20260807221607-bckk5`, East]**
   Train `fixed_endpoint`, seed 1001; 4 GPUs.
-- [ ] **TG2-T06 [SUBMITTED-DEPLOYING: `t-20260807163503-5h92f`, backup]**
+- [ ] **TG2-T06 [QUEUEING-V8: `t-20260807223916-rv9gd`, backup]**
   Train `fixed_endpoint`, seed 1002; 4 GPUs.
-- [ ] **TG2-T07 [SUBMITTED-QUEUEING: `t-20260807163641-rk49r`, backup]**
+- [ ] **TG2-T07 [QUEUEING-V8: `t-20260807223926-56pwj`, backup]**
   Train `raw_milestone`, seed 1000; 4 GPUs.
 - [ ] **TG2-T08 [RUNNING-V7: `t-20260807221612-kpqwj`, North]**
   Train `raw_milestone`, seed 1001; 4 GPUs.
