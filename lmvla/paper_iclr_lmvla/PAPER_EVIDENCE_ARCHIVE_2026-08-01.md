@@ -1771,3 +1771,33 @@ Canonical records:
 - `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_local_audit_v1.json`
 - `lmvla/lmwm/scripts/audit_temporal_grounding_contract.py`
 - `lmvla/lmwm/data/robotwin_milestone_all6_confirmatory_v1/AUDIT.json`
+
+## 42. TG1B fixed-scene retry exhaustion diagnosis
+
+The first TG1B executions completed 20/24 `future_off,E=36` cells and 18/24
+`local_wm,E=50` cells. Every missing cell failed before an episode was
+accepted when one frozen scene seed remained invalid for all three permitted
+setup attempts. Four `(task, eval seed, scene seed)` failures are identical
+between the two checkpoint arms: Stack-3/0/100033, Hammer/1/200026,
+Handover/1/200040, and Handover/2/300024. The local-WM run additionally stopped
+at Hammer/2/300046 and Ranking-size/2/300035.
+
+These are not permanently invalid scene identities. Each of the six failed
+scene seeds appears as an accepted episode in other completed runs under the
+same task and evaluation seed; the observed historical acceptance counts are
+45, 47, 57, 65, 57, and 47, respectively. The two local-WM-only failures are
+also accepted in the completed future-off TG1B arm. The evidence therefore
+identifies stochastic simulator/setup validity combined with the frozen
+three-attempt cap, rather than a model inference exception or a structurally
+invalid scene manifest.
+
+This diagnosis does not authorize completion from partial cells. Raising the
+setup retry cap would preserve scene identities and accepted-episode pairing,
+but it changes a frozen evaluation recipe and therefore requires an explicit
+protocol amendment before either partial output can be archived and rerun.
+
+Canonical records:
+
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e36`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50`
+- `lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json`

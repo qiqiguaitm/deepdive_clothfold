@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 15:07 UTC
+Updated: 2026-08-07 15:18 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -138,9 +138,12 @@ retried:
   remains artifact-blocked until normal capture completes.
 - TG1B `future_off,E=36` produced 20/24 summaries and `local_wm,E=50` produced
   18/24. Missing cells exhausted the frozen three attempts for fixed scene
-  seeds that remained invalid. Re-running those seeds or replacing them cannot
-  be treated as the currently frozen protocol without an explicit protocol
-  decision.
+  seeds that remained invalid. A completed CPU diagnosis shows all six stopping
+  seeds were accepted 45--65 times in other completed runs, and the four shared
+  failures are identical across the two TG1B arms. This is stochastic setup
+  validity, not a permanently invalid scene identity, but increasing the
+  frozen retry cap is still a recipe change and requires an explicit protocol
+  decision. Replacing scenes remains forbidden.
 
 ## 4. Dependency graph and admission waves
 
