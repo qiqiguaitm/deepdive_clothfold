@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 18:58 UTC
+Updated: 2026-08-07 19:03 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -149,6 +149,14 @@ All active TG2 YAMLs set a 24-hour platform deadline; the current heartbeats
 project less than 13 hours from container start through step 20000. Two prior
 complete 16 GiB states wrote their model and optimizer files in 12.4--12.5
 seconds, leaving more than 11 hours of deadline margin for finalization.
+The North-to-East SSH transport measured 5.6 MiB/s on a read-only 128 MiB
+probe, implying about 47 minutes per 15.5 GiB run and 5.5 hours for seven
+serialized North runs. Local materializers have no process timeout, and their
+incoming-tree hash verification remains atomic. Because one transient SSH
+failure would previously exhaust a materializer, the scheduler-only retry cap
+is now three with a five-minute cooldown. The two frozen transfer scripts retain
+their post-training-v2 hashes; no checkpoint, dependency, integrity gate, or
+evaluation protocol changed. All 156 scheduler tests pass.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.

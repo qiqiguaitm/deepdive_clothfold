@@ -8968,7 +8968,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "resource": "local",
                             "gpus": 0,
                             "retry_cooldown_seconds": 300,
-                            "max_failures": 1,
+                            "max_failures": 3,
                             "status_dir": str(
                                 REPO / "logs/temporal_grounding/tg2/materialize" / f"{arm}_seed{seed}"
                             ),

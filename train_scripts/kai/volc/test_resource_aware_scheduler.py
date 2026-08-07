@@ -6018,6 +6018,11 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert len(materializers) == 9
     assert all(task["materialize_north_result_for"] in tg2 for task in materializers.values())
     assert all(
+        task["candidates"][0]["max_failures"] == 3
+        and task["candidates"][0]["retry_cooldown_seconds"] == 300
+        for task in materializers.values()
+    )
+    assert all(
         any(
             path.endswith("verify_temporal_grounding_tg2_sidecars.py")
             for path in task["ready_files"]
