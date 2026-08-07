@@ -1,0 +1,81 @@
+TaskName: "temporal-grounding-tg2-east4g"
+Description: "Frozen TG2 training with audited Qwen3-compatible runtime overlay"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: TG2_ARM
+    Value: "fixed_endpoint"
+  - Name: TG2_TRAIN_SEED
+    Value: "1000"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  OVERLAY=/vePFS/tim/runtime/tg2_transformers_5_2_py312_v1
+  PY="$REPO/kai0/.venv/bin/python"
+  LOG_DIR="$REPO/logs/temporal_grounding/entrypoint"
+  mkdir -p "$LOG_DIR"
+  LOG_FILE="$LOG_DIR/tg2_${TG2_ARM}_s${TG2_TRAIN_SEED}_east_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG_FILE") 2>&1
+  echo "TG2_ENTRYPOINT_START arm=$TG2_ARM seed=$TG2_TRAIN_SEED host=$(hostname) runtime=v6"
+  printf '%s  %s\n' 91b2c544c6848f4ce8213c770aaa705ce682ee656c995f4ce58352c4b7368ee7 "$OVERLAY/transformers/__init__.py" | sha256sum --check --strict
+  printf '%s  %s\n' d227f617210221463f972f20d8951b935e30196b9d9bac4fe1e3ce19f49b0c3c "$OVERLAY/huggingface_hub/__init__.py" | sha256sum --check --strict
+  printf '%s  %s\n' c116fcf1e80d461ce0a35c332974f25949e8359416f50b3d53371810d2ce1ccc "$OVERLAY/tokenizers/tokenizers.abi3.so" | sha256sum --check --strict
+  export PYTHONPATH="$OVERLAY${PYTHONPATH:+:$PYTHONPATH}"
+  export TG2_MODEL_ROOT="$REPO/lmvla/lawam/results/Checkpoints/qwen3_weights"
+  "$PY" - <<'PY'
+  import os
+  import huggingface_hub, tokenizers, transformers
+  from transformers import AutoProcessor
+  assert transformers.__version__ == "5.2.0"
+  assert huggingface_hub.__version__ == "1.7.1"
+  assert tokenizers.__version__ == "0.22.2"
+  processor = AutoProcessor.from_pretrained(
+      os.environ["TG2_MODEL_ROOT"],
+      trust_remote_code=True,
+      local_files_only=True,
+  )
+  assert type(processor).__name__ == "Qwen3VLProcessor"
+  assert hasattr(processor, "tokenizer")
+  print("TG2_RUNTIME_V6_OK")
+  PY
+  git config --global --add safe.directory "$REPO"
+  git config --global --add safe.directory "$REPO/lmvla/lawam"
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  cd "$REPO/lmvla/lawam"
+  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg2_train.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

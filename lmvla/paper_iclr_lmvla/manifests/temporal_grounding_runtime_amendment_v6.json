@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v6",
+  "supersedes": "temporal_grounding_runtime_amendment_v5",
+  "superseded_manifest_sha256": "7894e1c29ea90a70df4cb8ab18fbac77820b8c4cafafbcf37479f71c7912c642",
+  "created_at": "2026-08-07T13:59:00Z",
+  "scope": "TG2 Qwen3-compatible Python runtime overlay only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "observations": {
+    "v5_result": "The cached images entered Running promptly, verified the frozen bundle and inputs, then failed before step 0 because Transformers 4.53.2 interpreted the Qwen3-VL checkpoint as Qwen2.5-VL.",
+    "root_cause": "The repository Python environment provides Transformers 4.53.2, huggingface-hub 0.32.3, and tokenizers 0.21.1; that combination does not implement Qwen3-VL.",
+    "validated_fix": "A 113 MB overlay containing Transformers 5.2.0, huggingface-hub 1.7.1, and tokenizers 0.22.2 was validated against both the East working tree and the frozen North staging tree. Both produced Qwen3VLProcessor with a tokenizer and imported the frozen training entrypoint."
+  },
+  "changes": [
+    "Prepend the versioned runtime overlay to PYTHONPATH before invoking the unchanged frozen TG2 runner.",
+    "Verify three package identity hashes and exact package versions in every task entrypoint.",
+    "Fail fast unless AutoProcessor resolves the frozen checkpoint to Qwen3VLProcessor with a tokenizer.",
+    "Tag scheduler attempts with runtime revision v6 so failures from earlier runtime revisions cannot consume the v6 retry budget."
+  ],
+  "invariants": [
+    "All frozen admission manifests, formal runners, model code, data, checkpoints, arms, seeds, optimizer settings, global batch, training steps, and result selection remain unchanged.",
+    "The overlay changes only package loading for three Hugging Face runtime packages and retains the existing Python 3.12, PyTorch 2.7.1, CUDA, Accelerate, Polars, and remaining environment.",
+    "TG1A and TG1B remain on runtime amendment v4 and are not rearmed by this amendment.",
+    "Every v5 failure occurred before optimizer step 0 and contributes no scientific result."
+  ],
+  "runtime_overlay": {
+    "east_path": "/vePFS/tim/runtime/tg2_transformers_5_2_py312_v1",
+    "north_path": "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_v1",
+    "transformers_init_sha256": "91b2c544c6848f4ce8213c770aaa705ce682ee656c995f4ce58352c4b7368ee7",
+    "huggingface_hub_init_sha256": "d227f617210221463f972f20d8951b935e30196b9d9bac4fe1e3ce19f49b0c3c",
+    "tokenizers_extension_sha256": "c116fcf1e80d461ce0a35c332974f25949e8359416f50b3d53371810d2ce1ccc"
+  },
+  "runtime_files": {
+    "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v6_4h20.yaml": "06328d2577ee6ba354be10980c83be4a405146b611a931ccaf854e8c8298472a",
+    "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v6_4h20.yaml": "be6cfc4fd0769845da7e92a8f7214ea14e5458687dcdf14d8eb792a5af24962d"
+  }
+}
