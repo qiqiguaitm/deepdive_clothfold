@@ -8512,11 +8512,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1b_path = manifests / "temporal_grounding_tg1b_admission_v1.json"
     tg2_path = manifests / "temporal_grounding_tg2_admission_v1.json"
     north_path = manifests / "temporal_grounding_tg2_north_staging_amendment_v1.json"
+    runtime_path = manifests / "temporal_grounding_runtime_amendment_v2.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
         tg2_path: "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
         north_path: "7905e39a7a228d8833b0c7c643c0ae0246c8de9b6594d56a324fb5bb4062dbd0",
+        runtime_path: "284f80125492aee1e24281c4d611c26dd02fd16d8d83aba4ca832c2b3788ea5b",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8529,6 +8531,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
 
     tg1a_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg1a_formal.sh"
     tg1a_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1a_east_4h20.yaml"
+    tg1a_runtime_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v2_4h20.yaml"
+    )
     tg1a_hashes = [
         {"path": str(tg1a_path), "sha256": manifest_hashes[tg1a_path]},
         {
@@ -8538,6 +8544,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {
             "path": str(tg1a_yaml),
             "sha256": tg1a["file_sha256"][str(tg1a_yaml.relative_to(REPO))],
+        },
+        {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
+        {
+            "path": str(tg1a_runtime_yaml),
+            "sha256": "3d11eb7f563bbd2726a8fb903d6d786aef56fb29cda5330d0ee1d2e31624c54e",
         },
     ]
     capture_marker = REPO / "logs/temporal_grounding/tg1a/normal_capture_complete.json"
@@ -8551,6 +8562,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             str(REPO / tg1a["checkpoint"]["path"]),
             str(tg1a_runner),
             str(tg1a_yaml),
+            str(runtime_path),
+            str(tg1a_runtime_yaml),
         ]
         if condition == "shuffled":
             ready_files.append(str(capture_marker))
@@ -8564,6 +8577,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "id": task_id,
                 "priority": 0,
                 "description": f"Frozen TG1A {condition} evaluation",
+                "rearm_after_ready_file": str(runtime_path),
                 "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                 "completion_min_count": 24,
                 "ready_files": ready_files,
@@ -8577,7 +8591,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "queue_timeout_seconds": 180,
                         "retry_cooldown_seconds": 600,
                         "max_failures": 1,
-                        "yaml": str(tg1a_yaml.relative_to(REPO)),
+                        "yaml": str(tg1a_runtime_yaml.relative_to(REPO)),
                         "task_name": f"temporal-grounding-tg1a-{condition}-east4g",
                         "env": {"TG1A_CONDITION": condition},
                     }
@@ -8588,6 +8602,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
 
     tg1b_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg1b_formal.sh"
     tg1b_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1b_east_4h20.yaml"
+    tg1b_runtime_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v2_4h20.yaml"
+    )
     tg1b_hashes = [
         {"path": str(tg1b_path), "sha256": manifest_hashes[tg1b_path]},
         {
@@ -8597,6 +8615,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {
             "path": str(tg1b_yaml),
             "sha256": tg1b["file_sha256"][str(tg1b_yaml.relative_to(REPO))],
+        },
+        {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
+        {
+            "path": str(tg1b_runtime_yaml),
+            "sha256": "c66a528360ce6bd690e719eb461c0e5cba8fc18c41482b028013a4e856c00474",
         },
     ]
     for checkpoint_arm in ("future_off", "local_wm"):
@@ -8615,6 +8638,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 1,
                     "description": f"Frozen TG1B {checkpoint_arm} E={cadence} evaluation",
+                    "rearm_after_ready_file": str(runtime_path),
                     "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                     "completion_min_count": 24,
                     "ready_files": [
@@ -8623,6 +8647,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(checkpoint),
                         str(tg1b_runner),
                         str(tg1b_yaml),
+                        str(runtime_path),
+                        str(tg1b_runtime_yaml),
                     ],
                     "ready_hashes": tg1b_hashes,
                     "candidates": [
@@ -8634,7 +8660,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "queue_timeout_seconds": 180,
                             "retry_cooldown_seconds": 600,
                             "max_failures": 1,
-                            "yaml": str(tg1b_yaml.relative_to(REPO)),
+                            "yaml": str(tg1b_runtime_yaml.relative_to(REPO)),
                             "task_name": (
                                 "temporal-grounding-tg1b-"
                                 f"{checkpoint_arm.replace('_', '-')}-e{cadence}-east4g"
@@ -8651,8 +8677,16 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
 
     tg2_runner = REPO / "train_scripts/kai/run_temporal_grounding_tg2_train.sh"
     east_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_east_4h20.yaml"
+    east_runtime_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v2_4h20.yaml"
+    )
     north_yaml = (
         REPO / "train_scripts/kai/volc/temporal_grounding_tg2_north_staged_4h20.yaml"
+    )
+    north_runtime_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v2_4h20.yaml"
     )
     north_stage = (
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
@@ -8677,6 +8711,15 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "path": str(north_yaml),
             "sha256": "1185896575f6d42283ec09d7afa1ae874c2fc90d8f3c2ae39ed23363b61b1758",
         },
+        {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
+        {
+            "path": str(east_runtime_yaml),
+            "sha256": "07d0e389c3a72d26cb4cc5ab598c54bf3487ba0c212ecbac7934ac0a0f48a8ea",
+        },
+        {
+            "path": str(north_runtime_yaml),
+            "sha256": "5db33a6e1b66e26172d70f7ec17e9849df8b67a5301317e1e80c970286606b19",
+        },
     ]
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
         for seed in (1000, 1001, 1002):
@@ -8690,6 +8733,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 2,
                     "description": f"Frozen TG2 arm={arm} seed={seed} training",
+                    "rearm_after_ready_file": str(runtime_path),
                     "completion_locations": [
                         {
                             "label": "east",
@@ -8713,6 +8757,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(tg2_runner),
                         str(east_yaml),
                         str(north_yaml),
+                        str(runtime_path),
+                        str(east_runtime_yaml),
+                        str(north_runtime_yaml),
                     ],
                     "ready_hashes": tg2_hashes,
                     "candidates": [
@@ -8724,7 +8771,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "queue_timeout_seconds": 180,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
-                            "yaml": str(east_yaml.relative_to(REPO)),
+                            "yaml": str(east_runtime_yaml.relative_to(REPO)),
                             "task_name": (
                                 f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-east4g"
                             ),
@@ -8738,7 +8785,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "queue_timeout_seconds": 300,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
-                            "yaml": str(north_yaml.relative_to(REPO)),
+                            "yaml": str(north_runtime_yaml.relative_to(REPO)),
                             "task_name": (
                                 f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-north4g"
                             ),

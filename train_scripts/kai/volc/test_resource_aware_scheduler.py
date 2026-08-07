@@ -5294,6 +5294,9 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         assert capture_marker not in task["ready_files"]
         assert task["candidates"][0]["gpus"] == 4
         assert task["candidates"][0]["env"]["TG1A_CONDITION"] == condition
+        assert task["candidates"][0]["yaml"].endswith(
+            "temporal_grounding_tg1a_east_runtime_v2_4h20.yaml"
+        )
 
     assert {
         (
@@ -5307,6 +5310,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         ("local_wm", "36"),
         ("local_wm", "50"),
     }
+    assert all(
+        task["candidates"][0]["yaml"].endswith(
+            "temporal_grounding_tg1b_east_runtime_v2_4h20.yaml"
+        )
+        for task in tg1b.values()
+    )
 
     for task in tg2.values():
         assert task["completion_min_count"] == 1
@@ -5321,7 +5330,15 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             if candidate["resource"] == "Robot-North-H20"
         )
         assert north["yaml"].endswith(
-            "temporal_grounding_tg2_north_staged_4h20.yaml"
+            "temporal_grounding_tg2_north_runtime_v2_4h20.yaml"
+        )
+        east = next(
+            candidate
+            for candidate in task["candidates"]
+            if candidate["resource"] == "Robot-East-H20"
+        )
+        assert east["yaml"].endswith(
+            "temporal_grounding_tg2_east_runtime_v2_4h20.yaml"
         )
         assert north["ready_files_remote"]
     assert not any("_eval" in task_id for task_id in tg2)

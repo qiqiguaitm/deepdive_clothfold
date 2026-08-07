@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v2",
+  "created_at": "2026-08-07T08:27:00Z",
+  "scope": "submission compatibility and entrypoint observability only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "observations": {
+    "tg2_submission_error": "CreateJob rejected Framework=PyTorchDDP; allowed values include PyTorch",
+    "tg1_east_failures_before_formal_log": [
+      "t-20260807161827-gl8tr",
+      "t-20260807161830-blxnq",
+      "t-20260807162008-hzvhj",
+      "t-20260807162011-8mg5l",
+      "t-20260807162139-52lff",
+      "t-20260807162142-d9m48"
+    ]
+  },
+  "changes": [
+    "Use Framework=PyTorch for single-role four-GPU TG2 jobs.",
+    "Tee entrypoint stdout and stderr to shared vePFS before the unchanged frozen runner starts."
+  ],
+  "invariants": [
+    "Frozen admission manifests and their referenced files remain unchanged.",
+    "Data, checkpoints, arms, seeds, task panels, episode counts, optimizer settings, training steps, gates, and result selection remain unchanged.",
+    "The frozen formal runner remains the only experiment entrypoint after preflight logging."
+  ],
+  "runtime_files": {
+    "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v2_4h20.yaml": "3d11eb7f563bbd2726a8fb903d6d786aef56fb29cda5330d0ee1d2e31624c54e",
+    "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v2_4h20.yaml": "c66a528360ce6bd690e719eb461c0e5cba8fc18c41482b028013a4e856c00474",
+    "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v2_4h20.yaml": "07d0e389c3a72d26cb4cc5ab598c54bf3487ba0c212ecbac7934ac0a0f48a8ea",
+    "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v2_4h20.yaml": "5db33a6e1b66e26172d70f7ec17e9849df8b67a5301317e1e80c970286606b19"
+  }
+}
