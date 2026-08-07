@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_north_clean_staging_v1",
+  "created_at": "2026-08-07T07:52:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent_bundle": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json",
+    "sha256": "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387"
+  },
+  "north_staging": {
+    "host": "gsy",
+    "path": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/temporal_grounding_11fb843",
+    "outer_commit": "11fb84349809b30ddc785dc99105080540d000c2",
+    "lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a",
+    "source_status": "detached clean worktree; original North worktree left untouched",
+    "runtime_bundle_verification": {
+      "bundle": "TG2",
+      "verified_files": 23,
+      "passed": true
+    }
+  },
+  "linked_inputs": {
+    "policy_environment": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/.venv",
+    "lawam_results": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/results",
+    "lawam_dataset": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/dataset",
+    "lawam_checkpoints": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/ckpts_dl",
+    "lawam_weights": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/weights",
+    "milestone_data": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_milestone_all6_v2",
+    "shared_logs": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/logs"
+  },
+  "north_input_sha256": {
+    "lawam_pretrain": "9fe985abf0ef3d0868f9cc330f7248ade01aaf5891f94528a593eb17d6ba14cc",
+    "dataset_info": "265da39a37405213f1ca0501de96b434672afdb2b618d44df9656429626f465d",
+    "milestone_pairs": "592f1e739105951e927ab5f3afdd022a68aad31d779382ea760a4b1f4842a2a0",
+    "milestone_targets": "9f7ea4f69913647670b9f066d153e620ecafc9d06d555ccb2a41e172852cf879"
+  },
+  "submission": {
+    "yaml": "train_scripts/kai/volc/temporal_grounding_tg2_north_staged_4h20.yaml",
+    "yaml_sha256": "1185896575f6d42283ec09d7afa1ae874c2fc90d8f3c2ae39ed23363b61b1758",
+    "dry_run": "passed",
+    "allowed_env_overrides": {
+      "TG2_ARM": ["future_off", "fixed_endpoint", "raw_milestone"],
+      "TG2_TRAIN_SEED": ["1000", "1001", "1002"]
+    },
+    "task_name_pattern": "temporal-grounding-tg2-{arm}-s{seed}-north4g",
+    "candidate_policy": "Use only when the live recommender and scheduler select North; never bypass queued work or configured credential quotas."
+  }
+}

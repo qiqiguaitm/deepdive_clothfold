@@ -1,0 +1,53 @@
+TaskName: "temporal-grounding-tg2-north4g"
+Description: "Frozen execution-aligned TG2 matched training arm from clean North staging"
+Tags: []
+
+ImageUrl: "visincept-cn-beijing.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorchDDP"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: TG2_ARM
+    Value: "fixed_endpoint"
+  - Name: TG2_TRAIN_SEED
+    Value: "1000"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/temporal_grounding_11fb843
+  test "$(git -C "$REPO" rev-parse HEAD)" = 11fb84349809b30ddc785dc99105080540d000c2
+  test "$(git -C "$REPO/lmvla/lawam" rev-parse HEAD)" = 71803a3f8b0e55679a4557ef6af80a76604f277a
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  cd "$REPO/lmvla/lawam"
+  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg2_train.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"
