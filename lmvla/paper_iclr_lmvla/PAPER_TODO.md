@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:49 UTC
+Updated: 2026-08-07 19:52 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -178,7 +178,11 @@ visibility grace before a missing shared-filesystem artifact becomes a retry;
 this prevents a clean run from being immediately exhausted or duplicated on a
 second resource during propagation. All 162 scheduler tests pass, including
 Running, successful-exit, delayed-visibility, grace-expiry, and
-failed-finalization regression cases.
+failed-finalization regression cases. The same successful-terminal provenance
+check is enforced again during pending/restart artifact reconciliation, so a
+partial file from a failed attempt cannot bypass the runtime check on the next
+state-machine phase. Successful and failed reconciliation cases bring the full
+scheduler suite to 164 passing tests.
 At 19:27 UTC, a live initialization audit covered the five current North
 jobs. Their initialization payload, parameter-tree, trainable-tree, and
 optimizer-tree SHA-256 values are each identical across arms and seeds

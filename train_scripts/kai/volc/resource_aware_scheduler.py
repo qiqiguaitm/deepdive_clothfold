@@ -448,6 +448,7 @@ ACTIVE_STATES = ("Running", "Deploying")
 WAITING_STATES = ("Creating", "Waiting", "Queueing")
 SUBMITTED_JOB_STATES = (*ACTIVE_STATES, *WAITING_STATES)
 TERMINAL_STATES = {"Completed", "Success", "Failed", "Stopped"}
+SUCCESSFUL_TERMINAL_STATES = {"Completed", "Success"}
 GPU_BY_FLAVOR = {
     "ml.hpcpni3ln.45xlarge": 8,
     "ml.pni3ln.45xlarge": 8,
@@ -11237,6 +11238,16 @@ def mark_task_completed(task: dict[str, Any], task_state: dict[str, Any]) -> Non
         path.write_text(f"completed={task_state['completed_at']}\ntask={task['id']}\n")
 
 
+def completion_artifacts_are_admissible(
+    task: dict[str, Any], task_state: dict[str, Any]
+) -> bool:
+    """Require successful platform provenance for artifacts that may be partial."""
+    if not task.get("completion_requires_successful_terminal_state"):
+        return True
+    attempts = task_state.get("attempts", [])
+    return bool(attempts) and attempts[-1].get("last_state") in SUCCESSFUL_TERMINAL_STATES
+
+
 def refresh_causal_reports() -> None:
     """Materialize final shared-cohort reports as soon as all controls finish."""
     for label, config in CAUSAL_REPORTS.items():
@@ -12653,7 +12664,9 @@ def launch_local(candidate: dict[str, Any]) -> str:
 
 def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None:
     if task_state.get("status") != "running":
-        if task_state.get("artifacts_complete"):
+        if task_state.get("artifacts_complete") and completion_artifacts_are_admissible(
+            task, task_state
+        ):
             mark_task_completed(task, task_state)
         return
     task_state.pop("waiting_reason", None)
@@ -12738,11 +12751,11 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
                 f"state={info['state']} stopped={stopped} current={','.join(current_revisions)}"
             )
             return
-        if info["state"] in {"Completed", "Success"}:
+        if info["state"] in SUCCESSFUL_TERMINAL_STATES:
             complete, evidence = completion_evidence(task)
             attempt["completion_evidence"] = evidence
             record_artifact_progress(task_state, complete, evidence)
-            if complete:
+            if complete and completion_artifacts_are_admissible(task, task_state):
                 mark_task_completed(task, task_state)
             else:
                 grace_seconds = int(
@@ -12843,7 +12856,7 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
             complete, evidence = completion_evidence(task)
             attempt["completion_evidence"] = evidence
             record_artifact_progress(task_state, complete, evidence)
-            if complete:
+            if complete and completion_artifacts_are_admissible(task, task_state):
                 mark_task_completed(task, task_state)
             else:
                 task_state["status"] = "pending"
@@ -14323,7 +14336,7 @@ def dispatch(
         if task.get("completion_glob") or task.get("completion_locations"):
             complete, evidence = completion_evidence(task)
             record_artifact_progress(task_state, complete, evidence)
-            if complete:
+            if complete and completion_artifacts_are_admissible(task, task_state):
                 mark_task_completed(task, task_state)
                 task_state.pop("waiting_reason", None)
                 log(f"completed before redispatch {task['id']}: {evidence}")

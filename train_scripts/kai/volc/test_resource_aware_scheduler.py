@@ -2321,6 +2321,76 @@ def test_dispatch_reconciles_completion_without_attempt_history(
     assert "waiting_reason" not in recovered
 
 
+def test_dispatch_rejects_partial_artifact_from_failed_success_required_attempt(
+    tmp_path, monkeypatch
+) -> None:
+    marker = tmp_path / "final_model" / "pytorch_model.pt"
+    marker.parent.mkdir()
+    marker.write_bytes(b"truncated")
+    task = {
+        "id": "failed-tg2-completion",
+        "priority": 1,
+        "description": "test",
+        "enabled": True,
+        "completion_glob": str(marker),
+        "completion_requires_successful_terminal_state": True,
+        "ready_files": [str(tmp_path / "missing-input")],
+        "candidates": [],
+    }
+    state = {
+        "tasks": {
+            task["id"]: {
+                "status": "pending",
+                "artifacts_complete": True,
+                "attempts": [{"last_state": "Failed"}],
+            }
+        }
+    }
+    monkeypatch.setattr(scheduler, "atomic_json", lambda *_args: None)
+    monkeypatch.setattr(scheduler, "log", lambda *_args: None)
+
+    scheduler.dispatch({"tasks": [task]}, state, {"resources": {}})
+
+    recovered = state["tasks"][task["id"]]
+    assert recovered["status"] == "pending"
+    assert recovered["artifacts_complete"] is True
+    assert "completed_at" not in recovered
+
+
+def test_dispatch_accepts_artifact_from_successful_required_attempt(
+    tmp_path, monkeypatch
+) -> None:
+    marker = tmp_path / "final_model" / "pytorch_model.pt"
+    marker.parent.mkdir()
+    marker.write_bytes(b"complete")
+    task = {
+        "id": "successful-tg2-completion",
+        "priority": 1,
+        "description": "test",
+        "enabled": True,
+        "completion_glob": str(marker),
+        "completion_requires_successful_terminal_state": True,
+        "ready_files": [str(tmp_path / "missing-input")],
+        "candidates": [],
+    }
+    state = {
+        "tasks": {
+            task["id"]: {
+                "status": "pending",
+                "attempts": [{"last_state": "Completed"}],
+            }
+        }
+    }
+    monkeypatch.setattr(scheduler, "atomic_json", lambda *_args: None)
+    monkeypatch.setattr(scheduler, "log", lambda *_args: None)
+
+    scheduler.dispatch({"tasks": [task]}, state, {"resources": {}})
+
+    recovered = state["tasks"][task["id"]]
+    assert recovered["status"] == "completed"
+    assert recovered["artifacts_complete"] is True
+
+
 def test_robot_task_queue_reclaim_retries_after_cooldown_from_zero_usage() -> None:
     candidate = {
         "kind": "platform",
