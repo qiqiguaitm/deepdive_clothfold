@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_tg2_seed_independence_amendment_v1",
+  "extends": "temporal_grounding_tg2_admission_v1",
+  "created_at": "2026-08-07T14:44:13Z",
+  "scope": "TG2 post-training seed-independence integrity audit only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "motivation": "The frozen integrity verifier proves exact rank-order equality across arms within each training seed but does not prove that distinct training seeds induce distinct data orders. That missing check is required before treating training seed as the top statistical unit.",
+  "requirements": [
+    "Each of the nine runs must provide exactly four canonical rank audit records.",
+    "The three arms must have identical rank-order hashes within each training seed.",
+    "The rank-order hash tuple must differ across seeds 1000, 1001, and 1002.",
+    "This audit runs only after training and does not modify model, data, optimizer, initialization, checkpoint, or evaluation behavior."
+  ],
+  "command": "kai0/.venv/bin/python lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py --repo . --output logs/temporal_grounding/tg2/seed_independence.json",
+  "files": {
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py": "74325ed6c9f4f93519f1653252c185f6c7d3d28f5e1340056d94a3015c5dcd34",
+    "lmvla/lmwm/scripts/test_verify_temporal_grounding_tg2_seed_independence.py": "a34bd30a2776b79d6e7dcb3b8a0d9b5e6a2bb277347f809ebac7a3f868237c21"
+  }
+}

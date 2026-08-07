@@ -71,6 +71,7 @@ The following immutable admission bundles are frozen and were reverified on
 | TG1B | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1b_admission_v1.json` | 11 | Passed |
 | TG2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json` | 23 | Passed |
 | TG2 North staging | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_north_staging_amendment_v1.json` | 23 | Passed in detached clean worktree |
+| TG2 seed independence | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_seed_independence_amendment_v1.json` | Post-training audit | Admitted; awaits nine data-order records |
 | Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
 | Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
 | Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |
@@ -285,11 +286,13 @@ target mixture. Those are distinct conditional questions in Section 9.
 Seeds 1000--1002 are three stochastic replications of each condition, not
 three modules or three sequential training stages. Within a seed, all three
 arms receive an identical deterministic initialization payload and rank data
-order; across seeds, initialization and data order vary. Training seed is the
-top statistical unit because one rollout seed panel measures evaluation noise,
-not variation in learned policies. Earlier single-seed screens changed verdict
-after matched replications, so no method or training-schedule claim may be based
-on seed 1000 alone.
+order. The released checkpoint fully determines the observed initialization
+payload, so that payload may remain identical across seeds; independence must
+instead be demonstrated by distinct rank data-order hashes across seeds.
+Training seed is the top statistical unit because one rollout seed panel
+measures evaluation noise, not variation in learned policies. Earlier
+single-seed screens changed verdict after matched replications, so no method or
+training-schedule claim may be based on seed 1000 alone.
 
 ### Training jobs
 
@@ -317,11 +320,12 @@ checkpoint is durable. Losses and checkpoint existence are not policy evidence.
 
 ### Matrix integrity dependency
 
-After all nine training rows complete, run the frozen nine-arm integrity audit.
-It must jointly pass parameter tree, trainable tree, within-seed initialization
-payload, exact rank data order, normalization, optimizer parameter/state,
-target coverage, and final-checkpoint checks. This CPU audit is an automatic
-dependency, not a GPU TODO item.
+After all nine training rows complete, run the frozen nine-arm integrity audit
+and the admitted seed-independence extension. Together they must pass parameter
+tree, trainable tree, within-seed initialization payload, exact rank data order,
+cross-seed order distinction, normalization, optimizer parameter/state, target
+coverage, and final-checkpoint checks. These CPU audits are automatic
+dependencies, not GPU TODO items.
 
 ### Evaluation jobs
 
