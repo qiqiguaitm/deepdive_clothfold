@@ -8330,14 +8330,32 @@ def add_pi05_predictive_adapter_p345_tasks(queue: dict[str, Any]) -> None:
         shared_marker = REPO / f"logs/resource_markers/pi05_predictive_adapter_p3_a0_seed{seed}.ok"
         if sync_id not in existing:
             remote_report = stage / f"lmvla/lmwm/docs/pi05_predictive_adapter_p3_a0_seed{seed}.json"
-            command = (
-                "ssh -p 16370 -o BatchMode=yes root@124.174.16.237 "
-                + shlex.quote(
-                    f"mkdir -p {shared_report.parent} {shared_marker.parent}; "
-                    f"cp {remote_report} {shared_report}; cp {eval_marker} {shared_marker}; "
-                    f"cp {stage}/logs/predictive/p3_audit/a0_seed{seed}.json "
-                    f"{REPO}/lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_a0_seed{seed}_checkpoint_audit.json"
-                )
+            shared_audit = REPO / (
+                "lmvla/paper_iclr_lmvla/manifests/"
+                f"pi05_predictive_adapter_p3_a0_seed{seed}_checkpoint_audit.json"
+            )
+            remote_audit = stage / f"logs/predictive/p3_audit/a0_seed{seed}.json"
+            command = " && ".join(
+                [
+                    f"mkdir -p {shlex.quote(str(shared_report.parent))} "
+                    f"{shlex.quote(str(shared_marker.parent))} "
+                    f"{shlex.quote(str(shared_audit.parent))}",
+                    f"scp -P 16370 -q -o BatchMode=yes "
+                    f"root@124.174.16.237:{shlex.quote(str(remote_report))} "
+                    f"{shlex.quote(str(shared_report) + '.tmp')}",
+                    f"mv {shlex.quote(str(shared_report) + '.tmp')} "
+                    f"{shlex.quote(str(shared_report))}",
+                    f"scp -P 16370 -q -o BatchMode=yes "
+                    f"root@124.174.16.237:{shlex.quote(str(eval_marker))} "
+                    f"{shlex.quote(str(shared_marker) + '.tmp')}",
+                    f"mv {shlex.quote(str(shared_marker) + '.tmp')} "
+                    f"{shlex.quote(str(shared_marker))}",
+                    f"scp -P 16370 -q -o BatchMode=yes "
+                    f"root@124.174.16.237:{shlex.quote(str(remote_audit))} "
+                    f"{shlex.quote(str(shared_audit) + '.tmp')}",
+                    f"mv {shlex.quote(str(shared_audit) + '.tmp')} "
+                    f"{shlex.quote(str(shared_audit))}",
+                ]
             )
             queue["tasks"].append(
                 {
