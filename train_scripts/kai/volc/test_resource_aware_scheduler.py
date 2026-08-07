@@ -5575,14 +5575,17 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         assert task["candidates"][0]["gpus"] == 4
         assert task["candidates"][0]["env"]["TG1A_CONDITION"] == condition
         assert task["candidates"][0]["runtime_revision"] == (
-            "temporal_grounding_runtime_v9"
+            "temporal_grounding_runtime_v10"
         )
         assert task["candidates"][0]["yaml"].endswith(
             "temporal_grounding_tg1a_east_runtime_v9_4h20.yaml"
         )
         assert task["rearm_after_ready_file"].endswith(
-            "temporal_grounding_runtime_amendment_v9.json"
+            "temporal_grounding_runtime_amendment_v10.json"
         )
+        assert task["candidates"][0]["env"][
+            "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT"
+        ].endswith("temporal_grounding_runtime_amendment_v10.json")
 
     assert {
         (
@@ -5664,6 +5667,17 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert all(
         {candidate["resource"] for candidate in task["candidates"]}
         == {"Robot-East-H20"}
+        for task in evals.values()
+    )
+    assert all(
+        task["candidates"][0]["runtime_revision"]
+        == "temporal_grounding_runtime_v10"
+        for task in evals.values()
+    )
+    assert all(
+        task["candidates"][0]["env"][
+            "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT"
+        ].endswith("temporal_grounding_runtime_amendment_v10.json")
         for task in evals.values()
     )
 

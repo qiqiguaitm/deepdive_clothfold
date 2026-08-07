@@ -8546,6 +8546,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v7_path = manifests / "temporal_grounding_runtime_amendment_v7.json"
     runtime_v8_path = manifests / "temporal_grounding_runtime_amendment_v8.json"
     runtime_v9_path = manifests / "temporal_grounding_runtime_amendment_v9.json"
+    runtime_v10_path = manifests / "temporal_grounding_runtime_amendment_v10.json"
     posttraining_path = manifests / "temporal_grounding_tg2_posttraining_pipeline_v1.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
@@ -8560,6 +8561,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v7_path: "13dac0becb33bbc4b36ccaba459ee2817374023d7d59f746d1344bf6f342c61f",
         runtime_v8_path: "597459d4c346830416637b64eb0a14857affbdd8922840b969761c1b6522e678",
         runtime_v9_path: "cc28d480647c8da5f274352fe2c0ba7e88509997e15c3e891bbf0a4db494005c",
+        runtime_v10_path: "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e",
         posttraining_path: "590e80cb71faf191a9278a75d783b3b221518373a934a8013fe20ba9e4709bd4",
     }
     for path, expected in manifest_hashes.items():
@@ -8569,7 +8571,15 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1a = json.loads(tg1a_path.read_text())
     tg1b = json.loads(tg1b_path.read_text())
     tg2 = json.loads(tg2_path.read_text())
+    runtime_v10 = json.loads(runtime_v10_path.read_text())
     posttraining = json.loads(posttraining_path.read_text())
+    runtime_v10_hashes = [
+        {"path": str(runtime_v10_path), "sha256": manifest_hashes[runtime_v10_path]},
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in runtime_v10["files"].items()
+        ),
+    ]
     posttraining_hashes = [
         {"path": str(posttraining_path), "sha256": manifest_hashes[posttraining_path]},
         *(
@@ -8608,6 +8618,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "sha256": tg1a["file_sha256"][str(tg1a_yaml.relative_to(REPO))],
         },
         {"path": str(runtime_v9_path), "sha256": manifest_hashes[runtime_v9_path]},
+        *runtime_v10_hashes,
         {
             "path": str(tg1a_runtime_yaml),
             "sha256": "b9b83237799cfa75975eaf8e44d7a0ac8dc4caeae4b74c51018d88f2131774ab",
@@ -8637,10 +8648,12 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             str(tg1a_runner),
             str(tg1a_yaml),
             str(runtime_v9_path),
+            str(runtime_v10_path),
             str(tg1a_runtime_yaml),
             str(tg1a_batch_builder),
             str(tg1a_context_test),
             str(tg1a_retry_preflight),
+            *(str(REPO / relative) for relative in runtime_v10["files"]),
         ]
         if condition == "shuffled":
             ready_files.append(str(capture_marker))
@@ -8654,7 +8667,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "id": task_id,
                 "priority": 0,
                 "description": f"Frozen TG1A {condition} evaluation",
-                "rearm_after_ready_file": str(runtime_v9_path),
+                "rearm_after_ready_file": str(runtime_v10_path),
                 "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                 "completion_min_count": 24,
                 "ready_files": ready_files,
@@ -8668,10 +8681,15 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "queue_timeout_seconds": 180,
                         "retry_cooldown_seconds": 600,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_runtime_v9",
+                        "runtime_revision": "temporal_grounding_runtime_v10",
                         "yaml": str(tg1a_runtime_yaml.relative_to(REPO)),
                         "task_name": f"temporal-grounding-tg1a-{condition}-east4g",
-                        "env": {"TG1A_CONDITION": condition},
+                        "env": {
+                            "TG1A_CONDITION": condition,
+                            "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT": str(
+                                runtime_v10_path
+                            ),
+                        },
                     }
                 ],
             }
@@ -9025,12 +9043,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "completion_min_count": 24,
                     "ready_files": [
                         str(posttraining_path),
+                        str(runtime_v10_path),
                         str(integrity_marker),
                         str(eval_runner),
                         str(eval_yaml),
                         str(renderer_marker),
+                        *(str(REPO / relative) for relative in runtime_v10["files"]),
                     ],
-                    "ready_hashes": posttraining_hashes,
+                    "ready_hashes": [*posttraining_hashes, *runtime_v10_hashes],
                     "candidates": [
                         {
                             "kind": "platform",
@@ -9042,7 +9062,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "max_failures": 1,
                             "yaml": str(eval_yaml.relative_to(REPO)),
                             "task_name": f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-eval-east4g",
-                            "env": {"TG2_ARM": arm, "TG2_TRAIN_SEED": str(seed)},
+                            "runtime_revision": "temporal_grounding_runtime_v10",
+                            "env": {
+                                "TG2_ARM": arm,
+                                "TG2_TRAIN_SEED": str(seed),
+                                "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT": str(
+                                    runtime_v10_path
+                                ),
+                            },
                         }
                     ],
                 }

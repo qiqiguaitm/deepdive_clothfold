@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 15:16 UTC
+Updated: 2026-08-07 15:32 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -81,6 +81,7 @@ The following immutable admission bundles are frozen and were reverified on
 | Runtime v7 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v7.json` | Runtime-only | Healthy jobs retained; Qwen3 padding bridge passed |
 | Runtime v8 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v8.json` | Runtime-only | Active for pending cells; collision-safe arm/seed run timestamps |
 | Runtime v9 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v9.json` | Runtime-only | Passed; TG1A metadata batch bridge and strict failed-v4 isolation |
+| Runtime v10 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v10.json` | Runtime-only | Passed; exact authorized LaWAM descendant verification for TG1A and TG2 eval |
 
 The bundles pin outer implementation commit `db88e943`, LaWAM commit
 `71803a3`, inputs, checkpoints, scene identities, report schemas, analysis
@@ -88,14 +89,14 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-At 15:16 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
+At 15:31 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
 East; raw-milestone seeds 1001--1002 and future-off seeds 1000--1001 on North.
 All six passed the Qwen3 unequal-length batch smoke and sustained optimization
 beyond the first step with frozen global batch 128. North raw seeds 1001--1002
-reached steps 1490 and 1503 at 2.27--2.30 s/step; East fixed seeds both reached
-step 1479 at 2.28--2.31 s/step; and North future-off seeds reached steps 1197
-and 1161 at 2.04--2.06 s/step. DataLoader time remains about 0.04 s, with
-running-job ETAs of roughly 10.7--11.9 hours. The remaining three v8 cells are
+reached steps 1891 and 1904 at 2.27--2.29 s/step; East fixed seeds reached
+steps 1884 and 1883 at 2.25--2.29 s/step; and North future-off seeds reached
+steps 1642 and 1606 at 2.03--2.04 s/step. DataLoader time remains about 0.04 s,
+with running-job ETAs of roughly 10.4--11.5 hours. The remaining three v8 cells are
 submitted in the North backup profile and are Queueing because Beijing has no
 free 4-GPU shape. No final TG2 checkpoint exists yet.
 Mutable resource counts and platform states remain authoritative only in
@@ -135,8 +136,13 @@ retried:
   that key. No summary was produced. Runtime v9 admits the reviewed one-key
   metadata allowlist repair, verifies the runner-to-backend context route, and
   permits a retry only after proving and archiving the complete zero-summary
-  v4 schema failure. The scheduler has released all four TG1A cells; shuffled
-  remains artifact-blocked until normal capture completes.
+  v4 schema failure. A pre-launch audit then found that the frozen verifier
+  would reject this explicitly admitted descendant before execution. Runtime
+  v10 verifies the complete base bundle plus the exact two-file v9 LaWAM diff
+  and rejects any unlisted descendant change. The scheduler has released all
+  four TG1A cells under v10; shuffled remains artifact-blocked until normal
+  capture completes. The same amended verifier is already a dependency of the
+  nine TG2 evaluations, preventing the identical post-training startup fault.
 - TG1B `future_off,E=36` produced 20/24 summaries and `local_wm,E=50` produced
   18/24. Missing cells exhausted the frozen three attempts for fixed scene
   seeds that remained invalid. A completed CPU diagnosis shows all six stopping
@@ -191,13 +197,13 @@ Admission source:
 
 ### GPU cells
 
-- [ ] **TG1A-E1 [READY-RUNTIME-V9; prior failed run: `t-20260807165006-b4pqr`]**
+- [ ] **TG1A-E1 [READY-RUNTIME-V10; prior failed run: `t-20260807165006-b4pqr`]**
   Evaluate `normal`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
-- [ ] **TG1A-E2 [READY-RUNTIME-V9; prior failed run: `t-20260807165010-gk4h7`]**
+- [ ] **TG1A-E2 [READY-RUNTIME-V10; prior failed run: `t-20260807165010-gk4h7`]**
   Evaluate `null`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
-- [ ] **TG1A-E3 [READY-RUNTIME-V9; prior failed run: `t-20260807171443-psgh6`]**
+- [ ] **TG1A-E3 [READY-RUNTIME-V10; prior failed run: `t-20260807171443-psgh6`]**
   Evaluate `persistence`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
 - [ ] **TG1A-E4 [BLOCKED by TG1A-E1 capture]** Verify the complete normal

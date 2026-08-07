@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v10",
+  "extends": "temporal_grounding_runtime_amendment_v9",
+  "extended_manifest_sha256": "cc28d480647c8da5f274352fe2c0ba7e88509997e15c3e891bbf0a4db494005c",
+  "created_at": "2026-08-07T15:35:00Z",
+  "scope": "TG1A and TG2 evaluation admission verification across the authorized LaWAM runtime descendant",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "applies_to_bundles": [
+    "TG1A",
+    "TG2"
+  ],
+  "observed_failure": {
+    "stage": "pre-execution admission verification",
+    "affected_jobs": [
+      "TG1A runtime-v9 evaluations not yet relaunched",
+      "TG2 evaluations blocked behind the training-integrity gate"
+    ],
+    "error": "The frozen bundle verifier required the base LaWAM commit even though runtime v9 had already admitted the exact one-commit metadata compatibility descendant."
+  },
+  "change": [
+    "Permit the bundle verifier to consume an explicit runtime amendment path from the environment.",
+    "Require the current LaWAM commit, parent commit, and complete changed-file set to exactly match the amendment.",
+    "Verify every frozen base file and every amendment file by SHA-256; a changed base file is accepted only when its current hash is pinned by the amendment."
+  ],
+  "invariants": [
+    "Training recipes, checkpoints, model weights, processor inputs, action frequency, horizons, tasks, scenes, seeds, retry limits, intervention definitions, result selection, and statistical gates remain unchanged.",
+    "The only admitted LaWAM delta remains the runtime-v9 temporal_grounding_context metadata allowlist and its focused test.",
+    "Without an explicit amendment, the verifier retains exact frozen-commit behavior."
+  ],
+  "source_identity": {
+    "lawam_commit": "7ca170c9b98e15026ecd9004d91f0ad9c73ba5f7",
+    "parent_lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a",
+    "lawam_changed_files": [
+      "starVLA/model/framework/latent_world/batch_builder.py",
+      "starVLA/model/framework/latent_world/runtime/test_temporal_grounding_context.py"
+    ]
+  },
+  "files": {
+    "lmvla/lawam/starVLA/model/framework/latent_world/batch_builder.py": "9aa91654c274f9cbfc6f6d08066c8188ab84731baf81de64148b058c8885bc22",
+    "lmvla/lawam/starVLA/model/framework/latent_world/runtime/test_temporal_grounding_context.py": "df79416a78b4d0f46b87b6dae996cdd11c916aad87fc4192934152e4de941a17",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py": "77fd0d5264a1b51a1a270b2b5bda8e7329af846721b81a6a41f961d4a8d5abd1",
+    "lmvla/lmwm/scripts/test_verify_temporal_grounding_bundle.py": "ac11f56eea200f61e00e6be2db6cdb4043312cb7f557b4552128c4d83201171d"
+  },
+  "validation": {
+    "unit_tests": "4 passed",
+    "base_mode": "retains exact commit rejection",
+    "amended_mode": "accepts only the exact authorized descendant and rejects an unlisted inner-repository change"
+  }
+}
