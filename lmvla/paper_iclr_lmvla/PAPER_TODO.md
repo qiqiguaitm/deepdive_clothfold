@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:12 UTC
+Updated: 2026-08-07 19:17 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -156,7 +156,10 @@ incoming-tree hash verification remains atomic. Because one transient SSH
 failure would previously exhaust a materializer, the scheduler-only retry cap
 is now three with a five-minute cooldown. The two frozen transfer scripts retain
 their post-training-v2 hashes; no checkpoint, dependency, integrity gate, or
-evaluation protocol changed. All 156 scheduler tests pass.
+evaluation protocol changed. A same-poll state transition is also guarded: when
+an East parent becomes complete during platform monitoring, its North
+materializer is satisfied before candidate selection instead of briefly
+launching an unnecessary transfer. All 157 scheduler tests pass.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.

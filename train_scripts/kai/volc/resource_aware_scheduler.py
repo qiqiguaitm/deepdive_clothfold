@@ -14277,13 +14277,21 @@ def dispatch(
             )
             continue
         parent_id = task.get("materialize_north_result_for")
-        if parent_id and north_materialization_required(
-            state["tasks"].get(parent_id, {})
-        ) is None:
-            task_state["waiting_reason"] = (
-                f"waiting for North parent task to complete: {parent_id}"
+        if parent_id:
+            materialization_required = north_materialization_required(
+                state["tasks"].get(parent_id, {})
             )
-            continue
+            if materialization_required is None:
+                task_state["waiting_reason"] = (
+                    f"waiting for North parent task to complete: {parent_id}"
+                )
+                continue
+            if materialization_required is False:
+                mark_task_completed(task, task_state)
+                task_state["satisfied_by_task"] = parent_id
+                task_state.pop("waiting_reason", None)
+                log(f"completed {task['id']}; {parent_id} did not run on North")
+                continue
         # Reconcile durable artifacts even when state was reconstructed without
         # attempt history (for example after importing an older scheduler state).
         if task.get("completion_glob") or task.get("completion_locations"):

@@ -2612,6 +2612,53 @@ def test_dispatch_completes_materializer_for_non_north_parent(
     assert "waiting_reason" not in materialize_state
 
 
+def test_dispatch_does_not_launch_materializer_when_parent_completes_on_east_during_poll(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = {
+        "id": "parent",
+        "priority": 0,
+        "enabled": True,
+        "candidates": [],
+    }
+    materialize = {
+        "id": "materialize",
+        "priority": 1,
+        "enabled": True,
+        "materialize_north_result_for": "parent",
+        "completion_glob": "/tmp/non-north-materializer-same-poll-report.json",
+        "candidates": [{"kind": "local", "resource": "local", "gpus": 0}],
+    }
+    state = {
+        "tasks": {
+            "parent": {
+                "status": "running",
+                "attempts": [{"resource": "Robot-East-H20"}],
+            },
+            "materialize": {"status": "pending", "attempts": []},
+        }
+    }
+
+    def complete_parent(_task: dict, task_state: dict) -> None:
+        task_state["status"] = "completed"
+        task_state["completed_at"] = "2026-08-07T19:15:00Z"
+
+    monkeypatch.setattr(scheduler, "check_managed_task", complete_parent)
+    monkeypatch.setattr(
+        scheduler,
+        "ordered_dispatch_candidates",
+        lambda *_args: pytest.fail("East materializer reached candidate selection"),
+    )
+
+    scheduler.dispatch({"tasks": [parent, materialize]}, state, {"resources": {}})
+
+    materialize_state = state["tasks"]["materialize"]
+    assert materialize_state["status"] == "completed"
+    assert materialize_state["attempts"] == []
+    assert materialize_state["satisfied_by_task"] == "parent"
+    assert "waiting_reason" not in materialize_state
+
+
 def test_dispatch_waits_for_all_required_completed_tasks(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
