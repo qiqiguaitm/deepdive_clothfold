@@ -8515,6 +8515,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v2_path = manifests / "temporal_grounding_runtime_amendment_v2.json"
     runtime_v3_path = manifests / "temporal_grounding_runtime_amendment_v3.json"
     runtime_v4_path = manifests / "temporal_grounding_runtime_amendment_v4.json"
+    runtime_v5_path = manifests / "temporal_grounding_runtime_amendment_v5.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8523,6 +8524,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v2_path: "284f80125492aee1e24281c4d611c26dd02fd16d8d83aba4ca832c2b3788ea5b",
         runtime_v3_path: "8b8a5bf16137675bf4e35071b4b90a418d91aee1e05a56ff7b702a45faab54df",
         runtime_v4_path: "bb40a4802464b07489048be5b85cf28ae20639b8a68c53bbad792ca309dfff3e",
+        runtime_v5_path: "7894e1c29ea90a70df4cb8ab18fbac77820b8c4cafafbcf37479f71c7912c642",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8690,7 +8692,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     )
     north_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v3_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v5_4h20.yaml"
     )
     north_stage = (
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
@@ -8716,13 +8718,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "sha256": "1185896575f6d42283ec09d7afa1ae874c2fc90d8f3c2ae39ed23363b61b1758",
         },
         {"path": str(runtime_v3_path), "sha256": manifest_hashes[runtime_v3_path]},
+        {"path": str(runtime_v5_path), "sha256": manifest_hashes[runtime_v5_path]},
         {
             "path": str(east_runtime_yaml),
             "sha256": "ab23b822a4cd82e37df51b360dd53ac00c6309a0e7c287005ea4574a166e7e90",
         },
         {
             "path": str(north_runtime_yaml),
-            "sha256": "c6cf9e782372c05db8d184a91e973395bc0aee44b8f0e50d0648c0cf4bf971e1",
+            "sha256": "2b9f1f1e51cb679d1ea36df75917e2c69f554134919be39f177686f732117a63",
         },
     ]
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
@@ -8737,7 +8740,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 2,
                     "description": f"Frozen TG2 arm={arm} seed={seed} training",
-                    "rearm_after_ready_file": str(runtime_v3_path),
+                    "rearm_after_ready_file": str(runtime_v5_path),
                     "completion_locations": [
                         {
                             "label": "east",
@@ -8762,6 +8765,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(east_yaml),
                         str(north_yaml),
                         str(runtime_v3_path),
+                        str(runtime_v5_path),
                         str(east_runtime_yaml),
                         str(north_runtime_yaml),
                     ],
@@ -8773,6 +8777,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "region": "cn-shanghai",
                             "gpus": 4,
                             "queue_timeout_seconds": 180,
+                            "deploy_timeout_seconds": 600,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
                             "yaml": str(east_runtime_yaml.relative_to(REPO)),
@@ -8787,6 +8792,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "region": "cn-beijing",
                             "gpus": 4,
                             "queue_timeout_seconds": 300,
+                            "deploy_timeout_seconds": 900,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
                             "yaml": str(north_runtime_yaml.relative_to(REPO)),
@@ -12401,6 +12407,20 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
                 task_state["status"] = "pending"
                 attempt["finished_at"] = utc_now()
                 attempt["failure"] = info["message"]
+        elif info["state"] == "Deploying" and deploying_attempt_timed_out(
+            task, attempt
+        ):
+            deploy_timeout = deployment_timeout_seconds(task, attempt)
+            service(attempt["region"], credential_profile).json(
+                "StopJob", {}, json.dumps({"Id": attempt["job_id"]}).encode()
+            )
+            task_state["status"] = "pending"
+            attempt["finished_at"] = utc_now()
+            attempt["failure"] = (
+                "reclaimed after deploying for more than "
+                f"{deploy_timeout} seconds without entering Running"
+            )
+            log(f"reclaimed deploying job {attempt['job_id']} for runtime retry")
         elif info["state"] == "Queueing":
             queue_timeout = int(attempt.get("queue_timeout_seconds", 300))
             if queued_attempt_timed_out(attempt):
@@ -13286,6 +13306,30 @@ def queued_attempt_timed_out(attempt: dict[str, Any]) -> bool:
     return (datetime.now(timezone.utc) - started).total_seconds() > queue_timeout
 
 
+def deployment_timeout_seconds(
+    task: dict[str, Any], attempt: dict[str, Any]
+) -> int:
+    if "deploy_timeout_seconds" in attempt:
+        return int(attempt["deploy_timeout_seconds"])
+    for candidate in task.get("candidates", []):
+        if (
+            candidate.get("kind") == attempt.get("kind")
+            and candidate.get("resource") == attempt.get("resource")
+        ):
+            return int(candidate.get("deploy_timeout_seconds", 0))
+    return 0
+
+
+def deploying_attempt_timed_out(
+    task: dict[str, Any], attempt: dict[str, Any]
+) -> bool:
+    timeout = deployment_timeout_seconds(task, attempt)
+    if timeout <= 0:
+        return False
+    started = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
+    return (datetime.now(timezone.utc) - started).total_seconds() > timeout
+
+
 def candidate_in_cooldown(
     task_state: dict[str, Any],
     candidate: dict[str, Any],
@@ -13293,6 +13337,11 @@ def candidate_in_cooldown(
     credential_profile: str = "primary",
 ) -> bool:
     """Avoid repeatedly launching a broken template on the same resource."""
+    transient_markers = (
+        "reclaimed after queueing",
+        "reclaimed after deploying",
+        "剩余配额不足",
+    )
     now = datetime.now(timezone.utc)
     ignore_before_text = task_state.get("ignore_failures_before")
     ignore_before = (
@@ -13326,6 +13375,8 @@ def candidate_in_cooldown(
             ]
             if current_active < int(attempt["active_gpus_at_dispatch"]):
                 return False
+        if any(marker in attempt["failure"] for marker in transient_markers):
+            continue
         return (now - failed_at).total_seconds() < int(
             candidate.get("retry_cooldown_seconds", RETRY_COOLDOWN_SECONDS)
         )
@@ -13342,7 +13393,11 @@ def robot_task_fragmentation_blocked(
         return False
     requested = int(candidate.get("gpus", 0))
     current_active = int(snapshot["resources"]["robot-task"]["active_gpus_all_users"])
-    transient_markers = ("reclaimed after queueing", "剩余配额不足")
+    transient_markers = (
+        "reclaimed after queueing",
+        "reclaimed after deploying",
+        "剩余配额不足",
+    )
     for task_state in state.get("tasks", {}).values():
         for attempt in reversed(task_state.get("attempts", [])):
             if (
@@ -13369,7 +13424,11 @@ def candidate_failure_count(
     credential_profile: str = "primary",
 ) -> int:
     """Count runtime/template failures, excluding transient capacity failures."""
-    transient_markers = ("reclaimed after queueing", "剩余配额不足")
+    transient_markers = (
+        "reclaimed after queueing",
+        "reclaimed after deploying",
+        "剩余配额不足",
+    )
     ignore_before = task_state.get("ignore_failures_before")
 
     def is_current_failure(attempt: dict[str, Any]) -> bool:
@@ -13682,6 +13741,9 @@ def dispatch(
                             "region": candidate["region"],
                             "queue_timeout_seconds": int(
                                 candidate.get("queue_timeout_seconds", 300)
+                            ),
+                            "deploy_timeout_seconds": int(
+                                candidate.get("deploy_timeout_seconds", 0)
                             ),
                         }
                     )

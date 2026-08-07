@@ -1468,6 +1468,76 @@ def test_persistent_north_queue_sink_is_not_reclaimed_by_short_timeout() -> None
     assert not scheduler.queued_attempt_timed_out(attempt)
 
 
+def test_deploying_timeout_is_inferred_from_matching_candidate() -> None:
+    task = {
+        "candidates": [
+            {
+                "kind": "platform",
+                "resource": "Robot-North-H20",
+                "deploy_timeout_seconds": 900,
+            }
+        ]
+    }
+    stale = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "started_at": "2020-01-01T00:00:00Z",
+    }
+    unbounded = {**stale, "resource": "Robot-East-H20"}
+
+    assert scheduler.deployment_timeout_seconds(task, stale) == 900
+    assert scheduler.deploying_attempt_timed_out(task, stale)
+    assert scheduler.deployment_timeout_seconds(task, unbounded) == 0
+    assert not scheduler.deploying_attempt_timed_out(task, unbounded)
+
+
+def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(
+    monkeypatch,
+) -> None:
+    task = {
+        "id": "stale-deploy",
+        "candidates": [
+            {
+                "kind": "platform",
+                "resource": "Robot-North-H20",
+                "deploy_timeout_seconds": 1,
+            }
+        ],
+    }
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "job_id": "t-stale",
+        "started_at": "2020-01-01T00:00:00Z",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    stopped = []
+
+    class FakeService:
+        def json(self, action, _query, body):
+            stopped.append((action, json.loads(body)))
+            return "{}"
+
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Deploying", "message": "0/1"},
+    )
+    monkeypatch.setattr(scheduler, "service", lambda *_args: FakeService())
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "pending"
+    assert stopped == [("StopJob", {"Id": "t-stale"})]
+    assert attempt["failure"].startswith("reclaimed after deploying")
+    candidate = task["candidates"][0]
+    assert scheduler.candidate_failure_count(state, candidate) == 0
+    assert not scheduler.candidate_in_cooldown(state, candidate, {})
+
+
 def test_robot_task_queueing_is_reclaimed_immediately() -> None:
     attempt = {
         "resource": "robot-task",
@@ -5330,7 +5400,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             if candidate["resource"] == "Robot-North-H20"
         )
         assert north["yaml"].endswith(
-            "temporal_grounding_tg2_north_runtime_v3_4h20.yaml"
+            "temporal_grounding_tg2_north_runtime_v5_4h20.yaml"
         )
         east = next(
             candidate
@@ -5339,6 +5409,11 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         )
         assert east["yaml"].endswith(
             "temporal_grounding_tg2_east_runtime_v3_4h20.yaml"
+        )
+        assert east["deploy_timeout_seconds"] == 600
+        assert north["deploy_timeout_seconds"] == 900
+        assert task["rearm_after_ready_file"].endswith(
+            "temporal_grounding_runtime_amendment_v5.json"
         )
         assert north["ready_files_remote"]
     assert not any("_eval" in task_id for task_id in tg2)

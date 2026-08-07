@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v5",
+  "supersedes": "temporal_grounding_runtime_amendment_v4",
+  "superseded_manifest_sha256": "bb40a4802464b07489048be5b85cf28ae20639b8a68c53bbad792ca309dfff3e",
+  "created_at": "2026-08-07T13:38:19Z",
+  "scope": "TG2 North container-image cache selection and deployment observability only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "observations": {
+    "north_deployment_state": "Six four-GPU TG2 jobs remained Deploying with 0/1 instances, empty StartTime, frozen UpdateTime, and no vePFS entrypoint breadcrumb.",
+    "documented_root_cause": "The North h2r:1.0 image is uncached and is documented to wedge platform staging; the Beijing kai0-gf1 image is the verified cached standard image.",
+    "operational_reference": "docs/deployment/training_ops/submission/volc_ml_platform.md#v2-镜像缓存决定部署速度-换镜像有代价-"
+  },
+  "changes": [
+    "Use the existing cached Beijing kai0-gf1 image for TG2 North jobs.",
+    "Permit the resource-aware scheduler to reclaim a platform job that remains Deploying without entering Running beyond the candidate's frozen deployment timeout.",
+    "Keep East on its existing region-local cached h2r:1.0 runtime."
+  ],
+  "invariants": [
+    "All frozen admission manifests, formal runners, model code, data, checkpoints, arms, seeds, task panels, optimizer settings, training steps, gates, and result selection remain unchanged.",
+    "TG1A and TG1B remain on runtime amendment v4 and are not rearmed by this amendment.",
+    "TG2 uses the same pinned North staging commits, Framework=PyTorch, vePFS mount, Git trust, environment variables, entrypoint, and completion checks as runtime amendment v3.",
+    "A deployment-timeout reclaim is an operational attempt failure and contributes no scientific result."
+  ],
+  "runtime_files": {
+    "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v3_4h20.yaml": "ab23b822a4cd82e37df51b360dd53ac00c6309a0e7c287005ea4574a166e7e90",
+    "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v5_4h20.yaml": "2b9f1f1e51cb679d1ea36df75917e2c69f554134919be39f177686f732117a63"
+  }
+}
