@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 18:37 UTC
+Updated: 2026-08-07 18:43 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -126,6 +126,10 @@ step 54. The scheduler now records `deploying_started_at` on the actual
 Queueing-to-Deploying transition, so deployment timeout excludes prior queue
 time; focused and full scheduler tests cover both a fresh transition and a
 genuinely stale deployment.
+At step 200, the replacement reported total/flow loss `0.063772`, exactly zero
+perceptual and distillation losses as required by the `future_off` route, and
+data/model times of 0.041/2.024 seconds. This is optimization-health evidence,
+not closed-loop policy evidence.
 The scheduler now probes every visible superseded attempt every five minutes,
 while retaining a 30-minute `StopJob` retry throttle and refusing to stop any
 attempt already in a non-waiting state. This shortens detection latency without
