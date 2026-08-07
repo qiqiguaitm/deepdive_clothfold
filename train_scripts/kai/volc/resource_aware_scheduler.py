@@ -9439,6 +9439,15 @@ def run(
     )
 
 
+def launch_failure_message(exc: Exception) -> str:
+    message = f"launch failed: {type(exc).__name__}: {exc}"
+    if isinstance(exc, subprocess.CalledProcessError) and exc.output:
+        output = str(exc.output).strip()
+        if output:
+            message += f"\nlauncher output:\n{output[-8000:]}"
+    return message
+
+
 def ssh(command: list[str], script: str, *, timeout: int = 60) -> str:
     return run([*command, script], timeout=timeout)
 
@@ -13679,9 +13688,10 @@ def dispatch(
                         )
                     log(f"dispatched {task['id']} to local pid={pid}")
             except Exception as exc:
+                failure = launch_failure_message(exc)
                 attempt.update(
                     {
-                        "failure": f"launch failed: {type(exc).__name__}: {exc}",
+                        "failure": failure,
                         "finished_at": utc_now(),
                     }
                 )

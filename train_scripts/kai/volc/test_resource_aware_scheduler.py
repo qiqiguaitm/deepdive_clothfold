@@ -1855,6 +1855,19 @@ def test_gf1_launcher_requires_three_explicit_dead_probes(monkeypatch) -> None:
     assert "three consecutive polls" in state["attempts"][0]["failure"]
 
 
+def test_launch_failure_message_preserves_subprocess_output() -> None:
+    error = subprocess.CalledProcessError(
+        1,
+        ["submit_yaml.py", "task.yaml"],
+        output="API ERROR: AccountFlowLimitExceeded",
+    )
+
+    message = scheduler.launch_failure_message(error)
+
+    assert "CalledProcessError" in message
+    assert "API ERROR: AccountFlowLimitExceeded" in message
+
+
 def test_gf1_alive_probe_clears_dead_confirmation(monkeypatch) -> None:
     task = {"id": "gf1-task"}
     attempt = {
