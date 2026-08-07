@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:29 UTC
+Updated: 2026-08-07 19:40 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -120,6 +120,12 @@ creator `tianming.zhang`, but a targeted cancellation of obsolete Queueing job
 `t-20260807223419-bbwfx` was denied by `StopCustomTask`. Thus the gsy identity
 does not provide a hidden cleanup path either; the job remained Queueing and no
 formal v8 or Running task was touched.
+At 19:40 UTC, direct `GetJob` request-body audits for the two current Queueing
+jobs, fixed-endpoint seed 1002 (`t-20260807223916-rv9gd`) and raw-milestone
+seed 1000 (`t-20260807223926-56pwj`), matched the frozen North runtime-v8 YAML
+Entrypoint exactly. Their framework, image, four-H20 flavor, 24-hour deadline,
+arm, and seed fields also match. They remain valid queued requests; this audit
+does not count as startup or training progress.
 The prior primary `future_off/1002` attempt `t-20260808003004-r7g8d` moved from
 Queueing to Deploying at 18:32 UTC but was immediately reclaimed because the
 scheduler incorrectly included its queue residence in the 900-second deployment
