@@ -8767,6 +8767,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 2,
                     "description": f"Frozen TG2 arm={arm} seed={seed} training",
+                    "supersede_obsolete_runtime_after_seconds": 1800,
                     "rearm_after_ready_file": str(runtime_v7_path),
                     "completion_locations": [
                         {
@@ -12433,6 +12434,45 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
         attempt.pop("monitor_status", None)
         attempt["last_state"] = info["state"]
         attempt["last_checked_at"] = utc_now()
+        if obsolete_runtime_supersession_ready(task, attempt, info["state"]):
+            current_revisions = sorted(
+                {
+                    candidate["runtime_revision"]
+                    for candidate in task.get("candidates", [])
+                    if candidate.get("runtime_revision")
+                }
+            )
+            stopped = False
+            try:
+                stop_profile = stop_platform_job(
+                    attempt["region"], attempt["job_id"], credential_profile
+                )
+                attempt["stopped_by_credential_profile"] = stop_profile
+                stopped = True
+            except Exception as exc:
+                attempt["supersession_stop_error"] = f"{type(exc).__name__}: {exc}"
+            detached_at = utc_now()
+            orphan = {
+                "job_id": attempt["job_id"],
+                "region": attempt["region"],
+                "credential_profile": credential_profile,
+                "runtime_revision": attempt.get("runtime_revision"),
+                "last_state": info["state"],
+                "detached_at": detached_at,
+                "stopped": stopped,
+            }
+            task_state.setdefault("superseded_platform_attempts", []).append(orphan)
+            attempt["detached_at"] = detached_at
+            attempt["superseded_by_runtime_revisions"] = current_revisions
+            task_state["status"] = "pending"
+            task_state["waiting_reason"] = (
+                "obsolete runtime attempt detached; waiting for current runtime dispatch"
+            )
+            log(
+                f"detached obsolete runtime job {attempt['job_id']} for {task['id']} "
+                f"state={info['state']} stopped={stopped} current={','.join(current_revisions)}"
+            )
+            return
         if info["state"] in {"Completed", "Success"}:
             complete, evidence = completion_evidence(task)
             attempt["completion_evidence"] = evidence
@@ -13391,6 +13431,24 @@ def deploying_attempt_timed_out(
 ) -> bool:
     timeout = deployment_timeout_seconds(task, attempt)
     if timeout <= 0:
+        return False
+    started = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
+    return (datetime.now(timezone.utc) - started).total_seconds() > timeout
+
+
+def obsolete_runtime_supersession_ready(
+    task: dict[str, Any], attempt: dict[str, Any], platform_state: str
+) -> bool:
+    """Allow an explicitly opted-in task to escape an unkillable old runtime."""
+    timeout = int(task.get("supersede_obsolete_runtime_after_seconds", 0))
+    if timeout <= 0 or platform_state not in {"Deploying", "Queueing"}:
+        return False
+    current_revisions = {
+        candidate["runtime_revision"]
+        for candidate in task.get("candidates", [])
+        if candidate.get("runtime_revision")
+    }
+    if not current_revisions or attempt.get("runtime_revision") in current_revisions:
         return False
     started = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
     return (datetime.now(timezone.utc) - started).total_seconds() > timeout

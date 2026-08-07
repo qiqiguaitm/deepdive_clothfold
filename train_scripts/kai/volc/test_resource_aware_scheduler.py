@@ -1565,6 +1565,103 @@ def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(
     assert not scheduler.candidate_in_cooldown(state, candidate, {})
 
 
+@pytest.mark.parametrize("platform_state", ["Deploying", "Queueing"])
+def test_unstoppable_obsolete_runtime_is_detached_for_current_revision(
+    monkeypatch, platform_state: str
+) -> None:
+    task = {
+        "id": "runtime-upgrade",
+        "supersede_obsolete_runtime_after_seconds": 1,
+        "candidates": [
+            {
+                "kind": "platform",
+                "resource": "Robot-North-H20",
+                "runtime_revision": "runtime_v7",
+            }
+        ],
+    }
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "region": "cn-beijing",
+        "credential_profile": "backup",
+        "job_id": "t-obsolete",
+        "started_at": "2020-01-01T00:00:00Z",
+        "runtime_revision": "runtime_v6",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": platform_state, "message": "waiting"},
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "stop_platform_job",
+        lambda *_args: (_ for _ in ()).throw(PermissionError("denied")),
+    )
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "pending"
+    assert attempt["detached_at"]
+    assert attempt["superseded_by_runtime_revisions"] == ["runtime_v7"]
+    assert state["superseded_platform_attempts"] == [
+        {
+            "job_id": "t-obsolete",
+            "region": "cn-beijing",
+            "credential_profile": "backup",
+            "runtime_revision": "runtime_v6",
+            "last_state": platform_state,
+            "detached_at": attempt["detached_at"],
+            "stopped": False,
+        }
+    ]
+
+
+def test_current_runtime_is_never_detached_when_stop_is_denied(monkeypatch) -> None:
+    task = {
+        "id": "current-runtime",
+        "supersede_obsolete_runtime_after_seconds": 1,
+        "candidates": [
+            {
+                "kind": "platform",
+                "resource": "Robot-North-H20",
+                "runtime_revision": "runtime_v7",
+                "deploy_timeout_seconds": 1,
+            }
+        ],
+    }
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "job_id": "t-current",
+        "started_at": "2020-01-01T00:00:00Z",
+        "runtime_revision": "runtime_v7",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Deploying", "message": "waiting"},
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "stop_platform_job",
+        lambda *_args: (_ for _ in ()).throw(PermissionError("denied")),
+    )
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "running"
+    assert "detached_at" not in attempt
+    assert "superseded_platform_attempts" not in state
+
+
 def test_stop_platform_job_falls_back_to_primary_for_backup_owned_job(
     monkeypatch,
 ) -> None:
@@ -5457,6 +5554,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "Robot-North-H20",
         }
         assert {candidate["gpus"] for candidate in task["candidates"]} == {4}
+        assert task["supersede_obsolete_runtime_after_seconds"] == 1800
         north = next(
             candidate
             for candidate in task["candidates"]
