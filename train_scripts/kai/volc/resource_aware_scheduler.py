@@ -13186,6 +13186,38 @@ def managed_execution_counts(
     return counts
 
 
+def visible_superseded_attempts(
+    scheduler_tasks: dict[str, dict[str, Any]],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for task_id, state in sorted(scheduler_tasks.items()):
+        for attempt in state.get("superseded_platform_attempts", []):
+            if attempt.get("stopped") or not attempt.get("job_id"):
+                continue
+            error = str(attempt.get("cleanup_error") or "")
+            if "AccessDenied" in error:
+                cleanup = "stop denied (AccessDenied)"
+            elif error:
+                cleanup = f"cleanup failed ({error.split(':', 1)[0]})"
+            else:
+                cleanup = str(attempt.get("cleanup_status") or "pending cleanup")
+            rows.append(
+                {
+                    "task_id": task_id,
+                    "job_id": str(attempt["job_id"]),
+                    "credential_profile": str(
+                        attempt.get("credential_profile", "primary")
+                    ),
+                    "platform_state": str(
+                        attempt.get("cleanup_last_state") or "unknown"
+                    ),
+                    "cleanup": cleanup,
+                    "checked_at": str(attempt.get("cleanup_last_checked_at") or ""),
+                }
+            )
+    return rows
+
+
 def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
     resources = snapshot["resources"]
     rows = [
@@ -13284,6 +13316,7 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
     scheduler_tasks = snapshot.get("scheduler_tasks", {})
     scheduler_states = list(scheduler_tasks.values())
     execution_counts = managed_execution_counts(scheduler_tasks)
+    superseded_attempts = visible_superseded_attempts(scheduler_tasks)
     resource_wait_count = sum(
         state.get("status") == "pending"
         and state.get("waiting_reason") == "waiting for an eligible resource"
@@ -13304,6 +13337,7 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
             f"- Platform Running: `{execution_counts['platform_running']}`",
             f"- Platform Deploying: `{execution_counts['platform_deploying']}`",
             f"- Platform Queueing: `{execution_counts['platform_queueing']}`",
+            f"- Superseded waiting attempts: `{len(superseded_attempts)}`",
             f"- Local/SSH active: `{execution_counts['local_or_ssh']}`",
             f"- Ready but waiting for a resource: `{resource_wait_count}`",
             f"- Waiting for checkpoint, input, or gate: `{input_blocked_count}`",
@@ -13318,6 +13352,22 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
                 for label in ("completed", "running", "pending", "disabled", "total")
             )
         )
+    if superseded_attempts:
+        lines.extend(
+            [
+                "",
+                "## Superseded Platform Attempts (Not Experiment Progress)",
+                "",
+                "| Task | Job | Credential | Platform state | Cleanup | Checked |",
+                "|---|---|---|---|---|---|",
+            ]
+        )
+        for attempt in superseded_attempts:
+            lines.append(
+                f"| `{attempt['task_id']}` | `{attempt['job_id']}` | "
+                f"{attempt['credential_profile']} | {attempt['platform_state']} | "
+                f"{attempt['cleanup']} | {attempt['checked_at']} |"
+            )
     staged_failovers = snapshot.get("staged_failovers", {})
     if staged_failovers:
         lines.extend(

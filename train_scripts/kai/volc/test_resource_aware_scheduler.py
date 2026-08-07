@@ -75,6 +75,47 @@ def test_managed_execution_counts_separates_platform_queue_state() -> None:
     }
 
 
+def test_visible_superseded_attempts_excludes_stopped_and_sanitizes_errors() -> None:
+    tasks = {
+        "task-b": {
+            "superseded_platform_attempts": [
+                {
+                    "job_id": "old-running",
+                    "credential_profile": "backup",
+                    "cleanup_last_state": "Deploying",
+                    "cleanup_last_checked_at": "2026-08-07T16:09:18Z",
+                    "cleanup_error": "Exception: AccessDenied with private detail",
+                },
+                {"job_id": "already-stopped", "stopped": True},
+            ]
+        },
+        "task-a": {
+            "superseded_platform_attempts": [
+                {"job_id": "old-queued", "cleanup_last_state": "Queueing"}
+            ]
+        },
+    }
+
+    assert scheduler.visible_superseded_attempts(tasks) == [
+        {
+            "task_id": "task-a",
+            "job_id": "old-queued",
+            "credential_profile": "primary",
+            "platform_state": "Queueing",
+            "cleanup": "pending cleanup",
+            "checked_at": "",
+        },
+        {
+            "task_id": "task-b",
+            "job_id": "old-running",
+            "credential_profile": "backup",
+            "platform_state": "Deploying",
+            "cleanup": "stop denied (AccessDenied)",
+            "checked_at": "2026-08-07T16:09:18Z",
+        },
+    ]
+
+
 def test_readiness_hashes_require_exact_file_identity(tmp_path: Path) -> None:
     source = tmp_path / "source.py"
     source.write_text("frozen\n")
