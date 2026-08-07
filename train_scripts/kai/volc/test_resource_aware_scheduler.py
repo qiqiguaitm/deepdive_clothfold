@@ -5418,6 +5418,8 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     ]
     for condition in ("normal", "null", "persistence"):
         task = tg1a[f"temporal_grounding_tg1a_{condition}_eval"]
+        assert not task["enabled"]
+        assert "source and admission amendment" in task["disabled_reason"]
         assert capture_marker not in task["ready_files"]
         assert task["candidates"][0]["gpus"] == 4
         assert task["candidates"][0]["env"]["TG1A_CONDITION"] == condition
@@ -5442,6 +5444,10 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "temporal_grounding_tg1b_east_runtime_v4_4h20.yaml"
         )
         for task in tg1b.values()
+    )
+    assert all(not task["enabled"] for task in tg1b.values())
+    assert all(
+        "protocol decision" in task["disabled_reason"] for task in tg1b.values()
     )
 
     for task in tg2.values():

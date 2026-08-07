@@ -8587,6 +8587,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "id": task_id,
                 "priority": 0,
                 "description": f"Frozen TG1A {condition} evaluation",
+                "enabled": False,
+                "disabled_reason": (
+                    "TG1A blocked pending reviewed source and admission amendment "
+                    "for temporal_grounding_context batch support"
+                ),
                 "rearm_after_ready_file": str(runtime_v4_path),
                 "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                 "completion_min_count": 24,
@@ -8648,6 +8653,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 1,
                     "description": f"Frozen TG1B {checkpoint_arm} E={cadence} evaluation",
+                    "enabled": False,
+                    "disabled_reason": (
+                        "TG1B blocked pending explicit protocol decision for fixed-scene "
+                        "validity exhaustion"
+                    ),
                     "rearm_after_ready_file": str(runtime_v4_path),
                     "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                     "completion_min_count": 24,
