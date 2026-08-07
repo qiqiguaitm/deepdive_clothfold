@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p3_north_accelerator_amendment_v3",
+  "created_at": "2026-08-07T01:12:00Z",
+  "status": "evaluation_acceleration_only",
+  "supersedes": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_north_accelerator_amendment_v2.json",
+    "sha256": "1f58ebbc05f5984c1524dd44de88e2bbf6db9bb025468888ff913a7ef81da1f3"
+  },
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_protocol.json",
+    "sha256": "77c1a891db99fcccaaabdf0e7f57d06069143544926358e753894014a8ab557f"
+  },
+  "authorization": {
+    "resource": "Robot-North-H20",
+    "jobs": 2,
+    "gpu_count_per_job": 4,
+    "total_helper_gpus": 8,
+    "primary_lanes": ["1001:0", "1001:1", "1002:0", "1002:1"],
+    "tail_lanes": ["1001:2", "1001:3", "1002:2", "1002:3"],
+    "helper_workers_per_scheduler": 1,
+    "slots_per_worker": 1
+  },
+  "reason": "A complementary four-GPU job is authorized only while North reports at least four immediately runnable data-local GPUs. The two disjoint lane sets then give every canonical scheduler exactly one helper without queueing.",
+  "invariants": [
+    "The primary and tail lane sets are disjoint and together cover all eight training-seed and evaluation-seed schedulers exactly once.",
+    "Each scheduler has one canonical parent worker and at most one helper worker; task claims remain whole-task, lock-protected, and non-duplicating.",
+    "Each helper job writes a distinct operational marker; neither writes a canonical report or scientific gate.",
+    "The canonical parent jobs remain the sole verifier, summarizer, and completion-marker owners.",
+    "The checkpoints, model and action bridge, normalization, task set, fixed scene manifest, and accepted episode count remain unchanged."
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "train_scripts/kai/eval/attach_pi05_a0_confirmatory_local.sh": "bb2878b90e0579d9727c61b296fdb94d070796f71e55c42b6605226096218615",
+    "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p3_north_accelerator.sh": "45757da4d0c5d03ce03afe1c331e0e6d07d3b8d3b08bcee994e471ed5de079ab",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p3_eval_accelerator_north_4h20.yaml": "7966aba02799b4351ec2c05e1ba8b8a33013be3e39fdf1ae350cf564e2e72a22",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p3_eval_tail_accelerator_north_4h20.yaml": "6f1ff25aab6806c6a0b4cc858954910acefa9a942add6f21fddce34b6f7d8783"
+  }
+}
