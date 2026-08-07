@@ -88,6 +88,7 @@ SH_MIN_DISPATCH_FREE = int(os.environ.get("SH_MIN_DISPATCH_FREE", "0"))
 RETRY_COOLDOWN_SECONDS = 900
 MAX_FAILURES_PER_RESOURCE = 3
 REMOTE_LAUNCHER_DEAD_CONFIRMATIONS = 3
+SUPERSEDED_CLEANUP_INTERVAL_SECONDS = 1800
 MAX_DISPATCHES_PER_POLL = 8
 GATE_DECISION_SPECS = {
     str(REPO / "logs/resource_markers/pi05_mt1_seed1000_replication_gate.ok"): (
@@ -12944,6 +12945,60 @@ def managed_platform_job_ids(
     return job_ids
 
 
+def cleanup_superseded_platform_attempts(state: dict[str, Any]) -> None:
+    """Stop detached obsolete jobs without ever touching a running worker."""
+    now = datetime.now(timezone.utc)
+    for task_state in state.get("tasks", {}).values():
+        for attempt in task_state.get("superseded_platform_attempts", []):
+            if attempt.get("stopped") or not attempt.get("job_id"):
+                continue
+            checked_at = attempt.get("cleanup_last_checked_at")
+            if checked_at:
+                checked = datetime.fromisoformat(checked_at.replace("Z", "+00:00"))
+                elapsed = (now - checked).total_seconds()
+                if elapsed < SUPERSEDED_CLEANUP_INTERVAL_SECONDS:
+                    continue
+            profile = attempt.get("credential_profile", "primary")
+            if profile == "backup" and not backup_credentials_enabled():
+                attempt["cleanup_status"] = "backup credential profile is disabled"
+                attempt["cleanup_last_checked_at"] = utc_now()
+                continue
+            attempt["cleanup_last_checked_at"] = utc_now()
+            try:
+                info = get_job(attempt["region"], attempt["job_id"], profile)
+            except Exception as exc:
+                attempt["cleanup_error"] = f"{type(exc).__name__}: {exc}"
+                continue
+            platform_state = info.get("state")
+            attempt["cleanup_last_state"] = platform_state
+            if platform_state in TERMINAL_STATES:
+                attempt["stopped"] = True
+                attempt["cleanup_terminal_at"] = utc_now()
+                attempt.pop("cleanup_error", None)
+                continue
+            if platform_state not in {"Deploying", "Queueing"}:
+                attempt["cleanup_status"] = (
+                    f"refusing cleanup in non-waiting state {platform_state}"
+                )
+                continue
+            try:
+                stopped_by = stop_platform_job(
+                    attempt["region"], attempt["job_id"], profile
+                )
+            except Exception as exc:
+                attempt["cleanup_error"] = f"{type(exc).__name__}: {exc}"
+                continue
+            attempt["stopped"] = True
+            attempt["stopped_at"] = utc_now()
+            attempt["stopped_by_credential_profile"] = stopped_by
+            attempt.pop("cleanup_error", None)
+            attempt.pop("cleanup_status", None)
+            log(
+                "cleaned superseded platform job "
+                f"{attempt['job_id']} state={platform_state} profile={stopped_by}"
+            )
+
+
 def make_snapshot(state: dict[str, Any] | None = None) -> dict[str, Any]:
     queue_errors: dict[str, str] = {}
 
@@ -14412,6 +14467,7 @@ def poll_once(queue: dict[str, Any], state: dict[str, Any]) -> None:
     refresh_pi05_step40000_safety_report()
     refresh_pi05_mt12_shared_finalizers()
     refresh_pi05_mt1_replication_checkpoint_audits()
+    cleanup_superseded_platform_attempts(state)
     snapshot = make_snapshot(state)
     apply_managed_gpu_reservations(queue, state, snapshot)
     dispatch(queue, state, snapshot)

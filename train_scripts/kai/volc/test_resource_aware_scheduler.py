@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime, timezone
 import importlib.util
 import json
 import os
@@ -1690,6 +1691,76 @@ def test_stop_platform_job_falls_back_to_primary_for_backup_owned_job(
         ("backup", "StopJob", {"Id": "t-backup-owned"}),
         ("primary", "StopJob", {"Id": "t-backup-owned"}),
     ]
+
+
+def test_cleanup_superseded_platform_attempts_stops_only_waiting_jobs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    waiting = {
+        "job_id": "t-waiting",
+        "region": "cn-beijing",
+        "credential_profile": "backup",
+        "stopped": False,
+    }
+    running = {
+        "job_id": "t-running",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "stopped": False,
+    }
+    state = {
+        "tasks": {
+            "old": {"superseded_platform_attempts": [waiting, running]},
+        }
+    }
+    stopped = []
+    monkeypatch.setattr(scheduler, "backup_credentials_enabled", lambda: True)
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda _region, job_id, _profile: {
+            "state": "Queueing" if job_id == "t-waiting" else "Running"
+        },
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "stop_platform_job",
+        lambda region, job_id, profile: stopped.append(
+            (region, job_id, profile)
+        )
+        or "backup",
+    )
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.cleanup_superseded_platform_attempts(state)
+
+    assert stopped == [("cn-beijing", "t-waiting", "backup")]
+    assert waiting["stopped"] is True
+    assert waiting["stopped_by_credential_profile"] == "backup"
+    assert running["stopped"] is False
+    assert running["cleanup_status"] == "refusing cleanup in non-waiting state Running"
+
+
+def test_cleanup_superseded_platform_attempts_is_throttled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempt = {
+        "job_id": "t-waiting",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "stopped": False,
+        "cleanup_last_checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+    state = {"tasks": {"old": {"superseded_platform_attempts": [attempt]}}}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: pytest.fail("throttled cleanup must not query the platform"),
+    )
+
+    scheduler.cleanup_superseded_platform_attempts(state)
+
+    assert attempt["stopped"] is False
 
 
 def test_robot_task_queueing_is_reclaimed_immediately() -> None:
