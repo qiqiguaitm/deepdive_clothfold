@@ -54,3 +54,26 @@ authorization explicitly forbids source, gate, and dependency changes, this
 audit does not modify the analyzer or scheduler. An explicit authorized runtime
 amendment is required before implementing the repair and registering the final
 CPU analysis tasks.
+
+## Minimal Authorized Implementation Plan
+
+After explicit authorization, the smallest protocol-preserving change is:
+
+1. Change only `stop_decision.tg3_authorized` to the conjunction of accepted
+   fixed-endpoint utility and accepted fixed-versus-raw horizon effect.
+2. Add regression cases proving that horizon-only acceptance does not authorize
+   TG3 and that both accepted comparisons do authorize it.
+3. Pin the repaired analyzer and tests in a new amendment extending runtime v10;
+   retain the existing LaWAM commit and exact two-file LaWAM runtime diff.
+4. Register `temporal_grounding_tg1a_analysis` as a local zero-GPU task requiring
+   all four TG1A evaluation tasks. Use the unchanged TG1A admission
+   `analysis_command`, result JSON, and gate marker.
+5. Register `temporal_grounding_tg2_analysis` as a local zero-GPU task requiring
+   all nine TG2 evaluation tasks. Use the unchanged TG2 admission
+   `analysis_command`, result JSON, and gate marker, plus the repaired analyzer
+   hash.
+6. Keep every TG3/TG4/TG5 task absent or disabled until the resulting canonical
+   gate JSON is interpreted under the existing branch table.
+
+Both frozen analysis command lines parse successfully. Their scene-manifest
+inputs exist, and their result and marker parent directories already exist.
