@@ -373,6 +373,11 @@ the scheduler-compatible `_train_materialized.ok` marker. Only after all nine
 location-aware materializers and both integrity audits complete can any TG2
 evaluation enter resource recommendation.
 
+The runtime-v10 TG2 evaluation preflight verifies all 26 amended bundle files;
+the evaluation and integrity entrypoints pass shell validation, and the 13
+sidecar, training-integrity, seed-independence, and analysis tests pass. This is
+startup readiness only and does not relax the nine-arm integrity dependency.
+
 ### Evaluation jobs
 
 All rows below are **BLOCKED** until the complete nine-arm integrity audit
