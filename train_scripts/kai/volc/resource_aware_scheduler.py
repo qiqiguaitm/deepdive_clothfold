@@ -8512,13 +8512,15 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1b_path = manifests / "temporal_grounding_tg1b_admission_v1.json"
     tg2_path = manifests / "temporal_grounding_tg2_admission_v1.json"
     north_path = manifests / "temporal_grounding_tg2_north_staging_amendment_v1.json"
-    runtime_path = manifests / "temporal_grounding_runtime_amendment_v2.json"
+    runtime_v2_path = manifests / "temporal_grounding_runtime_amendment_v2.json"
+    runtime_path = manifests / "temporal_grounding_runtime_amendment_v3.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
         tg2_path: "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
         north_path: "7905e39a7a228d8833b0c7c643c0ae0246c8de9b6594d56a324fb5bb4062dbd0",
-        runtime_path: "284f80125492aee1e24281c4d611c26dd02fd16d8d83aba4ca832c2b3788ea5b",
+        runtime_v2_path: "284f80125492aee1e24281c4d611c26dd02fd16d8d83aba4ca832c2b3788ea5b",
+        runtime_path: "8b8a5bf16137675bf4e35071b4b90a418d91aee1e05a56ff7b702a45faab54df",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8533,7 +8535,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1a_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1a_east_4h20.yaml"
     tg1a_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v2_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v3_4h20.yaml"
     )
     tg1a_hashes = [
         {"path": str(tg1a_path), "sha256": manifest_hashes[tg1a_path]},
@@ -8548,7 +8550,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
         {
             "path": str(tg1a_runtime_yaml),
-            "sha256": "3d11eb7f563bbd2726a8fb903d6d786aef56fb29cda5330d0ee1d2e31624c54e",
+            "sha256": "c6b8cafbffe8b13500b152719ebd8547ca5b01bacabe9be5b09afa3b41e5858d",
         },
     ]
     capture_marker = REPO / "logs/temporal_grounding/tg1a/normal_capture_complete.json"
@@ -8604,7 +8606,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1b_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1b_east_4h20.yaml"
     tg1b_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v2_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v3_4h20.yaml"
     )
     tg1b_hashes = [
         {"path": str(tg1b_path), "sha256": manifest_hashes[tg1b_path]},
@@ -8619,7 +8621,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
         {
             "path": str(tg1b_runtime_yaml),
-            "sha256": "c66a528360ce6bd690e719eb461c0e5cba8fc18c41482b028013a4e856c00474",
+            "sha256": "80d6c61e70c4aaa7f23c0509a77558d04c0d527164256a650afe699db1c62713",
         },
     ]
     for checkpoint_arm in ("future_off", "local_wm"):
@@ -8679,14 +8681,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     east_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_east_4h20.yaml"
     east_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v2_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v3_4h20.yaml"
     )
     north_yaml = (
         REPO / "train_scripts/kai/volc/temporal_grounding_tg2_north_staged_4h20.yaml"
     )
     north_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v2_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v3_4h20.yaml"
     )
     north_stage = (
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
@@ -8714,11 +8716,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(runtime_path), "sha256": manifest_hashes[runtime_path]},
         {
             "path": str(east_runtime_yaml),
-            "sha256": "07d0e389c3a72d26cb4cc5ab598c54bf3487ba0c212ecbac7934ac0a0f48a8ea",
+            "sha256": "ab23b822a4cd82e37df51b360dd53ac00c6309a0e7c287005ea4574a166e7e90",
         },
         {
             "path": str(north_runtime_yaml),
-            "sha256": "5db33a6e1b66e26172d70f7ec17e9849df8b67a5301317e1e80c970286606b19",
+            "sha256": "c6cf9e782372c05db8d184a91e973395bc0aee44b8f0e50d0648c0cf4bf971e1",
         },
     ]
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):

@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v3",
+  "supersedes": "temporal_grounding_runtime_amendment_v2",
+  "superseded_manifest_sha256": "284f80125492aee1e24281c4d611c26dd02fd16d8d83aba4ca832c2b3788ea5b",
+  "created_at": "2026-08-07T08:33:00Z",
+  "scope": "shared-worktree Git trust and North vePFS mount authorization only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "observations": {
+    "east_entrypoint_error": "git rejected the shared repository as dubious ownership before bundle verification",
+    "north_create_error": "AccessDenied [dir: /, mode: RDWR] with an empty vePFS SubPath"
+  },
+  "changes": [
+    "Trust only the exact outer and inner shared Git worktree paths inside the disposable task container.",
+    "Mount the authorized North vePFS /vis_robot subpath at the unchanged container mount path."
+  ],
+  "invariants": [
+    "All frozen admission manifests, formal runners, model code, data, checkpoints, arms, seeds, task panels, optimizer settings, training steps, gates, and result selection remain unchanged.",
+    "Framework remains PyTorch as admitted by runtime amendment v2.",
+    "Entrypoint audit logging remains enabled."
+  ],
+  "runtime_files": {
+    "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v3_4h20.yaml": "c6b8cafbffe8b13500b152719ebd8547ca5b01bacabe9be5b09afa3b41e5858d",
+    "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v3_4h20.yaml": "80d6c61e70c4aaa7f23c0509a77558d04c0d527164256a650afe699db1c62713",
+    "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v3_4h20.yaml": "ab23b822a4cd82e37df51b360dd53ac00c6309a0e7c287005ea4574a166e7e90",
+    "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v3_4h20.yaml": "c6cf9e782372c05db8d184a91e973395bc0aee44b8f0e50d0648c0cf4bf971e1"
+  }
+}
