@@ -17,6 +17,11 @@ scheduler = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(scheduler)
 
 
+@pytest.fixture(autouse=True)
+def isolate_scheduler_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scheduler, "LOG_PATH", tmp_path / "resource_scheduler.log")
+
+
 def test_primary_north_operational_limits_default_to_25() -> None:
     assert scheduler.NORTH_PERSONAL_LIMIT == 25
     assert scheduler.NORTH_PRIMARY_MAX_JOBS == 25

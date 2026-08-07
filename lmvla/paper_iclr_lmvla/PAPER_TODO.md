@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:52 UTC
+Updated: 2026-08-07 19:56 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -183,6 +183,13 @@ check is enforced again during pending/restart artifact reconciliation, so a
 partial file from a failed attempt cannot bypass the runtime check on the next
 state-machine phase. Successful and failed reconciliation cases bring the full
 scheduler suite to 164 passing tests.
+The scheduler test suite now redirects `LOG_PATH` into each test's temporary
+directory, preventing synthetic retry and materializer messages from entering
+the live operational log during future validation runs. The 164-test suite
+passes with the stopped scheduler's production log byte count and modification
+time unchanged. A one-time cleanup removed 210 historical lines carrying the
+three unambiguous synthetic task signatures and left the platform/task state
+untouched.
 At 19:27 UTC, a live initialization audit covered the five current North
 jobs. Their initialization payload, parameter-tree, trainable-tree, and
 optimizer-tree SHA-256 values are each identical across arms and seeds
