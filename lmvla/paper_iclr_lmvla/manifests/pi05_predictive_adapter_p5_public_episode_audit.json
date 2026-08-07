@@ -1,19 +1,19 @@
 {
-  "schema_version": 1,
+  "candidate_reports": {
+    "1000": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/docs/pi05_predictive_adapter_p1_seed1000_normal.json",
+    "1001": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/docs/pi05_predictive_adapter_p2_seed1001_normal.json",
+    "1002": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/docs/pi05_predictive_adapter_p2_seed1002_normal.json"
+  },
+  "exact_episode_keys_vs_all_candidates": true,
+  "passed": true,
   "protocol": "pi05_predictive_adapter_p5_public_episode_audit_v1",
-  "passed": false,
-  "aggregate_report": "logs/eval_reports/pi05_public_samebridge_4seed_v3.json",
-  "aggregate_report_sha256": "8dbf61bfc67ddd86a206d796c29d5156cc29186aa3dab8c15df4518fe881c1a3",
-  "checkpoint": "/vePFS/tim/hf_models/SidneyXie_pi05_robotwin",
-  "macro_success_rate": 0.7841666666666667,
+  "public_report": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/docs/pi05_predictive_adapter_p5_public_paired.json",
+  "public_report_sha256": "6356327fe959f0ea1482353fd62e7cbd337c165464b3b95e07dc96b5b58be92e",
+  "rerun_required": false,
+  "scene_manifest": "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+  "scene_manifest_sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+  "schema_version": 1,
   "summary_count": 24,
   "task_count": 6,
-  "total_episodes": 1200,
-  "episode_outcomes_present": false,
-  "exact_episode_keys_vs_all_candidates": false,
-  "rerun_required": true,
-  "rerun_result_name": "pi05_predictive_adapter_p5_public_paired",
-  "scene_manifest": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
-  "scene_manifest_sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
-  "reason": "The 78.42% public samebridge_v3 report stores cell aggregates but no per-episode outcomes. The separate 75.5% public_exact report is not the frozen P5 reference and cannot substitute for it."
+  "total_episodes": 1200
 }

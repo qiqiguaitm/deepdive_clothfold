@@ -90,6 +90,14 @@ canonical records are
 \texttt{RESULTS\_pi05\_predictive\_adapter\_p2\_gate.json} and
 \texttt{RESULTS\_pi05\_predictive\_adapter\_p2\_efficiency.json}.
 
+P5 reevaluates the exact public checkpoint on the same 24 cells and recovers
+all 1,200 episode identities.  It obtains 78.17\% success.  Candidate-minus-
+public effects are $+4.25$, $-0.08$, and $+3.17$ points, with equal-seed mean
+$+2.44$ points and hierarchical 95\% CI [$-0.72$,$+5.39$].  The interval
+crosses zero, so the mature-initialization gate is rejected.  The canonical
+record is
+\texttt{RESULTS\_pi05\_predictive\_adapter\_p5\_public\_gate.json}.
+
 The matched efficiency probe counts 3.353 and 3.370 billion parameters
 (+16.82 million; 0.50\%).  Direct-model latency is 57.10 versus 58.03\,ms,
 WebSocket round-trip latency is 111.57 versus 114.33\,ms, and throughput is

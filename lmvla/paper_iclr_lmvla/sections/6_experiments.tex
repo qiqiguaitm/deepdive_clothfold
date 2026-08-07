@@ -2,8 +2,8 @@
 
 \subsection{Calibration: the evaluator supports a mature $\pi_{0.5}$}
 The published $\pi_{0.5}$ checkpoint obtains \piRTPublic\% on the same six-task,
-four-seed bridge (941/1,200 successes): 93.0 hammer, 96.5 ranking-RGB, 64.0
-ranking-size, 53.5 handover, 93.5 Stack-2, and 70.0 Stack-3.  This result is an
+four-seed bridge (938/1,200 successes): 93.0 hammer, 91.0 ranking-RGB, 63.5
+ranking-size, 55.0 handover, 95.0 Stack-2, and 71.5 Stack-3.  This result is an
 evaluator calibration, not a matched baseline, because its training mixture and
 recipe differ.  The calibration nevertheless shows that the pilot A0 score is mainly
 a policy-training issue rather than a globally broken evaluation bridge.
@@ -201,6 +201,15 @@ P4 now replicates the intervention panel but, as reported above, does not
 identify the utility mechanism.  P2 also uses one fixed matched A0 training
 seed, so its interval captures candidate-seed and paired-episode variation
 rather than independent baseline-training variation.
+
+The exact-paired public-checkpoint reference also fails its predeclared gate.
+Candidate-minus-public effects are $+4.25$, $-0.08$, and $+3.17$ points at
+seeds 1000--1002.  Their equal-seed mean is $+2.44$ points, with hierarchical
+95\% CI [$-0.72$,$+5.39$].  The candidates improve Stack-3 by 12.5 points on
+average but regress Hammer by 4.0 points and ranking-size by 2.83 points.  We
+therefore do not claim improvement over the mature public initialization; this
+fixed public denominator is reported beside, and does not replace, the pending
+independent matched-A0 comparison.
 
 The adapter adds 16.82 million parameters (3.353 to 3.370 billion; 0.50\%).
 On one matched 80-GiB GPU, mean direct-model latency rises from 57.10 to

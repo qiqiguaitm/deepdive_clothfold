@@ -1,6 +1,6 @@
 # Predictive-Adapter Evidence-Strengthening TODO
 
-Updated: 2026-08-06 23:25 UTC
+Updated: 2026-08-07 00:02 UTC
 
 This file contains only unfinished evidence and current publication gates.
 Completed MINT-VLA, P0--P2, R0--R4, efficiency, and execution history remain in
@@ -29,12 +29,13 @@ do not manually launch, stop, restart, or reprioritize a job.
   `t-20260807042808-g8gsz`. All six 1,200-episode reports passed the frozen
   pairing verifier. The three-seed analysis is complete and all three mechanism
   gates fail.
-- P5 exact-public paired evaluation is running on the local 2xA100 host. The
-  original 78.42% aggregate report cannot recover episode identities, so the
-  exact checkpoint is being reevaluated once on the frozen 1,200 episodes; 22
-  of 24 task-by-evaluation-seed cells are complete.
-- Current claim-bearing allocation is North 16 GPUs and local 2 GPUs; East is
-  free after P4 completion. The P3 runs have reached approximately step 40,000.
+- P5 exact-public paired evaluation completed on the local 2xA100 host. All 24
+  cells and 1,200 episodes pass exact scene-key verification. The public
+  checkpoint reaches 78.17%; the candidate mean difference is +2.44 points
+  with hierarchical 95% CI `[-0.72,+5.39]`, so the mature-initialization gate
+  fails.
+- Current claim-bearing allocation is North 16 GPUs; East and local 2xA100 are
+  free. The P3 runs have reached approximately step 43,000.
   The P3 quota sidecar is zero-GPU operational infrastructure and does not alter
   optimization, data order, checkpoint frequency, or model selection. The P3
   zero-GPU analysis node is frozen and waits on both final reports.
@@ -55,10 +56,12 @@ do not manually launch, stop, restart, or reprioritize a job.
   +1.33 points with CI `[-2.22,+4.86]` and adjusted `p=0.224`. Content-specific
   causality, route necessity, and action-conditioning use therefore all remain
   unidentified.
-- The public pi0.5 initialization reaches 78.42% on the same 24-cell scene
-  manifest, versus an 80.61% mean across P2 candidates. This +2.19-point
-  descriptive difference is not yet a canonical paired claim because the local
-  public report lacks recoverable per-episode outcomes.
+- P5 establishes an exact paired public reference. The public pi0.5 checkpoint
+  reaches 78.17%, versus 82.42%, 78.08%, and 81.33% for candidate seeds
+  1000--1002. Their effects are +4.25, -0.08, and +3.17 points; the equal-seed
+  mean is +2.44 points with hierarchical 95% CI `[-0.72,+5.39]`. The interval
+  crosses zero, so there is no established improvement over the mature public
+  initialization.
 - R1 and R4 are closed negative extensions. Do not reopen recurrence-aligned
   auxiliary training or outcome weighting to recover a positive result.
 
@@ -138,18 +141,18 @@ scene, episode, observation, and action bridge as normal inference.
 
 ## P5: mature-public-checkpoint reference
 
-The candidate mean is only 2.19 points above the 78.42% public pi0.5
-calibration, and the public task profile is heterogeneous. P5 determines
+The candidate mean is only 2.44 points above the 78.17% exact-paired public
+pi0.5 calibration, and the public task profile is heterogeneous. P5 determines
 whether fine-tuning with the adapter improves the initialization itself or
 mainly prevents the degradation observed in the current-source A0.
 
 - [x] Audit whether the original public 24-cell run can recover all 1,200
   per-episode outcomes with exact keys and the frozen manifest SHA. Aggregate
   task summaries alone are insufficient for a paired claim.
-- [ ] If any episode outcome or identity is unavailable, reevaluate the exact
+- [x] If any episode outcome or identity is unavailable, reevaluate the exact
   public checkpoint once on the existing 24-cell/1,200-episode manifest. Do not
   train or tune the public checkpoint.
-- [ ] Compare every P2 candidate seed with the fixed public checkpoint using
+- [x] Compare every P2 candidate seed with the fixed public checkpoint using
   paired episodes, then average candidate training seeds equally. Report all
   six task effects; the existing descriptive profile suggests that a positive
   macro could coexist with Hammer and ranking regressions.
