@@ -8874,6 +8874,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     # multi-GB payload is still being written. Do not stop the
                     # platform worker until its process has exited cleanly.
                     "completion_requires_successful_terminal_state": True,
+                    "successful_terminal_artifact_grace_seconds": 300,
                     "ready_files": [
                         str(tg2_path),
                         str(north_path),
@@ -12744,6 +12745,23 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
             if complete:
                 mark_task_completed(task, task_state)
             else:
+                grace_seconds = int(
+                    task.get("successful_terminal_artifact_grace_seconds", 0)
+                )
+                observed_at = attempt.setdefault(
+                    "successful_terminal_observed_at", checked_at
+                )
+                observed = datetime.fromisoformat(
+                    observed_at.replace("Z", "+00:00")
+                )
+                elapsed = (datetime.now(timezone.utc) - observed).total_seconds()
+                if grace_seconds and elapsed < grace_seconds:
+                    task_state["waiting_reason"] = (
+                        "platform completed; waiting for completion artifacts "
+                        f"to become visible ({int(elapsed)}/{grace_seconds}s): "
+                        f"{evidence}"
+                    )
+                    return
                 task_state["status"] = "pending"
                 attempt["finished_at"] = utc_now()
                 attempt["failure"] = (

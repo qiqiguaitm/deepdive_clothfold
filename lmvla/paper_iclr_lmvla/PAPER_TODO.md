@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:44 UTC
+Updated: 2026-08-07 19:49 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -173,8 +173,12 @@ records that early artifact as progress but requires platform `Completed` or
 issue `StopJob` against an in-progress final save. This is scheduler lifecycle
 protection only and does not change the frozen training or completion artifact.
 Visible files from `Failed` or `Stopped` jobs are rejected rather than accepted
-as complete. All 160 scheduler tests pass, including Running, successful-exit,
-and failed-finalization regression cases.
+as complete. A successful platform exit also receives a five-minute metadata
+visibility grace before a missing shared-filesystem artifact becomes a retry;
+this prevents a clean run from being immediately exhausted or duplicated on a
+second resource during propagation. All 162 scheduler tests pass, including
+Running, successful-exit, delayed-visibility, grace-expiry, and
+failed-finalization regression cases.
 At 19:27 UTC, a live initialization audit covered the five current North
 jobs. Their initialization payload, parameter-tree, trainable-tree, and
 optimizer-tree SHA-256 values are each identical across arms and seeds

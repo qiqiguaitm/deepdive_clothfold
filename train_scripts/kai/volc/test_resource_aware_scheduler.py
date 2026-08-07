@@ -5942,6 +5942,85 @@ def test_terminal_task_accepts_completion_file_after_clean_platform_exit(
     assert "stopped_after_completion_artifact" not in attempt
 
 
+def test_successful_task_waits_for_delayed_completion_file_visibility(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = tmp_path / "final_model" / "pytorch_model.pt"
+    task = {
+        "id": "tg2_train",
+        "completion_locations": [
+            {"label": "east", "glob": str(marker), "remote": False}
+        ],
+        "completion_min_count": 1,
+        "completion_requires_successful_terminal_state": True,
+        "successful_terminal_artifact_grace_seconds": 300,
+    }
+    attempt = {
+        "kind": "platform",
+        "region": "cn-shanghai",
+        "job_id": "job-completed",
+        "credential_profile": "primary",
+        "last_state": "Running",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Completed", "message": ""},
+    )
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "running"
+    assert state["artifacts_complete"] is False
+    assert attempt["successful_terminal_observed_at"]
+    assert "waiting for completion artifacts" in state["waiting_reason"]
+    assert "finished_at" not in attempt
+
+    marker.parent.mkdir()
+    marker.write_bytes(b"complete")
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "completed"
+    assert state["artifacts_complete"] is True
+
+
+def test_successful_task_retries_after_artifact_visibility_grace_expires(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = tmp_path / "final_model" / "pytorch_model.pt"
+    task = {
+        "id": "tg2_train",
+        "completion_locations": [
+            {"label": "east", "glob": str(marker), "remote": False}
+        ],
+        "completion_min_count": 1,
+        "completion_requires_successful_terminal_state": True,
+        "successful_terminal_artifact_grace_seconds": 300,
+    }
+    attempt = {
+        "kind": "platform",
+        "region": "cn-shanghai",
+        "job_id": "job-completed-no-output",
+        "credential_profile": "primary",
+        "last_state": "Completed",
+        "successful_terminal_observed_at": "2000-01-01T00:00:00Z",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Completed", "message": ""},
+    )
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "pending"
+    assert state["artifacts_complete"] is False
+    assert attempt["finished_at"]
+    assert attempt["failure"].startswith("terminal state without complete outputs")
+
+
 def test_failed_task_rejects_visible_completion_file_when_success_is_required(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
