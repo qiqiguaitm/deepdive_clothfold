@@ -8873,7 +8873,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     # torch.save exposes final_model/pytorch_model.pt while the
                     # multi-GB payload is still being written. Do not stop the
                     # platform worker until its process has exited cleanly.
-                    "completion_requires_terminal_state": True,
+                    "completion_requires_successful_terminal_state": True,
                     "ready_files": [
                         str(tg2_path),
                         str(north_path),
@@ -12670,7 +12670,9 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
     ):
         complete, evidence = completion_evidence(task)
         record_artifact_progress(task_state, complete, evidence)
-        if complete and not task.get("completion_requires_terminal_state"):
+        if complete and not task.get(
+            "completion_requires_successful_terminal_state"
+        ):
             if attempt.get("last_state") not in TERMINAL_STATES:
                 stop_managed_attempt(attempt)
                 attempt["stopped_after_completion_artifact"] = utc_now()
@@ -12752,7 +12754,9 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
             complete, evidence = completion_evidence(task)
             attempt["completion_evidence"] = evidence
             record_artifact_progress(task_state, complete, evidence)
-            if complete:
+            if complete and not task.get(
+                "completion_requires_successful_terminal_state"
+            ):
                 mark_task_completed(task, task_state)
             elif shared_mt_eval_has_active_work(task["id"]):
                 attempt["passive_shared_wait"] = True

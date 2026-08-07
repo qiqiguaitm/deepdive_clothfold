@@ -5878,7 +5878,7 @@ def test_running_task_waits_for_terminal_state_when_completion_file_is_visible(
             {"label": "east", "glob": str(marker), "remote": False}
         ],
         "completion_min_count": 1,
-        "completion_requires_terminal_state": True,
+        "completion_requires_successful_terminal_state": True,
     }
     attempt = {
         "kind": "platform",
@@ -5918,7 +5918,7 @@ def test_terminal_task_accepts_completion_file_after_clean_platform_exit(
             {"label": "east", "glob": str(marker), "remote": False}
         ],
         "completion_min_count": 1,
-        "completion_requires_terminal_state": True,
+        "completion_requires_successful_terminal_state": True,
     }
     attempt = {
         "kind": "platform",
@@ -5940,6 +5940,43 @@ def test_terminal_task_accepts_completion_file_after_clean_platform_exit(
     assert state["artifacts_complete"] is True
     assert attempt["last_state"] == "Completed"
     assert "stopped_after_completion_artifact" not in attempt
+
+
+def test_failed_task_rejects_visible_completion_file_when_success_is_required(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = tmp_path / "final_model" / "pytorch_model.pt"
+    marker.parent.mkdir()
+    marker.write_bytes(b"truncated")
+    task = {
+        "id": "tg2_train",
+        "completion_locations": [
+            {"label": "east", "glob": str(marker), "remote": False}
+        ],
+        "completion_min_count": 1,
+        "completion_requires_successful_terminal_state": True,
+    }
+    attempt = {
+        "kind": "platform",
+        "region": "cn-shanghai",
+        "job_id": "job-failed",
+        "credential_profile": "primary",
+        "last_state": "Running",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Failed", "message": "final save failed"},
+    )
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "pending"
+    assert state["artifacts_complete"] is True
+    assert attempt["last_state"] == "Failed"
+    assert attempt["failure"] == "final save failed"
+    assert "completed_at" not in state
 
 
 def test_load_state_reopens_terminal_fallback_without_declared_artifact(
