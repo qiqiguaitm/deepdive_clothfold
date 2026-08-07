@@ -158,6 +158,9 @@ retried:
   four TG1A cells under v10; shuffled remains artifact-blocked until normal
   capture completes. The same amended verifier is already a dependency of the
   nine TG2 evaluations, preventing the identical post-training startup fault.
+  A 16:57 UTC preflight reverified all 17 amended bundle files, validated the
+  exact prior-failure archive conditions for normal, null, and persistence, and
+  passed all 12 retry, bundle, analysis, and context-routing tests.
 - TG1B `future_off,E=36` produced 20/24 summaries and `local_wm,E=50` produced
   18/24. Missing cells exhausted the frozen three attempts for fixed scene
   seeds that remained invalid. A completed CPU diagnosis shows all six stopping
