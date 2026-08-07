@@ -100,8 +100,9 @@ steps 3175 and 3150 at 2.04--2.07 s/step. DataLoader time remains about 0.04 s,
 with running-job ETAs of roughly 9.5--10.7 hours. The remaining three v8 cells
 are Queueing on North: future-off seed 1002 is now under the primary profile,
 while fixed-endpoint seed 1002 and raw-milestone seed 1000 remain under the
-backup profile. The primary-profile retry reports insufficient queue capacity;
-the backup-profile retries report insufficient personal quota. No final TG2
+backup profile. The primary-profile retry reports that nominal quota remains,
+but GPU fragmentation prevents scheduling the 4-GPU shape. The backup-profile
+retries report insufficient personal quota. No final TG2
 checkpoint exists yet. Seven detached backup-profile attempts remain visible
 but are not experiment progress: two are stuck Deploying and five are Queueing.
 The scheduler refuses
