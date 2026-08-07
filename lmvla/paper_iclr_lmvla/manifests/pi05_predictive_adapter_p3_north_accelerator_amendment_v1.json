@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "protocol": "pi05_predictive_adapter_p3_north_accelerator_amendment_v1",
+  "created_at": "2026-08-07T00:12:00Z",
+  "status": "evaluation_acceleration_only",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/pi05_predictive_adapter_p3_protocol.json",
+    "sha256": "77c1a891db99fcccaaabdf0e7f57d06069143544926358e753894014a8ab557f"
+  },
+  "authorization": {
+    "task": "pi05_predictive_adapter_p3_north_accelerator",
+    "resource": "Robot-North-H20",
+    "gpu_count": 8,
+    "training_seeds": [1001, 1002],
+    "evaluation_seeds": [0, 1, 2, 3],
+    "helper_workers_per_scheduler": 1,
+    "slots_per_worker": 1
+  },
+  "invariants": [
+    "The accelerator waits for the eight canonical P3 task schedulers created by the frozen two-by-four-GPU formal evaluations.",
+    "Each helper GPU attaches one independent worker to exactly one training-seed and evaluation-seed scheduler and claims only pending whole tasks through the existing lock-protected scheduler.",
+    "No episode is split or duplicated within a task; ROBOTWIN_NUM_SLOTS remains one and completed task summaries are immutable.",
+    "The final step-49,999 checkpoints, source tree, action bridge, normalization, six tasks, four evaluation seeds, fixed scene manifest, and 1,200 accepted episodes per training seed are unchanged.",
+    "The helper writes no canonical report and performs no scientific analysis; the frozen formal jobs retain sole responsibility for exact verification, summarization, and canonical completion markers.",
+    "If a canonical report completes before a helper attaches, that helper exits without modifying the report."
+  ],
+  "file_sha256": {
+    "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861",
+    "train_scripts/kai/eval/attach_pi05_a0_confirmatory_local.sh": "bb2878b90e0579d9727c61b296fdb94d070796f71e55c42b6605226096218615",
+    "train_scripts/kai/eval/local_robotwin_a3_official_2gpu.sh": "cd14b7b2f6b0e6a8d3ee7c142ada06d34a48f5923fdc4c9298f93717043126fa",
+    "train_scripts/kai/eval/run_pi05_predictive_adapter_p3_north_accelerator.sh": "5929843a78cb1e7e11f5ec249b3e5e6165d5c6ed5bde5b624987fe2f5ddd93bd",
+    "train_scripts/kai/volc/pi05_predictive_adapter_p3_eval_accelerator_north_8h20.yaml": "56714d67b65b54fe0acfce40990ed3da3d1beb59f193f88252f2449f30942baa"
+  }
+}
