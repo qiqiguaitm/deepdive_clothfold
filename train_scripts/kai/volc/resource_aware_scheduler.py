@@ -88,7 +88,8 @@ SH_MIN_DISPATCH_FREE = int(os.environ.get("SH_MIN_DISPATCH_FREE", "0"))
 RETRY_COOLDOWN_SECONDS = 900
 MAX_FAILURES_PER_RESOURCE = 3
 REMOTE_LAUNCHER_DEAD_CONFIRMATIONS = 3
-SUPERSEDED_CLEANUP_INTERVAL_SECONDS = 1800
+SUPERSEDED_STATUS_INTERVAL_SECONDS = 300
+SUPERSEDED_STOP_RETRY_INTERVAL_SECONDS = 1800
 MAX_DISPATCHES_PER_POLL = 8
 GATE_DECISION_SPECS = {
     str(REPO / "logs/resource_markers/pi05_mt1_seed1000_replication_gate.ok"): (
@@ -12991,7 +12992,7 @@ def cleanup_superseded_platform_attempts(state: dict[str, Any]) -> None:
             if checked_at:
                 checked = datetime.fromisoformat(checked_at.replace("Z", "+00:00"))
                 elapsed = (now - checked).total_seconds()
-                if elapsed < SUPERSEDED_CLEANUP_INTERVAL_SECONDS:
+                if elapsed < SUPERSEDED_STATUS_INTERVAL_SECONDS:
                     continue
             profile = attempt.get("credential_profile", "primary")
             if profile == "backup" and not backup_credentials_enabled():
@@ -13016,6 +13017,17 @@ def cleanup_superseded_platform_attempts(state: dict[str, Any]) -> None:
                     f"refusing cleanup in non-waiting state {platform_state}"
                 )
                 continue
+            stop_checked_at = attempt.get("cleanup_last_stop_attempt_at")
+            if stop_checked_at:
+                stop_checked = datetime.fromisoformat(
+                    stop_checked_at.replace("Z", "+00:00")
+                )
+                if (
+                    now - stop_checked
+                ).total_seconds() < SUPERSEDED_STOP_RETRY_INTERVAL_SECONDS:
+                    attempt["cleanup_status"] = "waiting; stop retry throttled"
+                    continue
+            attempt["cleanup_last_stop_attempt_at"] = utc_now()
             try:
                 stopped_by = stop_platform_job(
                     attempt["region"], attempt["job_id"], profile

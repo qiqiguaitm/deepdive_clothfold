@@ -1,5 +1,5 @@
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
 import os
@@ -1907,6 +1907,37 @@ def test_cleanup_superseded_platform_attempts_is_throttled(
 
     scheduler.cleanup_superseded_platform_attempts(state)
 
+    assert attempt["stopped"] is False
+
+
+def test_cleanup_superseded_platform_attempts_probes_before_stop_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime.now(timezone.utc)
+    attempt = {
+        "job_id": "t-waiting",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "stopped": False,
+        "cleanup_last_checked_at": (
+            now - timedelta(seconds=scheduler.SUPERSEDED_STATUS_INTERVAL_SECONDS + 1)
+        ).isoformat(),
+        "cleanup_last_stop_attempt_at": now.isoformat(),
+    }
+    state = {"tasks": {"old": {"superseded_platform_attempts": [attempt]}}}
+    monkeypatch.setattr(
+        scheduler, "get_job", lambda *_args: {"state": "Queueing"}
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "stop_platform_job",
+        lambda *_args: pytest.fail("stop retry must remain throttled"),
+    )
+
+    scheduler.cleanup_superseded_platform_attempts(state)
+
+    assert attempt["cleanup_last_state"] == "Queueing"
+    assert attempt["cleanup_status"] == "waiting; stop retry throttled"
     assert attempt["stopped"] is False
 
 

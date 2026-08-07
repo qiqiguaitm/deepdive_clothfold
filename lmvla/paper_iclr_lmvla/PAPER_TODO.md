@@ -113,6 +113,10 @@ quota is released, including obsolete attempts for all three not-yet-running
 cells. They must be stopped through the platform console before that release to
 avoid duplicate execution or output-directory races; API credentials available
 to the scheduler cannot perform `StopJob` or `DeleteJob`.
+The scheduler now probes every visible superseded attempt every five minutes,
+while retaining a 30-minute `StopJob` retry throttle and refusing to stop any
+attempt already in a non-waiting state. This shortens detection latency without
+increasing denied stop-call pressure or changing experiment execution.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
