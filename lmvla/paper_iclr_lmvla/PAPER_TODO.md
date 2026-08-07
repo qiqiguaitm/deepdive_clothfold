@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 15:18 UTC
+Updated: 2026-08-07 15:16 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -88,15 +88,16 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-At 14:42 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
+At 15:16 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
 East; raw-milestone seeds 1001--1002 and future-off seeds 1000--1001 on North.
 All six passed the Qwen3 unequal-length batch smoke and sustained optimization
 beyond the first step with frozen global batch 128. North raw seeds 1001--1002
-reached about step 570 at 2.26--2.28 s/step, and North future-off seeds
-1000--1001 reached about steps 157 and 117 at 2.02--2.04 s/step; DataLoader
-time remains about 0.04 s. The remaining three v8 cells are submitted in the
-North backup profile and are Queueing because Beijing has no free 4-GPU shape.
-No final TG2 checkpoint exists yet.
+reached steps 1490 and 1503 at 2.27--2.30 s/step; East fixed seeds both reached
+step 1479 at 2.28--2.31 s/step; and North future-off seeds reached steps 1197
+and 1161 at 2.04--2.06 s/step. DataLoader time remains about 0.04 s, with
+running-job ETAs of roughly 10.7--11.9 hours. The remaining three v8 cells are
+submitted in the North backup profile and are Queueing because Beijing has no
+free 4-GPU shape. No final TG2 checkpoint exists yet.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
