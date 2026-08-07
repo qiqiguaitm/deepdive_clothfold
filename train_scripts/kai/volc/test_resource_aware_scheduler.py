@@ -1697,6 +1697,52 @@ def test_deploying_timeout_is_inferred_from_matching_candidate() -> None:
     assert not scheduler.deploying_attempt_timed_out(task, unbounded)
 
 
+def test_deploying_timeout_excludes_prior_queue_time() -> None:
+    task = {"candidates": []}
+    attempt = {
+        "started_at": "2020-01-01T00:00:00Z",
+        "deploying_started_at": datetime.now(timezone.utc).isoformat(),
+        "deploy_timeout_seconds": 900,
+    }
+
+    assert not scheduler.deploying_attempt_timed_out(task, attempt)
+
+
+def test_queue_to_deploying_transition_starts_deployment_timer(monkeypatch) -> None:
+    task = {
+        "id": "newly-deploying",
+        "candidates": [
+            {
+                "kind": "platform",
+                "resource": "Robot-North-H20",
+                "deploy_timeout_seconds": 1,
+            }
+        ],
+    }
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "job_id": "t-newly-deploying",
+        "started_at": "2020-01-01T00:00:00Z",
+        "last_state": "Queueing",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Deploying", "message": "starting"},
+    )
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "running"
+    assert attempt["last_state"] == "Deploying"
+    assert attempt["deploying_started_at"] == attempt["last_checked_at"]
+    assert "finished_at" not in attempt
+
+
 def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(
     monkeypatch,
 ) -> None:
@@ -1717,6 +1763,8 @@ def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(
         "credential_profile": "primary",
         "job_id": "t-stale",
         "started_at": "2020-01-01T00:00:00Z",
+        "last_state": "Deploying",
+        "deploying_started_at": "2020-01-01T00:00:00Z",
     }
     state = {"status": "running", "attempts": [attempt]}
     stopped = []

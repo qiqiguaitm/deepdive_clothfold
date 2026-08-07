@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 17:34 UTC
+Updated: 2026-08-07 18:37 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -90,19 +90,17 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-At 16:46 UTC, six TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
-East; raw-milestone seeds 1001--1002 and future-off seeds 1000--1001 on North.
-All six passed the Qwen3 unequal-length batch smoke and sustained optimization
+At 18:37 UTC, seven TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
+East; raw-milestone seeds 1001--1002 and all three future-off seeds on North.
+All seven passed the Qwen3 unequal-length batch smoke and sustained optimization
 beyond the first step with frozen global batch 128. North raw seeds 1001--1002
-reached steps 3821 and 3836 at 2.32--2.39 s/step; East fixed seeds reached
-steps 3829 and 3822 at 2.29--2.35 s/step; and North future-off seeds reached
-steps 3808 and 3787 at 2.03--2.04 s/step. DataLoader time remains about 0.04 s,
-with running-job ETAs of roughly 9.1--10.7 hours. The remaining three v8 cells
-are Queueing on North: future-off seed 1002 is now under the primary profile,
-while fixed-endpoint seed 1002 and raw-milestone seed 1000 remain under the
-backup profile. The primary-profile retry reports that nominal quota remains,
-but GPU fragmentation prevents scheduling the 4-GPU shape. The backup-profile
-retries report insufficient personal quota. No final TG2
+reached steps 6675 and 6706 at 2.28--2.46 s/step; East fixed seeds reached
+steps 6712 and 6699 at 2.25--2.31 s/step; North future-off seeds 1000--1001
+reached steps 7018 and 6998 at 2.04--2.14 s/step, and newly started seed 1002
+reached step 54 at 2.02 s/step. DataLoader time remains about 0.04 s. The
+remaining two v8 cells, fixed-endpoint seed 1002 and raw-milestone seed 1000,
+are Queueing on North under the backup profile, whose remaining personal quota
+is insufficient to start another 4-GPU job. No final TG2
 checkpoint exists yet. Seven detached backup-profile attempts remain visible
 but are not experiment progress: two are stuck Deploying and five are Queueing.
 The scheduler refuses
@@ -113,6 +111,21 @@ quota is released, including obsolete attempts for all three not-yet-running
 cells. They must be stopped through the platform console before that release to
 avoid duplicate execution or output-directory races; API credentials available
 to the scheduler cannot perform `StopJob` or `DeleteJob`.
+At 18:31 UTC, a read-only control-plane check through the gsy development host
+confirmed that its default identity can inspect the obsolete jobs and reports
+creator `tianming.zhang`, but a targeted cancellation of obsolete Queueing job
+`t-20260807223419-bbwfx` was denied by `StopCustomTask`. Thus the gsy identity
+does not provide a hidden cleanup path either; the job remained Queueing and no
+formal v8 or Running task was touched.
+The prior primary `future_off/1002` attempt `t-20260808003004-r7g8d` moved from
+Queueing to Deploying at 18:32 UTC but was immediately reclaimed because the
+scheduler incorrectly included its queue residence in the 900-second deployment
+timeout. It produced no training output. Replacement v8 job
+`t-20260808023231-z5mn8` entered Running, passed all startup checks, and reached
+step 54. The scheduler now records `deploying_started_at` on the actual
+Queueing-to-Deploying transition, so deployment timeout excludes prior queue
+time; focused and full scheduler tests cover both a fresh transition and a
+genuinely stale deployment.
 The scheduler now probes every visible superseded attempt every five minutes,
 while retaining a 30-minute `StopJob` retry throttle and refusing to stop any
 attempt already in a non-waiting state. This shortens detection latency without
@@ -358,7 +371,7 @@ training-schedule claim may be based on seed 1000 alone.
   Train `future_off`, seed 1000; 4 GPUs.
 - [ ] **TG2-T02 [RUNNING-V7: `t-20260807223247-sjmmb`, North]**
   Train `future_off`, seed 1001; 4 GPUs.
-- [ ] **TG2-T03 [QUEUEING-V8: `t-20260808003004-r7g8d`, North primary]**
+- [ ] **TG2-T03 [RUNNING-V8: `t-20260808023231-z5mn8`, North]**
   Train `future_off`, seed 1002; 4 GPUs.
 - [ ] **TG2-T04 [RUNNING-V7: `t-20260807221602-j6sww`, East]**
   Train `fixed_endpoint`, seed 1000; 4 GPUs.

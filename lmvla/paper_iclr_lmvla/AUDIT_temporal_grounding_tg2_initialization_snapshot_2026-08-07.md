@@ -14,6 +14,7 @@ manifest are stored under
 | `future_off/1001` | `t-20260807223247-sjmmb` | `3eec2d08a6e806a8114227115f9308710388b8bcf2fa726251b6c3ec48528032` |
 | `raw_milestone/1001` | `t-20260807221612-kpqwj` | `cd520a3cdcc4a855d45bd69c83d091329dbb02750a06de25c6bc94cd40621d70` |
 | `raw_milestone/1002` | `t-20260807221617-7hcmw` | `5bf34bef71c24e85a1206b8cdfa77b4ec7d79ed7e93cd9af46084c4d4fa8d366` |
+| `future_off/1002` | `t-20260808023231-z5mn8` | `51725adaf9b4bac4d652950602bc522226cc6d74922f13058c2cc2085ecad900` |
 
 All four sidecars agree on:
 
@@ -23,8 +24,8 @@ All four sidecars agree on:
 - optimizer tree: `c1ce78a0b11d92c83239aadf786cc48536be3958b2c8f29793fed96db4cd78fb`;
 - `dual_route=false`.
 
-The two future-off jobs have `lawam_future_off=true`, no milestone target, and
-no full-coverage requirement. The two raw-milestone jobs have
+The three future-off jobs have `lawam_future_off=true`, no milestone target,
+and no full-coverage requirement. The two raw-milestone jobs have
 `lawam_future_off=false`, the frozen raw milestone target and compact index,
 and `require_full_target_coverage=true`.
 
@@ -34,3 +35,11 @@ Their distinct seed-qualified checkpoint roots, per-run configs, statistics,
 and W&B directories were inspected separately at the step-5000 audit. The
 joint post-training verifier remains authoritative for all nine completed
 runs; this snapshot is preservation evidence, not a substitute for that gate.
+
+The runtime-v8 `future_off/1002` sidecar was captured separately at 18:37 UTC
+under
+`logs/resource_scheduler_local/temporal_grounding_tg2_initialization_snapshots/20260807T1837Z`.
+Its job reached step 54 at about 2.02 seconds per step after passing the v8
+runtime, frozen-bundle, model, and dataset checks. Its initialization, parameter,
+trainable, and optimizer tree hashes match the four earlier North captures, and
+its optimizer had zero state entries before training.

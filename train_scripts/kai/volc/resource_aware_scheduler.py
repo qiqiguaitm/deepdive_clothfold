@@ -12686,8 +12686,12 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
             return
         attempt.pop("monitor_error", None)
         attempt.pop("monitor_status", None)
+        previous_state = attempt.get("last_state")
+        checked_at = utc_now()
         attempt["last_state"] = info["state"]
-        attempt["last_checked_at"] = utc_now()
+        attempt["last_checked_at"] = checked_at
+        if info["state"] == "Deploying" and previous_state != "Deploying":
+            attempt["deploying_started_at"] = checked_at
         if obsolete_runtime_supersession_ready(task, attempt, info["state"]):
             current_revisions = sorted(
                 {
@@ -13955,7 +13959,8 @@ def deploying_attempt_timed_out(
     timeout = deployment_timeout_seconds(task, attempt)
     if timeout <= 0:
         return False
-    started = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
+    started_at = attempt.get("deploying_started_at") or attempt["started_at"]
+    started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
     return (datetime.now(timezone.utc) - started).total_seconds() > timeout
 
 
