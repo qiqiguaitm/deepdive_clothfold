@@ -99,10 +99,12 @@ Robot-North-H20 使用。脚本只显示 `primary`/`backup` profile 名称，不
 默认拒绝超过 180 秒的旧快照，避免按过期卡池状态提交。
 
 北京主/备用身份同时受 GPU 上限和“已提交任务数”上限约束。当前资源目录中主身份
-GPU/任务上限均为 25，备用身份均为 20；运行时以快照显示的配置为准。任务数上限可在
-启动调度器前配置：
+GPU/任务上限均默认为 25，备用身份均默认为 20；运行时以快照显示的配置为准。四项
+上限均可在启动调度器前配置：
 
 ```bash
+export NORTH_PERSONAL_LIMIT=25
+export NORTH_BACKUP_PERSONAL_LIMIT=20
 export NORTH_PRIMARY_MAX_JOBS=25
 export NORTH_BACKUP_MAX_JOBS=20
 ```
@@ -152,7 +154,7 @@ launcher **之前**，还会保存同一推荐逻辑的审计记录。记录写�
 备用身份；持久 North 排队时也会在主身份达到相应额度后使用备用身份。
 备用身份提交的 attempt 会记录 `credential_profile=backup`，后续查询和停止也必须使用
 同一身份。将开关改为 `false` 后，调度器不再读取备用密钥、不查询备用身份，也不提交
-新任务；主身份的 20 GPU 上限始终保留。
+新任务；主身份配置的 GPU 上限始终保留。
 主身份达到 `NORTH_PRIMARY_MAX_JOBS` 时也视为不能立即派发；若备用身份启用且其
 GPU/任务额度均可容纳，调度器会选择备用身份。主、备用均达到任务数额度时不会误报
 为即时空闲。

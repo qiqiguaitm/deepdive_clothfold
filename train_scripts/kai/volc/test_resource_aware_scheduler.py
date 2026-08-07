@@ -17,9 +17,31 @@ scheduler = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(scheduler)
 
 
-def test_primary_north_operational_limits_are_25() -> None:
+def test_primary_north_operational_limits_default_to_25() -> None:
     assert scheduler.NORTH_PERSONAL_LIMIT == 25
     assert scheduler.NORTH_PRIMARY_MAX_JOBS == 25
+
+
+def test_primary_north_gpu_limit_is_environment_configurable() -> None:
+    completed = subprocess.run(
+        [
+            scheduler.sys.executable,
+            "-c",
+            (
+                "import importlib.util; "
+                f"p={str(MODULE_PATH)!r}; "
+                "s=importlib.util.spec_from_file_location('limit_probe', p); "
+                "m=importlib.util.module_from_spec(s); "
+                "s.loader.exec_module(m); "
+                "print(m.NORTH_PERSONAL_LIMIT)"
+            ),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "NORTH_PERSONAL_LIMIT": "20"},
+    )
+    assert completed.stdout.strip() == "20"
 
 
 def test_managed_execution_counts_separates_platform_queue_state() -> None:
