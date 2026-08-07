@@ -1,237 +1,341 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 UTC
+Updated: 2026-08-07 08:08 UTC
 
-**Scope: GPU training and closed-loop evaluation only.** All immediately
-available CPU/source/data checks have been run. Their completed results are in
-`RESULTS_temporal_grounding_local_audit_v1.json` and Section 41 of
-`PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`. This file contains no local-analysis,
-writing, figure, build, cleanup, or publication task.
+This document is the active GPU evidence plan for the temporal-grounding
+paper. It contains only unfinished training and closed-loop evaluation jobs,
+their dependencies, and the gates that determine later GPU work. Completed
+CPU audits, source preparation, admission manifests, writing, figures, builds,
+and scheduler telemetry are not active checklist items.
 
-No item below is authorized for manual execution. The existing resource-aware
-scheduler remains the sole execution owner. Before admitting any item, its job
-bundle must freeze the exact source tree, data and checkpoint hashes, training
-seeds, paired scene manifest, accepted-episode rules, intervention seeds,
-report schema, analysis command, and stop rule. Do not change scheduler code or
-configuration for this program.
+For execution dependencies and stop rules, this TODO supersedes the older task
+ordering in `PAPER_REPLAN_TEMPORAL_GROUNDING_2026-08-07.md`; that document
+remains the manuscript-level narrative plan.
 
-## Evidence boundary fixed by the local audit
+No checkbox authorizes manual execution. The existing resource-aware scheduler
+is the sole execution owner. Do not launch, stop, restart, reprioritize, or
+replace a job outside that scheduler. On 2026-08-07 the operator authorized the
+minimal scheduler change required to register the 16 already-frozen first-wave
+TG1A/TG1B/TG2 jobs below. The authorization does not permit changes to source,
+data, recipes, interventions, dependencies, gates, or result selection.
 
-- The released RoboTwin LaWAM checkpoint uses 30 Hz over 1.2 s: `H=36`,
-  `h_H=35`, and the evaluator executes `E=36` actions per query. Under the
-  audited current two-frame loader rule, its model and execution endpoints
-  coincide. The original training data/source are not local, so TG1A must
-  preserve that provenance limitation.
-- The historical local all6 matrix uses 50 Hz over 1.0 s: `H=50`, `h_H=49`,
-  but the historical evaluator executes `E=36` actions. Its fixed training
-  target lies beyond the executed prefix.
-- Only 19.35% of frozen milestone pairs lie within the local 50-action
-  training window, and only 12.50% lie within the 36-action executed prefix.
-  Task means range from 53.64 to 130.44 frames.
-- These are descriptive contract facts. They do not show that alignment causes
-  utility, that misalignment causes regression, or that LaWAM uses correct
-  future content.
+## 1. Scientific question and evidence boundary
 
-## Execution order
+The paper asks:
 
-| Order | ID | GPU work | Required status | Claim unlocked only if gate passes |
-|---|---|---|---|---|
-| 1 | TG1A | Released-checkpoint content interventions | Required | Correct future content is causally used by that checkpoint |
-| 2 | TG1B | Historical 36-versus-50 execution-cadence panel | Required diagnostic | Historical local result is sensitive to the measured cadence mismatch |
-| 3 | TG2 | Matched `future_off` / fixed endpoint / raw milestone training | Required | Replicated active-target utility and target-horizon effect |
-| 4 | TG3 | Explicit time-to-go and chunk-clipped milestone training | Conditional on TG2 | Temporal grounding repairs raw milestones |
-| 5 | TG4 | Clean-base and gradient-route factorization | Conditional on TG1A or TG2 | Component-specific causal attribution |
-| 6 | TG5 | Prespecified external replication | Conditional on TG3 | Scoped cross-regime or cross-benchmark transfer |
+> When does a predicted future representation provide a usable constraint for
+> fixed-horizon VLA action generation?
 
-TG1A, TG1B, and TG2 are the minimum new GPU evidence. TG3--TG5 are forbidden
-unless their stated upstream gates pass.
+The completed local audit establishes three descriptive facts:
 
-## Execution status
+- The released RoboTwin LaWAM checkpoint has `H=E=36` under its frozen 30 Hz,
+  1.2 s inference contract. The current two-frame loader implies endpoint
+  offsets `[0,35]`, but the original training data and exact training source
+  are not local.
+- The historical local all6 matrix has a 50-action training window but executes
+  36 actions per query (`H=50,E=36`). Its fixed training target lies beyond the
+  historical executed prefix.
+- Only 19.35% of the 420,238 frozen milestone pairs lie within the 50-action
+  training window, and 12.50% lie within the 36-action executed prefix.
 
-Updated: 2026-08-07 07:36 UTC.
+These facts do not establish control utility, correct-content use, or a causal
+temporal-grounding mechanism. Canonical local evidence is in
+`lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_local_audit_v1.json` and
+Section 41 of
+`lmvla/paper_iclr_lmvla/PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`.
 
-- TG1A, TG1B, and TG2 now have frozen, runtime-verified admission bundles:
-  `temporal_grounding_tg1a_admission_v1.json`,
-  `temporal_grounding_tg1b_admission_v1.json`, and
-  `temporal_grounding_tg2_admission_v1.json`. They pin outer implementation
-  commit `db88e943`, LaWAM commit `71803a3`, input hashes, paired scenes,
-  accepted-episode rules, report schemas, exact analysis commands, and stop
-  rules. Bundle verification passed for 14, 11, and 23 files respectively.
-- GPU progress remains zero for the checkboxes below. The scheduler snapshot
-  contains no pending or running TODO task, so no GPU result is claimed from
-  bundle preparation or unit tests.
-- The admissible first wave is TG1A `normal`/`null`/`persistence`, the four
-  independent TG1B cells, and the nine independent TG2 training arms. TG1A
-  `shuffled` must wait for verified normal feature capture. All TG2 evaluation
-  jobs must wait for the complete nine-arm training-integrity audit.
-- This is 3 immediately independent TG1A evaluations, 4 TG1B evaluations, and
-  9 TG2 training jobs. The later required wave contains 1 TG1A shuffled
-  evaluation and 9 TG2 evaluations. Every job requests 4 GPUs.
-- At the recorded snapshot, `Robot-East-H20` had 8 free GPUs, local had 2 free
-  GPUs, and North had 12 globally free GPUs but eight other-user queued jobs.
-  Primary North quota had 9 GPUs free and backup quota had 20 GPUs free. The
-  scheduler still owns admission; manual submission remains prohibited and
-  no scheduler code or configuration was changed for this program.
-- North TG2 inputs were subsequently verified in place against the frozen
-  hashes. A detached clean worktree at outer `11fb843` and LaWAM `71803a3`
-  passed the 23-file TG2 runtime verifier without modifying the dirty North
-  development tree. Its scheduler-only candidate and audit are frozen in
-  `temporal_grounding_tg2_north_staging_amendment_v1.json`; the Volc request
-  body also passed dry-run validation. This makes North execution-ready but
-  does not authorize submission or count as GPU progress.
+## 2. Status vocabulary
 
-## TG1A: released LaWAM fixed-checkpoint content panel
+- **READY:** its frozen admission bundle passes verification and no scientific
+  dependency remains; the scheduler may admit it when policy and resources
+  allow.
+- **BLOCKED:** its immutable upstream artifact or gate does not yet exist. Do
+  not submit it early.
+- **CONDITIONAL:** it is not an active job. Create its admission bundle only
+  after the named result gate passes.
+- **COMPLETE:** all required cells and artifact checks passed. A wrapper exit
+  code alone cannot establish completion.
 
-Use only the released RoboTwin checkpoint with SHA-256
-`a52031302c6dc5b813982227255add8d2acb839149a4b90908b179a8f66adbeb`.
-No training or checkpoint selection is allowed. Freeze one paired six-task
-scene manifest and reuse the checkpoint, 30 Hz control contract, 36-action
-execution cadence, observation, instruction, action bridge, and episode in
-every condition.
+Checkboxes below correspond one-to-one with GPU jobs or closed-loop evaluation
+cells. A checked item therefore means canonical result completion, not script,
+unit-test, dry-run, or admission readiness.
 
-- [ ] GPU evaluation: `normal`, the checkpoint's predicted endpoint feature.
-- [ ] GPU evaluation: `shuffled`, a deterministic within-task,
-  different-episode permutation with no self-match.
-- [ ] GPU evaluation: `null`, the frozen zero/null route without removing
-  parameters or changing action-expert execution.
-- [ ] GPU evaluation: `persistence`, the current visual feature placed in the
-  future slot with shape and scale matched to `normal`.
-- [ ] GPU evaluation: `oracle`, only when an exact same-scene expert
-  trajectory supplies the endpoint feature without action or success leakage.
-  Otherwise run it as a separately labelled offline GPU action probe and
-  exclude it from the closed-loop utility gate.
+## 3. Completed prerequisites; not GPU progress
 
-**TG1A gate.** Content use requires the lower bound of the hierarchical paired
-95% interval for `normal - shuffled` to exceed zero and its Holm-adjusted paired
-test to satisfy `p<0.05`. Route necessity requires `normal - null` separately.
-Predictor limitation requires `oracle - normal` separately. Report all tasks;
-no macro result overrides a task regression.
+The following immutable admission bundles are frozen and were reverified on
+2026-08-07 against the current outer HEAD:
 
-If `normal` does not beat `shuffled`, describe LaWAM as a system containing a
-future-prediction route, not as evidence that correct future content causes its
-control score.
+| Bundle | Manifest | Verified files | Status |
+|---|---|---:|---|
+| TG1A | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_admission_v1.json` | 14 | Passed |
+| TG1B | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1b_admission_v1.json` | 11 | Passed |
+| TG2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json` | 23 | Passed |
+| TG2 North staging | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_north_staging_amendment_v1.json` | 23 | Passed in detached clean worktree |
 
-## TG1B: historical execution-cadence sensitivity
+The bundles pin outer implementation commit `db88e943`, LaWAM commit
+`71803a3`, inputs, checkpoints, scene identities, report schemas, analysis
+commands, and stop rules. The TG2 North amendment pins the detached staging
+commit and dry-run-valid request body. These records make jobs admissible; they
+provide no rollout evidence.
 
-This diagnostic quantifies the measured `H=50,E=36` mismatch without treating
-cadence as future-content causality. Use the locally audited seed-2027
-`local-WM` checkpoint
-(`29ecbc3ee19585b5d9f3d3aa4bade8842e4bb016f88a3f0a3c97646164be321d`)
-and `future_off` checkpoint
-(`dfcf547f6d472a9540a71ea43f3da04925228cd7ccc17166290c68af04e6c538`).
-Evaluate both at `E=36` and `E=50` on exactly paired scenes, producing a
-two-checkpoint by two-cadence panel. Do not retrain or select a checkpoint from
-these outcomes.
+The latest scheduler snapshot and canonical state both report zero pending and
+zero running task. Their completed/disabled bookkeeping differs, so mutable
+resource counts and queue totals remain only in
+`logs/resource_scheduler_snapshot.{md,json}` and
+`logs/resource_scheduler_state.json`, not in this plan.
 
-- [ ] GPU evaluation: `future_off`, executed at 36 and 50 actions per query.
-- [ ] GPU evaluation: `local-WM`, executed at 36 and 50 actions per query.
+## 4. Dependency graph and admission waves
 
-**TG1B gate.** Report the paired difference-in-differences
-`(local50-local36) - (off50-off36)` with a hierarchical 95% interval and every
-task effect. A positive interval establishes cadence sensitivity specific to
-the local-WM checkpoint; it does not establish content use or explain the
-released LaWAM system. If both checkpoints change similarly, interpret the
-result as a general replanning-cadence effect.
+```text
+TG1A normal ──> verify captured features ──> TG1A shuffled ──> TG1A analysis
+TG1A null ──────────────────────────────────────────────────┘
+TG1A persistence ───────────────────────────────────────────┘
 
-## TG2: execution-aligned matched training matrix
+TG1B four independent cells ───────────────────────────────> TG1B analysis
 
-Freeze `E=H` before training so the new confirmatory matrix does not inherit
-the historical 50-versus-36 mismatch. On the local 50 Hz all6 data this means
-`H=E=50`, `h=49`. Hold the LaWAM backbone, initialization, action expert, data,
-optimizer, training budget, target dimensionality, prediction capacity, loss
-weight, injection route, and evaluator fixed. Use training seeds 1000--1002
-and a frozen final step without evaluation-based selection.
+TG2 nine training jobs ──> one nine-arm integrity gate
+                       └──> nine paired evaluations ────────> TG2 analysis
+                                                               │
+                                                               ├─> stop
+                                                               ├─> TG3
+                                                               ├─> TG4
+                                                               └─> TG5
+```
 
-- [ ] GPU train and paired evaluation: `future_off`, with downstream future
-  prediction, distillation, and conditioning disabled by one audited route.
-- [ ] GPU train and paired evaluation: `fixed_endpoint`, targeting the last
-  valid and last executed index `z_{t+49}`.
-- [ ] GPU train and paired evaluation: `raw_milestone`, targeting
-  `z_{tau(t)}` without time-to-go.
+The first scheduler-admissible pool contains 16 independent 4-GPU jobs:
 
-The nine minimum training arms must pass parameter-tree, trainable-tree,
-initialization-payload, dataset-order, normalization, optimizer-state, target-
-coverage, checkpoint, and exact paired-scene audits before analysis.
+- three TG1A evaluations: normal, null, and persistence;
+- four TG1B cadence cells;
+- nine TG2 training jobs.
 
-**TG2 gates.**
+Fixed-checkpoint evaluations have higher information-per-compute than
+retraining and are appropriate East candidates whenever the scheduler's
+existing policy selects among otherwise admissible work. TG2 training can use
+East or the verified North staging candidate. The scheduler's live resource,
+quota, and fairness policy remains authoritative.
 
-1. Fixed-endpoint utility requires the hierarchical 95% interval lower bound
-   for `fixed_endpoint - future_off` to exceed zero.
-2. A target-horizon effect requires the lower bound for
-   `fixed_endpoint - raw_milestone` to exceed zero.
-3. Task safety requires no training-seed/task effect below -5 percentage
-   points for a claimed winning arm against its stated baseline.
-4. If both active targets fail against `future_off`, stop target engineering
-   and write a bounded downstream-future-objective negative result.
-5. If fixed and raw are statistically unresolved, do not run TG3. The
-   descriptive horizon difference then remains unlinked to utility.
+The dependent pool contains ten 4-GPU evaluations: TG1A shuffled and nine TG2
+checkpoint evaluations. Their dependencies are immutable and cannot be waived.
 
-Resample training seeds first, then tasks and paired episodes. Publish every
-seed-by-task effect; a macro average cannot hide a task regression.
+## 5. TG1A — released-checkpoint content use
 
-## TG3: direct temporal-grounding interventions
+Purpose: determine whether the released checkpoint uses correct predicted
+future content at fixed weights. Use only checkpoint SHA-256
+`a52031302c6dc5b813982227255add8d2acb839149a4b90908b179a8f66adbeb`,
+the frozen six-task scene manifest, 30 Hz control, and `H=E=36`.
 
-Run only if TG2 establishes a fixed-versus-raw difference. Reuse the TG2
-source, recipe, seeds, evaluator, `H=E`, and final-step rule.
+Admission source:
+`lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_admission_v1.json`.
 
-- [ ] GPU train and paired evaluation: `milestone_time`, raw milestone plus
-  normalized time-to-go, with a matched constant-time embedding control.
-- [ ] GPU train and paired evaluation: `milestone_clipped`, targeting
-  `z_{min(tau(t),t+49)}` and recording which branch each sample uses.
-- [ ] If either arm passes, GPU fixed-checkpoint evaluation with normal,
-  content-shuffled, and within-task time-shuffled conditions.
+### GPU cells
 
-**TG3 gate.** A grounded arm must exceed `raw_milestone` with a positive-lower-
-bound hierarchical 95% interval and Holm-adjusted `p<0.05`. A timing-use claim
-also requires correct time-to-go to beat time-shuffled timing. A repair claim
-requires recovery of at least half of the TG2 fixed-minus-raw mean gap and task
-safety. If TG3 fails, reject temporal grounding as the demonstrated cause and
-do not add post-hoc gates, horizons, or target selectors.
+- [ ] **TG1A-E1 [READY]** Evaluate `normal`; 4 GPUs, 1,200 accepted episodes.
+- [ ] **TG1A-E2 [READY]** Evaluate `null`; 4 GPUs, 1,200 accepted episodes.
+- [ ] **TG1A-E3 [READY]** Evaluate `persistence`; 4 GPUs, 1,200 accepted episodes.
+- [ ] **TG1A-E4 [BLOCKED by TG1A-E1 capture]** Verify the complete normal
+  feature capture, then evaluate the frozen within-task different-episode
+  `shuffled` mapping; 4 GPUs, 1,200 accepted episodes.
 
-## TG4: source of any active future utility
+Oracle is closed, not unfinished: no audited exact same-scene expert endpoint
+feature mapping exists. Do not substitute a retrieved, cross-scene, or
+success-conditioned target and call it oracle.
 
-Run only if TG1A or TG2 establishes active future utility.
+### Completion and claims
 
-- [ ] GPU matched training and evaluation: clean VLA from the same base
-  initialization with no LaWAM pretraining or future modules.
-- [ ] GPU matched training and evaluation: LaWAM-pretrained `future_off`.
-- [ ] GPU matched training and evaluation: `auxiliary_only`, with no inference
-  future content.
-- [ ] GPU matched training and evaluation: `conditioning_only` and a
-  parameter-matched null route.
-- [ ] GPU matched training and evaluation: full accepted fixed/grounded arm.
+Run the frozen TG1A analysis only after all four cells contain exactly the same
+1,200 scene identities.
 
-**TG4 gate.** Attribute pretraining only from `future_off - clean`, downstream
-shaping only from `auxiliary_only - future_off`, and inference content only
-from `conditioning_only - parameter_matched_null`. Each label requires its own
+- Correct-content use requires `normal - shuffled` hierarchical paired 95% CI
+  lower bound `>0` and Holm-adjusted paired `p<0.05`.
+- Route necessity requires the independent `normal - null` gate.
+- Endpoint content beyond persistence requires the independent
+  `normal - persistence` gate.
+- Report every task. A positive macro cannot erase a task-level regression.
+
+If the content gate fails, retain the null: the released system contains a
+future route, but correct future content is not causally identified.
+
+Expected result:
+`lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json`.
+
+## 6. TG1B — execution-cadence sensitivity
+
+Purpose: measure whether the historical `H=50,E=36` contract affects the
+seed-2027 local-WM checkpoint differently from its matched future-off
+checkpoint. This is a cadence diagnostic, not a future-content intervention.
+
+Admission source:
+`lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1b_admission_v1.json`.
+
+### GPU cells
+
+- [ ] **TG1B-E1 [READY]** Evaluate `future_off`, `E=36`; 4 GPUs, 1,200 episodes.
+- [ ] **TG1B-E2 [READY]** Evaluate `future_off`, `E=50`; 4 GPUs, 1,200 episodes.
+- [ ] **TG1B-E3 [READY]** Evaluate `local_wm`, `E=36`; 4 GPUs, 1,200 episodes.
+- [ ] **TG1B-E4 [READY]** Evaluate `local_wm`, `E=50`; 4 GPUs, 1,200 episodes.
+
+### Completion and claims
+
+The primary contrast is the paired difference-in-differences
+
+`(local_wm_E50 - local_wm_E36) - (future_off_E50 - future_off_E36)`.
+
+A positive hierarchical 95% interval establishes checkpoint-specific cadence
+sensitivity only. If both checkpoints change similarly, report a general
+replanning-cadence effect. Neither outcome proves correct-content use or
+explains the released LaWAM system.
+
+Expected result:
+`lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1b.json`.
+
+## 7. TG2 — execution-aligned matched training matrix
+
+Purpose: test active future-objective utility and target-horizon effects after
+removing the historical training/execution mismatch. Freeze `H=E=50`, final
+step 20,000, seeds 1000--1002, global batch 128, and the admission bundle's
+initialization, data, optimizer, capacity, target route, and scene manifest.
+
+Admission sources:
+
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json`;
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_north_staging_amendment_v1.json`
+  when the scheduler selects North.
+
+### Training jobs
+
+- [ ] **TG2-T01 [READY]** Train `future_off`, seed 1000; 4 GPUs.
+- [ ] **TG2-T02 [READY]** Train `future_off`, seed 1001; 4 GPUs.
+- [ ] **TG2-T03 [READY]** Train `future_off`, seed 1002; 4 GPUs.
+- [ ] **TG2-T04 [READY]** Train `fixed_endpoint`, seed 1000; 4 GPUs.
+- [ ] **TG2-T05 [READY]** Train `fixed_endpoint`, seed 1001; 4 GPUs.
+- [ ] **TG2-T06 [READY]** Train `fixed_endpoint`, seed 1002; 4 GPUs.
+- [ ] **TG2-T07 [READY]** Train `raw_milestone`, seed 1000; 4 GPUs.
+- [ ] **TG2-T08 [READY]** Train `raw_milestone`, seed 1001; 4 GPUs.
+- [ ] **TG2-T09 [READY]** Train `raw_milestone`, seed 1002; 4 GPUs.
+
+Each row is one 4-GPU training job. Check a row only after its fixed step-20,000
+checkpoint is durable. Losses and checkpoint existence are not policy evidence.
+
+### Matrix integrity dependency
+
+After all nine training rows complete, run the frozen nine-arm integrity audit.
+It must jointly pass parameter tree, trainable tree, within-seed initialization
+payload, exact rank data order, normalization, optimizer parameter/state,
+target coverage, and final-checkpoint checks. This CPU audit is an automatic
+dependency, not a GPU TODO item.
+
+### Evaluation jobs
+
+All rows below are **BLOCKED** until the complete nine-arm integrity audit
+passes. Each row is one 4-GPU, 1,200-episode evaluation on the same paired scene
+manifest.
+
+- [ ] **TG2-E01 [BLOCKED]** Evaluate `future_off`, seed 1000; 4 GPUs.
+- [ ] **TG2-E02 [BLOCKED]** Evaluate `future_off`, seed 1001; 4 GPUs.
+- [ ] **TG2-E03 [BLOCKED]** Evaluate `future_off`, seed 1002; 4 GPUs.
+- [ ] **TG2-E04 [BLOCKED]** Evaluate `fixed_endpoint`, seed 1000; 4 GPUs.
+- [ ] **TG2-E05 [BLOCKED]** Evaluate `fixed_endpoint`, seed 1001; 4 GPUs.
+- [ ] **TG2-E06 [BLOCKED]** Evaluate `fixed_endpoint`, seed 1002; 4 GPUs.
+- [ ] **TG2-E07 [BLOCKED]** Evaluate `raw_milestone`, seed 1000; 4 GPUs.
+- [ ] **TG2-E08 [BLOCKED]** Evaluate `raw_milestone`, seed 1001; 4 GPUs.
+- [ ] **TG2-E09 [BLOCKED]** Evaluate `raw_milestone`, seed 1002; 4 GPUs.
+
+### Primary gates
+
+Analyze only after all nine evaluations pass exact scene pairing.
+
+1. Fixed-endpoint utility: the hierarchical 95% CI lower bound for
+   `fixed_endpoint - future_off` must exceed zero.
+2. Raw-milestone utility: report `raw_milestone - future_off` independently;
+   do not infer it from the fixed-versus-raw comparison.
+3. Target-horizon effect: the lower bound for
+   `fixed_endpoint - raw_milestone` must exceed zero.
+4. Task safety: no claimed winning arm may have a training-seed/task effect
+   below -5 percentage points against its stated baseline.
+5. Training seed is the top resampling unit. Publish the full seed-by-task
+   matrix; a macro mean cannot hide a task regression.
+
+Expected result:
+`lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json`.
+
+## 8. Result-driven branch table
+
+TG1A and TG1B do not gate TG2 completion. They constrain interpretation. TG2
+selects later training work:
+
+| Audited outcome | Next GPU work | Allowed interpretation |
+|---|---|---|
+| Both active targets fail against `future_off` | Stop TG3 and target engineering | Active future objectives lack matched downstream utility in this setting |
+| Fixed beats `future_off`, but fixed and raw are unresolved | TG4 eligible; TG3 forbidden; TG5 may replicate fixed utility | Active fixed-target package utility, no horizon mechanism |
+| Fixed beats both `future_off` and raw, with task safety | TG3 and TG4 eligible; TG5 waits for one selected contrast | Replicated target-horizon effect; mechanism still unproven |
+| Raw beats `future_off` and fixed does not beat raw | TG4 eligible; TG3 temporal-repair branch forbidden; TG5 may replicate raw utility | Milestone utility without support for the proposed alignment explanation |
+| Any positive macro violates task safety | No general improvement claim; inspect only prespecified heterogeneity | Task-dependent effect |
+
+TG1A content-gate failure remains binding under every TG2 branch. TG1B cadence
+sensitivity never substitutes for a content or target-utility gate.
+
+## 9. Conditional GPU plans; do not admit yet
+
+These are planning envelopes, not active checklists. Freeze new manifests only
+after the named upstream gate passes.
+
+### TG3 — temporal-grounding mechanism
+
+Eligibility requires all three TG2 conditions: fixed beats future-off, fixed
+beats raw milestone, and task safety passes. The minimum matched matrix is:
+
+- `milestone_time`, `milestone_time_constant`, and `milestone_clipped`;
+- seeds 1000--1002: nine 4-GPU training jobs;
+- one joint integrity audit, followed by nine paired evaluation jobs;
+- for an accepted arm, fixed-checkpoint content-shuffled and time-shuffled
+  evaluations on the same scenes.
+
+A repair claim requires a grounded arm to beat raw milestone with positive
+95% CI lower bound, Holm-adjusted `p<0.05`, task safety, and recovery of at
+least half the TG2 fixed-minus-raw mean gap. A temporal-use claim additionally
+requires correct time-to-go to beat time-shuffled timing. If this gate fails,
+stop temporal repair; do not add post-hoc horizons, gates, or selectors.
+
+### TG4 — source of active future utility
+
+Eligibility requires TG1A content use or a task-safe TG2 active-target utility
+gate. Reuse compatible TG2 `future_off` and accepted active checkpoints rather
+than retraining them. Freeze only the missing clean-base, auxiliary-only,
+conditioning-only, and parameter-matched-null arms at seeds 1000--1002.
+
+Attribute pretraining only from `future_off - clean`, downstream shaping only
+from `auxiliary_only - future_off`, and inference content only from
+`conditioning_only - parameter_matched_null`. Each label needs its own
 positive-lower-bound interval and task-safety check.
 
-## TG5: external validation
+### TG5 — external replication
 
-Run only for the single intervention selected by the TG3 gate. Freeze either
-the complete four-suite LIBERO protocol or a second complete RoboTwin panel
-before training; do not select a benchmark, task, or seed from candidate
-outcomes.
+Eligibility requires one task-safe positive TG2 or TG3 contrast. Freeze exactly
+one primary contrast before choosing outcomes:
 
-- [ ] GPU matched training and paired evaluation of the accepted primary
-  contrast and its content/time intervention on the frozen external panel.
+- replicate the accepted grounded-versus-raw contrast if TG3 passes;
+- otherwise replicate the accepted fixed-versus-future-off, fixed-versus-raw,
+  or raw-versus-future-off contrast selected directly by TG2.
 
-**TG5 gate.** The primary contrast must retain direction with a hierarchical
-95% interval excluding zero, with every suite/task reported. Cross-benchmark
-wording is prohibited for a subset, saturated suite, or single training seed.
+Use either the complete four-suite LIBERO protocol or a prespecified complete
+second RoboTwin panel. Cross-benchmark wording requires the hierarchical 95%
+interval to retain direction with every suite/task reported. Do not use a
+selected positive subset, saturated suite, or single training seed.
 
-## Global stop rules
+## 10. Global stop and reporting rules
 
 - Do not reopen MINT-VLA, predictive-adapter P0--P5, R0--R4, outcome weighting,
   oracle-transition, or failed helper jobs to search for a positive result.
-- Partial rollouts, smoke tests, losses, representation metrics, checkpoint
-  existence, or evaluation seeds without matched training seeds cannot pass a
-  utility gate.
+- Partial rollouts, smoke tests, training losses, representation metrics,
+  checkpoint existence, or unmatched evaluation seeds cannot pass a utility
+  gate.
 - A representation gain does not establish content use. A public system score
-  does not identify its causal component. A cadence interaction does not prove
+  does not identify its causal component. Cadence sensitivity does not prove
   future-content use.
-- Preserve negative task effects. No positive macro can override the -5-point
-  task-safety gate.
-- If TG2 rejects both active targets, stop. If TG3 fails, stop temporal repair.
-  If TG1A fails content use, retain that null even if a training package later
-  improves utility.
+- Preserve every task-level regression and the fixed -5-point task-safety
+  threshold. Do not promote a macro-only improvement.
+- Do not tune target horizon, task groups, seeds, checkpoint step, intervention
+  mapping, or loss weight against closed-loop outcomes.
+- Completed evidence moves to
+  `lmvla/paper_iclr_lmvla/PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`; this file
+  should continue to contain only unfinished GPU evidence and active gates.
