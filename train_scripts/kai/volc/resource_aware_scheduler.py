@@ -8518,6 +8518,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v5_path = manifests / "temporal_grounding_runtime_amendment_v5.json"
     runtime_v6_path = manifests / "temporal_grounding_runtime_amendment_v6.json"
     runtime_v7_path = manifests / "temporal_grounding_runtime_amendment_v7.json"
+    runtime_v8_path = manifests / "temporal_grounding_runtime_amendment_v8.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8529,6 +8530,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v5_path: "7894e1c29ea90a70df4cb8ab18fbac77820b8c4cafafbcf37479f71c7912c642",
         runtime_v6_path: "3b165566d2098133b5c1992996a5323b501354332474606564db8f19fd2d74db",
         runtime_v7_path: "13dac0becb33bbc4b36ccaba459ee2817374023d7d59f746d1344bf6f342c61f",
+        runtime_v8_path: "597459d4c346830416637b64eb0a14857affbdd8922840b969761c1b6522e678",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8699,14 +8701,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     east_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_east_4h20.yaml"
     east_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v7_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v8_4h20.yaml"
     )
     north_yaml = (
         REPO / "train_scripts/kai/volc/temporal_grounding_tg2_north_staged_4h20.yaml"
     )
     north_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v7_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v8_4h20.yaml"
     )
     north_stage = (
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
@@ -8742,13 +8744,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(runtime_v5_path), "sha256": manifest_hashes[runtime_v5_path]},
         {"path": str(runtime_v6_path), "sha256": manifest_hashes[runtime_v6_path]},
         {"path": str(runtime_v7_path), "sha256": manifest_hashes[runtime_v7_path]},
+        {"path": str(runtime_v8_path), "sha256": manifest_hashes[runtime_v8_path]},
         {
             "path": str(east_runtime_yaml),
-            "sha256": "fb583fd17d2d235f1f65a2616747556ec25146761f69f67cd766e187cec1d202",
+            "sha256": "7d295687f429e3b21bdd27a6becbaa2d9949892e97bd6a5aa2d0736f39aae876",
         },
         {
             "path": str(north_runtime_yaml),
-            "sha256": "8fae10c2d8fa334146f4c8a7f6d87e7bb31ad8cb99c96f79dbd7131282f3d524",
+            "sha256": "593b1b2efab47e3ac1c9b92c2de185a0fe58c4d48701392cf78ed9f4d406ac54",
         },
         *(
             {"path": str(path), "sha256": digest}
@@ -8767,8 +8770,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 2,
                     "description": f"Frozen TG2 arm={arm} seed={seed} training",
-                    "supersede_obsolete_runtime_after_seconds": 1800,
-                    "rearm_after_ready_file": str(runtime_v7_path),
+                    "supersede_obsolete_runtime_after_seconds": 60,
+                    "rearm_after_ready_file": str(runtime_v8_path),
                     "completion_locations": [
                         {
                             "label": "east",
@@ -8796,6 +8799,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(runtime_v5_path),
                         str(runtime_v6_path),
                         str(runtime_v7_path),
+                        str(runtime_v8_path),
                         str(east_runtime_yaml),
                         str(north_runtime_yaml),
                         *(str(path) for path in east_overlay_hashes),
@@ -8811,7 +8815,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "deploy_timeout_seconds": 600,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
-                            "runtime_revision": "temporal_grounding_runtime_v7",
+                            "runtime_revision": "temporal_grounding_runtime_v8",
                             "yaml": str(east_runtime_yaml.relative_to(REPO)),
                             "task_name": (
                                 f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-east4g"
@@ -8827,7 +8831,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "deploy_timeout_seconds": 900,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
-                            "runtime_revision": "temporal_grounding_runtime_v7",
+                            "runtime_revision": "temporal_grounding_runtime_v8",
                             "yaml": str(north_runtime_yaml.relative_to(REPO)),
                             "task_name": (
                                 f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-north4g"

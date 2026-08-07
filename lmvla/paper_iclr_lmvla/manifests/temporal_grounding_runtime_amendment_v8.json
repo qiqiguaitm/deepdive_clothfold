@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v8",
+  "supersedes": "temporal_grounding_runtime_amendment_v7",
+  "superseded_manifest_sha256": "13dac0becb33bbc4b36ccaba459ee2817374023d7d59f746d1344bf6f342c61f",
+  "created_at": "2026-08-07T14:37:14Z",
+  "scope": "TG2 concurrent launcher log-directory isolation only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "observations": {
+    "v7_concurrency_failure": "North fixed_endpoint seed 1002 job t-20260807223237-jg8pr passed the v7 package hashes, Qwen3 unequal-length batch smoke, frozen bundle verification, checkpoint hash, and dataset hash, then failed before optimizer step 0 because another concurrently starting TG2 job created the same second-resolution train_lawam_ddp log directory.",
+    "failure_signature": "cp -f could not create train_robotwin.yaml because the shared destination already existed during concurrent launch.",
+    "validated_replacement": "The runtime wrapper changes only LAWAM_RUN_TIMESTAMP by appending the already-frozen arm and training seed, yielding a unique log and checkpoint directory for every TG2 matrix cell even when cells start in the same second."
+  },
+  "changes": [
+    "Generate an ephemeral copy of the frozen TG2 runner inside each job.",
+    "Replace the single LAWAM_RUN_TIMESTAMP assignment with the same UTC timestamp plus arm and seed.",
+    "Verify the exact replacement line before executing the ephemeral runner.",
+    "Tag new scheduler attempts with runtime revision v8; Running v7 jobs are left untouched."
+  ],
+  "invariants": [
+    "The committed frozen TG2 runner remains byte-identical to its admitted hash.",
+    "Model code, processor bridge, data, checkpoint, arms, seeds, optimizer settings, global batch, training steps, and completion selection remain unchanged.",
+    "The v7 fixed_endpoint seed 1002 failure occurred before optimizer step 0 and contributes no checkpoint.",
+    "Existing healthy v7 jobs continue without restart; only pending, queued, failed, or newly dispatched cells use v8."
+  ],
+  "runtime_files": {
+    "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v8_4h20.yaml": "7d295687f429e3b21bdd27a6becbaa2d9949892e97bd6a5aa2d0736f39aae876",
+    "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v8_4h20.yaml": "593b1b2efab47e3ac1c9b92c2de185a0fe58c4d48701392cf78ed9f4d406ac54"
+  }
+}

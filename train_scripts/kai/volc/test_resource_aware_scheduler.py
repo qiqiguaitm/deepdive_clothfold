@@ -5554,29 +5554,29 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "Robot-North-H20",
         }
         assert {candidate["gpus"] for candidate in task["candidates"]} == {4}
-        assert task["supersede_obsolete_runtime_after_seconds"] == 1800
+        assert task["supersede_obsolete_runtime_after_seconds"] == 60
         north = next(
             candidate
             for candidate in task["candidates"]
             if candidate["resource"] == "Robot-North-H20"
         )
         assert north["yaml"].endswith(
-            "temporal_grounding_tg2_north_runtime_v7_4h20.yaml"
+            "temporal_grounding_tg2_north_runtime_v8_4h20.yaml"
         )
-        assert north["runtime_revision"] == "temporal_grounding_runtime_v7"
+        assert north["runtime_revision"] == "temporal_grounding_runtime_v8"
         east = next(
             candidate
             for candidate in task["candidates"]
             if candidate["resource"] == "Robot-East-H20"
         )
         assert east["yaml"].endswith(
-            "temporal_grounding_tg2_east_runtime_v7_4h20.yaml"
+            "temporal_grounding_tg2_east_runtime_v8_4h20.yaml"
         )
-        assert east["runtime_revision"] == "temporal_grounding_runtime_v7"
+        assert east["runtime_revision"] == "temporal_grounding_runtime_v8"
         assert east["deploy_timeout_seconds"] == 600
         assert north["deploy_timeout_seconds"] == 900
         assert task["rearm_after_ready_file"].endswith(
-            "temporal_grounding_runtime_amendment_v7.json"
+            "temporal_grounding_runtime_amendment_v8.json"
         )
         assert north["ready_files_remote"]
     assert not any("_eval" in task_id for task_id in tg2)
