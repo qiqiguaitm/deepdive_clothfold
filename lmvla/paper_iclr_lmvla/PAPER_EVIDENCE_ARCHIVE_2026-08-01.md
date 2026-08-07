@@ -1665,3 +1665,44 @@ Canonical records:
 - `logs/resource_markers/pi05_predictive_adapter_p2_efficiency.ok`
 - `logs/submission_recommendations/pi05_predictive_adapter_p2_inference_efficiency/20260806T104440.267306Z.json`
 - `logs/submission_recommendations/pi05_predictive_adapter_p2_training_memory/20260806T103614.598969Z.json`
+
+## 40. P3--P5 final closure and superseded frozen TODO
+
+P3 completed the independent matched-baseline replication that P2 lacked.
+Candidate-minus-A0 effects at training seeds 1000--1002 are +13.42, -5.50,
+and -2.08 percentage points. Their equal-seed mean is +1.94 points with a
+hierarchical paired 95% interval of `[-5.78,+12.75]`. The interval crosses
+zero and seed 1001 contains task regressions below -5 points, so both the
+independent utility and task-safety gates are rejected. P2 remains evidence
+only for candidate seeds compared with one fixed seed-1000 A0.
+
+P4 completed the three-seed fixed-checkpoint mechanism panel. Normal minus
+shuffled is +0.53 points with 95% interval `[-2.14,+3.08]` and Holm-adjusted
+`p=0.534`; normal minus zero-gate is +1.50 points with interval
+`[-1.31,+4.39]` and adjusted `p=0.205`; normal minus masked is +1.33 points
+with interval `[-2.22,+4.86]` and adjusted `p=0.224`. Correct-content use,
+route necessity, and action-conditioning use are therefore all unresolved.
+
+P5 completed an exact-paired public-checkpoint reference. The public pi0.5
+checkpoint reaches 78.17%. Candidate effects at seeds 1000--1002 are +4.25,
+-0.08, and +3.17 points; their equal-seed mean is +2.44 points with
+hierarchical 95% interval `[-0.72,+5.39]`. The mature-initialization gate is
+rejected.
+
+The predictive-adapter evidence plan was frozen complete on 2026-08-07 at
+commit `46244e7`. P6 was closed because P3 did not establish matched utility;
+P7 was closed by the same upstream stop rule. At closure, no claim-bearing GPU
+job remained. The then-active `PAPER_TODO.md` is superseded by the new
+temporal-grounding plan; its exact final contents remain recoverable from
+commit `46244e7` with SHA-256
+`13e9e0e96f8cda429e369da8c00b5099cbc4272df20231d2e268d2b4e873192a`.
+This archival move changes no evidence or prior verdict.
+
+Canonical records:
+
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p3_a0_seed1001.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p3_a0_seed1002.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p3_matched_seed_gate.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p4_intervention_gate.json`
+- `lmvla/lmwm/docs/pi05_predictive_adapter_p5_public_paired.json`
+- `lmvla/paper_iclr_lmvla/PAPER_TODO.md` at commit `46244e7`

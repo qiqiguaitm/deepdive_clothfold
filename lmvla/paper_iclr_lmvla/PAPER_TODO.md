@@ -1,242 +1,249 @@
-# Predictive-Adapter Evidence-Strengthening TODO
+# Temporal-Grounding Evidence TODO
 
-Updated: 2026-08-07 02:49 UTC
+Updated: 2026-08-07 06:11 UTC
 
-**Status: complete under the frozen evidence plan.** P3--P5 are complete, P6
-and P7 are closed by their stop conditions, all publication gates below are
-satisfied, and no experiment remains authorized. Completed MINT-VLA, P0--P2,
-R0--R4, efficiency, and earlier execution history remain in
-`PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`. Canonical JSON results take precedence
-over this closure record.
+**Status: reopened as a planning-only evidence program.** No experiment in
+this document is authorized for execution until its protocol, source tree,
+data identities, checkpoints, training seeds, evaluation scenes, analysis
+script, and stop rule are frozen and admitted by the existing resource-aware
+scheduler. The scheduler currently reports zero pending and zero running jobs.
+This TODO does not launch, reprioritize, restart, or configure any job.
 
-The resource-aware scheduler completed the frozen P3--P5 training, evaluation,
-analysis, synchronization, and retry lifecycle. Do not reopen or reprioritize
-their terminal jobs.
+The completed MINT-VLA, predictive-adapter P0--P5, R0--R4, efficiency, and
+earlier LaWAM/LMWM diagnostic history are immutable prior evidence. Their
+closure record is in `PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`; do not rerun them
+to search for a positive result. The present program addresses a different
+question:
 
-## Execution snapshot
+> Does a predicted future representation constrain VLA action generation only
+> when its temporal horizon is aligned with the action chunk or explicitly
+> encoded?
 
-- P3 A0 seeds 1001 and 1002 completed from the official initialization on
-  North 8xH20 each as `t-20260807015907-2jh5j` and
-  `t-20260807015912-m47wd`. Both fixed step-49,999 checkpoints pass the frozen
-  source, data, normalization, parameter-tree, optimizer-state, payload, and
-  atomic-commit audits. Their 24-cell/1,200-episode evaluations are complete,
-  exactly paired, and contain no failed task.
-- P4 masked, shuffled, and zero-gate seeds 1001 and 1002 completed on East
-  8xH20 as `t-20260806224622-vnfhj`, `t-20260807013535-jr5mk`, and
-  `t-20260807042808-g8gsz`. All six 1,200-episode reports passed the frozen
-  pairing verifier. The three-seed analysis is complete and all three mechanism
-  gates fail.
-- P5 exact-public paired evaluation completed on the local 2xA100 host. All 24
-  cells and 1,200 episodes pass exact scene-key verification. The public
-  checkpoint reaches 78.17%; the candidate mean difference is +2.44 points
-  with hierarchical 95% CI `[-0.72,+5.39]`, so the mature-initialization gate
-  fails.
-- P3 evaluation used 16 North H20s at peak through non-overlapping formal and
-  helper workers. The seed-1002 canonical report was finalized from all 24
-  completed cells after the GPU wrapper found no unclaimed task; no episode was
-  rerun or omitted. P3 analysis is complete. No claim-bearing GPU job remains,
-  and no further training is authorized by this TODO.
+The full manuscript replan is
+`PAPER_REPLAN_TEMPORAL_GROUNDING_2026-08-07.md`.
 
-## Current evidence boundary
+## Current claim boundary
 
-- P2 establishes replicated predictive-adapter candidate utility relative to
-  one fixed current-source A0 checkpoint: seed effects are +13.42, +9.08, and
-  +12.33 points, with equal-seed mean +11.61 points and hierarchical paired 95%
-  CI `[+8.31,+14.67]`.
-- P2 does **not** include independently trained A0 seeds 1001 and 1002. Its
-  interval captures candidate-seed and paired-episode variation, not baseline-
-  training variation.
-- P3 rejects independent matched-seed utility. Matched candidate-minus-A0
-  effects are +13.42, -5.50, and -2.08 points at seeds 1000--1002. Their
-  equal-seed mean is +1.94 points with hierarchical 95% CI
-  `[-5.78,+12.75]`; the interval crosses zero and the task-safety gate also
-  fails. P2 is therefore demoted to candidate-seed replication against one
-  fixed A0 rather than an independently matched method effect.
-- P4 does not identify the mechanism. Across three candidate seeds,
-  normal-minus-shuffled is +0.53 points with hierarchical 95% CI
-  `[-2.14,+3.08]` and Holm-adjusted `p=0.534`; normal-minus-zero-gate is +1.50
-  points with CI `[-1.31,+4.39]` and adjusted `p=0.205`; normal-minus-masked is
-  +1.33 points with CI `[-2.22,+4.86]` and adjusted `p=0.224`. Content-specific
-  causality, route necessity, and action-conditioning use therefore all remain
-  unidentified.
-- P5 establishes an exact paired public reference. The public pi0.5 checkpoint
-  reaches 78.17%, versus 82.42%, 78.08%, and 81.33% for candidate seeds
-  1000--1002. Their effects are +4.25, -0.08, and +3.17 points; the equal-seed
-  mean is +2.44 points with hierarchical 95% CI `[-0.72,+5.39]`. The interval
-  crosses zero, so there is no established improvement over the mature public
-  initialization.
-- R1 and R4 are closed negative extensions. Do not reopen recurrence-aligned
-  auxiliary training or outcome weighting to recover a positive result.
+- The LaWAM implementation samples the current frame and the last valid frame
+  of the same physical-time action chunk; its fixed-near-future target is
+  therefore aligned with the chunk endpoint by construction.
+- The frozen RoboTwin milestone artifact has variable target horizons with
+  task means from 53.6 to 130.4 frames, whereas the LaWAM RoboTwin action
+  horizon contains about 30 valid action steps. Recurrence milestones are
+  typically multi-chunk targets and carry no explicit time-to-go.
+- MINT-VLA predicts nontrivial recurrence-defined representations, but its
+  completed matched three-seed control result rejects utility in the tested
+  pi0.5 interface. Correct-content, privileged, and predictive-adapter
+  interventions do not establish causal use of future content.
+- These facts establish a temporal mismatch, not its causal role. Do not write
+  that chunk alignment explains LaWAM or that variable horizon explains LMWM
+  until the new matched interventions below pass.
+- The public LaWAM system result does not isolate the contribution of future
+  content from pretraining, backbone, action expert, data, or optimization.
+  `Future-off` inherits LaWAM pretraining and is not a clean VLA baseline.
 
 ## Priority and decision order
 
-| Priority | ID | Question | New work | Claim unlocked only if gate passes |
+| Priority | ID | Question | Required new evidence | Claim unlocked only if gate passes |
 |---|---|---|---|---|
-| Required | P3 | Does the P2 effect survive independent matched A0 training seeds? | Complete; gate rejected | No independently matched utility claim |
-| Required | P4 | Does the policy use the correct predicted action content? | Complete; all three mechanism gates rejected | No content-, route-, or action-conditioning claim |
-| High | P5 | Does the adapter improve the mature public initialization? | Complete; gate rejected | No improvement claim over the mature public checkpoint |
-| Conditional | P6 | If content remains unresolved, which training component produces utility? | Closed without execution because P3 failed | None |
-| Reviewer-triggered | P7 | Does the matched effect persist on unseen scene seeds? | Closed unless a reviewer explicitly reopens it | None |
+| Required | TG0 | Are target time, chunk time, and intervention identities audited? | CPU/source/data protocol freeze | Descriptive temporal-mismatch claim |
+| Required | TG1 | Does a released or accepted LaWAM checkpoint use correct chunk-end future content? | Fixed-checkpoint normal/shuffled/null/persistence/oracle panel | Causal content-use claim for that checkpoint |
+| Required | TG2 | Under matched training, does fixed chunk-end prediction improve over future-off and outperform raw milestones? | Three-seed future-off/fixed/raw matrix | Replicated target-horizon effect |
+| Conditional | TG3 | If fixed and raw differ, does explicit temporal grounding repair raw milestones? | Three-seed time-to-go and chunk-clipped arms | Temporal-grounding mechanism claim |
+| Conditional | TG4 | If active future utility exists, does it come from pretraining, downstream shaping, or inference content? | Clean-base and gradient-route factorization | Component-specific causal attribution |
+| Conditional | TG5 | Does the accepted effect transfer across task regimes or a second benchmark? | Frozen external validation | Scoped generalization claim |
 
-P3--P5 answered distinct questions under frozen protocols. P6 and P7 remain
-closed by the decisions recorded below.
+TG0--TG2 define the minimum publishable comparison. TG3 is the decisive
+mechanism test. TG4 and TG5 are forbidden unless their upstream gates pass.
 
-## P3: independent matched-baseline replication
+## TG0: temporal-contract and artifact audit
 
-The current P2 denominator is the single 69.00% A0 seed-1000 report. P3 closes
-the largest reviewer-facing uncertainty by training the missing A0 seeds under
-the exact current-source P1/P2 recipe.
+- [ ] Freeze notation: valid action count `H`, last sampled chunk offset
+  `h=H-1`, raw milestone time `tau(t)`, normalized time-to-go
+  `g_t=(tau(t)-t)/h`, and target representation `z`. Record any dataset whose
+  observation/action timestamp convention requires a different endpoint.
+- [ ] Audit the LaWAM dataloader and runtime contract for every proposed
+  dataset: action frequency, `sec_chunk`, valid action count, sampled future
+  frame index, padded action length, and number of executed actions.
+- [ ] Audit every milestone pair for monotonicity, episode identity, current
+  frame, target frame, horizon, task, terminal fallback, and source hash.
+- [ ] Produce result-independent distributions of `g_t`, within-chunk versus
+  beyond-chunk target rate, target persistence, and distinct targets per task.
+- [ ] Freeze task strata before looking at new policy outcomes: ordered
+  construction, reactive/contact, fine-grained geometry, and relational
+  transfer. Record tasks that cannot be assigned without outcome knowledge.
+- [ ] Freeze checkpoint hashes, evaluator scenes, accepted-episode rules,
+  intervention seeds, report schemas, and one analysis command for TG1--TG3.
 
-- [x] Freeze a P3 protocol that pins the existing source audit, official pi0.5
-  initialization, dataset, mean/std normalization, batch 16, 50,000 updates,
-  optimizer, final step 49,999, and the existing 24-cell scene manifest.
-- [x] Train A0 seeds 1001 and 1002 with `pi05_predictive_adapter_p1_a0_exact`.
-  Intermediate checkpoints, loss curves, and smoke tests are health telemetry
-  only; select the fixed final checkpoint without evaluation-based selection.
-- [x] Audit both final checkpoints for source, data, normalization, parameter
-  tree, optimizer state, payload, and atomic commit identity.
-- [x] Evaluate both A0 checkpoints on 24 task-by-evaluation-seed cells and 1,200
-  episodes each, with exact episode pairing to the corresponding existing P2
-  candidate seed.
-- [x] Analyze candidate-minus-A0 for matched training seeds 1000--1002 with
-  training seed as the top-level resampling unit and paired episodes nested
-  within each of the six equally weighted tasks. Use at least 20,000 frozen
-  bootstrap draws and report every seed and task effect.
+**TG0 gate:** all temporal and identity audits pass with no unexplained target
+outside its source episode and no mismatch between declared and executed
+action horizons. TG0 may support only a descriptive statement about temporal
+alignment. It cannot support a control mechanism.
 
-**P3 primary gate:** the hierarchical 95% interval lower endpoint for the
-three matched candidate-minus-A0 pairs must exceed zero. A statement that the
-gain is task-safe additionally requires no seed/task effect below -5 points.
-If the interval crosses zero, demote P2 to replicated-candidate evidence against
-one fixed A0 and do not describe it as independent matched-seed replication.
+## TG1: LaWAM fixed-checkpoint content intervention
 
-**P3 result:** rejected. The mean matched-seed effect is +1.94 points with
-hierarchical 95% CI `[-5.78,+12.75]`. Seed effects are +13.42, -5.50, and
--2.08 points, and seed 1001 contains task regressions below -5 points. The
-result is not independently replicated and is not task-safe.
+Use one frozen, fully audited LaWAM checkpoint. No training or checkpoint
+selection is permitted in TG1. Every condition must reuse the same observation,
+instruction, action bridge, scene, episode, and checkpoint.
 
-## P4: three-seed inference intervention panel
+- [ ] `normal`: the checkpoint's predicted chunk-end feature.
+- [ ] `shuffled`: a deterministic within-task permutation of predicted future
+  features with no episode self-match.
+- [ ] `null`: the architecture's frozen null/zero route without removing
+  parameters or changing action-expert execution.
+- [ ] `persistence`: the current visual feature in the future-conditioning
+  position, shape- and scale-matched to normal.
+- [ ] `oracle`: a privileged chunk-end feature only where an exact same-scene
+  expert trajectory supplies it. Verify scene and timestamp identity and that
+  no action or success label enters the model. If an exact target is unavailable
+  in closed loop, restrict oracle to a separately labelled offline action probe
+  and exclude it from closed-loop utility gates.
+- [ ] Evaluate all conditions on the same paired scenes, report every task,
+  and run one hierarchical paired analysis with Holm correction over the
+  preregistered normal--shuffled, normal--null, normal--persistence, and
+  oracle--normal family.
 
-P4 reuses the three accepted candidate checkpoints and their existing normal
-reports. It adds no training. Every control must retain the same checkpoint,
-scene, episode, observation, and action bridge as normal inference.
+**TG1 primary gate:** causal use of predicted content requires the lower bound
+of the normal-minus-shuffled hierarchical 95% interval to exceed zero and the
+Holm-adjusted paired test to be below 0.05. Route necessity requires the
+normal-minus-null gate separately. Predictor limitation requires oracle to
+exceed normal under the same criteria; oracle alone cannot establish utility.
 
-- [x] Freeze deterministic `zero_gate`, `shuffled`, and `masked` intervention
-  identities, permutation seeds, checkpoint hashes, result names, and exact
-  pairing checks before running a new rollout.
-- [x] Evaluate zero-gate, shuffled-action, and masked-action conditions at
-  candidate seeds 1001 and 1002: six new 24-cell/1,200-episode reports. Reuse
-  seed-1000 reports only after their episode keys and hashes pass the new audit.
-- [x] Run a three-seed hierarchical paired analysis for normal-minus-shuffled
-  (correct action content), normal-minus-zero-gate (route use), and normal-
-  minus-masked (action-conditioning use). Treat these as a frozen family of
-  three comparisons and apply Holm correction to their pooled paired tests.
-- [x] Report every condition, training seed, and task. Do not use a positive
-  macro to claim uniform use when a task effect is negative.
+If normal does not beat shuffled, describe the LaWAM checkpoint as a system
+that contains a future-prediction route, not as evidence that correct future
+content causes its control performance. Continue to TG2 only to compare
+training objectives, not to rescue a content-use claim.
 
-**P4 claim gates:**
+## TG2: matched target-horizon training matrix
 
-- Content-specific causality requires the normal-minus-shuffled hierarchical
-  95% interval lower endpoint to exceed zero and its Holm-adjusted paired test
-  to be below 0.05.
-- Route necessity and action-conditioning use are separate claims and require
-  the corresponding zero-gate or masked comparison to pass the same criteria.
-- Passing zero-gate or masked while failing shuffled supports use of the route,
-  not use of the correct predicted content.
-- If normal-minus-shuffled remains unresolved, retain the paper's current
-  conclusion: the adapter package has utility, but its predictive-content
-  mechanism is unidentified.
+TG2 holds the LaWAM backbone, initialization, action expert, data, optimizer,
+training budget, adapter capacity, and evaluation protocol fixed. Training
+seed is the top-level unit. Use at least seeds 1000--1002 and select a frozen
+final step without evaluation-based checkpoint selection.
 
-## P5: mature-public-checkpoint reference
+- [ ] `future_off`: LaWAM-pretrained initialization with downstream future
+  prediction, distillation, and future conditioning disabled by a frozen,
+  audited implementation.
+- [ ] `fixed_endpoint`: the original last-valid-index chunk target `z_{t+h}`.
+- [ ] `raw_milestone`: the recurrence-defined target `z_{tau(t)}` with the same
+  target dimensionality, prediction capacity, loss weight, and injection route
+  as `fixed_endpoint`.
+- [ ] Audit parameter equality, trainable trees, initialization payloads,
+  dataset order, normalization, optimizer state, target coverage, and final
+  checkpoints for all nine minimum arms.
+- [ ] Evaluate each matched seed on an exact paired scene manifest. Resample
+  training seeds first, then tasks and paired episodes. Report seed-by-task
+  effects; no macro average may hide a task regression.
 
-The candidate mean is only 2.44 points above the 78.17% exact-paired public
-pi0.5 calibration, and the public task profile is heterogeneous. P5 determines
-whether fine-tuning with the adapter improves the initialization itself or
-mainly prevents the degradation observed in the current-source A0.
+**TG2 gates:**
 
-- [x] Audit whether the original public 24-cell run can recover all 1,200
-  per-episode outcomes with exact keys and the frozen manifest SHA. Aggregate
-  task summaries alone are insufficient for a paired claim.
-- [x] If any episode outcome or identity is unavailable, reevaluate the exact
-  public checkpoint once on the existing 24-cell/1,200-episode manifest. Do not
-  train or tune the public checkpoint.
-- [x] Compare every P2 candidate seed with the fixed public checkpoint using
-  paired episodes, then average candidate training seeds equally. Report all
-  six task effects; the existing descriptive profile suggests that a positive
-  macro could coexist with Hammer and ranking regressions.
+1. Fixed-endpoint utility requires the `fixed_endpoint - future_off`
+   hierarchical 95% interval lower bound to exceed zero.
+2. A replicated horizon effect requires the `fixed_endpoint - raw_milestone`
+   lower bound to exceed zero.
+3. Task safety requires no seed/task effect below -5 percentage points for the
+   claimed winning arm versus its stated baseline.
+4. If both active targets fail against `future_off`, stop target engineering
+   and write a bounded downstream-future-objective negative result.
+5. If fixed and raw are statistically unresolved, do not run TG3; temporal
+   mismatch exists descriptively but is not linked to utility.
 
-**P5 gate:** a claim that the adapter improves the mature initialization
-requires the hierarchical 95% interval lower endpoint for candidate minus
-public checkpoint to exceed zero. This comparison still has a fixed public
-denominator and does not replace P3. If the interval crosses zero, state that
-the adapter improves matched fine-tuning relative to A0 but does not establish
-improvement over the pretrained checkpoint.
+## TG3: direct temporal-grounding interventions
 
-## P6: conditional training-component factorization
+Run TG3 only if TG2 establishes a fixed-versus-raw difference. Reuse the TG2
+source, recipe, seeds, and evaluator; freeze both new arms before any training.
 
-Run P6 only if P3 confirms matched utility and P4 fails to identify correct
-content. Its purpose is to distinguish a useful predictive objective from P0
-initialization and extra action-expert capacity. Freeze two parameter-matched
-controls before training:
+- [ ] `milestone_time`: raw milestone plus an explicit normalized time-to-go
+  embedding `g_t`, with a matched constant-time embedding control.
+- [ ] `milestone_clipped`: target the raw milestone if it occurs within the
+  current chunk; otherwise target the demonstration frame at the last valid
+  chunk index `z_{min(tau(t),t+h)}`. Record the fraction that reduces to each
+  branch.
+- [ ] If either arm passes, run fixed-checkpoint normal/shuffled/time-shuffled
+  interventions to test whether the policy uses both content and timing.
 
-**Closed without execution:** P4 failed its content gate, but P3 did not
-confirm matched utility. The conjunction required to authorize P6 is false;
-using idle GPUs for these arms would be an unregistered post-hoc expansion.
+**TG3 primary gate:** at least one grounded arm must exceed `raw_milestone`
+with a positive-lower-bound hierarchical 95% interval and Holm-adjusted paired
+`p<0.05`. A timing-use claim additionally requires normal time-to-go to beat a
+within-task time-shuffled control. A repair claim requires recovery of at least
+half of the TG2 fixed-minus-raw mean gap and task safety.
 
-1. `p0_init_no_aux`: the same adapter tree and P0 overlay as the accepted
-   candidate, but predictive auxiliary-loss weight zero during policy training;
-   the action objective may still train the route.
-2. `random_init_no_aux`: the same adapter tree and route with per-seed frozen
-   random initialization and predictive auxiliary-loss weight zero.
+If TG3 fails, reject temporal grounding as the demonstrated cause. Do not add
+learned gates, adaptive horizons, or new target selectors post hoc.
 
-- [x] Close the planned parameter-equality audit, six control trainings, six
-  evaluations, and three-contrast analysis without execution. These operations
-  were conditional on a positive P3 gate and therefore never became authorized
-  work.
+## TG4: source of apparent LaWAM utility
 
-No component receives a causal label unless its own interval excludes zero.
-If all contrasts are unresolved, report the positive result as utility of the
-full training package and stop mechanism expansion.
+Run TG4 only if TG1 or TG2 establishes active future utility.
 
-## P7: reviewer-triggered scene robustness
+- [ ] Train a clean, budget-matched VLA from the same base initialization with
+  no LaWAM pretraining or future modules.
+- [ ] Compare clean VLA, LaWAM-pretrained `future_off`, and active
+  `fixed_endpoint` at matched training seeds.
+- [ ] Factor training shaping from inference content using `auxiliary_only`
+  and `conditioning_only` arms with parameter-matched null modules and frozen
+  gradient routes.
 
-Do not schedule P7 by default. If P3 passes and submission review risk justifies
-the cost, freeze previously unused RoboTwin scene seeds before any rollout and
-evaluate matched A0/candidate seeds 1000--1002 without retraining. Use the same
-six tasks, four evaluation seeds, 50 accepted episodes per cell, and the P3
-hierarchical analysis. This can support robustness to new scenes within
-RoboTwin only; it cannot support new-task, real-robot, or second-VLA claims.
-P3 failed, so P7 is closed under the current plan even before reviewer cost is
-considered.
+**TG4 gates:** pretraining utility is `future_off - clean`; downstream shaping
+is `auxiliary_only - future_off`; inference content is
+`conditioning_only - parameter_matched_null`. Each causal label requires its
+own positive-lower-bound interval and task-safety check. Do not infer one
+component from a comparison that changes another.
 
-## Publication and reporting gates
+## TG5: conditional external validation
 
-- [x] Update the abstract's replicated-utility wording after P3 finishes.
-  P3, not the already accepted P2 gate, determines whether “matched training
-  seeds” is admissible.
-- [x] Add a content-specific statement only if P4's normal-minus-shuffled gate
-  passes. Otherwise preserve the current explicit null attribution.
-- [x] Present P5 beside, not instead of, P3 so a strong or weak public reference
-  cannot obscure the matched-training comparison.
-- [x] Any new main-paper table must show all training seeds and six tasks. Any
-  new claim-bearing figure must use a white canvas, 6--8 pt sans-serif text,
-  strokes at least 0.5 pt, sentence-case labels, colourblind-safe colours plus
-  marker/line-style cues, and captions defining samples and interval hierarchy.
-- [x] Keep the paper within the ICLR main-text limit. Prefer replacing the
-  current P2 table with a consolidated P3/P4 table rather than adding pages.
-  The compressed draft uses nine main-text pages, with references beginning on
-  page 9 and the appendix on page 11. The complete PDF has 15 pages. Full
-  control and audit details remain in the appendix and canonical JSON records.
+Run TG5 only for the single intervention selected by the frozen TG3 gate. Do
+not select a benchmark, task, or seed after observing candidate outcomes.
+
+- [ ] Choose either the complete four-suite LIBERO protocol or a frozen second
+  RoboTwin task panel before training. Match the corresponding LaWAM baseline,
+  action horizon, data budget, training seeds, and evaluation scenes.
+- [ ] Replicate the accepted primary contrast and its content/time
+  intervention. Report all suites/tasks, including regressions.
+- [ ] If a second VLA is proposed, define it as a separate gate with its own
+  clean baseline; architecture compatibility is not empirical transfer.
+
+**TG5 gate:** the primary contrast retains direction with a hierarchical 95%
+interval excluding zero. Cross-benchmark wording is prohibited if only a
+subset, saturated suite, or one training seed is available.
+
+## Publication gates
+
+- [ ] Do not rewrite the title or abstract as a positive method claim until
+  TG2/TG3 determine the paper branch. Keep all unfinished numbers as explicit
+  placeholders.
+- [ ] Main-paper tables must expose every training seed and every task. Fixed
+  checkpoint interventions and training-seed comparisons must not share one
+  unlabeled uncertainty estimate.
+- [ ] Figure 1 must show the fixed action horizon `H`, the LaWAM chunk-end
+  target, the variable milestone `tau(t)`, and the missing or explicit
+  time-to-go. It must not depict temporal grounding as causal before TG3.
+- [ ] Claim-bearing figures require a white canvas, 6--8 pt sans-serif text,
+  strokes at least 0.5 pt, sentence-case labels, a colourblind-safe palette
+  plus non-colour cues, and captions defining samples, seeds, intervals, and
+  whether evidence is descriptive or causal.
+- [ ] Keep the ICLR main text at nine pages. The main narrative receives at
+  most four figures and two tables; full audits, per-seed/task matrices, and
+  historical MINT evidence belong in the appendix.
+- [ ] Preserve the completed MINT negative result even if a temporally grounded
+  arm succeeds. A new positive arm does not retroactively validate old content
+  or erase task-level regressions.
+- [ ] Before manuscript promotion, run claim-to-artifact checks, LaTeX build,
+  undefined-reference/overfull checks, figure preflight, and Web attachment
+  synchronization.
 
 ## Stop and scope rules
 
-- Do not reopen original one-token MINT-VLA, oracle-transition, R1, or R4 arms.
-- Do not launch a second VLA, new-task training, or real-robot study from this
-  TODO. Those are separate projects unless requested by a reviewer or a new
-  explicit paper claim.
-- Do not infer prediction-content causality from representation cosine,
-  checkpoint loss, zero-gate alone, or a candidate-versus-A0 utility result.
-- Do not infer robustness from simulator evaluation seeds when baseline
-  training seeds are missing.
-- Failed platform attempts before a valid episode are operational records, not
-  evidence. Partial cells, smokes, and intermediate checkpoints never enter a
-  claim-bearing table.
+- The resource-aware scheduler remains the sole execution owner. This TODO is
+  not a queue, cron entry, daemon, or launch authorization.
+- Do not reopen original MINT-VLA, predictive-adapter P0--P5, R0--R4, oracle
+  transition, outcome weighting, or failed helper jobs.
+- Do not tune target horizons, task groups, loss weights, intervention seeds,
+  or checkpoint steps against closed-loop outcomes.
+- Partial rollouts, smoke tests, losses, representation metrics, and evaluation
+  seeds without matched training seeds cannot pass a utility gate.
+- A positive macro does not override a negative task effect. A representation
+  gain does not establish content use. A public system score does not identify
+  the component that caused it.
+- If TG2 rejects both active targets, stop. If TG3 fails, stop temporal repair.
+  If TG1 fails content use, retain that null even if a training package later
+  improves utility.
