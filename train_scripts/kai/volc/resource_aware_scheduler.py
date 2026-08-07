@@ -13254,6 +13254,19 @@ def managed_execution_counts(
     return counts
 
 
+def managed_execution_state(state: dict[str, Any]) -> str:
+    """Return the externally meaningful state for snapshot display."""
+    if state.get("status") != "running":
+        return "-"
+    attempts = state.get("attempts", [])
+    attempt = attempts[-1] if attempts else {}
+    if attempt.get("kind") == "platform":
+        return str(attempt.get("last_state") or "submitted")
+    if attempt:
+        return "Running"
+    return "submitted"
+
+
 def visible_superseded_attempts(
     scheduler_tasks: dict[str, dict[str, Any]],
 ) -> list[dict[str, str]]:
@@ -13487,8 +13500,8 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
             "",
             "## Managed Tasks",
             "",
-            "| Task | Status | Progress |",
-            "|---|---|---|",
+            "| Task | Scheduler state | Execution state | Progress |",
+            "|---|---|---|---|",
         ]
     )
     for task_id, state in sorted(snapshot.get("scheduler_tasks", {}).items()):
@@ -13505,7 +13518,10 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
                 )
                 if value
             )
-        lines.append(f"| `{task_id}` | {state.get('status', 'unknown')} | {progress} |")
+        lines.append(
+            f"| `{task_id}` | {state.get('status', 'unknown')} | "
+            f"{managed_execution_state(state)} | {progress} |"
+        )
     lines.extend(
         [
             "",

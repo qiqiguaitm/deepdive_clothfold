@@ -75,6 +75,34 @@ def test_managed_execution_counts_separates_platform_queue_state() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ({"status": "pending"}, "-"),
+        (
+            {
+                "status": "running",
+                "attempts": [{"kind": "platform", "last_state": "Queueing"}],
+            },
+            "Queueing",
+        ),
+        (
+            {
+                "status": "running",
+                "attempts": [{"kind": "platform", "last_state": "Running"}],
+            },
+            "Running",
+        ),
+        ({"status": "running", "attempts": [{"kind": "local"}]}, "Running"),
+        ({"status": "running", "attempts": []}, "submitted"),
+    ],
+)
+def test_managed_execution_state_reports_external_state(
+    state: dict, expected: str
+) -> None:
+    assert scheduler.managed_execution_state(state) == expected
+
+
 def test_visible_superseded_attempts_excludes_stopped_and_sanitizes_errors() -> None:
     tasks = {
         "task-b": {
@@ -6080,7 +6108,10 @@ def test_markdown_training_heartbeat_requires_platform_running(
     }
 
     scheduler.write_markdown_snapshot(snapshot)
-    assert f"`{label}`" not in scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
+    markdown = scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
+    assert f"`{label}`" not in markdown
+    assert "| Scheduler state | Execution state |" in markdown
+    assert f"| `{task_id}` | running | Queueing |" in markdown
 
     snapshot["scheduler_tasks"][task_id]["attempts"][-1]["last_state"] = "Running"
     snapshot["scheduler_tasks"][task_id]["attempts"][-1]["resource"] = (
