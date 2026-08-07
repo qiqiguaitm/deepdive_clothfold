@@ -5457,22 +5457,22 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             if candidate["resource"] == "Robot-North-H20"
         )
         assert north["yaml"].endswith(
-            "temporal_grounding_tg2_north_runtime_v6_4h20.yaml"
+            "temporal_grounding_tg2_north_runtime_v7_4h20.yaml"
         )
-        assert north["runtime_revision"] == "temporal_grounding_runtime_v6"
+        assert north["runtime_revision"] == "temporal_grounding_runtime_v7"
         east = next(
             candidate
             for candidate in task["candidates"]
             if candidate["resource"] == "Robot-East-H20"
         )
         assert east["yaml"].endswith(
-            "temporal_grounding_tg2_east_runtime_v6_4h20.yaml"
+            "temporal_grounding_tg2_east_runtime_v7_4h20.yaml"
         )
-        assert east["runtime_revision"] == "temporal_grounding_runtime_v6"
+        assert east["runtime_revision"] == "temporal_grounding_runtime_v7"
         assert east["deploy_timeout_seconds"] == 600
         assert north["deploy_timeout_seconds"] == 900
         assert task["rearm_after_ready_file"].endswith(
-            "temporal_grounding_runtime_amendment_v6.json"
+            "temporal_grounding_runtime_amendment_v7.json"
         )
         assert north["ready_files_remote"]
     assert not any("_eval" in task_id for task_id in tg2)

@@ -8517,6 +8517,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v4_path = manifests / "temporal_grounding_runtime_amendment_v4.json"
     runtime_v5_path = manifests / "temporal_grounding_runtime_amendment_v5.json"
     runtime_v6_path = manifests / "temporal_grounding_runtime_amendment_v6.json"
+    runtime_v7_path = manifests / "temporal_grounding_runtime_amendment_v7.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8527,6 +8528,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v4_path: "bb40a4802464b07489048be5b85cf28ae20639b8a68c53bbad792ca309dfff3e",
         runtime_v5_path: "7894e1c29ea90a70df4cb8ab18fbac77820b8c4cafafbcf37479f71c7912c642",
         runtime_v6_path: "3b165566d2098133b5c1992996a5323b501354332474606564db8f19fd2d74db",
+        runtime_v7_path: "13dac0becb33bbc4b36ccaba459ee2817374023d7d59f746d1344bf6f342c61f",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8687,14 +8689,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     east_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_east_4h20.yaml"
     east_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v6_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v7_4h20.yaml"
     )
     north_yaml = (
         REPO / "train_scripts/kai/volc/temporal_grounding_tg2_north_staged_4h20.yaml"
     )
     north_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v6_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v7_4h20.yaml"
     )
     north_stage = (
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
@@ -8704,11 +8706,12 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
         "lmvla/lawam/results/Checkpoints/robotwin"
     )
-    east_overlay = Path("/vePFS/tim/runtime/tg2_transformers_5_2_py312_v1")
+    east_overlay = Path("/vePFS/tim/runtime/tg2_transformers_5_2_py312_padding_v3")
     east_overlay_hashes = {
         east_overlay / "transformers/__init__.py": "91b2c544c6848f4ce8213c770aaa705ce682ee656c995f4ce58352c4b7368ee7",
         east_overlay / "huggingface_hub/__init__.py": "d227f617210221463f972f20d8951b935e30196b9d9bac4fe1e3ce19f49b0c3c",
         east_overlay / "tokenizers/tokenizers.abi3.so": "c116fcf1e80d461ce0a35c332974f25949e8359416f50b3d53371810d2ce1ccc",
+        east_overlay / "sitecustomize.py": "922e7b08959d01faad7ae64b04114aebdf6cd71666af6d49dfafe93380de4f90",
     }
     tg2_hashes = [
         {"path": str(tg2_path), "sha256": manifest_hashes[tg2_path]},
@@ -8728,13 +8731,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(runtime_v3_path), "sha256": manifest_hashes[runtime_v3_path]},
         {"path": str(runtime_v5_path), "sha256": manifest_hashes[runtime_v5_path]},
         {"path": str(runtime_v6_path), "sha256": manifest_hashes[runtime_v6_path]},
+        {"path": str(runtime_v7_path), "sha256": manifest_hashes[runtime_v7_path]},
         {
             "path": str(east_runtime_yaml),
-            "sha256": "06328d2577ee6ba354be10980c83be4a405146b611a931ccaf854e8c8298472a",
+            "sha256": "fb583fd17d2d235f1f65a2616747556ec25146761f69f67cd766e187cec1d202",
         },
         {
             "path": str(north_runtime_yaml),
-            "sha256": "be6cfc4fd0769845da7e92a8f7214ea14e5458687dcdf14d8eb792a5af24962d",
+            "sha256": "8fae10c2d8fa334146f4c8a7f6d87e7bb31ad8cb99c96f79dbd7131282f3d524",
         },
         *(
             {"path": str(path), "sha256": digest}
@@ -8753,7 +8757,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 2,
                     "description": f"Frozen TG2 arm={arm} seed={seed} training",
-                    "rearm_after_ready_file": str(runtime_v6_path),
+                    "rearm_after_ready_file": str(runtime_v7_path),
                     "completion_locations": [
                         {
                             "label": "east",
@@ -8780,6 +8784,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(runtime_v3_path),
                         str(runtime_v5_path),
                         str(runtime_v6_path),
+                        str(runtime_v7_path),
                         str(east_runtime_yaml),
                         str(north_runtime_yaml),
                         *(str(path) for path in east_overlay_hashes),
@@ -8795,7 +8800,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "deploy_timeout_seconds": 600,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
-                            "runtime_revision": "temporal_grounding_runtime_v6",
+                            "runtime_revision": "temporal_grounding_runtime_v7",
                             "yaml": str(east_runtime_yaml.relative_to(REPO)),
                             "task_name": (
                                 f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-east4g"
@@ -8811,7 +8816,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "deploy_timeout_seconds": 900,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
-                            "runtime_revision": "temporal_grounding_runtime_v6",
+                            "runtime_revision": "temporal_grounding_runtime_v7",
                             "yaml": str(north_runtime_yaml.relative_to(REPO)),
                             "task_name": (
                                 f"temporal-grounding-tg2-{arm.replace('_', '-')}-s{seed}-north4g"
@@ -8821,9 +8826,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 f"{north_stage}/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json",
                                 f"{north_stage}/lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py",
                                 f"{north_stage}/kai0/.venv/bin/python",
-                                "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_v1/transformers/__init__.py",
-                                "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_v1/huggingface_hub/__init__.py",
-                                "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_v1/tokenizers/tokenizers.abi3.so",
+                                "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3/transformers/__init__.py",
+                                "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3/huggingface_hub/__init__.py",
+                                "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3/tokenizers/tokenizers.abi3.so",
+                                "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3/sitecustomize.py",
                             ],
                         },
                     ],

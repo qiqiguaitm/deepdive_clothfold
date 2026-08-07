@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v7",
+  "supersedes": "temporal_grounding_runtime_amendment_v6",
+  "superseded_manifest_sha256": "3b165566d2098133b5c1992996a5323b501354332474606564db8f19fd2d74db",
+  "created_at": "2026-08-07T14:11:00Z",
+  "scope": "TG2 frozen processor API compatibility and pre-step output isolation only",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "observations": {
+    "v6_result": "Transformers 5.2 correctly loaded Qwen3-VL and built the full model, but the first DataLoader batch failed before optimizer step 0 because the frozen collator's processor_kwargs padding flag was not forwarded to the Qwen3 tokenizer.",
+    "cross_version_probe": "Transformers 4.57.6 reproduced the same variable-length tensor failure, ruling out a 5.x-only batching regression.",
+    "validated_fix": "A sitecustomize compatibility bridge forwards the frozen processor_kwargs.padding value as the top-level ProcessorMixin.apply_chat_template padding argument. The unchanged frozen call then batched two unequal-length multimodal prompts into a tensor successfully.",
+    "pre_step_output_audit": "Eight v5 output directories contained only config.json and config.yaml and no checkpoint, optimizer state, trainer state, metric, or completed step. They were preserved with suffix .runtime_v5_pre_step0_quarantine before retry."
+  },
+  "changes": [
+    "Load the v3 overlay containing the three v6 Hugging Face packages plus the narrow processor_kwargs.padding compatibility bridge.",
+    "Verify the compatibility bridge hash and execute an unequal-length two-message padding smoke before the frozen runner.",
+    "Tag scheduler attempts with runtime revision v7 so pre-step failures from v6 and earlier revisions cannot consume the v7 retry budget."
+  ],
+  "invariants": [
+    "The frozen TG2 runner, collator, model code, data, checkpoint, arms, seeds, optimizer settings, global batch, training steps, and completion selection remain unchanged.",
+    "The bridge only forwards the already-requested padding=True value; it rejects any other processor_kwargs key.",
+    "No failed output was deleted or reused, and no v5/v6 attempt reached optimizer step 0.",
+    "TG1A and TG1B remain on runtime amendment v4 and are not rearmed by this amendment."
+  ],
+  "runtime_overlay": {
+    "east_path": "/vePFS/tim/runtime/tg2_transformers_5_2_py312_padding_v3",
+    "north_path": "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3",
+    "sitecustomize_sha256": "922e7b08959d01faad7ae64b04114aebdf6cd71666af6d49dfafe93380de4f90"
+  },
+  "runtime_files": {
+    "train_scripts/kai/volc/temporal_grounding_tg2_east_runtime_v7_4h20.yaml": "fb583fd17d2d235f1f65a2616747556ec25146761f69f67cd766e187cec1d202",
+    "train_scripts/kai/volc/temporal_grounding_tg2_north_runtime_v7_4h20.yaml": "8fae10c2d8fa334146f4c8a7f6d87e7bb31ad8cb99c96f79dbd7131282f3d524"
+  }
+}
