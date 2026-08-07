@@ -13351,13 +13351,15 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
             "",
             "## Beijing Submission Quotas",
             "",
-            "| Credential | Submitted jobs | Job limit | Active GPUs | GPU limit |",
-            "|---|---:|---:|---:|---:|",
+            "| Credential | Submitted jobs | Job limit | Active GPUs | Queued GPUs | GPU limit |",
+            "|---|---:|---:|---:|---:|---:|",
             (
                 "| primary | "
                 f"{resources['beijing'].get('owned_submitted_jobs', 0)} | "
                 f"{resources['beijing'].get('max_submitted_jobs', NORTH_PRIMARY_MAX_JOBS)} | "
-                f"{resources['beijing']['owned_active_gpus']} | {NORTH_PERSONAL_LIMIT} |"
+                f"{resources['beijing']['owned_active_gpus']} | "
+                f"{resources['beijing'].get('owned_queued_gpus', 0)} | "
+                f"{NORTH_PERSONAL_LIMIT} |"
             ),
         ]
     )
@@ -13367,6 +13369,7 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
             f"{backup.get('identity_submitted_jobs', 0)} | "
             f"{backup.get('max_submitted_jobs', NORTH_BACKUP_MAX_JOBS)} | "
             f"{backup.get('identity_active_gpus', 0)} | "
+            f"{backup.get('identity_queued_gpus', 0)} | "
             f"{backup.get('personal_limit', NORTH_BACKUP_PERSONAL_LIMIT)} |"
         )
     scheduler_tasks = snapshot.get("scheduler_tasks", {})
