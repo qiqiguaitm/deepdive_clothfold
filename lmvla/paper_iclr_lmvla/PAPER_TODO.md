@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 18:45 UTC
+Updated: 2026-08-07 18:53 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -90,17 +90,20 @@ commands, and stop rules. The TG2 North amendment pins the detached staging
 commit and dry-run-valid request body. These records make jobs admissible; they
 provide no rollout evidence.
 
-At 18:37 UTC, seven TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
+At 18:53 UTC, seven TG2 jobs are Running: fixed-endpoint seeds 1000--1001 on
 East; raw-milestone seeds 1001--1002 and all three future-off seeds on North.
 All seven passed the Qwen3 unequal-length batch smoke and sustained optimization
 beyond the first step with frozen global batch 128. North raw seeds 1001--1002
-reached steps 6675 and 6706 at 2.28--2.46 s/step; East fixed seeds reached
-steps 6712 and 6699 at 2.25--2.31 s/step; North future-off seeds 1000--1001
-reached steps 7018 and 6998 at 2.04--2.14 s/step, and newly started seed 1002
-reached step 54 at 2.02 s/step. DataLoader time remains about 0.04 s. The
-remaining two v8 cells, fixed-endpoint seed 1002 and raw-milestone seed 1000,
-are Queueing on North under the backup profile, whose remaining personal quota
-is insufficient to start another 4-GPU job. No final TG2
+reached steps 7080 and 7114 at 2.29--2.33 s/step; East fixed seeds reached
+steps 7120 and 7107 at 2.29--2.30 s/step; North future-off seeds 1000--1001
+reached steps 7474 and 7457 at 2.04--2.06 s/step, and newly started seed 1002
+reached step 516 at 2.02 s/step. The earlier isolated 2.93 s/step reading for
+East fixed seed 1001 returned to its established range on consecutive
+heartbeats and is not a sustained slowdown. DataLoader time remains about
+0.04 s. The remaining two v8 cells, fixed-endpoint seed 1002 and raw-milestone
+seed 1000, are Queueing on North under the backup profile. That profile reports
+8/20 active GPUs but seven queued submissions, five of which are obsolete
+attempts that the available identities cannot cancel. No final TG2
 checkpoint exists yet. Seven detached backup-profile attempts remain visible
 but are not experiment progress: two are stuck Deploying and five are Queueing.
 The scheduler refuses
