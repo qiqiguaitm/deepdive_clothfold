@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:17 UTC
+Updated: 2026-08-07 19:29 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -160,6 +160,24 @@ evaluation protocol changed. A same-poll state transition is also guarded: when
 an East parent becomes complete during platform monitoring, its North
 materializer is satisfied before candidate selection instead of briefly
 launching an unnecessary transfer. All 157 scheduler tests pass.
+At 19:27 UTC, a live initialization audit covered the five current North
+jobs. Their initialization payload, parameter-tree, trainable-tree, and
+optimizer-tree SHA-256 values are each identical across arms and seeds
+(`26e1de2e...`, `142be83f...`, `14c7acfb...`, and `c1ce78a0...`), all report
+zero optimizer-state entries before training, and every record carries the
+prespecified seed and route. In particular, all three `future_off` records
+enable only `LAWAM_FUTURE_OFF`, while both running `raw_milestone` records
+require full target coverage and name the frozen milestone inputs. The two
+current East fixed-endpoint jobs also created fresh initialization records
+after startup and loaded the same pinned pretraining checkpoint, but those
+records are mode 0600 under the platform root identity. Their payload contents
+therefore remain deliberately unclaimed until the admitted root-run TG2
+integrity worker reads them. Current optimization checkpoints at the same
+audit were steps 8000/8000 for East fixed endpoint, 8400/8400/1400 for North
+future off, and 7800/8000 for North raw milestone; all reported finite losses,
+the expected route-specific auxiliary terms, approximately 0.036--0.041 s
+data time, and 2.02--2.31 s model time. This is initialization and training
+health evidence only, not a completed TG2 cell or downstream utility result.
 Mutable resource counts and platform states remain authoritative only in
 `logs/resource_scheduler_snapshot.{md,json}` and
 `logs/resource_scheduler_state.json`.
