@@ -9467,6 +9467,25 @@ def get_job(region: str, job_id: str, profile: str = "primary") -> dict[str, Any
     }
 
 
+def stop_platform_job(
+    region: str, job_id: str, profile: str = "primary"
+) -> str:
+    profiles = [profile]
+    if profile == "backup":
+        profiles.append("primary")
+    last_error: Exception | None = None
+    for candidate_profile in profiles:
+        try:
+            service(region, candidate_profile).json(
+                "StopJob", {}, json.dumps({"Id": job_id}).encode()
+            )
+            return candidate_profile
+        except Exception as exc:
+            last_error = exc
+    assert last_error is not None
+    raise last_error
+
+
 def run(
     command: list[str],
     *,
@@ -12411,9 +12430,20 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
             task, attempt
         ):
             deploy_timeout = deployment_timeout_seconds(task, attempt)
-            service(attempt["region"], credential_profile).json(
-                "StopJob", {}, json.dumps({"Id": attempt["job_id"]}).encode()
-            )
+            try:
+                stop_profile = stop_platform_job(
+                    attempt["region"], attempt["job_id"], credential_profile
+                )
+            except Exception as exc:
+                attempt["deployment_reclaim_error"] = (
+                    f"{type(exc).__name__}: {exc}"
+                )
+                log(
+                    f"could not reclaim deploying job {attempt['job_id']}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                return
+            attempt["stopped_by_credential_profile"] = stop_profile
             task_state["status"] = "pending"
             attempt["finished_at"] = utc_now()
             attempt["failure"] = (
@@ -12424,8 +12454,8 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
         elif info["state"] == "Queueing":
             queue_timeout = int(attempt.get("queue_timeout_seconds", 300))
             if queued_attempt_timed_out(attempt):
-                service(attempt["region"], credential_profile).json(
-                    "StopJob", {}, json.dumps({"Id": attempt["job_id"]}).encode()
+                stop_platform_job(
+                    attempt["region"], attempt["job_id"], credential_profile
                 )
                 task_state["status"] = "pending"
                 attempt["finished_at"] = utc_now()
@@ -13484,9 +13514,7 @@ def stop_managed_attempt(attempt: dict[str, Any]) -> None:
     """Stop an active helper, including its evaluator/server child processes."""
     if attempt.get("kind") == "platform" and attempt.get("job_id"):
         profile = attempt.get("credential_profile", "primary")
-        service(attempt["region"], profile).json(
-            "StopJob", {}, json.dumps({"Id": attempt["job_id"]}).encode()
-        )
+        stop_platform_job(attempt["region"], attempt["job_id"], profile)
         return
     pid = int(attempt.get("pid", 0))
     if pid <= 0:

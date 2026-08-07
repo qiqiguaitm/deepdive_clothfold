@@ -1538,6 +1538,36 @@ def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(
     assert not scheduler.candidate_in_cooldown(state, candidate, {})
 
 
+def test_stop_platform_job_falls_back_to_primary_for_backup_owned_job(
+    monkeypatch,
+) -> None:
+    calls = []
+
+    class FakeService:
+        def __init__(self, profile):
+            self.profile = profile
+
+        def json(self, action, _query, body):
+            calls.append((self.profile, action, json.loads(body)))
+            if self.profile == "backup":
+                raise PermissionError("backup StopJob denied")
+            return "{}"
+
+    monkeypatch.setattr(
+        scheduler, "service", lambda _region, profile: FakeService(profile)
+    )
+
+    profile = scheduler.stop_platform_job(
+        "cn-beijing", "t-backup-owned", "backup"
+    )
+
+    assert profile == "primary"
+    assert calls == [
+        ("backup", "StopJob", {"Id": "t-backup-owned"}),
+        ("primary", "StopJob", {"Id": "t-backup-owned"}),
+    ]
+
+
 def test_robot_task_queueing_is_reclaimed_immediately() -> None:
     attempt = {
         "resource": "robot-task",
