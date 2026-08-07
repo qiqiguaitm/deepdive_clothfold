@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 18:43 UTC
+Updated: 2026-08-07 18:45 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -269,6 +269,12 @@ Admission source:
 - [ ] **TG1A-E4 [BLOCKED by TG1A-E1 capture]** Verify the complete normal
   feature capture, then evaluate the frozen within-task different-episode
   `shuffled` mapping; 4 GPUs, 1,200 accepted episodes.
+
+At 18:45 UTC, fresh `--check-only` retry preflights validated the isolated
+failed-runtime archives for normal, null, and persistence. The amendment-aware
+TG1A bundle verifier also passed all 17 pinned files under runtime v10. This
+confirms launch readiness when East releases capacity; it is not rollout
+progress and no checkbox is complete.
 
 Oracle is closed, not unfinished: no audited exact same-scene expert endpoint
 feature mapping exists. Do not substitute a retrieved, cross-scene, or
