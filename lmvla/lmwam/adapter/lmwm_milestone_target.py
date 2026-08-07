@@ -77,6 +77,15 @@ class MilestoneTargetProvider:
                 continue
             tgt[b] = torch.from_numpy(tf.astype(np.float32)).to(device=device, dtype=dtype)
             valid[b] = True
+        if os.environ.get("LMWM_REQUIRE_FULL_TARGET_COVERAGE") == "1" and not bool(valid.all()):
+            missing = [
+                (int(ep_np[index]), int(fr_np[index]))
+                for index in np.flatnonzero(~valid.detach().cpu().numpy())[:16]
+            ]
+            raise RuntimeError(
+                "LMWM_REQUIRE_FULL_TARGET_COVERAGE rejected missing raw-milestone targets: "
+                f"{missing}"
+            )
         return tgt, valid
 
 
