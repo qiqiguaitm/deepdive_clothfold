@@ -4,8 +4,13 @@
 
 - Method: MINT-VLA stores mined milestone frames, re-encodes targets with the current VLA visual encoder during training, predicts an absolute milestone through a residual parameterization, and connects it to the VLA's native conditioning input. The current pi0.5 instantiation uses one prefix token.
 - Primary VLA/benchmark: pi0.5 on RoboTwin 2.0. LIBERO and LaWAM are supporting diagnostics.
-- Structure: problem and controlled comparisons -> MINT-VLA -> confirmatory design -> completed three-seed negative result and interface diagnosis -> independently scoped policy-preserving repair hypothesis.
-- Questions: Q1 matched control performance; Q2 predicted token content; Q3 factorized integration mechanism; Q4 robustness, task scope, and efficiency. Q5 second-VLA instantiation is explicitly closed because the draft makes no multi-architecture claim.
+- Structure: problem and controlled comparisons -> MINT-VLA -> completed
+  three-seed negative result -> interface diagnosis -> policy-preserving repair
+  screen -> rejected independent matched-seed replication.
+- Questions: Q1 matched control performance; Q2 predicted content; Q3
+  factorized integration mechanism; Q4 training-seed robustness, task scope,
+  and efficiency. Q5 second-VLA instantiation is closed because the draft makes
+  no multi-architecture claim.
 
 ## Evidence Boundary
 
@@ -17,10 +22,18 @@
 - A3 is observation-conditioned and not fully gradient-isolated. LaWAM Future-off is not a clean no-WM VLA baseline.
 - The policy-preserving predictive adapter is a separate method hypothesis. Its
   seed-1000 P1 screen is direct positive closed-loop evidence: 82.42% versus
-  69.00% for matched current-source A0, with no task regression. It is not yet
-  a replicated utility claim because P2 seeds 1001--1002 are unfinished.
-- P1's advantage over shuffled action conditioning is only +1.25 pp
-  (Holm-adjusted p=1.0), so content-specific causality remains unresolved.
+  69.00% for matched current-source A0, with no task regression. P2 replicated
+  candidate training against that one fixed A0, but P3 independently trained
+  the missing A0 seeds and rejected matched-seed utility: effects are +13.42,
+  -5.50, and -2.08 pp, with mean +1.94 pp and hierarchical 95% CI
+  [-5.78,+12.75]. The result is neither independently replicated nor task-safe.
+- P4's three-seed normal-minus-shuffled effect is +0.53 pp (95% CI
+  [-2.14,+3.08], Holm-adjusted p=0.534); route and masked-action controls also
+  cross zero. Content, route necessity, and action-conditioning use remain
+  unidentified.
+- P5's exact-paired public pi0.5 reference is 78.17%. Candidate-minus-public is
+  +2.44 pp with 95% CI [-0.72,+5.39], so there is no established improvement
+  over the mature initialization.
 - Corrected R1 predictive-plus-CRAVE reaches 62.92%, below A0 by 6.08 pp and
   CRAVE-only by 5.75 pp, with four task regressions above five points. This
   rejects the recurrence-aligned auxiliary extension, not the parent P1
@@ -34,6 +47,9 @@
   ordinary and 71.14% outcome-free CRAVE, but both hierarchical 95% intervals
   cross zero. These arms test demonstration weighting, not Q-values, action
   advantages, rewards, critics, or model-predictive control.
+- `PAPER_TODO.md` is complete under the frozen evidence plan. P6 and P7 were
+  closed without execution by their preregistered stop conditions; no new
+  experiment is authorized.
 
 ## Files
 

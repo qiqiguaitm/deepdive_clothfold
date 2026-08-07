@@ -6,7 +6,7 @@ for (const viewport of [
   { name: "desktop", width: 1440, height: 1000 },
   { name: "mobile", width: 390, height: 844 },
 ]) {
-  test(`${viewport.name} report has no overflow or console errors`, async ({ page }) => {
+  test(`${viewport.name} final report has no overflow or console errors`, async ({ page }) => {
     const errors = [];
     page.on("console", (message) => {
       if (message.type() === "error") errors.push(message.text());
@@ -21,26 +21,19 @@ for (const viewport of [
     }));
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
     expect(errors).toEqual([]);
+    await expect(page.locator("#decision")).toContainText("0 pending · 0 running");
   });
 }
 
-test("experiment filters and attachments work", async ({ page, request }) => {
+test("final evidence and canonical attachments are synchronized", async ({ page, request }) => {
   await page.goto(reportUrl, { waitUntil: "networkidle" });
 
-  await page.getByRole("button", { name: "进行中" }).click();
-  await expect(page.locator(".todo-item:visible")).toHaveCount(3);
-  await page.getByRole("button", { name: "等待门槛" }).click();
-  await expect(page.locator(".todo-item:visible")).toHaveCount(0);
-  await page.getByRole("button", { name: "后续计划" }).click();
-  await expect(page.locator(".todo-item:visible")).toHaveCount(3);
-
-  await expect(page.locator("#evidence")).toContainText("所有 pooled Holm-adjusted p=1");
-  await expect(page.locator("#evidence")).toContainText("67,265 MiB");
-  await expect(page.locator("#evidence")).toContainText("0.8134 vs persistence 0.7479");
-  await expect(page.locator("#evidence")).toContainText("89.58% vs 89.23%");
-  await expect(page.locator("#evidence")).toContainText("Correct pooled 胜出 0/9");
-  await expect(page.locator("#evidence")).toContainText("95% CI [+0.0391,+0.1110]");
-  await expect(page.locator("#gates")).toContainText("Closed · adverse");
+  await expect(page.locator("#summary")).toContainText("−8.58 pp");
+  await expect(page.locator("#evidence")).toContainText("+1.94 pp");
+  await expect(page.locator("#evidence")).toContainText("95% CI [−5.78,+12.75]");
+  await expect(page.locator("#evidence")).toContainText("Ranking-size −13.0");
+  await expect(page.locator("#interpretation")).toContainText("证据不支持");
+  await expect(page.locator("#submission")).toContainText("等待外部发布");
 
   for (const asset of [
     "assets/mint_vla_paper.pdf",
@@ -53,13 +46,13 @@ test("experiment filters and attachments work", async ({ page, request }) => {
   }
 });
 
-test("showcase entry supports language switching and opens the report", async ({ page }) => {
+test("showcase entry supports language switching and opens the final report", async ({ page }) => {
   await page.goto("http://127.0.0.1:8765/", { waitUntil: "networkidle" });
   await expect(page.locator(".report-entry")).toBeVisible();
 
   await page.getByRole("button", { name: "EN" }).click();
   await expect(page.locator(".report-entry h3")).toHaveText(
-    "MINT-VLA: future milestones for VLA policies",
+    "MINT-VLA: predictable futures do not ensure control utility",
   );
 
   await page.locator(".report-entry .report-link").click();

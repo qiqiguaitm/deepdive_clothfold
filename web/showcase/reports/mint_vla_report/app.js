@@ -15,16 +15,3 @@ const observer = new IntersectionObserver(
 );
 
 sections.forEach((section) => observer.observe(section));
-
-const filterButtons = [...document.querySelectorAll(".filter-btn")];
-const todoItems = [...document.querySelectorAll(".todo-item")];
-
-filterButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const filter = button.dataset.filter;
-    filterButtons.forEach((item) => item.classList.toggle("active", item === button));
-    todoItems.forEach((item) => {
-      item.hidden = filter !== "all" && item.dataset.status !== filter;
-    });
-  });
-});

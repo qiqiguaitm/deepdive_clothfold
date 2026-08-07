@@ -8,8 +8,8 @@
 
 `web/showcase/reports/<name>/` 下放自包含 HTML 报告(含图/视频 `assets/`)，由 server.py 以 `/reports/<name>/` 静态挂载(`html=True` 自动返回 index.html)。
 
-- **`reports/mint_vla_report/`** —— **MINT-VLA 项目决策汇报**：面向项目负责人说明研究缺口、低成本同空间里程碑接口、已有试验证据、未决问题、阶段门控和资源决策。论文与实验 TODO 作为技术附件提供。
-  - 访问：`/reports/mint_vla_report/`（主页 header 有 “MINT-VLA 决策汇报” 入口）。
+- **`reports/mint_vla_report/`** —— **MINT-VLA 最终证据报告**：汇总 native-space milestone 接口、predictive adapter、独立 matched-seed replication、机制干预、成熟 public checkpoint 对照和冻结 stop rules。论文与规范证据作为技术附件提供。
+  - 访问：`/reports/mint_vla_report/`（主页 header 有 “MINT-VLA 证据报告” 入口）。
 - **`reports/crave_interp/`** —— **CRAVE 可解释性技术报告**(kai0_base ep2302):综合 `temp/crave_interp_ep2302_30hz_kaimix/` 的可解释性分析 + `docs/.../cross_episode_recurrence_value/` 方法文档。含典型簇词表、簇-帧对应、三段拆分、CRAVE vs 监督 KAI0-AE 对比图与 5 条对齐视频、milestone 选择法(covE+稀疏·Otsu)、定位与泛化。
   - 访问:`/reports/crave_interp/`(主页 header 有 "★ CRAVE 可解释性报告" 入口);
   - 源文档经后端 `/api/doc/...` 读取原始 markdown。

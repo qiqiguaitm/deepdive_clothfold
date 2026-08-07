@@ -28,9 +28,9 @@ bottlenecks or options \citep{simsek2009,options1999}.  MINT-VLA uses
 cross-episode visual recurrence to select candidate stage states without
 manually annotated boundaries.  This differs from a fixed temporal horizon and
 from terminal-goal conditioning, but recurrence itself is not sufficient
-evidence that the selected state is useful.  Our planned fixed-horizon, random,
-terminal, and oracle controls follow SuSIE's principle of separating subgoal
-quality from controller capacity.
+evidence that the selected state is useful.  Our fixed-horizon,
+shuffled-action, masked-action, terminal, and oracle controls follow SuSIE's
+principle of separating subgoal quality from controller capacity.
 
 \paragraph{Integration and negative transfer.}
 Auxiliary objectives can improve or damage a shared representation depending
@@ -43,8 +43,9 @@ variation modules, or a frozen policy feature space
 routing is also used to preserve pretrained VLA semantics
 \citep{knowledgeinsulation2025}.  MINT-VLA's current implementation stops the
 milestone target branch but still allows its loss to update current visual
-features through the predictor; the planned auxiliary-only, prefix-only, and
-detached-current controls measure those paths rather than assuming isolation.
+features through the predictor.  Because the matched utility gate fails, we do
+not attribute the regression to one gradient path; the content and privileged
+controls instead test whether the supplied condition is action-sufficient.
 
 \paragraph{Establishing control benefit.}
 Prediction quality and control performance can diverge

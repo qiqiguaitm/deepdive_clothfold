@@ -1,370 +1,242 @@
-# MINT-VLA Remaining Evidence TODO
+# Predictive-Adapter Evidence-Strengthening TODO
 
-Updated: 2026-08-02 01:15 UTC
+Updated: 2026-08-07 02:49 UTC
 
-This file tracks only evidence that is still required for the paper. Completed
-jobs, platform incidents, and per-attempt identifiers are intentionally omitted.
-Live execution state is maintained in `logs/resource_scheduler_snapshot.md` and
-`logs/resource_scheduler_state.json`.
+**Status: complete under the frozen evidence plan.** P3--P5 are complete, P6
+and P7 are closed by their stop conditions, all publication gates below are
+satisfied, and no experiment remains authorized. Completed MINT-VLA, P0--P2,
+R0--R4, efficiency, and earlier execution history remain in
+`PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`. Canonical JSON results take precedence
+over this closure record.
 
-Completed evidence and execution history are preserved in
-`PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`.
+The resource-aware scheduler completed the frozen P3--P5 training, evaluation,
+analysis, synchronization, and retry lifecycle. Do not reopen or reprioritize
+their terminal jobs.
 
-## Locked protocol
+## Execution snapshot
 
-- Primary VLA and benchmark: pi0.5 on RoboTwin 2.0.
-- Confirmatory recipe: absolute actions, mean/std normalization, batch 16,
-  50k updates, and identical initialization, data, and evaluator across arms.
-- Primary arms: A0 no hint, A2-Abs offline absolute, and A3 MINT-VLA with a
-  current-encoder predictor.
-- Do not replicate the legacy joint-delta/quantile/batch-64/20k matrix.
-- Matched A2/A3 and additional training seeds may run speculatively in parallel
-  to reduce wall-clock time. Their results remain inadmissible for the paper
-  until corrected A0 passes the 70% operational gate and provenance audit.
+- P3 A0 seeds 1001 and 1002 completed from the official initialization on
+  North 8xH20 each as `t-20260807015907-2jh5j` and
+  `t-20260807015912-m47wd`. Both fixed step-49,999 checkpoints pass the frozen
+  source, data, normalization, parameter-tree, optimizer-state, payload, and
+  atomic-commit audits. Their 24-cell/1,200-episode evaluations are complete,
+  exactly paired, and contain no failed task.
+- P4 masked, shuffled, and zero-gate seeds 1001 and 1002 completed on East
+  8xH20 as `t-20260806224622-vnfhj`, `t-20260807013535-jr5mk`, and
+  `t-20260807042808-g8gsz`. All six 1,200-episode reports passed the frozen
+  pairing verifier. The three-seed analysis is complete and all three mechanism
+  gates fail.
+- P5 exact-public paired evaluation completed on the local 2xA100 host. All 24
+  cells and 1,200 episodes pass exact scene-key verification. The public
+  checkpoint reaches 78.17%; the candidate mean difference is +2.44 points
+  with hierarchical 95% CI `[-0.72,+5.39]`, so the mature-initialization gate
+  fails.
+- P3 evaluation used 16 North H20s at peak through non-overlapping formal and
+  helper workers. The seed-1002 canonical report was finalized from all 24
+  completed cells after the GPU wrapper found no unclaimed task; no episode was
+  rerun or omitted. P3 analysis is complete. No claim-bearing GPU job remains,
+  and no further training is authorized by this TODO.
 
-## Frozen evidence
+## Current evidence boundary
 
-These items are complete and are no longer TODOs.
+- P2 establishes replicated predictive-adapter candidate utility relative to
+  one fixed current-source A0 checkpoint: seed effects are +13.42, +9.08, and
+  +12.33 points, with equal-seed mean +11.61 points and hierarchical paired 95%
+  CI `[+8.31,+14.67]`.
+- P2 does **not** include independently trained A0 seeds 1001 and 1002. Its
+  interval captures candidate-seed and paired-episode variation, not baseline-
+  training variation.
+- P3 rejects independent matched-seed utility. Matched candidate-minus-A0
+  effects are +13.42, -5.50, and -2.08 points at seeds 1000--1002. Their
+  equal-seed mean is +1.94 points with hierarchical 95% CI
+  `[-5.78,+12.75]`; the interval crosses zero and the task-safety gate also
+  fails. P2 is therefore demoted to candidate-seed replication against one
+  fixed A0 rather than an independently matched method effect.
+- P4 does not identify the mechanism. Across three candidate seeds,
+  normal-minus-shuffled is +0.53 points with hierarchical 95% CI
+  `[-2.14,+3.08]` and Holm-adjusted `p=0.534`; normal-minus-zero-gate is +1.50
+  points with CI `[-1.31,+4.39]` and adjusted `p=0.205`; normal-minus-masked is
+  +1.33 points with CI `[-2.22,+4.86]` and adjusted `p=0.224`. Content-specific
+  causality, route necessity, and action-conditioning use therefore all remain
+  unidentified.
+- P5 establishes an exact paired public reference. The public pi0.5 checkpoint
+  reaches 78.17%, versus 82.42%, 78.08%, and 81.33% for candidate seeds
+  1000--1002. Their effects are +4.25, -0.08, and +3.17 points; the equal-seed
+  mean is +2.44 points with hierarchical 95% CI `[-0.72,+5.39]`. The interval
+  crosses zero, so there is no established improvement over the mature public
+  initialization.
+- R1 and R4 are closed negative extensions. Do not reopen recurrence-aligned
+  auxiliary training or outcome weighting to recover a positive result.
 
-- **Data gate:** `robotwin_milestone_all6_confirmatory_v1` covers 1,200
-  episodes across all six tasks and passed coverage, monotonic-target, source
-  hash, and READY audits.
-- **Content interventions:** A2 and A3 correct/current/zero/feature-permuted/
-  cross-task/within-task-instance controls are complete on final 518-scene
-  intersections. Correct future is not detectably better than any key control;
-  all pooled Holm-adjusted p-values are 1. The paper must not claim
-  inference-time future-content causality from these checkpoints.
-- **Inference cost:** A0/A2/A3 core latency is 57.19/58.35/57.99 ms and
-  WebSocket latency is 107.20/108.91/107.01 ms, corresponding to
-  9.33/9.18/9.34 requests/s. No material A3 inference penalty is detected.
-- **Training memory:** A0/A2-Abs/A3 peak at 67,247/67,247/67,265 MiB under
-  the matched four-A100 protocol. A2 exactly matches A0 and A3 adds only
-  18 MiB (0.027%), so E2 is complete.
-- **Evaluator calibration:** the public pi0.5 checkpoint reaches 78.42% on the
-  frozen six-task bridge. The legacy A0 reaches 35.50% through that bridge and
-  31.83% over 600 episodes under the native RoboTwin evaluator, with the same
-  task-level failure pattern. Its deficit is therefore primarily a weak-recipe
-  checkpoint problem rather than a bridge artifact, and it is not the
-  confirmatory baseline.
-- **LaWAM diagnostic:** Future-off averages 90.83% over three training seeds,
-  versus 88.78% for combo over three seeds, and 89.21% for absolute, 89.04%
-  for gradient isolation, 87.50% for residual, and 86.67% for local-WM over
-  two seeds each.
-  Future-off inherits WM-aware initialization and is not a pure-VLA baseline;
-  neither gradient isolation nor any other completed downstream WM-objective
-  replication shows a gain over it.
-- **Task-regime audit:** mean demonstration duration has an exploratory
-  association with absolute/combo recovery over local-WM (`rho=0.829`, six
-  post-hoc tasks), but long tasks split sharply and duration is not a sufficient
-  explanation. This offline analysis is complete and archived, not a TODO.
-- **Held-out future prediction:** two task-stratified folds covering 480
-  held-out episodes reach latent cosine 0.8134 versus 0.7479 for persistence
-  (lift +0.0655), with milestone retrieval top-1/top-5 of 46.9%/80.8%.
-  The predictor therefore learns nontrivial future information; poor control
-  cannot be attributed solely to an empty predictor.
-- **State-dependent retrieval upper bound:** on 1,161 paired episodes, a
-  task-scoped demonstration retrieval milestone changes pooled success by only
-  +0.34 pp (89.58% versus 89.23%, exact McNemar p=0.738; Holm p=1.0).
-  Better milestone content does not repair the current one-token interface.
-- **Six-task hint diagnosis:** all nine strict method-condition comparisons are
-  complete on 1,200 paired scenes each (216/216 cells, 9/9 markers). For
-  absolute, residual, and combo, correct hints do not beat zero, cross-task,
-  or within-task controls at the pooled level after Holm correction. The only
-  corrected task-level difference is adverse: combo reaches 72.5% on handover
-  with the correct hint versus 82.5% with a same-task foreign-instance hint
-  (10.0 pp lower, Holm p=0.0337). This closes L2 and strengthens the conclusion
-  that the current one-token interface has no demonstrated future-content
-  utility.
-- **Privileged spatial-interface gate:** the parameter-matched 1,000-update
-  S0-N/S0-C/S0-P probe is complete on 320 frozen held-out samples. On Stack-3,
-  privileged endpoint L2 is 0.3378 versus 0.3274 for no-goal and 0.3580 for
-  current-image patches, so it does not beat both controls. On Hammer it is
-  0.3080 versus 0.2355/0.2403. Episode-level paired bootstrap confirms the
-  Hammer regression versus no-goal (+0.0725, 95% CI [+0.0391, +0.1110]) and
-  current (+0.0677, [+0.0332, +0.1054]). T3a therefore fails its frozen gate;
-  T3b predictor expansion is closed and no pass marker is published.
+## Priority and decision order
 
-Canonical result files:
+| Priority | ID | Question | New work | Claim unlocked only if gate passes |
+|---|---|---|---|---|
+| Required | P3 | Does the P2 effect survive independent matched A0 training seeds? | Complete; gate rejected | No independently matched utility claim |
+| Required | P4 | Does the policy use the correct predicted action content? | Complete; all three mechanism gates rejected | No content-, route-, or action-conditioning claim |
+| High | P5 | Does the adapter improve the mature public initialization? | Complete; gate rejected | No improvement claim over the mature public checkpoint |
+| Conditional | P6 | If content remains unresolved, which training component produces utility? | Closed without execution because P3 failed | None |
+| Reviewer-triggered | P7 | Does the matched effect persist on unseen scene seeds? | Closed unless a reviewer explicitly reopens it | None |
 
-- `logs/pi05_a2_causal_with_instance.json`
-- `logs/pi05_a3_causal_final.json`
-- `logs/efficiency/pi05_a0_a2_a3_latency.json`
-- `logs/efficiency/pi05_train_memory_a0.json`
-- `logs/efficiency/pi05_train_memory_a2_abs.json`
-- `logs/efficiency/pi05_train_memory_a3_live.json`
-- `logs/eval_reports/robotwin_all6_v2_training_seed_matrix.json`
-- `logs/eval_reports/robotwin_lmwm_heldout_twofold.json`
-- `logs/l2_six_task_intervention_analysis.json`
-- `logs/spatial_s0/s0_offline_verdict.json`
-- `lmvla/paper_iclr_lmvla/manifests/pi05_confirmatory_eval_protocol.json`
-- `lmvla/lmwm/docs/PROGRESS_pi05_vla_baseline_2026-08-01.md`
+P3--P5 answered distinct questions under frozen protocols. P6 and P7 remain
+closed by the decisions recorded below.
 
-## Remaining priority queue
+## P3: independent matched-baseline replication
 
-| Priority | ID | Remaining evidence | Current gate |
-|---|---|---|---|
-| P0 | T0 | Exact A0 seed-1000 training and frozen six-task evaluation | Training on gf1 4xA100; checkpoint sync, evaluation, and gate automated |
-| P1 | T1 | Corrected A2-Abs and A3 seed-1000 training plus matched A0/A2/A3 evaluation | Seed-1000 training runs speculatively; result acceptance waits for T0 |
-| P2 | T2 | A0/A2/A3 seeds 1001 and 1002 with hierarchical uncertainty | Training runs speculatively in parallel; reporting waits for accepted T0/T1 |
-| P4 | T4 | Preregistered selector and task-regime panel | Run only if T1/T2 or T3 establish utility; retain the one-token null boundary |
-| P5 | T5 | Mature-initialization transfer | Run after T2 or by explicit reviewer-risk decision |
-| P6 | T6 | Matched instantiation on a second VLA | Run only if T1 supports MINT-VLA |
-| S1 | L1 | Clean VLA versus LaWAM-init/Future-off training comparison | Required only for a claim that LM pretraining benefits a VLA |
+The current P2 denominator is the single 69.00% A0 seed-1000 report. P3 closes
+the largest reviewer-facing uncertainty by training the missing A0 seeds under
+the exact current-source P1/P2 recipe.
 
-## Publication evidence contract
+- [x] Freeze a P3 protocol that pins the existing source audit, official pi0.5
+  initialization, dataset, mean/std normalization, batch 16, 50,000 updates,
+  optimizer, final step 49,999, and the existing 24-cell scene manifest.
+- [x] Train A0 seeds 1001 and 1002 with `pi05_predictive_adapter_p1_a0_exact`.
+  Intermediate checkpoints, loss curves, and smoke tests are health telemetry
+  only; select the fixed final checkpoint without evaluation-based selection.
+- [x] Audit both final checkpoints for source, data, normalization, parameter
+  tree, optimizer state, payload, and atomic commit identity.
+- [x] Evaluate both A0 checkpoints on 24 task-by-evaluation-seed cells and 1,200
+  episodes each, with exact episode pairing to the corresponding existing P2
+  candidate seed.
+- [x] Analyze candidate-minus-A0 for matched training seeds 1000--1002 with
+  training seed as the top-level resampling unit and paired episodes nested
+  within each of the six equally weighted tasks. Use at least 20,000 frozen
+  bootstrap draws and report every seed and task effect.
 
-Every confirmatory result entering the main paper must satisfy this reporting
-contract. These are reporting requirements, not additional model arms.
+**P3 primary gate:** the hierarchical 95% interval lower endpoint for the
+three matched candidate-minus-A0 pairs must exceed zero. A statement that the
+gain is task-safe additionally requires no seed/task effect below -5 points.
+If the interval crosses zero, demote P2 to replicated-candidate evidence against
+one fixed A0 and do not describe it as independent matched-seed replication.
 
-- Report all six task cells, the macro average, and all three training-seed
-  values. Do not use the macro average to conceal task-level regressions.
-- For A2-Abs--A0 and A3--A0, report paired scene-level effect sizes and 95%
-  hierarchical bootstrap intervals. State the number of training seeds,
-  scenes, and episodes in each caption.
-- Keep success-rate evidence separate from representation metrics. Predictor
-  cosine and retrieval accuracy establish signal quality, not control utility.
-- Treat the strict hint interventions and spatial privileged probe as boundary
-  evidence. The former uses 1,200 paired episodes per method-condition
-  comparison; the latter is a 1,000-update, two-task offline action-endpoint
-  probe, not a closed-loop success result.
-- Main-paper figures use a white canvas, final-size 6--8 pt sans-serif type,
-  strokes of at least 0.5 pt, sentence-case labels, and colourblind-safe
-  colours paired with marker or line-style cues. Captions define every symbol,
-  sample size, interval, and whether higher or lower is better.
-- Reserve the headline result figure for the accepted A0/A2/A3 matrix. Until
-  it is complete, legacy pilot values remain visibly labelled exploratory.
+**P3 result:** rejected. The mean matched-seed effect is +1.94 points with
+hierarchical 95% CI `[-5.78,+12.75]`. Seed effects are +13.42, -5.50, and
+-2.08 points, and seed 1001 contains task regressions below -5 points. The
+result is not independently replicated and is not task-safe.
 
-Already-running LaWAM replications may finish as supporting diagnostics, but
-they do not gate the pi0.5 paper and must not create new method arms. Their live
-status belongs in the scheduler snapshot, not in this file.
+## P4: three-seed inference intervention panel
 
-## Experimental funnel
+P4 reuses the three accepted candidate checkpoints and their existing normal
+reports. It adds no training. Every control must retain the same checkpoint,
+scene, episode, observation, and action bridge as normal inference.
 
-1. **Validate the policy baseline (T0).** No method comparison is interpretable
-   until exact A0 passes the operational and provenance gates.
-2. **Measure the current interface (T1).** Complete the already prepared matched
-   A0/A2/A3 comparison. A gain here is an integration or representation effect,
-   because one-token content causality is already null.
-3. **Spatial-interface decision (T3, closed).** The privileged patch condition
-   did not beat both controls on Stack-3 and regressed Hammer with a paired
-   confidence interval excluding zero. Predictor expansion is stopped.
-4. **Replicate and broaden (T2/T4--T6).** Training-seed replication may run
-   speculatively to use idle resources. Task panels, mature initialization, and
-   a second VLA still require a positive utility gate before launch.
+- [x] Freeze deterministic `zero_gate`, `shuffled`, and `masked` intervention
+  identities, permutation seeds, checkpoint hashes, result names, and exact
+  pairing checks before running a new rollout.
+- [x] Evaluate zero-gate, shuffled-action, and masked-action conditions at
+  candidate seeds 1001 and 1002: six new 24-cell/1,200-episode reports. Reuse
+  seed-1000 reports only after their episode keys and hashes pass the new audit.
+- [x] Run a three-seed hierarchical paired analysis for normal-minus-shuffled
+  (correct action content), normal-minus-zero-gate (route use), and normal-
+  minus-masked (action-conditioning use). Treat these as a frozen family of
+  three comparisons and apply Holm correction to their pooled paired tests.
+- [x] Report every condition, training seed, and task. Do not use a positive
+  macro to claim uniform use when a task effect is negative.
 
-The implementation, controls, logging contract, and resource escalation rules
-for T3 are frozen in
-`lmvla/lmwm/docs/PLAN_pi05_spatial_future_interface_2026-08-01.md`.
+**P4 claim gates:**
 
-## Acceptance criteria
+- Content-specific causality requires the normal-minus-shuffled hierarchical
+  95% interval lower endpoint to exceed zero and its Holm-adjusted paired test
+  to be below 0.05.
+- Route necessity and action-conditioning use are separate claims and require
+  the corresponding zero-gate or masked comparison to pass the same criteria.
+- Passing zero-gate or masked while failing shuffled supports use of the route,
+  not use of the correct predicted content.
+- If normal-minus-shuffled remains unresolved, retain the paper's current
+  conclusion: the adapter package has utility, but its predictive-content
+  mechanism is unidentified.
 
-### T0: corrected baseline
+## P5: mature-public-checkpoint reference
 
-- [ ] Finish exact A0 seed 1000 at 50k updates.
-- [ ] Pass immutable checkpoint, config, normalization, dataset, and
-  launch-provenance audit.
-- [ ] Complete the frozen 24-cell evaluation and reach macro >=70%.
+The candidate mean is only 2.44 points above the 78.17% exact-paired public
+pi0.5 calibration, and the public task profile is heterogeneous. P5 determines
+whether fine-tuning with the adapter improves the initialization itself or
+mainly prevents the degradation observed in the current-source A0.
 
-The exact replacement is running on four A100s with the validated 27,500-
-episode official-prompt mirror, `augment_level="none"`, and immutable launch
-hashes. It has passed 48.4k/50k updates at approximately 0.77 s/update without
-a throughput regression; the remaining training ETA is approximately 0.35
-hours. The 20k
-non-gating smoke reaches 32/40 on Hammer (80%) and 4/40 on Stack-3 (10%), or
-36/80 overall, up from 3/40 at 10k. This establishes a rising learning curve
-but also shows that the multi-stage task is still immature. A non-gating full
-24-cell evaluation of the 20k checkpoint has produced all 24/24 shard
-artifacts; only the final 50k evaluation can close T0. Checkpoint
-synchronization and the final frozen
-evaluation are automated. The earlier prompt-defective reproduction is invalid
-for the confirmatory table; its checkpoint, evaluation, and diagnosis are
-retained in the evidence archive.
+- [x] Audit whether the original public 24-cell run can recover all 1,200
+  per-episode outcomes with exact keys and the frozen manifest SHA. Aggregate
+  task summaries alone are insufficient for a paired claim.
+- [x] If any episode outcome or identity is unavailable, reevaluate the exact
+  public checkpoint once on the existing 24-cell/1,200-episode manifest. Do not
+  train or tune the public checkpoint.
+- [x] Compare every P2 candidate seed with the fixed public checkpoint using
+  paired episodes, then average candidate training seeds equally. Report all
+  six task effects; the existing descriptive profile suggests that a positive
+  macro could coexist with Hammer and ranking regressions.
 
-If T0 fails, repair the baseline before accepting or interpreting any
-speculatively trained A2/A3 result.
+**P5 gate:** a claim that the adapter improves the mature initialization
+requires the hierarchical 95% interval lower endpoint for candidate minus
+public checkpoint to exceed zero. This comparison still has a fixed public
+denominator and does not replace P3. If the interval crosses zero, state that
+the adapter improves matched fine-tuning relative to A0 but does not establish
+improvement over the pretrained checkpoint.
 
-### T1: first matched utility matrix
+## P6: conditional training-component factorization
 
-- [ ] Train corrected A2-Abs seed 1000 from the same initialization as A0.
-- [ ] Train corrected A3 seed 1000 with the frozen six-task pair artifact.
-- [ ] Evaluate A0/A2/A3 on identical scene manifests and report every task.
+Run P6 only if P3 confirms matched utility and P4 fails to identify correct
+content. Its purpose is to distinguish a useful predictive objective from P0
+initialization and extra action-expert capacity. Freeze two parameter-matched
+controls before training:
 
-A2-Abs and A3 seed 1000 are running concurrently on Robot-East-H20 at about
-1.3 updates/s (roughly 10.4 hours from step 0). A3 has a nonzero weighted LMWM
-loss from step 100 onward, so its live-target path is active. Their frozen
-evaluations are queued behind the 50k checkpoints. The frozen evaluator
-protocol is audited in `manifests/pi05_confirmatory_eval_protocol.json`.
-A 1,200-episode scene-seed manifest is now frozen from the independent public
-pi0.5 same-bridge run (`pi05_public_samebridge_4seed_v3`, 78.42% macro). The
-scheduler injects it into every A0/A2/A3 evaluator and refuses completion
-unless all 24 cells pass exact scene-order and manifest-SHA verification.
-A2 uses server-side So400m encoding followed by the matched LMWM
-predictor/generator to produce an absolute predicted `g_next`; it does not use
-a zero fallback, current-feature passthrough, or residual hint. Shared and
-North evaluator code, LMWM checkpoint, and So400m weights have matching
-SHA-256 hashes.
-Runtime preflight found and corrected a configuration error before any final
-evaluation launched: A2/A3 candidates had referenced their training configs,
-which would invoke offline hint/target lookup. They now use the dedicated
-`pi05_robotwin_a2_prefix_official_eval_bj` and
-`pi05_robotwin_a3_live_residual_prefix_official_eval` configs on every backend;
-their sidecars override mean/std assets on those inference configs. The A0 20k
-one-cell preflight completed all 50 frozen Hammer scenes and passed the
-partial-manifest verifier. The A2 5k preflight restored the checkpoint, loaded
-the checkpoint norm statistics, enabled server-side So400m, loaded the LMWM
-predictor, and entered fixed-scene simulation. A2 and A3 one-cell verification
-now run concurrently on the two local GPUs; A3 started automatically as soon
-as the A0 preflight released GPU 0.
+**Closed without execution:** P4 failed its content gate, but P3 did not
+confirm matched utility. The conjunction required to authorize P6 is false;
+using idle GPUs for these arms would be an unregistered post-hoc expansion.
 
-Continue interpreting T2 only if A3 is competitive with A0 and A2-Abs. T3a is
-already closed: preserving a 4x4 privileged patch topology did not pass its
-two-task action-utility gate, so no predicted spatial expansion is admissible
-under the frozen protocol. Because the completed content interventions are
-null, any T1 gain must initially be described as an integration or
-representation effect, not as evidence that the policy uses correct future
-content.
+1. `p0_init_no_aux`: the same adapter tree and P0 overlay as the accepted
+   candidate, but predictive auxiliary-loss weight zero during policy training;
+   the action objective may still train the route.
+2. `random_init_no_aux`: the same adapter tree and route with per-seed frozen
+   random initialization and predictive auxiliary-loss weight zero.
 
-### T2: training-seed replication
+- [x] Close the planned parameter-equality audit, six control trainings, six
+  evaluations, and three-contrast analysis without execution. These operations
+  were conditional on a positive P3 gate and therefore never became authorized
+  work.
 
-- [ ] Train matched seeds 1001 and 1002 for A0/A2/A3.
-- [ ] Report seed-level intervals and paired A3-A0 and A2-A0 contrasts.
-- [ ] Add another seed only if one outlier controls the interpretation.
+No component receives a causal label unless its own interval excludes zero.
+If all contrasts are unresolved, report the positive result as utility of the
+full training package and stop mechanism expansion.
 
-All six replication trainings are Running. A0 seed 1002 and A2/A3 seeds
-1001--1002 exactly fill the Robot-North-H20 primary 20-GPU limit; A0 seed 1001
-runs on gf1 GPUs 4--7 after L2 released them. Together with A0 seed 1000 on
-gf1 GPUs 0--3 and A2/A3 seed 1000 on Robot-East-H20, every confirmatory
-training arm is active with no platform queueing. All nine frozen evaluations
-are queued behind their respective 50k checkpoint and normalization artifacts;
-all share `robotwin_pi05_confirmatory_scene_seeds_v1.json` (SHA-256
-`08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17`).
-The four evaluations whose checkpoints live on shared vePFS have validated
-Robot-East-H20 candidates in addition to gf1/North/robot-task fallbacks. This
-preserves the resource order `gf1 > East > North > robot-task` when training
-releases capacity; the East renderer gate already passed a real episode.
+## P7: reviewer-triggered scene robustness
 
-### T3: spatial-interface utility gate
+Do not schedule P7 by default. If P3 passes and submission review risk justifies
+the cost, freeze previously unused RoboTwin scene seeds before any rollout and
+evaluate matched A0/candidate seeds 1000--1002 without retraining. Use the same
+six tasks, four evaluation seeds, 50 accepted episodes per cell, and the P3
+hierarchical analysis. This can support robustness to new scenes within
+RoboTwin only; it cannot support new-task, real-robot, or second-VLA claims.
+P3 failed, so P7 is closed under the current plan even before reviewer cost is
+considered.
 
-#### T3a: privileged condition before predictor training
+## Publication and reporting gates
 
-- [x] Implement a policy-side spatial condition that preserves milestone patch
-  topology from the current pi0.5 visual encoder; do not global-average it into
-  one prefix token.
-- [x] Keep milestone/world-model losses out of the shared policy encoder while
-  allowing the action objective to train the adapter, confidence gate, and
-  action expert.
-- [x] Run a matched two-task smoke on Stack-3 (high predictor lift and stage
-  structure) and Hammer (low predictor lift and short horizon).
-- [x] Compare privileged milestone patches, current-image patches, and no-goal
-  with identical parameters, scene manifests, initialization, and updates.
+- [x] Update the abstract's replicated-utility wording after P3 finishes.
+  P3, not the already accepted P2 gate, determines whether “matched training
+  seeds” is admissible.
+- [x] Add a content-specific statement only if P4's normal-minus-shuffled gate
+  passes. Otherwise preserve the current explicit null attribution.
+- [x] Present P5 beside, not instead of, P3 so a strong or weak public reference
+  cannot obscure the matched-training comparison.
+- [x] Any new main-paper table must show all training seeds and six tasks. Any
+  new claim-bearing figure must use a white canvas, 6--8 pt sans-serif text,
+  strokes at least 0.5 pt, sentence-case labels, colourblind-safe colours plus
+  marker/line-style cues, and captions defining samples and interval hierarchy.
+- [x] Keep the paper within the ICLR main-text limit. Prefer replacing the
+  current P2 table with a consolidated P3/P4 table rather than adding pages.
+  The compressed draft uses nine main-text pages, with references beginning on
+  page 9 and the appendix on page 11. The complete PDF has 15 pages. Full
+  control and audit details remain in the appendix and canonical JSON records.
 
-S0 is complete under the frozen T3 plan. The three
-parameter-matched condition arms, 4x4 topology-preserving adapter/gate,
-stop-gradient target route, target-frame data path, and deterministic no-goal
-fallback are implemented. A task-stratified split freezes 160 train and 40
-held-out episodes for each of Stack-3 and Hammer. Twelve targeted model,
-data-index, and checkpoint-loading tests pass. The one-step privileged-arm
-end-to-end preflight also passes with a finite action loss and gradient norm,
-including base-checkpoint loading, target lookup, forward/backward, and
-checkpoint export. A task-balanced 32-sample evaluator smoke passes on both
-tasks with strict finite JSON, 100% target availability, and nonzero action
-sensitivity to shuffled privileged targets. The matched 1,000-update
-S0-N/S0-C/S0-P arms and all three frozen 320-sample held-out evaluations finish
-successfully from update 999 with identical sample, evaluator, and noise
-protocol hashes. Privileged patches fail to improve Stack-3 over both controls
-and regress Hammer; the episode-level paired verdict is archived at
-`logs/spatial_s0/s0_offline_verdict.json`. The T3a implementation boxes are
-complete, but `pi05_spatial_s0_offline.ok` is intentionally absent because the
-utility gate failed.
+## Stop and scope rules
 
-T3a passes only if privileged milestone patches improve the prespecified
-Stack-3 endpoint without a material Hammer regression. If it fails, do not
-train a larger predictor or launch a six-task spatial matrix.
-
-#### T3b: predicted spatial condition (closed by gate)
-
-T3b was not run because T3a failed. Predicted/retrieved spatial conditions,
-generated-condition mixtures, confidence gating, refresh policies, and route
-ablations are no longer remaining paper tasks. Reopening them requires a new
-preregistered interface hypothesis rather than tuning against this S0 result.
-
-### T4: selector and task scope
-
-- [ ] Compare fixed-horizon, random-future, terminal-frame,
-  recurrence-milestone, and oracle-milestone targets.
-- [ ] Submit matched evaluations on the already frozen block/bowl stacking,
-  reactive/contact, geometry, and relational-transfer panel.
-
-A scoped claim requires replication on both block and bowl stacking and an
-advantage over fixed horizon. It must describe the frozen null result as a
-failure of the evaluated one-token interface, not erase or contradict it.
-
-### T5: mature initialization
-
-- [ ] Fine-tune matched A0/A2/A3 from one mature initialization with identical
-  optimizer-state policy, data mixture, updates, and evaluator.
-
-### T6: second VLA
-
-- [ ] Establish a clean no-milestone baseline on a second VLA.
-- [ ] Reuse milestone selection and native-space prediction while matching the
-  second VLA's feature width and conditioning interface.
-- [ ] Train at least two seeds per arm and report task effects, parameters, and
-  inference cost.
-
-Do not claim multi-architecture evidence unless MINT-VLA improves over the
-second architecture's matched baseline.
-
-### L1: identify whether LM pretraining benefits the VLA
-
-- [ ] Train a clean VLA/Future-off arm without LaWAM pretraining under a
-  matched downstream recipe and evaluation protocol.
-- [ ] If this contrast is used for a pretraining-benefit claim, submit a
-  budget-matched LaWAM-pretrained/Future-off control and replicate both arms.
-
-The existing Future-off checkpoint inherits LaWAM pretraining and cannot serve
-as the clean VLA endpoint. Until L1 is complete, neither “LM benefits VLA” nor
-“LM is useless to VLA” is identified by the supporting matrix.
-
-### L2: six-task hint-condition evaluation
-
-- [x] Replace the unmatched episode IDs in all nine method-condition pairs and
-  reach 1,200 identical scene IDs per comparison using frozen per-cell
-  manifests. The strict matrix is complete at 216/216 cells and 9/9 markers.
-  No method has a pooled correct-hint advantage over zero, cross-task, or
-  within-task controls after Holm correction. Combo handover is significantly
-  worse with the correct hint than with a same-task foreign-instance hint
-  (72.5% versus 82.5%, Holm p=0.0337).
-- [x] Finish both task-stratified held-out predictor folds and report latent
-  cosine/error plus nearest-milestone retrieval by task. Across the two folds,
-  latent cosine is 0.8134 versus 0.7479 for persistence (lift +0.0655), with
-  retrieval top-1/top-5 of 46.9%/80.8%.
-- [x] Finish the 24-cell state-dependent demo-retrieval upper-bound evaluation
-  and retain episode outcomes for paired analysis. On 1,161 paired episodes,
-  retrieval changes pooled success by only +0.34 pp (89.58% versus 89.23%,
-  exact McNemar p=0.738; Holm-adjusted p=1.0), so it does not establish
-  inference-time future-content utility.
-
-The earlier unrestricted cells remain excluded because independent
-accepted-seed searches changed 34--47 episode IDs per comparison. The strict
-fixed-manifest reruns replace them; no further unrestricted reruns should be
-submitted. The retrieval condition uses a task-scoped demonstration bank and
-must be reported as a state-dependent demo-retrieval upper bound, not as a
-future-peek rollout oracle.
-
-Canonical retrieval outputs:
-
-- `logs/eval_reports/rt_all6_v2_combo_oracle_retrieval_seed2026_unseen.json`
-- `logs/eval_reports/robotwin_combo_oracle_retrieval_paired.json`
-- `logs/l2_six_task_intervention_analysis.json`
-
-## Decision outcomes
-
-- **Scoped method:** replicated corrected-recipe utility with a clearly bounded
-  task or integration regime; a future-content claim additionally requires the
-  spatial privileged and predicted gates.
-- **Integration study:** utility or representation effects persist, but correct
-  future content remains causally null. This is the outcome most directly
-  supported by current evidence.
-- **Negative result:** corrected A0 removes the gain; retain the integration
-  diagnosis and evaluation assets without a method-benefit claim.
+- Do not reopen original one-token MINT-VLA, oracle-transition, R1, or R4 arms.
+- Do not launch a second VLA, new-task training, or real-robot study from this
+  TODO. Those are separate projects unless requested by a reviewer or a new
+  explicit paper claim.
+- Do not infer prediction-content causality from representation cosine,
+  checkpoint loss, zero-gate alone, or a candidate-versus-A0 utility result.
+- Do not infer robustness from simulator evaluation seeds when baseline
+  training seeds are missing.
+- Failed platform attempts before a valid episode are operational records, not
+  evidence. Partial cells, smokes, and intermediate checkpoints never enter a
+  claim-bearing table.
