@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 06:30 UTC
+Updated: 2026-08-08 06:31 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -245,7 +245,7 @@ hash-verified atomic transfer with `rc=0` at 05:49 UTC, and the scheduler
 accepted `local=1/1` at 05:51 UTC. North `future_off` seed 1002 then completed
 step 20,000 and its durable final save at 06:01 UTC; its serialized North
 materializer started immediately and remains incomplete. Its atomic incoming
-tree reached 8.6 GiB at 06:30 UTC and continued to grow, so the transfer is
+tree reached 9.0 GiB at 06:31 UTC and continued to grow, so the transfer is
 making progress rather than stalled. The `future_off` seed-1000 and seed-1001
 retries concurrently reached steps 5666 and 5637 at 2.13 and 2.05 s/step, with
 estimated remaining times of 8.48 and 8.18 hours. Thus all completed raw-milestone
@@ -432,8 +432,8 @@ Admission source:
   episodes. All four eval seeds completed `beat_block_hammer`; eval seeds 0,
   1, and 2 also completed `blocks_ranking_size`; eval seed 3 stopped that task
   after scene seed 400038 remained invalid for all three frozen setup attempts,
-  then completed `blocks_ranking_rgb`. Eval seed 1 subsequently completed the
-  same RGB task, producing 9/24 summaries at 06:24 UTC. The final exact-24-cell
+  then completed `blocks_ranking_rgb`. Eval seeds 1 and 2 subsequently completed
+  the same RGB task, producing 10/24 summaries at 06:30 UTC. The final exact-24-cell
   verifier will reject this run without the same explicitly admitted common
   retry amendment required by the null arm. This is runtime progress, not a
   valid partial cross-condition result.
