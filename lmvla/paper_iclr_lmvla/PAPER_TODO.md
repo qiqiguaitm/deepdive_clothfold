@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 03:41 UTC
+Updated: 2026-08-08 03:45 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -229,6 +229,18 @@ on the serialization lock. If sustained, this projects about 2.9 hours per
 North run and roughly 20 hours for seven runs rather than the small-file
 probe's optimistic estimate. This affects result availability only; the
 admitted full-state, serialized, hash-verified transfer contract is unchanged.
+At 03:45 UTC, the previously detached runtime-v7 fixed-endpoint seed-1002 job
+`t-20260807223419-bbwfx` was Running at step 1256 while the current runtime-v8
+job `t-20260807223916-rv9gd` remained Queueing. A request, source, and
+initialization audit found identical scientific inputs and parameter-tree
+hashes; v8 differs only by its collision-safe run timestamp. The delayed job
+nevertheless remains inadmissible under the current v8 invariant because it
+was queued when v8 was admitted, is recorded as superseded, and has no final
+state or data-order sidecars. Its existing run directory will also trigger the
+v8 overwrite guard, while the North materializer requires exactly one matching
+directory. No automatic adoption, quarantine, or checkbox credit is
+authorized. The exact evidence and decision boundary are recorded in
+`AUDIT_temporal_grounding_live_blockers_2026-08-08.json`.
 The scheduler test suite now redirects `LOG_PATH` into each test's temporary
 directory, preventing synthetic retry and materializer messages from entering
 the live operational log during future validation runs. The 164-test suite
@@ -331,6 +343,13 @@ retried:
   validity, not a permanently invalid scene identity, but increasing the
   frozen retry cap is still a recipe change and requires an explicit protocol
   decision. Replacing scenes remains forbidden.
+
+The non-activating blocker audit recommends, but does not authorize, one
+common `ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS=500` amendment for TG1A and TG1B. This
+matches the repository's existing formal pi0.5 fixed-scene launchers while
+preserving every scene identity. A clean amendment must archive incomplete
+roots and rerun all conditions in both panels under the same cap; mixing old
+partial cells, changing scenes, or amending only one arm remains forbidden.
 
 ## 4. Dependency graph and admission waves
 

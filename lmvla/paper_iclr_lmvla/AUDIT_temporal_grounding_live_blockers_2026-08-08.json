@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "audited_at_utc": "2026-08-08T03:45:00Z",
+  "scope": "Non-activating audit of the delayed TG2 runtime-v7 fixed-endpoint seed-1002 job and the shared TG1 fixed-scene retry exhaustion",
+  "authorization": {
+    "status": "audit_only",
+    "scheduler_readiness_marker": false,
+    "experiment_protocol_changed": false,
+    "jobs_modified": false,
+    "explicit_operator_amendment_required": true
+  },
+  "tg2_delayed_runtime_v7": {
+    "task": "temporal_grounding_tg2_fixed_endpoint_seed1002_train",
+    "delayed_job": {
+      "job_id": "t-20260807223419-bbwfx",
+      "credential_profile": "backup",
+      "runtime_revision": "temporal_grounding_runtime_v7",
+      "platform_state_at_audit": "Running",
+      "observed_step_at_audit": 1256,
+      "expected_steps": 20000,
+      "seconds_per_step_at_audit": 2.31,
+      "request_command_sha256": "f717d9b3a8b8d00d9125cdae9610b016378592d7be93a5228baca65632175386",
+      "arm": "fixed_endpoint",
+      "training_seed": 1002,
+      "framework": "PyTorch",
+      "instance_type": "ml.pni3ln.17xlarge",
+      "gpus": 4,
+      "max_runtime_seconds": 86400,
+      "image": "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+    },
+    "current_runtime_v8_job": {
+      "job_id": "t-20260807223916-rv9gd",
+      "platform_state_at_audit": "Queueing",
+      "request_command_sha256": "19f1e4baf6e0ce4cfd5d2b6a97650f9dc58ac3f1bbb8d0bbf4c1893c1154655e"
+    },
+    "pinned_runtime": {
+      "outer_staging_commit": "11fb84349809b30ddc785dc99105080540d000c2",
+      "lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a",
+      "frozen_runner_sha256": "e81d2c63ac5b5fbdd67b5219d7883f5338ed50b78033926b7849412cad1cd49f",
+      "tg2_admission_manifest_sha256": "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
+      "processor_bridge_sha256": "922e7b08959d01faad7ae64b04114aebdf6cd71666af6d49dfafe93380de4f90",
+      "runtime_v7_yaml_sha256": "8fae10c2d8fa334146f4c8a7f6d87e7bb31ad8cb99c96f79dbd7131282f3d524",
+      "runtime_v8_yaml_sha256": "593b1b2efab47e3ac1c9b92c2de185a0fe58c4d48701392cf78ed9f4d406ac54"
+    },
+    "initialization_sidecar": {
+      "sha256": "2dbf766e109802d8d443ef30bc8273ddb474efceff37133d36a7fedd07102f3b",
+      "initialization_payload_sha256": "26e1de2e990379d7c727588b32c8822989cc543dbad65a0a6112a323dc8559ff",
+      "parameter_tree_sha256": "142be83fcbb30e6befa9ac43a3508bcc5321be95d12508f8cf7ba7c40858902e",
+      "trainable_tree_sha256": "14c7acfbb64b4bbef8c2397a05a2654b59a71b7b1831c9377ad032e2e787014f",
+      "optimizer_tree_sha256": "c1ce78a0b11d92c83239aadf786cc48536be3958b2c8f29793fed96db4cd78fb",
+      "optimizer_state_entries_before_training": 0,
+      "route_verified": true
+    },
+    "scientific_equivalence_evidence": [
+      "The v7 and v8 requests use the same staging commits, image, four-H20 resource, arm, seed, frozen runner, processor bridge, data, initialization, optimizer, global batch, and step count.",
+      "Runtime v8 changes only the runtime label and an ephemeral LAWAM_RUN_TIMESTAMP suffix that prevents concurrent log-directory collisions.",
+      "The delayed v7 initialization hashes match the five previously captured TG2 North initialization snapshots."
+    ],
+    "current_admissibility": {
+      "accepted_as_tg2_completion": false,
+      "reasons": [
+        "Runtime-v8 amendment invariant requires cells that were pending or queued when v8 was admitted to use v8; this v7 job was queued and detached at that time.",
+        "The scheduler records this job as a superseded attempt rather than the current managed attempt.",
+        "No final checkpoint, step-20000 optimizer/trainer state, or four-rank data-order sidecar set exists yet.",
+        "No explicit amendment authorizes adopting a delayed superseded v7 attempt."
+      ]
+    },
+    "collision_risk": {
+      "existing_output_directory": "20260808_025554+temporal_grounding_tg2_fixed_endpoint_seed1002",
+      "current_v8_overwrite_guard_expected_to_reject": true,
+      "north_materializer_requires_exactly_one_matching_run_directory": true,
+      "automatic_adoption_or_quarantine_authorized": false
+    },
+    "decision_boundary": [
+      "An explicit amendment may authorize the delayed v7 job only after successful platform termination, a complete step-20000 state, four valid data-order sidecars, exact source and initialization verification, and proof that no second matching run directory exists.",
+      "Otherwise the delayed v7 output must remain excluded, and a clean v8 run requires an explicitly authorized preservation/quarantine procedure that leaves all evidence intact.",
+      "Until one path is authorized, the delayed v7 job is health telemetry only and must not satisfy a TODO checkbox or downstream integrity dependency."
+    ]
+  },
+  "tg1_fixed_scene_retry": {
+    "current_retry_cap": 3,
+    "shared_failures": [
+      {
+        "task": "stack_blocks_three",
+        "eval_seed": 0,
+        "scene_seed": 100033
+      },
+      {
+        "task": "beat_block_hammer",
+        "eval_seed": 1,
+        "scene_seed": 200026
+      },
+      {
+        "task": "handover_block",
+        "eval_seed": 1,
+        "scene_seed": 200040
+      },
+      {
+        "task": "handover_block",
+        "eval_seed": 2,
+        "scene_seed": 300024
+      }
+    ],
+    "additional_local_wm_failures": [
+      {
+        "task": "beat_block_hammer",
+        "eval_seed": 2,
+        "scene_seed": 300046
+      },
+      {
+        "task": "blocks_ranking_size",
+        "eval_seed": 2,
+        "scene_seed": 300035
+      }
+    ],
+    "live_tg1a_recurrence": {
+      "condition": "null",
+      "task": "beat_block_hammer",
+      "eval_seed": 1,
+      "scene_seed": 200026,
+      "attempts": 3,
+      "concurrent_normal_condition_accepted_same_scene": true
+    },
+    "diagnosis": "Stochastic simulator/setup validity under a retry cap that is too small for the frozen scene panel; not a permanently invalid scene identity or a method-specific inference failure.",
+    "minimal_amendment_boundary": {
+      "recommended_retry_cap": 500,
+      "precedent": "Existing formal pi0.5 fixed-scene evaluation launchers in this repository use ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS=500.",
+      "must_remain_unchanged": [
+        "scene manifest and all 1,200 accepted scene identities",
+        "checkpoints and initialization",
+        "tasks, eval seeds, interventions, execution cadence, control rate, episode count, and analysis gates",
+        "fixed-scene verifier and requirement for exactly 24 complete cells per condition"
+      ],
+      "required_rerun_scope": "Archive incomplete roots and rerun every condition in the affected TG1A and TG1B panels under one common amended retry cap; do not mix partial old cells with amended cells.",
+      "forbidden_shortcuts": [
+        "replace a scene seed",
+        "drop a failed cell",
+        "analyze only completed cells",
+        "raise the cap for only one arm",
+        "publish partial success rates"
+      ],
+      "activated": false,
+      "explicit_operator_authorization_required": true
+    }
+  }
+}
