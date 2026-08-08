@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 03:45 UTC
+Updated: 2026-08-08 03:55 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -412,12 +412,13 @@ Admission source:
   cell or a cross-condition result.
 - [ ] **TG1A-E2 [RUNNING-RUNTIME-V10: `t-20260808111025-xbjcc`; prior failed
   run: `t-20260807165010-gk4h7`]** Evaluate `null`; 4 GPUs, 1,200 accepted
-  episodes. All four eval seeds created fresh run and task metadata; 0/24
-  summaries at 03:40 UTC. Seed 1 stopped `beat_block_hammer` after scene seed
-  200026 remained invalid for all three frozen setup attempts and continued to
-  the next task; the final exact-24-cell verifier will therefore reject this
-  run unless an explicitly admitted protocol amendment resolves the shared
-  stochastic-validity blocker.
+  episodes. Eval seeds 0, 2, and 3 completed `beat_block_hammer`, producing
+  3/24 summaries at 03:55 UTC. Seed 1 stopped that task after scene seed 200026
+  remained invalid for all three frozen setup attempts and continued to the
+  next task; the final exact-24-cell verifier will therefore reject this run
+  unless an explicitly admitted protocol amendment resolves the shared
+  stochastic-validity blocker. This is runtime progress, not a valid partial
+  cross-condition comparison.
 - [ ] **TG1A-E3 [READY-RUNTIME-V10; prior failed run: `t-20260807171443-psgh6`]**
   Evaluate `persistence`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
