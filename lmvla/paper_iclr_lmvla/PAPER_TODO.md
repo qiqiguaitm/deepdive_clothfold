@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 03:22 UTC
+Updated: 2026-08-08 03:41 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -388,12 +388,17 @@ Admission source:
 
 - [ ] **TG1A-E1 [RUNNING-RUNTIME-V10: `t-20260808110854-xxb97`; prior failed
   run: `t-20260807165006-b4pqr`]** Evaluate `normal`; 4 GPUs, 1,200 accepted
-  episodes. All four eval seeds created fresh run and task metadata; 0/24
-  summaries at 03:19 UTC.
+  episodes. All four eval seeds completed `beat_block_hammer`, producing 4/24
+  summaries at 03:40 UTC. This is a runtime-progress check, not a completed
+  cell or a cross-condition result.
 - [ ] **TG1A-E2 [RUNNING-RUNTIME-V10: `t-20260808111025-xbjcc`; prior failed
   run: `t-20260807165010-gk4h7`]** Evaluate `null`; 4 GPUs, 1,200 accepted
   episodes. All four eval seeds created fresh run and task metadata; 0/24
-  summaries at 03:19 UTC.
+  summaries at 03:40 UTC. Seed 1 stopped `beat_block_hammer` after scene seed
+  200026 remained invalid for all three frozen setup attempts and continued to
+  the next task; the final exact-24-cell verifier will therefore reject this
+  run unless an explicitly admitted protocol amendment resolves the shared
+  stochastic-validity blocker.
 - [ ] **TG1A-E3 [READY-RUNTIME-V10; prior failed run: `t-20260807171443-psgh6`]**
   Evaluate `persistence`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
@@ -406,6 +411,13 @@ failed-runtime archives for normal, null, and persistence. The amendment-aware
 TG1A bundle verifier also passed all 17 pinned files under runtime v10. This
 confirms launch readiness when East releases capacity; it is not rollout
 progress and no checkbox is complete.
+
+The live null failure is the same `(task, eval seed, scene seed)` triple as a
+shared TG1B failure, while the concurrent normal arm accepted that scene and
+completed the task. This independently supports the existing diagnosis of
+stochastic simulator/setup validity rather than a method-specific inference
+failure. It does not authorize raising the retry cap, replacing a scene,
+dropping the failed cell, or interpreting the partial success rates.
 
 Oracle is closed, not unfinished: no audited exact same-scene expert endpoint
 feature mapping exists. Do not substitute a retrieved, cross-scene, or
