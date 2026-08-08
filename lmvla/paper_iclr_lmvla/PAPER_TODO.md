@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 08:33 UTC
+Updated: 2026-08-08 08:51 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -282,6 +282,13 @@ v8 overwrite guard, while the North materializer requires exactly one matching
 directory. No automatic adoption, quarantine, or checkbox credit is
 authorized. The exact evidence and decision boundary are recorded in
 `AUDIT_temporal_grounding_live_blockers_2026-08-08.json`.
+At 08:51 UTC, that separation remained necessary: the detached runtime-v7 job
+had reached step 9299 at 2.26 s/step, while direct control-plane queries still
+reported the formal runtime-v8 T06 job Queueing. The two formal future-off v8
+retries reached steps 9817 and 9771 at 2.04--2.05 s/step. These are healthy
+optimization heartbeats only. The runtime-v7 heartbeat remains excluded from
+T06, materialization, and the nine-arm integrity gate, and no new backup-profile
+submission was made.
 The scheduler test suite now redirects `LOG_PATH` into each test's temporary
 directory, preventing synthetic retry and materializer messages from entering
 the live operational log during future validation runs. The 164-test suite
