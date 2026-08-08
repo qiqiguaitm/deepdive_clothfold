@@ -11113,7 +11113,10 @@ def completion_evidence(task: dict[str, Any]) -> tuple[bool, str]:
             PI05_CONFIRMATORY_EVAL_RE.fullmatch(task["id"])
             or TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task["id"])
         )
-        if location_complete and fixed_scene_eval:
+        if fixed_scene_eval and count > minimum:
+            location_complete = False
+            verification = ",exact-count=error"
+        elif location_complete and fixed_scene_eval:
             root = completion_root_from_glob(location_pattern)
             manifest = (
                 PI05_CONFIRMATORY_SCENE_MANIFEST_NORTH

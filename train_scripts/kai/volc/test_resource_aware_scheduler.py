@@ -5981,6 +5981,29 @@ def test_temporal_grounding_completion_rejects_fixed_scene_verifier_failure(
     )
 
 
+def test_temporal_grounding_completion_rejects_more_than_24_summaries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "temporal_grounding_tg2_future_off_seed1000"
+    for index in range(25):
+        path = root / f"seed{index % 4}" / f"cell{index}" / "summary.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n")
+    calls = []
+    monkeypatch.setattr(scheduler, "run", lambda *args, **kwargs: calls.append(args))
+    task = {
+        "id": "temporal_grounding_tg2_future_off_seed1000_eval",
+        "completion_glob": str(root / "seed*/**/summary.json"),
+        "completion_min_count": 24,
+    }
+
+    complete, evidence = scheduler.completion_evidence(task)
+
+    assert complete is False
+    assert evidence == "completion artifacts local=25/24,exact-count=error"
+    assert calls == []
+
+
 def test_running_task_polls_remote_completion_before_local_materialization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

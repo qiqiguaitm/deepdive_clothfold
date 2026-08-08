@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 07:28 UTC
+Updated: 2026-08-08 07:31 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -399,14 +399,14 @@ frozen runners' cap of three, all eight required rerun conditions, and
 passed exact ordered-scene verification. The auditor and focused tests pass
 without modifying a job, result root, runner, readiness marker, or scheduler
 state.
-At 07:26 UTC, the scheduler completion gate was hardened so every TG1A, TG1B,
-and TG2 evaluation must pass the frozen fixed-scene verifier after reaching 24
-summary files. A mismatched manifest, missing scene identity, duplicate scene,
-or duplicate cell now leaves the task incomplete instead of releasing its
-downstream gate. All 182 scheduler and recommendation tests pass, and the live
-partial roots remain correctly incomplete at 12/24 normal and 6/24 null. This
-is lifecycle validation only; it does not change a runner, scene, retry cap, or
-scientific result.
+At 07:31 UTC, the scheduler completion gate was hardened so every TG1A, TG1B,
+and TG2 evaluation must contain exactly 24 summary files and then pass the
+frozen fixed-scene verifier. A mismatched manifest, missing scene identity,
+duplicate scene, duplicate cell, or extra summary now leaves the task
+incomplete instead of releasing its downstream gate. All 183 scheduler and
+recommendation tests pass, and the live partial roots remain correctly
+incomplete at 13/24 normal and 6/24 null. This is lifecycle validation only; it
+does not change a runner, scene, retry cap, or scientific result.
 
 ## 4. Dependency graph and admission waves
 
