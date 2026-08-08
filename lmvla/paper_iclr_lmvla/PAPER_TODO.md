@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 07:15 UTC
+Updated: 2026-08-08 07:22 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -253,6 +253,19 @@ and 7.38 hours. Thus all completed raw-milestone North transfers and
 future-off seed 1002 are local; the remaining integrity dependencies are the
 two future-off retries plus fixed-endpoint seed 1002 and raw-milestone seed
 1000. None of these transitions is closed-loop policy evidence.
+At 07:21 UTC, a second read-only verification of the three user-readable North
+sidecar bundles (`future_off` seed 1002 and `raw_milestone` seeds 1001--1002)
+passed the frozen initialization route, four-rank data-order schema, and every
+recorded SHA-256 comparison. The verifier's eight focused tests also pass.
+Canonical East sidecars remain root-owned and are intentionally deferred to
+the admitted one-GPU East integrity worker after all nine rows materialize;
+local permission denial is not training completion or integrity failure. The
+two future-off retries reached steps 7195 and 7163 at 2.04--2.08 s/step, with
+current ETAs of about 7.3--7.4 hours. The watcher also sees a fixed-endpoint
+seed-1002 training heartbeat from a detached superseded attempt, but the
+scheduler has no admissible runtime-v8 binding for that output and correctly
+keeps the formal T06 request Queueing. It cannot be counted, materialized, or
+used to release the joint gate.
 After the transfer marker was accepted, the scheduler was safely reloaded at
 07:12 UTC to apply the operator's primary-first credential policy and prior
 20-GPU primary-account limit. Two subsequent snapshots report primary `8/20`
