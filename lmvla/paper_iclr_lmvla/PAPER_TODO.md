@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 03:19 UTC
+Updated: 2026-08-08 03:22 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -221,6 +221,14 @@ check is enforced again during pending/restart artifact reconciliation, so a
 partial file from a failed attempt cannot bypass the runtime check on the next
 state-machine phase. Successful and failed reconciliation cases bring the full
 scheduler suite to 164 passing tests.
+The first live North materialization refined that planning estimate. The
+raw-milestone seed-1001 source tree is 23,489,222,006 bytes, comprising about
+6.7 GiB of final-model weights and 16 GiB of step-20,000 checkpoint state. Its
+incoming tree grew at 2.15 MiB/s over a 60-second sample while seed 1002 waited
+on the serialization lock. If sustained, this projects about 2.9 hours per
+North run and roughly 20 hours for seven runs rather than the small-file
+probe's optimistic estimate. This affects result availability only; the
+admitted full-state, serialized, hash-verified transfer contract is unchanged.
 The scheduler test suite now redirects `LOG_PATH` into each test's temporary
 directory, preventing synthetic retry and materializer messages from entering
 the live operational log during future validation runs. The 164-test suite
