@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 08:51 UTC
+Updated: 2026-08-08 09:12 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -402,7 +402,7 @@ The read-only machine audit
 `AUDIT_temporal_grounding_retry_panel_2026-08-08.json` independently verifies
 the exact ordered scene identities of every summary currently present, both
 frozen runners' cap of three, all eight required rerun conditions, and
-`activated=false`. All 62 summaries present across the eight roots at 08:33 UTC
+`activated=false`. All 63 summaries present across the eight roots at 09:12 UTC
 passed exact ordered-scene verification. The auditor and focused tests pass
 without modifying a job, result root, runner, readiness marker, or scheduler
 state.
@@ -479,8 +479,10 @@ Admission source:
   seed 0 completed that handover cell at 07:27 UTC. Eval seed 2 then completed
   `stack_blocks_two` at 07:43 UTC, followed by eval seed 1 at 07:50 UTC, eval
   seed 3 at 07:53 UTC, and eval seed 0 at 08:16 UTC. All four stack-two cells
-  are therefore complete, producing 17/24 summaries. Eval seeds 1 and 2 stopped
-  their
+  are therefore complete. Eval seed 2 completed `stack_blocks_three` at 09:12
+  UTC, producing 18/24 summaries. Eval seed 0 stopped that task after scene seed
+  100033 remained invalid for all three frozen setup attempts. Eval seeds 1 and
+  2 stopped their
   handover cells after exhausting the same three-attempt setup limit. The final
   exact-24-cell
   verifier will reject this run without the same explicitly admitted common
