@@ -1,0 +1,76 @@
+TaskName: "pi05-task-n-v5-0806-0807-319-sft-cnbj-16h20"
+Description: "Task_N 08-06/08-07 frozen 287/32 joint14, official pi05_base, bs128, 40k, 16 H20"
+Tags: []
+Preemptible: false
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 2
+    Flavor: "ml.hpcpni3ln.45xlarge"
+ActiveDeadlineSeconds: 259200
+EnableTensorBoard: false
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+CacheType: "Cloudfs"
+Envs:
+  - {Name: PYTHONUNBUFFERED, Value: "1"}
+  - {Name: HF_HUB_OFFLINE, Value: "1"}
+  - {Name: TRANSFORMERS_OFFLINE, Value: "1"}
+  - {Name: TOKENIZERS_PARALLELISM, Value: "false"}
+  - {Name: NCCL_DEBUG, Value: "WARN"}
+  - {Name: OMP_NUM_THREADS, Value: "8"}
+  - {Name: XLA_PYTHON_CLIENT_MEM_FRACTION, Value: "0.85"}
+  - {Name: JAX_COMPILATION_CACHE_MIN_ENTRY_SIZE_BYTES, Value: "-1"}
+  - {Name: JAX_COMPILATION_CACHE_MIN_COMPILE_TIME_SECS, Value: "1"}
+  - {Name: JAX_ENABLE_EMPTY_ARRAYS, Value: "true"}
+Entrypoint: |
+  set -euo pipefail
+  ROOT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  CODE_ROOT=$ROOT/.staging/task_n_319_code
+  KAI0=$ROOT/kai0
+  TRAIN=$KAI0/data/Task_N/self_built/nail_v5_0806_0807_319_joint14_train
+  VAL=$KAI0/data/Task_N/self_built/nail_v5_0806_0807_319_joint14_val
+  INIT=/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params
+  BASE=$KAI0/checkpoints
+  EXP=nail_v5_0806_0807_319_sft_bs128_s42
+  NODE=${MLP_ROLE_INDEX:-0}
+  LOG=$ROOT/logs/pi05_task_n_v5_0806_0807_319_sft_$(date -u +%Y%m%d_%H%M%S)_node${NODE}.log
+  mkdir -p "$ROOT/logs"
+  exec > >(tee -a "$LOG") 2>&1
+
+  test -f "$ROOT/logs/task_n_v5_0806_0807_319_smoke.ok"
+  test -f "$CODE_ROOT/TASK_N_319_CODE_COMMIT"
+  test "$(git -C "$CODE_ROOT" rev-parse HEAD)" = "$(cat "$CODE_ROOT/TASK_N_319_CODE_COMMIT")"
+  grep -q "commit=$(cat "$CODE_ROOT/TASK_N_319_CODE_COMMIT")" "$ROOT/logs/task_n_v5_0806_0807_319_smoke.ok"
+  test -f "$TRAIN/NORTH_SYNC_OK.json"
+  test -f "$INIT/_METADATA"
+  test "$(nvidia-smi -L | wc -l)" -eq 8
+
+  export PYTHONPATH="$CODE_ROOT/kai0/src${PYTHONPATH:+:$PYTHONPATH}"
+  export TASK_N_319_KAI0_ROOT="$KAI0"
+  export TASK_N_319_INIT="$INIT"
+  export JAX_COORDINATOR_ADDRESS="${MLP_WORKER_0_HOST}:15830"
+  export JAX_NUM_PROCESSES="${MLP_WORKER_NUM:-2}"
+  export JAX_PROCESS_INDEX="$NODE"
+  PYTHON=$KAI0/.venv/bin/python
+  "$PYTHON" - <<'PY'
+  from openpi.training.config import get_config
+  c = get_config("pi05_task_n_v5_0806_0807_319_sft")
+  assert (c.fsdp_devices, c.batch_size, c.num_train_steps, c.num_workers) == (16, 128, 40_000, 24), c
+  assert c.save_interval == 2_000 and c.keep_period == 10_000
+  print("CONFIG_OK", c.name)
+  PY
+
+  CKPT=$BASE/pi05_task_n_v5_0806_0807_319_sft/$EXP
+  if ls -d "$CKPT"/[0-9]*/ >/dev/null 2>&1; then RESUME=--resume; else RESUME=--overwrite; fi
+  exec "$PYTHON" -u "$CODE_ROOT/kai0/scripts/train.py" pi05_task_n_v5_0806_0807_319_sft \
+    --exp-name "$EXP" --checkpoint-base-dir "$BASE" --no-wandb-enabled "$RESUME"
+RetryOptions:
+  EnableRetry: true
+  MaxRetryTimes: 1
+AccessType: "Public"

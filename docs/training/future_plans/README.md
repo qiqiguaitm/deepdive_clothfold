@@ -1,12 +1,18 @@
 # Future Training Plans — 未来训练计划汇总
 
 > **范围**: 列出所有"待启动 / 进行中"的训练计划, 每行简表 + 链接到单文件详细计划。
-> **更新**: 2026-05-25。
+> **更新**: 2026-08-08。
 > **上游战略文档**: [`../../deployment/strategy/cross_embodiment_strategy.md`](../../deployment/strategy/cross_embodiment_strategy.md) (3 robots / 4-层 ROI / Tri-track 架构 / 决策点)。
 
 ---
 
 ## 当前优先级 plan
+
+### Task_N 美甲重训（2026-08-08）
+
+| 优先级 | 计划 | 状态 | 资源 | ETA | 目的 |
+|---|---|---|---|---|---|
+| ⭐⭐⭐ P0 | [**Task_N 08-06/08-07 319组 pi0.5 SFT**](plans/pi05_task_n_v5_272_base_sft_plan.md#11-2026-08-08仅-08-06--08-07-的-319-组重训) | 🔄 287/32构建、全量哈希门禁、North同步和config已完成；待16卡smoke | 北京 Robot-North-H20 2×8 H20 | 40k，smoke后更新 | 只替换数据集；保持pi05_base、joint-14、三相机、bs128、40k及LR/EMA不变，验证最新两日清洗数据的真机效果 |
 
 ### 🌍 Cosmos3 世界模型评测 (2026-06-05 新)
 

@@ -65,6 +65,7 @@ FPS = 30
 VAL_EPISODES = 32
 EXPECTED_EPISODES = 272
 EXPECTED_FRAMES = 249_460
+EXPECTED_TRAIN_EPISODES = 240
 
 
 @dataclass(frozen=True)
@@ -200,8 +201,19 @@ def validate_episode(episode: SourceEpisode, seek_video: bool) -> tuple[pd.DataF
                 container.seek(int(target_s / stream.time_base), stream=stream, any_frame=False, backward=True)
                 try:
                     next(container.decode(video=0))
-                except StopIteration as exc:
-                    raise ValueError(f"{episode.identity}: cannot seek/decode {video}") from exc
+                except StopIteration:
+                    # Some otherwise-valid H.264 files have an incomplete MP4
+                    # seek index.  Reopen and decode through the midpoint so the
+                    # gate still proves that the requested frame is readable.
+                    container.close()
+                    container = av.open(str(video))
+                    decoded = False
+                    for frame_number, _frame in enumerate(container.decode(video=0)):
+                        if frame_number >= len(df) // 2:
+                            decoded = True
+                            break
+                    if not decoded:
+                        raise ValueError(f"{episode.identity}: cannot decode midpoint of {video}")
             container.close()
 
     return df, {
@@ -331,7 +343,7 @@ def main() -> None:
     if len(episodes) != EXPECTED_EPISODES:
         raise ValueError(f"expected {EXPECTED_EPISODES} source episodes, discovered {len(episodes)}")
     train, val, allocation = allocate_val(episodes)
-    if (len(train), len(val)) != (240, 32):
+    if (len(train), len(val)) != (EXPECTED_TRAIN_EPISODES, VAL_EPISODES):
         raise ValueError(f"bad split: train={len(train)}, val={len(val)}")
 
     validated: dict[str, pd.DataFrame] = {}

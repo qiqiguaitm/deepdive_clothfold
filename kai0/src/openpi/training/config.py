@@ -46,6 +46,14 @@ _OPENPI_DATA_HOME = os.environ.get("OPENPI_DATA_HOME", os.path.expanduser("~/wor
 _KAI0_LOCAL_ROOT = os.environ.get("KAI0_LOCAL_ROOT", "/home/tim/data_local")
 _KAI0_DATA_ROOT = os.environ.get("KAI0_DATA_ROOT", "/data1/tim/workspace/deepdive_kai0/kai0")
 _PYTORCH_CKPT_BASE = os.environ.get("PYTORCH_CKPT_BASE", "/path/to/pytorch_ckpt_base")
+_TASK_N_319_KAI0_ROOT = os.environ.get(
+    "TASK_N_319_KAI0_ROOT",
+    "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0",
+)
+_TASK_N_319_INIT = os.environ.get(
+    "TASK_N_319_INIT",
+    "/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params",
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -3705,6 +3713,35 @@ _CONFIGS = [
         fsdp_devices=8,
         inline_eval_val_root="/vePFS-North-E/vis_robot/workspace/deepdive_kai0/kai0/data/Task_N/self_built/nail_v5_272_joint14_val",
         # This value is per val episode: 3 * 32 = 96 fixed query frames per eval.
+        inline_eval_n_frames=3,
+        inline_eval_every=1,
+    ),
+
+    # Task_N nail painting, metadata-frozen 08-06/08-07 v5 snapshot.
+    # The scientific protocol is fixed at 2 hosts x 8 H20. Path overrides are
+    # only for local data preflight and do not alter the training recipe.
+    TrainConfig(
+        name="pi05_task_n_v5_0806_0807_319_sft",
+        model=pi0_config.Pi0Config(pi05=True),
+        data=LerobotAgilexDataConfig(
+            repo_id=f"{_TASK_N_319_KAI0_ROOT}/data/Task_N/self_built/nail_v5_0806_0807_319_joint14_train",
+            default_prompt="nail painting",
+            use_delta_joint_actions=False,
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            _TASK_N_319_INIT
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500, peak_lr=1e-5, decay_steps=40_000, decay_lr=1e-6,
+        ),
+        ema_decay=0.9999,
+        num_train_steps=40_000,
+        keep_period=10_000,
+        save_interval=2_000,
+        num_workers=24,
+        batch_size=128,
+        fsdp_devices=16,
+        inline_eval_val_root=f"{_TASK_N_319_KAI0_ROOT}/data/Task_N/self_built/nail_v5_0806_0807_319_joint14_val",
         inline_eval_n_frames=3,
         inline_eval_every=1,
     ),

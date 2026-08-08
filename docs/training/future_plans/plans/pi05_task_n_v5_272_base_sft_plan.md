@@ -1,11 +1,16 @@
-# Task_N 美甲 v5 合规 272 组数据 — pi05 base SFT 训练计划
+# Task_N 美甲 — v5 272 基线与 08-06/08-07 319 组重训计划
 
 > **建立**: 2026-08-01  
-> **状态**: 设计定档，待数据构建、smoke 与提交  
-> **第一任务**: 用 TOS 清洗后保留的 272 个 base episode 训练一个可真机测试的 Task_N 美甲 pi0.5 基线  
-> **资源建议**: 北京 Robot-North-H20，1 节点 × 8 H20  
+> **状态**: 272 基线保留为历史方案；319-episode 派生数据、North逐文件验收和训练配置已通过门禁，待16卡smoke
+> **当前任务**: 用 TOS 最新清洗后 08-06、08-07 两套数据重训 Task_N 美甲 pi0.5，训练配置与上一版保持一致，仅替换数据集
+> **资源建议**: 北京 Robot-North-H20，2 节点 × 8 H20
 > **范围**: 本阶段只做 base SFT；不使用 dagger、AWBC、depth、mid-head 或 EEF 辅助损失  
 > **参考**: [`pi05_task_a1_awbc_gripper_adapt_plan.md`](pi05_task_a1_awbc_gripper_adapt_plan.md)
+
+> **2026-08-08 更新**: 当前实验只读取 `2026-08-06-v5` 与
+> `2026-08-07-v5` 的 `ipc01/chunk-000` metadata，有效数据为
+> 319 episodes / 214,929 frames。TOS仍保留但metadata未引用的
+> `08-06/episode_000154` 与 `08-07/episode_000298` 不进入训练；depth继续忽略。
 
 ---
 
@@ -347,3 +352,153 @@ Task_A1 的 `pi05_v4_awbc/49999` 已带叠衣动作分布和 advantage prompt �
 - [ ] 提交 40k 正式训练
 - [ ] 评估 10k/20k/30k/40k
 - [ ] 真机 Task_N 美甲测试并归档结论
+
+---
+
+## 11. 2026-08-08：仅 08-06 / 08-07 的 319 组重训
+
+本节是当前要执行的实验。前述272方案保留为历史基线；本轮除数据快照、
+train/val路径、实验名和多机FSDP设备数外，不改变模型及优化配置。
+
+### 11.1 数据冻结口径
+
+只读取：
+
+```text
+kai0/data/Task_N/base/v5/
+├── 2026-08-06-v5
+└── 2026-08-07-v5
+
+每个日期：
+├── meta/by_station/ipc01/episodes.jsonl
+├── data/chunk-000/
+└── videos/chunk-000/observation.images.{top_head,hand_left,hand_right}/
+```
+
+metadata是唯一episode真值。禁止扫描其他日期、`chunk-002`、depth、`mid_head`
+或隔离区，也禁止仅用 `glob(data/**/*.parquet)` 发现样本。
+
+| 日期 | metadata有效 episodes | frames | 排除项 |
+|---|---:|---:|---|
+| 2026-08-06 | 87 | 66,025 | metadata外 `chunk-000/episode_000154` |
+| 2026-08-07 | 232 | 148,904 | metadata外 `chunk-000/episode_000298` |
+| **合计** | **319** | **214,929** | **2个TOS孤儿episode** |
+
+319/319条有效episode的parquet和四路原始RGB均存在；训练仍只选三路公共相机。
+原始 `observation.state/action` 为32D，构建时沿用既有规则取前14维双臂
+joint + gripper，模型内部pad回action_dim 32。
+
+源快照必须记录两份metadata、319个source identity、文件校验摘要、TOS同步
+时间与git commit。训练开始后不得原地追随TOS更新；后续删除或新增数据必须另建
+dataset version。
+
+### 11.2 固定 287 train / 32 val
+
+保持32条val预算，按两个日期的episode数比例分配为9/23，层内按
+`created_at` 排序取时间尾部：
+
+| 日期 | train episodes / frames | val episodes / frames | val source episode id |
+|---|---:|---:|---|
+| 08-06 | 78 / 60,275 | 9 / 5,750 | 142, 143, 145, 147, 149, 150, 151, 152, 153 |
+| 08-07 | 209 / 135,928 | 23 / 12,976 | 269, 270, 272, 273, 274, 275, 277, 278, 279, 280, 281, 282, 283, 284, 285, 290, 291, 293, 294, 295, 296, 297, 299 |
+| **合计** | **287 / 196,203** | **32 / 18,726** | — |
+
+将完整源identity清单写入 `split_manifest.json`，确认train/val交集为0。新32-val
+用于本轮checkpoint选择；若要与旧模型比较，必须让旧checkpoint也在这同一套
+32-val上重跑，不能直接横比旧实验不同val上的MAE。
+
+### 11.3 构建产物
+
+建议新增：
+
+```text
+train_scripts/kai/data/build_task_n_v5_0806_0807_319_joint14.py
+
+kai0/data/Task_N/self_built/
+├── nail_v5_0806_0807_319_joint14_train   # 287 ep / 196,203 frames
+└── nail_v5_0806_0807_319_joint14_val     # 32 ep / 18,726 frames
+```
+
+转换规则与272/343版本一致：全局连续重编号；prompt=`nail painting`；仅三路RGB；
+state/action 32→14；重建LeRobot metadata。`norm_stats.json`必须只使用287个train
+episode重算，不能复用任何旧Task_N stats，val不得参与统计。
+
+构建门禁：
+
+- 输入严格为319 episodes / 214,929 frames，两个TOS孤儿命中数为0；
+- 输出严格为287/32，frames为196,203/18,726；
+- state/action输出均为14D，无NaN/Inf；
+- 每条输出恰有三路RGB，随机中间帧可seek；
+- train/val identity零交集，episode/frame/index连续；
+- dataloader抽样无skip，gripper dims 6/13方向与真机协议一致。
+
+### 11.4 与上一版相同的训练配置
+
+建议新增config：
+
+```text
+pi05_task_n_v5_0806_0807_319_sft
+```
+
+| 参数 | 本轮值 | 变化 |
+|---|---:|---|
+| init | official `pi05_base/params` | 不变，不从旧Task_N续训 |
+| model | `Pi0Config(pi05=True)` | 不变 |
+| action / cameras | joint-14；三路RGB | 不变 |
+| global batch | 128 | 不变 |
+| steps | 40,000 | 不变 |
+| warmup | 500 | 不变 |
+| LR | peak `1e-5`，cosine到`1e-6` | 不变 |
+| EMA | 0.9999 | 不变 |
+| workers | 24 | 不变，smoke按吞吐复核 |
+| save / keep | 2,000 / 10,000 | 不变 |
+| inline val | 每次save；32 ep × 3帧 = 96 queries | 不变 |
+| resource | 北京2×8 H20，`fsdp_devices=16` | 与上一版16卡任务一致 |
+
+16卡只缩短墙钟，global batch仍为128（每卡约8），不能改为256。40k对应5.12M
+sample draws，约为196,203个train frames的 **26.10×**。因此不默认最后一步最佳，
+必须保留并比较10k/20k/30k/40k；若后期过拟合，以val和真机结果选更早checkpoint。
+
+北京初始化权重固定为：
+
+```text
+/vePFS-North-E/vis_robot/base_init_ckpts/extracted/pi05_base/params
+```
+
+建议任务文件与实验名：
+
+```text
+train_scripts/kai/volc/task_n_v5_0806_0807_319_build_cnbj_1gpu.yaml
+train_scripts/kai/volc/pi05_task_n_v5_0806_0807_319_smoke_cnbj_16gpu.yaml
+train_scripts/kai/volc/pi05_task_n_v5_0806_0807_319_sft_cnbj_16gpu.yaml
+
+experiment_name: nail_v5_0806_0807_319_sft_bs128_s42
+```
+
+先完成50-step 16卡smoke，验证多机初始化、FSDP=16、数据吞吐、inline val、保存
+和恢复，再提交40k正式训练。
+
+**2026-08-08 进度**：本地287/32产物已完成全量parquet结构、source→derived
+数值映射、train-only norm stats重算、128-sample dataloader和抽样视频seek门禁。
+冻结报告位于
+`docs/training/analysis/task_n_v5_0806_0807_319_freeze.json`。报告明确记录319条
+source identity、两个metadata外孤儿和全部源/派生文件哈希；但可信TOS同步完成时间
+尚不可得，因此source freeze仍为未完成，不能用本地mtime替代。派生数据已原子同步
+至North；1287个文件（5,785,808,291 bytes）逐项匹配冻结报告SHA-256，并于
+`2026-08-08T06:08:29Z`生成`NORTH_SYNC_OK.json`。此前误投East的正式任务
+`t-20260808125236-54hv8`已停止，不计为本协议运行。
+
+### 11.5 评测与完成定义
+
+统一评估10k/20k/30k/40k的反归一化 `MAE@1/@10/@25/@50`、左右臂与夹爪
+分项、静止输出比例、动作平滑度和夹爪开合时序。`MAE@1 < 0.01`作为优先进入
+真机测试的离线门槛，但最终checkpoint仍由相同美甲SOP下的真机成功率决定。
+
+- [ ] 冻结08-06/08-07的319条source manifest及两个孤儿排除项
+- [x] 构建287 train / 32 val并重算train-only norm stats
+- [x] 同步派生数据到North-E并逐项复核计数/校验摘要
+- [x] 注册新config，除数据路径/name/fsdp16外复用上一版参数
+- [ ] 北京16卡50-step smoke通过
+- [ ] 北京16卡40k正式训练完成
+- [ ] 10k/20k/30k/40k离线与真机评测完成
+- [ ] 最终checkpoint、指标、失败阶段和数据版本归档
