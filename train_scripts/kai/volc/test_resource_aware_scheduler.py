@@ -6340,9 +6340,17 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         for task_id, task in tasks.items()
         if "tg2" in task_id and task_id.endswith("_train")
     }
+    temporal_grounding_evals = {
+        task_id for task_id in tasks if task_id.endswith("_eval")
+    }
     assert len(tg1a) == 4
     assert len(tg1b) == 4
     assert len(tg2) == 9
+    assert len(temporal_grounding_evals) == 17
+    assert all(
+        scheduler.TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task_id)
+        for task_id in temporal_grounding_evals
+    )
 
     capture_marker = str(
         scheduler.REPO
