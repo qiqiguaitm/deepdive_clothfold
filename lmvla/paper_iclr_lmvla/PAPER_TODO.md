@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 09:12 UTC
+Updated: 2026-08-08 09:20 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -402,7 +402,7 @@ The read-only machine audit
 `AUDIT_temporal_grounding_retry_panel_2026-08-08.json` independently verifies
 the exact ordered scene identities of every summary currently present, both
 frozen runners' cap of three, all eight required rerun conditions, and
-`activated=false`. All 63 summaries present across the eight roots at 09:12 UTC
+`activated=false`. All 65 summaries present across the eight roots at 09:20 UTC
 passed exact ordered-scene verification. The auditor and focused tests pass
 without modifying a job, result root, runner, readiness marker, or scheduler
 state.
@@ -479,10 +479,10 @@ Admission source:
   seed 0 completed that handover cell at 07:27 UTC. Eval seed 2 then completed
   `stack_blocks_two` at 07:43 UTC, followed by eval seed 1 at 07:50 UTC, eval
   seed 3 at 07:53 UTC, and eval seed 0 at 08:16 UTC. All four stack-two cells
-  are therefore complete. Eval seed 2 completed `stack_blocks_three` at 09:12
-  UTC, producing 18/24 summaries. Eval seed 0 stopped that task after scene seed
-  100033 remained invalid for all three frozen setup attempts. Eval seeds 1 and
-  2 stopped their
+  are therefore complete. Eval seeds 2 and 1 completed `stack_blocks_three` at
+  09:12 and 09:16 UTC, respectively, producing 19/24 summaries. Eval seed 0
+  stopped that task after scene seed 100033 remained invalid for all three
+  frozen setup attempts. Eval seeds 1 and 2 stopped their
   handover cells after exhausting the same three-attempt setup limit. The final
   exact-24-cell
   verifier will reject this run without the same explicitly admitted common
@@ -493,8 +493,8 @@ Admission source:
   episodes. Eval seeds 0, 2, and 3 completed `beat_block_hammer` and subsequently
   completed `blocks_ranking_size`. Eval seed 1 stopped the first task after scene
   seed 200026 remained invalid for all three frozen setup attempts and also
-  failed the size task, but completed `blocks_ranking_rgb` at 08:32 UTC,
-  producing 7/24 summaries;
+  failed the size task, but completed `blocks_ranking_rgb` at 08:32 UTC. Eval
+  seed 0 completed the same RGB task at 09:20 UTC, producing 8/24 summaries;
   the final exact-24-cell verifier will therefore reject this run
   unless an explicitly admitted protocol amendment resolves the shared
   stochastic-validity blocker. This is runtime progress, not a valid partial
