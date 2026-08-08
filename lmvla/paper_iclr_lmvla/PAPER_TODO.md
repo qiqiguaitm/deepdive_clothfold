@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 05:31 UTC
+Updated: 2026-08-08 06:20 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -240,6 +240,13 @@ serialized seed-1002 transfer then acquired the lock; its incoming tree had
 reached 17.55 GB at 05:31 UTC. Seed-1001 is therefore no longer an integrity
 dependency, while seed-1002 remains incomplete. Neither materialization is a
 new training or policy-utility result.
+The seed-1002 raw-milestone materializer subsequently completed its full-state,
+hash-verified atomic transfer with `rc=0` at 05:49 UTC, and the scheduler
+accepted `local=1/1` at 05:51 UTC. North `future_off` seed 1002 then completed
+step 20,000 and its durable final save at 06:01 UTC; its serialized North
+materializer started immediately and remains incomplete. Thus all completed
+raw-milestone North transfers are local, while future-off seed 1002 is still an
+integrity dependency. None of these transitions is closed-loop policy evidence.
 At 03:45 UTC, the previously detached runtime-v7 fixed-endpoint seed-1002 job
 `t-20260807223419-bbwfx` was Running at step 1256 while the current runtime-v8
 job `t-20260807223916-rv9gd` remained Queueing. A request, source, and
@@ -419,9 +426,10 @@ Admission source:
 - [ ] **TG1A-E1 [RUNNING-RUNTIME-V10: `t-20260808110854-xxb97`; prior failed
   run: `t-20260807165006-b4pqr`]** Evaluate `normal`; 4 GPUs, 1,200 accepted
   episodes. All four eval seeds completed `beat_block_hammer`; eval seeds 0,
-  1, and 2 also completed `blocks_ranking_size`, producing 7/24 summaries at
-  05:20 UTC. Eval seed 3 stopped `blocks_ranking_size` after scene seed 400038
-  remained invalid for all three frozen setup attempts. The final exact-24-cell
+  1, and 2 also completed `blocks_ranking_size`; eval seed 3 stopped that task
+  after scene seed 400038 remained invalid for all three frozen setup attempts,
+  then completed `blocks_ranking_rgb`. This produced 8/24 summaries at 06:11
+  UTC. The final exact-24-cell
   verifier will reject this run without the same explicitly admitted common
   retry amendment required by the null arm. This is runtime progress, not a
   valid partial cross-condition result.
@@ -561,7 +569,7 @@ training-schedule claim may be based on seed 1000 alone.
 - [ ] **TG2-T02 [RUNNING-V8 RETRY: `t-20260808103839-wdh2t`, North;
   prior V7 reached step 20,000 but failed final save]**
   Train `future_off`, seed 1001; 4 GPUs.
-- [ ] **TG2-T03 [RUNNING-V8: `t-20260808023231-z5mn8`, North]**
+- [ ] **TG2-T03 [MATERIALIZING-V8: `t-20260808023231-z5mn8`, North; final model 1/1]**
   Train `future_off`, seed 1002; 4 GPUs.
 - [x] **TG2-T04 [COMPLETE-V7: `t-20260807221602-j6sww`, East; final model 1/1]**
   Train `fixed_endpoint`, seed 1000; 4 GPUs.
@@ -575,7 +583,7 @@ training-schedule claim may be based on seed 1000 alone.
   materialized]**
   Train `raw_milestone`, seed 1001; 4 GPUs.
 - [x] **TG2-T09 [COMPLETE-V7: `t-20260807221617-7hcmw`, North; final model 1/1;
-  materializing]**
+  materialized]**
   Train `raw_milestone`, seed 1002; 4 GPUs.
 
 Each row is one 4-GPU training job. Check a row only after its fixed step-20,000
