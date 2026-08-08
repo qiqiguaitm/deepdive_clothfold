@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 02:41 UTC
+Updated: 2026-08-08 03:16 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -176,8 +176,23 @@ were atomically renamed with `.failed-final-save-<job_id>` suffixes so all
 failure evidence remains available while the active exact-name glob is clear.
 Touching the already-admitted runtime-v8 readiness marker rearmed the scheduler
 without changing its content or hash. Replacement requests
-`t-20260808103834-9zf8q` and `t-20260808103839-wdh2t` are Queueing; they remain
-uncompleted work.
+`t-20260808103834-9zf8q` and `t-20260808103839-wdh2t` initially entered the
+North queue and moved to Running after the two raw-milestone jobs released
+eight GPUs. By 03:16 UTC they reached steps 96 and 65 at 2.08 and 2.05 s/step,
+respectively. This confirms startup after the storage and overwrite-guard
+recovery, but both remain uncompleted work.
+At 03:15 UTC, four runtime-v7 TG2 cells completed cleanly after step 20,000:
+fixed-endpoint seeds 1000--1001 on East (`t-20260807221602-j6sww` and
+`t-20260807221607-bckk5`) and raw-milestone seeds 1001--1002 on North
+(`t-20260807221612-kpqwj` and `t-20260807221617-7hcmw`). Each platform job
+reached `Completed`, and the scheduler observed exactly one durable final model
+at the job's execution location. The two East location-aware materializers were
+satisfied without transfer. Both North materializers are running under the
+admitted serialized, hash-verified, atomic transfer path; their completion is
+still required by the joint integrity dependency. The freed East slots were
+immediately assigned by the scheduler to runtime-v10 TG1A normal and null
+evaluations (`t-20260808110854-xxb97` and `t-20260808111025-xbjcc`). These
+training completions establish durable checkpoints only, not policy utility.
 The North-to-East SSH transport measured 5.6 MiB/s on a read-only 128 MiB
 probe, implying about 47 minutes per 15.5 GiB run and 5.5 hours for seven
 serialized North runs. Local materializers have no process timeout, and their
@@ -483,25 +498,27 @@ training-schedule claim may be based on seed 1000 alone.
 
 ### Training jobs
 
-- [ ] **TG2-T01 [QUEUEING-V8 RETRY: `t-20260808103834-9zf8q`, North;
+- [ ] **TG2-T01 [RUNNING-V8 RETRY: `t-20260808103834-9zf8q`, North;
   prior V7 reached step 20,000 but failed final save]**
   Train `future_off`, seed 1000; 4 GPUs.
-- [ ] **TG2-T02 [QUEUEING-V8 RETRY: `t-20260808103839-wdh2t`, North;
+- [ ] **TG2-T02 [RUNNING-V8 RETRY: `t-20260808103839-wdh2t`, North;
   prior V7 reached step 20,000 but failed final save]**
   Train `future_off`, seed 1001; 4 GPUs.
 - [ ] **TG2-T03 [RUNNING-V8: `t-20260808023231-z5mn8`, North]**
   Train `future_off`, seed 1002; 4 GPUs.
-- [ ] **TG2-T04 [RUNNING-V7: `t-20260807221602-j6sww`, East]**
+- [x] **TG2-T04 [COMPLETE-V7: `t-20260807221602-j6sww`, East; final model 1/1]**
   Train `fixed_endpoint`, seed 1000; 4 GPUs.
-- [ ] **TG2-T05 [RUNNING-V7: `t-20260807221607-bckk5`, East]**
+- [x] **TG2-T05 [COMPLETE-V7: `t-20260807221607-bckk5`, East; final model 1/1]**
   Train `fixed_endpoint`, seed 1001; 4 GPUs.
 - [ ] **TG2-T06 [QUEUEING-V8: `t-20260807223916-rv9gd`, backup]**
   Train `fixed_endpoint`, seed 1002; 4 GPUs.
 - [ ] **TG2-T07 [QUEUEING-V8: `t-20260807223926-56pwj`, backup]**
   Train `raw_milestone`, seed 1000; 4 GPUs.
-- [ ] **TG2-T08 [RUNNING-V7: `t-20260807221612-kpqwj`, North]**
+- [x] **TG2-T08 [COMPLETE-V7: `t-20260807221612-kpqwj`, North; final model 1/1;
+  materializing]**
   Train `raw_milestone`, seed 1001; 4 GPUs.
-- [ ] **TG2-T09 [RUNNING-V7: `t-20260807221617-7hcmw`, North]**
+- [x] **TG2-T09 [COMPLETE-V7: `t-20260807221617-7hcmw`, North; final model 1/1;
+  materializing]**
   Train `raw_milestone`, seed 1002; 4 GPUs.
 
 Each row is one 4-GPU training job. Check a row only after its fixed step-20,000
