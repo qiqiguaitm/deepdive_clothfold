@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-07 19:56 UTC
+Updated: 2026-08-08 02:16 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -155,6 +155,20 @@ All active TG2 YAMLs set a 24-hour platform deadline; the current heartbeats
 project less than 13 hours from container start through step 20000. Two prior
 complete 16 GiB states wrote their model and optimizer files in 12.4--12.5
 seconds, leaving more than 11 hours of deadline margin for finalization.
+That filesystem-level capacity check did not inspect the nested vePFS Fileset
+quota and was therefore insufficient. At 02:06 UTC on 2026-08-08,
+`future_off` seeds 1000 and 1001 both reached step 20,000 but failed while
+writing `steps_20000_state/pytorch_model.bin`: the enclosing filesystem still
+had 8.8 TiB free, while `DescribeFilesets` reported `/vis_robot` exactly at its
+30,000/30,000 GiB capacity limit. Neither run produced a durable final model,
+and the scheduler correctly rejected both failed partial states. The primary
+identity lacked `SetFilesetQuota`; the already-enabled backup identity raised
+the limit minimally to 30,500 GiB, after which an 8 MiB write-and-remove probe
+passed to refresh and verify the quota cache. The scheduler requeued runtime-v8
+retries as `t-20260808100701-hq5cj` and `t-20260808100706-xtw8d`. This is an
+operational storage recovery, not training or checkpoint evidence. The
+credential-free audit is recorded in
+`AUDIT_temporal_grounding_north_fileset_quota_2026-08-08.json`.
 The North-to-East SSH transport measured 5.6 MiB/s on a read-only 128 MiB
 probe, implying about 47 minutes per 15.5 GiB run and 5.5 hours for seven
 serialized North runs. Local materializers have no process timeout, and their
@@ -460,9 +474,11 @@ training-schedule claim may be based on seed 1000 alone.
 
 ### Training jobs
 
-- [ ] **TG2-T01 [RUNNING-V7: `t-20260807223242-bt4fv`, North]**
+- [ ] **TG2-T01 [QUEUEING-V8 RETRY: `t-20260808100701-hq5cj`, North;
+  prior V7 reached step 20,000 but failed final save]**
   Train `future_off`, seed 1000; 4 GPUs.
-- [ ] **TG2-T02 [RUNNING-V7: `t-20260807223247-sjmmb`, North]**
+- [ ] **TG2-T02 [QUEUEING-V8 RETRY: `t-20260808100706-xtw8d`, North;
+  prior V7 reached step 20,000 but failed final save]**
   Train `future_off`, seed 1001; 4 GPUs.
 - [ ] **TG2-T03 [RUNNING-V8: `t-20260808023231-z5mn8`, North]**
   Train `future_off`, seed 1002; 4 GPUs.

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "audited_at_utc": "2026-08-08T02:16:13Z",
+  "scope": "TG2 North final-checkpoint write failure and Fileset quota recovery",
+  "filesystem": {
+    "file_system_id": "vepfs-cnbj875793a96d6b",
+    "fileset_id": "fset-836821de",
+    "fileset_name": "vis_robot",
+    "fileset_path": "/vis_robot",
+    "capacity_unit": "GiB"
+  },
+  "failed_jobs": [
+    {
+      "task": "temporal_grounding_tg2_future_off_seed1000_train",
+      "job_id": "t-20260807223242-bt4fv",
+      "platform_state": "Failed",
+      "training_step": 20000,
+      "durable_final_model": false,
+      "failure": "PytorchStreamWriter failed while writing steps_20000_state/pytorch_model.bin"
+    },
+    {
+      "task": "temporal_grounding_tg2_future_off_seed1001_train",
+      "job_id": "t-20260807223247-sjmmb",
+      "platform_state": "Failed",
+      "training_step": 20000,
+      "durable_final_model": false,
+      "failure": "PytorchStreamWriter failed while writing steps_20000_state/pytorch_model.bin"
+    }
+  ],
+  "diagnosis": {
+    "filesystem_df_available_tib": 8.8,
+    "fileset_capacity_limit_before_gib": 30000,
+    "fileset_capacity_used_before_gib": 30000,
+    "root_cause": "The /vis_robot Fileset quota was full even though the enclosing filesystem had free capacity.",
+    "failed_partial_model_bytes": {
+      "seed1000": 0,
+      "seed1001": 4194304000
+    }
+  },
+  "recovery": {
+    "primary_identity_set_quota": "AccessDenied",
+    "backup_profile_enabled": true,
+    "backup_identity_set_quota": "Succeeded",
+    "fileset_capacity_limit_after_gib": 30500,
+    "fileset_capacity_used_after_gib": 30000,
+    "quota_cache_refresh_write_bytes": 8388608,
+    "quota_cache_refresh_write": "Succeeded and temporary file removed"
+  },
+  "scheduler_verdict": {
+    "failed_partial_artifacts_accepted": false,
+    "seed1000_retry_job_id": "t-20260808100701-hq5cj",
+    "seed1001_retry_job_id": "t-20260808100706-xtw8d",
+    "retry_runtime_revision": "temporal_grounding_runtime_v8",
+    "retry_state_at_audit": "Queueing"
+  }
+}
