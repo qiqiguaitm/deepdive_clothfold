@@ -5902,6 +5902,85 @@ def test_completion_locations_require_artifacts_even_without_completion_glob(
     assert evidence == "completion artifacts accelerator=1/1"
 
 
+@pytest.mark.parametrize(
+    "task_id",
+    [
+        "temporal_grounding_tg1a_normal_eval",
+        "temporal_grounding_tg1b_future_off_e36_eval",
+        "temporal_grounding_tg2_fixed_endpoint_seed1002_eval",
+    ],
+)
+def test_temporal_grounding_completion_requires_fixed_scene_verification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, task_id: str
+) -> None:
+    root = tmp_path / task_id
+    for index in range(24):
+        path = root / f"seed{index % 4}" / f"cell{index}" / "summary.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n")
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        return "verified"
+
+    monkeypatch.setattr(scheduler, "run", fake_run)
+    task = {
+        "id": task_id,
+        "completion_glob": str(root / "seed*/**/summary.json"),
+        "completion_min_count": 24,
+    }
+
+    complete, evidence = scheduler.completion_evidence(task)
+
+    assert complete is True
+    assert evidence == "completion artifacts local=24/24,fixed-seeds=verified"
+    assert calls == [
+        (
+            [
+                "python3",
+                str(
+                    scheduler.REPO
+                    / "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py"
+                ),
+                "--manifest",
+                scheduler.PI05_CONFIRMATORY_SCENE_MANIFEST_SHARED,
+                "--root",
+                str(root),
+            ],
+            {"timeout": 180},
+        )
+    ]
+
+
+def test_temporal_grounding_completion_rejects_fixed_scene_verifier_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "temporal_grounding_tg1a_null"
+    for index in range(24):
+        path = root / f"seed{index % 4}" / f"cell{index}" / "summary.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n")
+
+    def reject(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, args[0])
+
+    monkeypatch.setattr(scheduler, "run", reject)
+    task = {
+        "id": "temporal_grounding_tg1a_null_eval",
+        "completion_glob": str(root / "seed*/**/summary.json"),
+        "completion_min_count": 24,
+    }
+
+    complete, evidence = scheduler.completion_evidence(task)
+
+    assert complete is False
+    assert evidence == (
+        "completion artifacts local=24/24,"
+        "fixed-seeds=error:CalledProcessError"
+    )
+
+
 def test_running_task_polls_remote_completion_before_local_materialization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

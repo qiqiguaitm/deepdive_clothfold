@@ -128,6 +128,13 @@ GATE_DECISION_SPECS = {
 PI05_CONFIRMATORY_EVAL_RE = re.compile(
     r"pi05_(a0_public_exact|a2_abs_confirmatory|a3_live_confirmatory)_seed100[012]_eval"
 )
+TEMPORAL_GROUNDING_EVAL_RE = re.compile(
+    r"temporal_grounding_(?:"
+    r"tg1a_(?:normal|null|persistence|shuffled)|"
+    r"tg1b_(?:future_off|local_wm)_e(?:36|50)|"
+    r"tg2_(?:future_off|fixed_endpoint|raw_milestone)_seed100[012]"
+    r")_eval"
+)
 PI05_CONFIRMATORY_SCENE_MANIFEST_SHARED = (
     "/vePFS/tim/workspace/deepdive_kai0/lmvla/lmwm/data/"
     "robotwin_pi05_confirmatory_scene_seeds_v1.json"
@@ -11102,7 +11109,11 @@ def completion_evidence(task: dict[str, Any]) -> tuple[bool, str]:
             count = len(glob.glob(location_pattern, recursive=True))
         location_complete = count >= minimum
         verification = ""
-        if location_complete and PI05_CONFIRMATORY_EVAL_RE.fullmatch(task["id"]):
+        fixed_scene_eval = bool(
+            PI05_CONFIRMATORY_EVAL_RE.fullmatch(task["id"])
+            or TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task["id"])
+        )
+        if location_complete and fixed_scene_eval:
             root = completion_root_from_glob(location_pattern)
             manifest = (
                 PI05_CONFIRMATORY_SCENE_MANIFEST_NORTH
