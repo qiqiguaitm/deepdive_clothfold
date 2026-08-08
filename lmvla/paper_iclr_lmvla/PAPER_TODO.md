@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 03:16 UTC
+Updated: 2026-08-08 03:19 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -378,12 +378,14 @@ Admission source:
 
 ### GPU cells
 
-- [ ] **TG1A-E1 [READY-RUNTIME-V10; prior failed run: `t-20260807165006-b4pqr`]**
-  Evaluate `normal`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
-  rejected the frozen intervention field; 0/24 summaries.
-- [ ] **TG1A-E2 [READY-RUNTIME-V10; prior failed run: `t-20260807165010-gk4h7`]**
-  Evaluate `null`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
-  rejected the frozen intervention field; 0/24 summaries.
+- [ ] **TG1A-E1 [RUNNING-RUNTIME-V10: `t-20260808110854-xxb97`; prior failed
+  run: `t-20260807165006-b4pqr`]** Evaluate `normal`; 4 GPUs, 1,200 accepted
+  episodes. All four eval seeds created fresh run and task metadata; 0/24
+  summaries at 03:19 UTC.
+- [ ] **TG1A-E2 [RUNNING-RUNTIME-V10: `t-20260808111025-xbjcc`; prior failed
+  run: `t-20260807165010-gk4h7`]** Evaluate `null`; 4 GPUs, 1,200 accepted
+  episodes. All four eval seeds created fresh run and task metadata; 0/24
+  summaries at 03:19 UTC.
 - [ ] **TG1A-E3 [READY-RUNTIME-V10; prior failed run: `t-20260807171443-psgh6`]**
   Evaluate `persistence`; 4 GPUs, 1,200 accepted episodes. Runtime input schema
   rejected the frozen intervention field; 0/24 summaries.
