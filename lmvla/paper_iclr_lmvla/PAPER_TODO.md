@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 04:04 UTC
+Updated: 2026-08-08 05:31 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -234,6 +234,12 @@ after the incoming tree had grown to 11.60 GB, a fresh 60-second byte sample
 measured 5.668 MiB/s and projected about 0.56 hours for the remainder of the
 seed-1001 tree. Treat this as a current-run ETA only, not completion evidence or
 authorization to parallelize, omit files, or weaken verification.
+The seed-1001 materializer subsequently finished with `rc=0` at 04:39 UTC, and
+the scheduler accepted its atomic local artifact as `1/1` at 04:40 UTC. The
+serialized seed-1002 transfer then acquired the lock; its incoming tree had
+reached 17.55 GB at 05:31 UTC. Seed-1001 is therefore no longer an integrity
+dependency, while seed-1002 remains incomplete. Neither materialization is a
+new training or policy-utility result.
 At 03:45 UTC, the previously detached runtime-v7 fixed-endpoint seed-1002 job
 `t-20260807223419-bbwfx` was Running at step 1256 while the current runtime-v8
 job `t-20260807223916-rv9gd` remained Queueing. A request, source, and
@@ -412,9 +418,13 @@ Admission source:
 
 - [ ] **TG1A-E1 [RUNNING-RUNTIME-V10: `t-20260808110854-xxb97`; prior failed
   run: `t-20260807165006-b4pqr`]** Evaluate `normal`; 4 GPUs, 1,200 accepted
-  episodes. All four eval seeds completed `beat_block_hammer`, producing 4/24
-  summaries at 03:40 UTC. This is a runtime-progress check, not a completed
-  cell or a cross-condition result.
+  episodes. All four eval seeds completed `beat_block_hammer`; eval seeds 0,
+  1, and 2 also completed `blocks_ranking_size`, producing 7/24 summaries at
+  05:20 UTC. Eval seed 3 stopped `blocks_ranking_size` after scene seed 400038
+  remained invalid for all three frozen setup attempts. The final exact-24-cell
+  verifier will reject this run without the same explicitly admitted common
+  retry amendment required by the null arm. This is runtime progress, not a
+  valid partial cross-condition result.
 - [ ] **TG1A-E2 [RUNNING-RUNTIME-V10: `t-20260808111025-xbjcc`; prior failed
   run: `t-20260807165010-gk4h7`]** Evaluate `null`; 4 GPUs, 1,200 accepted
   episodes. Eval seeds 0, 2, and 3 completed `beat_block_hammer`, producing
@@ -562,7 +572,7 @@ training-schedule claim may be based on seed 1000 alone.
 - [ ] **TG2-T07 [QUEUEING-V8: `t-20260807223926-56pwj`, backup]**
   Train `raw_milestone`, seed 1000; 4 GPUs.
 - [x] **TG2-T08 [COMPLETE-V7: `t-20260807221612-kpqwj`, North; final model 1/1;
-  materializing]**
+  materialized]**
   Train `raw_milestone`, seed 1001; 4 GPUs.
 - [x] **TG2-T09 [COMPLETE-V7: `t-20260807221617-7hcmw`, North; final model 1/1;
   materializing]**
