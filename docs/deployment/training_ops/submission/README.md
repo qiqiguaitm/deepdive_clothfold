@@ -99,11 +99,12 @@ Robot-North-H20 使用。脚本只显示 `primary`/`backup` profile 名称，不
 默认拒绝超过 180 秒的旧快照，避免按过期卡池状态提交。
 
 北京主/备用身份同时受 GPU 上限和“已提交任务数”上限约束。当前资源目录中主身份
-GPU/任务上限均默认为 25，备用身份均默认为 20；运行时以快照显示的配置为准。四项
+GPU 上限默认为 20、任务上限默认为 25，备用身份两项均默认为 20；运行时以快照显示
+的配置为准。四项
 上限均可在启动调度器前配置：
 
 ```bash
-export NORTH_PERSONAL_LIMIT=25
+export NORTH_PERSONAL_LIMIT=20
 export NORTH_BACKUP_PERSONAL_LIMIT=20
 export NORTH_PRIMARY_MAX_JOBS=25
 export NORTH_BACKUP_MAX_JOBS=20
@@ -135,7 +136,7 @@ launcher **之前**，还会保存同一推荐逻辑的审计记录。记录写�
 - `logs/resource_scheduler.log`
 - `logs/submission_recommendations/<task-id>/*.json`
 
-当前资源边界：北京 `Robot-North-H20` 严格限制主身份最多 25 GPU；上海
+当前资源边界：北京 `Robot-North-H20` 严格限制主身份最多 20 GPU；上海
 `Robot-East-H20` 为 8 H20，`robot-task` 为 32 A100。**截至 2026-08-04，暂停向
 `robot-task` 提交新任务**：控制标记为
 `logs/resource_controls/robot_task_submission.disabled`。标记存在时，实时推荐仍将

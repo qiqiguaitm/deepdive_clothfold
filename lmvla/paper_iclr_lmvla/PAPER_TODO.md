@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 06:36 UTC
+Updated: 2026-08-08 06:44 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -245,10 +245,10 @@ hash-verified atomic transfer with `rc=0` at 05:49 UTC, and the scheduler
 accepted `local=1/1` at 05:51 UTC. North `future_off` seed 1002 then completed
 step 20,000 and its durable final save at 06:01 UTC; its serialized North
 materializer started immediately and remains incomplete. Its atomic incoming
-tree reached 11 GiB at 06:36 UTC and continued to grow, so the transfer is
+tree reached 14 GiB at 06:44 UTC and continued to grow, so the transfer is
 making progress rather than stalled. The `future_off` seed-1000 and seed-1001
-retries concurrently reached steps 5666 and 5637 at 2.13 and 2.05 s/step, with
-estimated remaining times of 8.48 and 8.18 hours. Thus all completed raw-milestone
+retries concurrently reached steps 6106 and 6076 at 2.04 and 2.03 s/step, with
+estimated remaining times of 7.87 and 7.85 hours. Thus all completed raw-milestone
 North transfers are local, while future-off seed 1002 is still an integrity
 dependency. None of these transitions is closed-loop policy evidence.
 At 03:45 UTC, the previously detached runtime-v7 fixed-endpoint seed-1002 job
@@ -376,7 +376,7 @@ The read-only machine audit
 `AUDIT_temporal_grounding_retry_panel_2026-08-08.json` independently verifies
 the exact ordered scene identities of every summary currently present, both
 frozen runners' cap of three, all eight required rerun conditions, and
-`activated=false`. All 52 summaries present across the eight roots at 06:36 UTC
+`activated=false`. All 54 summaries present across the eight roots at 06:44 UTC
 passed exact ordered-scene verification. The auditor and focused tests pass
 without modifying a job, result root, runner, readiness marker, or scheduler
 state.
@@ -447,10 +447,11 @@ Admission source:
   valid partial cross-condition result.
 - [ ] **TG1A-E2 [RUNNING-RUNTIME-V10: `t-20260808111025-xbjcc`; prior failed
   run: `t-20260807165010-gk4h7`]** Evaluate `null`; 4 GPUs, 1,200 accepted
-  episodes. Eval seeds 0, 2, and 3 completed `beat_block_hammer`, producing
-  3/24 summaries at 03:55 UTC. Seed 1 stopped that task after scene seed 200026
-  remained invalid for all three frozen setup attempts and continued to the
-  next task; the final exact-24-cell verifier will therefore reject this run
+  episodes. Eval seeds 0, 2, and 3 completed `beat_block_hammer`; eval seeds 0
+  and 2 subsequently completed `blocks_ranking_size`, producing 5/24 summaries
+  at 06:41 UTC. Seed 1 stopped the first task after scene seed 200026 remained
+  invalid for all three frozen setup attempts and also failed the size task;
+  the final exact-24-cell verifier will therefore reject this run
   unless an explicitly admitted protocol amendment resolves the shared
   stochastic-validity blocker. This is runtime progress, not a valid partial
   cross-condition comparison.

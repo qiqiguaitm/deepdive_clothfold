@@ -17,7 +17,7 @@ def catalog():
 
 def test_catalog_sets_primary_north_limits_to_25():
     north = catalog()["resources"]["Robot-North-H20"]
-    assert north["personal_limit_gpus"] == 25
+    assert north["personal_limit_gpus"] == 20
     assert north["max_submitted_jobs"] == 25
 
 

@@ -60,7 +60,7 @@
       "queue_id": "q-20260516104642-khch9",
       "gpu_model": "H20",
       "capacity_gpus": 56,
-      "personal_limit_gpus": 25,
+      "personal_limit_gpus": 20,
       "max_submitted_jobs": 25,
       "filesystem": "north_shared",
       "development_host": "gsy",

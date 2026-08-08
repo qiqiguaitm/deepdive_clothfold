@@ -22,8 +22,8 @@ def isolate_scheduler_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(scheduler, "LOG_PATH", tmp_path / "resource_scheduler.log")
 
 
-def test_primary_north_operational_limits_default_to_25() -> None:
-    assert scheduler.NORTH_PERSONAL_LIMIT == 25
+def test_primary_north_defaults_to_20_gpus_and_25_submitted_jobs() -> None:
+    assert scheduler.NORTH_PERSONAL_LIMIT == 20
     assert scheduler.NORTH_PRIMARY_MAX_JOBS == 25
 
 

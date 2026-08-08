@@ -2,7 +2,7 @@
 """Resource-aware dispatcher for the remaining RoboTwin experiment queue.
 
 The dispatcher keeps work local until a target has real capacity. It monitors
-the Volc queues and the two-GPU development host, enforces the 25-GPU Beijing
+the Volc queues and the two-GPU development host, enforces the 20-GPU Beijing
 primary-account limit and the physical 32-GPU robot-task capacity, and records an atomic
 state/snapshot under ``logs/``. The retired gf1 host remains in provenance but
 is excluded from probing and dispatch.
@@ -67,7 +67,7 @@ SH_QUEUE = "q-20251204185107-fvnpx"
 EAST_QUEUE = "q-20260516104437-2ml4v"
 SH_CAPACITY = 32
 NORTH_CAPACITY = 56
-NORTH_PERSONAL_LIMIT = int(os.environ.get("NORTH_PERSONAL_LIMIT", "25"))
+NORTH_PERSONAL_LIMIT = int(os.environ.get("NORTH_PERSONAL_LIMIT", "20"))
 NORTH_BACKUP_PERSONAL_LIMIT = int(os.environ.get("NORTH_BACKUP_PERSONAL_LIMIT", "20"))
 NORTH_PRIMARY_MAX_JOBS = int(os.environ.get("NORTH_PRIMARY_MAX_JOBS", "25"))
 NORTH_BACKUP_MAX_JOBS = int(os.environ.get("NORTH_BACKUP_MAX_JOBS", "20"))
