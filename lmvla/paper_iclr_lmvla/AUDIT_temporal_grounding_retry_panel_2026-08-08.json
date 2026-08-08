@@ -1,0 +1,281 @@
+{
+  "activation_invariants": [
+    "Archive every existing incomplete root before relaunch.",
+    "Rerun all four conditions in each affected panel under one common cap.",
+    "Do not reuse a partial summary, replace a scene, or drop a failed cell.",
+    "Require exactly 24 valid cells and 1,200 frozen scene identities per condition."
+  ],
+  "audited_at_utc": "2026-08-08T06:36:17.040469+00:00",
+  "authorization": {
+    "activated": false,
+    "explicit_operator_authorization_required": true,
+    "jobs_modified": false,
+    "scheduler_readiness_marker": false,
+    "status": "audit_only"
+  },
+  "current_runner_retry_caps": {
+    "tg1a": 3,
+    "tg1b": 3
+  },
+  "existing_result_roots": {
+    "tg1a": {
+      "temporal_grounding_tg1a_normal": {
+        "complete": false,
+        "exists": true,
+        "failed_cells": [
+          {
+            "eval_seed": 3,
+            "task": "blocks_ranking_size"
+          }
+        ],
+        "missing_cells": 13,
+        "valid_summaries": 11
+      },
+      "temporal_grounding_tg1a_null": {
+        "complete": false,
+        "exists": true,
+        "failed_cells": [
+          {
+            "eval_seed": 1,
+            "task": "beat_block_hammer"
+          },
+          {
+            "eval_seed": 1,
+            "task": "blocks_ranking_size"
+          }
+        ],
+        "missing_cells": 21,
+        "valid_summaries": 3
+      },
+      "temporal_grounding_tg1a_persistence": {
+        "complete": false,
+        "exists": true,
+        "failed_cells": [
+          {
+            "eval_seed": 0,
+            "task": "beat_block_hammer"
+          },
+          {
+            "eval_seed": 0,
+            "task": "blocks_ranking_rgb"
+          },
+          {
+            "eval_seed": 0,
+            "task": "blocks_ranking_size"
+          },
+          {
+            "eval_seed": 0,
+            "task": "handover_block"
+          },
+          {
+            "eval_seed": 0,
+            "task": "stack_blocks_three"
+          },
+          {
+            "eval_seed": 0,
+            "task": "stack_blocks_two"
+          },
+          {
+            "eval_seed": 1,
+            "task": "beat_block_hammer"
+          },
+          {
+            "eval_seed": 1,
+            "task": "blocks_ranking_rgb"
+          },
+          {
+            "eval_seed": 1,
+            "task": "blocks_ranking_size"
+          },
+          {
+            "eval_seed": 1,
+            "task": "handover_block"
+          },
+          {
+            "eval_seed": 1,
+            "task": "stack_blocks_three"
+          },
+          {
+            "eval_seed": 1,
+            "task": "stack_blocks_two"
+          },
+          {
+            "eval_seed": 2,
+            "task": "beat_block_hammer"
+          },
+          {
+            "eval_seed": 2,
+            "task": "blocks_ranking_rgb"
+          },
+          {
+            "eval_seed": 2,
+            "task": "blocks_ranking_size"
+          },
+          {
+            "eval_seed": 2,
+            "task": "handover_block"
+          },
+          {
+            "eval_seed": 2,
+            "task": "stack_blocks_three"
+          },
+          {
+            "eval_seed": 2,
+            "task": "stack_blocks_two"
+          },
+          {
+            "eval_seed": 3,
+            "task": "beat_block_hammer"
+          },
+          {
+            "eval_seed": 3,
+            "task": "blocks_ranking_rgb"
+          },
+          {
+            "eval_seed": 3,
+            "task": "blocks_ranking_size"
+          },
+          {
+            "eval_seed": 3,
+            "task": "handover_block"
+          },
+          {
+            "eval_seed": 3,
+            "task": "stack_blocks_three"
+          },
+          {
+            "eval_seed": 3,
+            "task": "stack_blocks_two"
+          }
+        ],
+        "missing_cells": 24,
+        "valid_summaries": 0
+      },
+      "temporal_grounding_tg1a_shuffled": {
+        "complete": false,
+        "exists": false,
+        "failed_cells": [],
+        "missing_cells": 24,
+        "valid_summaries": 0
+      }
+    },
+    "tg1b": {
+      "temporal_grounding_tg1b_future_off_e36": {
+        "complete": false,
+        "exists": true,
+        "failed_cells": [
+          {
+            "eval_seed": 0,
+            "task": "stack_blocks_three"
+          },
+          {
+            "eval_seed": 1,
+            "task": "beat_block_hammer"
+          },
+          {
+            "eval_seed": 1,
+            "task": "handover_block"
+          },
+          {
+            "eval_seed": 2,
+            "task": "handover_block"
+          }
+        ],
+        "missing_cells": 4,
+        "valid_summaries": 20
+      },
+      "temporal_grounding_tg1b_future_off_e50": {
+        "complete": false,
+        "exists": false,
+        "failed_cells": [],
+        "missing_cells": 24,
+        "valid_summaries": 0
+      },
+      "temporal_grounding_tg1b_local_wm_e36": {
+        "complete": false,
+        "exists": false,
+        "failed_cells": [],
+        "missing_cells": 24,
+        "valid_summaries": 0
+      },
+      "temporal_grounding_tg1b_local_wm_e50": {
+        "complete": false,
+        "exists": true,
+        "failed_cells": [
+          {
+            "eval_seed": 0,
+            "task": "stack_blocks_three"
+          },
+          {
+            "eval_seed": 1,
+            "task": "beat_block_hammer"
+          },
+          {
+            "eval_seed": 1,
+            "task": "handover_block"
+          },
+          {
+            "eval_seed": 2,
+            "task": "beat_block_hammer"
+          },
+          {
+            "eval_seed": 2,
+            "task": "blocks_ranking_size"
+          },
+          {
+            "eval_seed": 2,
+            "task": "handover_block"
+          }
+        ],
+        "missing_cells": 6,
+        "valid_summaries": 18
+      }
+    }
+  },
+  "frozen_scene_manifest": {
+    "accepted_episodes_per_condition": 1200,
+    "cells_per_condition": 24,
+    "episodes_per_cell": 50,
+    "eval_seeds": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "path": "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json",
+    "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "tasks": [
+      "beat_block_hammer",
+      "blocks_ranking_size",
+      "blocks_ranking_rgb",
+      "handover_block",
+      "stack_blocks_two",
+      "stack_blocks_three"
+    ]
+  },
+  "proposed_common_retry_cap": 500,
+  "required_rerun_conditions": {
+    "tg1a": [
+      "temporal_grounding_tg1a_normal",
+      "temporal_grounding_tg1a_shuffled",
+      "temporal_grounding_tg1a_null",
+      "temporal_grounding_tg1a_persistence"
+    ],
+    "tg1b": [
+      "temporal_grounding_tg1b_future_off_e36",
+      "temporal_grounding_tg1b_future_off_e50",
+      "temporal_grounding_tg1b_local_wm_e36",
+      "temporal_grounding_tg1b_local_wm_e50"
+    ]
+  },
+  "runner_sha256": {
+    "tg1a": "ef4bd5f64a60320dbbe59fe8b6f357979c4f8ed20fa18f7d2ca91f599a241844",
+    "tg1b": "8ac82597765b1de779bd648681cde9ed7f69c40eda2b2ba21663f0375224f385"
+  },
+  "schema_version": 1,
+  "scope": "Read-only TG1A/TG1B fixed-scene retry amendment audit",
+  "validation": {
+    "all_existing_summaries_match_frozen_scene_manifest": true,
+    "existing_valid_summary_count": 52
+  }
+}
