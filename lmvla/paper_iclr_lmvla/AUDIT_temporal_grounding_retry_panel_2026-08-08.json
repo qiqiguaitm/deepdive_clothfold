@@ -5,7 +5,7 @@
     "Do not reuse a partial summary, replace a scene, or drop a failed cell.",
     "Require exactly 24 valid cells and 1,200 frozen scene identities per condition."
   ],
-  "audited_at_utc": "2026-08-08T06:43:35.881923+00:00",
+  "audited_at_utc": "2026-08-08T06:58:14.722517+00:00",
   "authorization": {
     "activated": false,
     "explicit_operator_authorization_required": true,
@@ -23,6 +23,10 @@
         "complete": false,
         "exists": true,
         "failed_cells": [
+          {
+            "eval_seed": 2,
+            "task": "handover_block"
+          },
           {
             "eval_seed": 3,
             "task": "blocks_ranking_size"
@@ -44,8 +48,8 @@
             "task": "blocks_ranking_size"
           }
         ],
-        "missing_cells": 19,
-        "valid_summaries": 5
+        "missing_cells": 18,
+        "valid_summaries": 6
       },
       "temporal_grounding_tg1a_persistence": {
         "complete": false,
@@ -276,6 +280,6 @@
   "scope": "Read-only TG1A/TG1B fixed-scene retry amendment audit",
   "validation": {
     "all_existing_summaries_match_frozen_scene_manifest": true,
-    "existing_valid_summary_count": 54
+    "existing_valid_summary_count": 55
   }
 }
