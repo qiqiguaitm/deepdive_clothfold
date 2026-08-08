@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 06:58 UTC
+Updated: 2026-08-08 07:15 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -244,13 +244,19 @@ The seed-1002 raw-milestone materializer subsequently completed its full-state,
 hash-verified atomic transfer with `rc=0` at 05:49 UTC, and the scheduler
 accepted `local=1/1` at 05:51 UTC. North `future_off` seed 1002 then completed
 step 20,000 and its durable final save at 06:01 UTC; its serialized North
-materializer started immediately and remains incomplete. Its atomic incoming
-tree reached 18.7 GiB at 06:58 UTC and continued to grow, so the transfer is
-making progress rather than stalled. The `future_off` seed-1000 and seed-1001
-retries concurrently reached steps 6515 and 6483 at 2.04 and 2.08 s/step, with
-estimated remaining times of 7.64 and 7.81 hours. Thus all completed raw-milestone
-North transfers are local, while future-off seed 1002 is still an integrity
-dependency. None of these transitions is closed-loop policy evidence.
+materializer started immediately. The 22.4 GiB full-state transfer, source and
+destination hash checks, sidecar validation, and atomic installation completed
+with `rc=0` at 07:11 UTC; the scheduler accepted `local=1/1` in the same poll.
+The `future_off` seed-1000 and seed-1001 retries concurrently reached steps
+7009 and 6980 at 2.14 and 2.04 s/step, with estimated remaining times of 7.72
+and 7.38 hours. Thus all completed raw-milestone North transfers and
+future-off seed 1002 are local; the remaining integrity dependencies are the
+two future-off retries plus fixed-endpoint seed 1002 and raw-milestone seed
+1000. None of these transitions is closed-loop policy evidence.
+After the transfer marker was accepted, the scheduler was safely reloaded at
+07:12 UTC to apply the operator's primary-first credential policy and prior
+20-GPU primary-account limit. Two subsequent snapshots report primary `8/20`
+GPUs and `2/25` submitted jobs; no platform job or TG1A rollout was interrupted.
 At 03:45 UTC, the previously detached runtime-v7 fixed-endpoint seed-1002 job
 `t-20260807223419-bbwfx` was Running at step 1256 while the current runtime-v8
 job `t-20260807223916-rv9gd` remained Queueing. A request, source, and
@@ -376,7 +382,7 @@ The read-only machine audit
 `AUDIT_temporal_grounding_retry_panel_2026-08-08.json` independently verifies
 the exact ordered scene identities of every summary currently present, both
 frozen runners' cap of three, all eight required rerun conditions, and
-`activated=false`. All 55 summaries present across the eight roots at 06:58 UTC
+`activated=false`. All 56 summaries present across the eight roots at 07:15 UTC
 passed exact ordered-scene verification. The auditor and focused tests pass
 without modifying a job, result root, runner, readiness marker, or scheduler
 state.
@@ -440,8 +446,11 @@ Admission source:
   episodes. All four eval seeds completed `beat_block_hammer`; eval seeds 0,
   1, and 2 also completed `blocks_ranking_size`; eval seed 3 stopped that task
   after scene seed 400038 remained invalid for all three frozen setup attempts,
-  then completed `blocks_ranking_rgb`. Eval seeds 0, 1, and 2 subsequently completed
-  the same RGB task, producing 11/24 summaries at 06:34 UTC. The final exact-24-cell
+  then completed `blocks_ranking_rgb`. Eval seeds 0, 1, and 2 subsequently
+  completed the same RGB task, and eval seed 3 completed `handover_block`,
+  producing 12/24 summaries at 07:03 UTC. Eval seeds 1 and 2 stopped their
+  handover cells after exhausting the same three-attempt setup limit. The final
+  exact-24-cell
   verifier will reject this run without the same explicitly admitted common
   retry amendment required by the null arm. This is runtime progress, not a
   valid partial cross-condition result.
@@ -582,7 +591,8 @@ training-schedule claim may be based on seed 1000 alone.
 - [ ] **TG2-T02 [RUNNING-V8 RETRY: `t-20260808103839-wdh2t`, North;
   prior V7 reached step 20,000 but failed final save]**
   Train `future_off`, seed 1001; 4 GPUs.
-- [ ] **TG2-T03 [MATERIALIZING-V8: `t-20260808023231-z5mn8`, North; final model 1/1]**
+- [x] **TG2-T03 [COMPLETE-V8: `t-20260808023231-z5mn8`, North; final model 1/1;
+  materialized]**
   Train `future_off`, seed 1002; 4 GPUs.
 - [x] **TG2-T04 [COMPLETE-V7: `t-20260807221602-j6sww`, East; final model 1/1]**
   Train `fixed_endpoint`, seed 1000; 4 GPUs.
