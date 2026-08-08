@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 03:55 UTC
+Updated: 2026-08-08 04:04 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -229,6 +229,11 @@ on the serialization lock. If sustained, this projects about 2.9 hours per
 North run and roughly 20 hours for seven runs rather than the small-file
 probe's optimistic estimate. This affects result availability only; the
 admitted full-state, serialized, hash-verified transfer contract is unchanged.
+That first-minute projection is not a stable throughput bound. At 04:04 UTC,
+after the incoming tree had grown to 11.60 GB, a fresh 60-second byte sample
+measured 5.668 MiB/s and projected about 0.56 hours for the remainder of the
+seed-1001 tree. Treat this as a current-run ETA only, not completion evidence or
+authorization to parallelize, omit files, or weaken verification.
 At 03:45 UTC, the previously detached runtime-v7 fixed-endpoint seed-1002 job
 `t-20260807223419-bbwfx` was Running at step 1256 while the current runtime-v8
 job `t-20260807223916-rv9gd` remained Queueing. A request, source, and
