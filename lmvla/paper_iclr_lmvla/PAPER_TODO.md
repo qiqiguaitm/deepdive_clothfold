@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 02:16 UTC
+Updated: 2026-08-08 02:41 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -169,6 +169,15 @@ retries as `t-20260808100701-hq5cj` and `t-20260808100706-xtw8d`. This is an
 operational storage recovery, not training or checkpoint evidence. The
 credential-free audit is recorded in
 `AUDIT_temporal_grounding_north_fileset_quota_2026-08-08.json`.
+The first post-quota v8 attempts (`t-20260808100701-hq5cj` and
+`t-20260808100706-xtw8d`) then exited before step 0 because the frozen
+overwrite guard found the retained failed-output directories. Those directories
+were atomically renamed with `.failed-final-save-<job_id>` suffixes so all
+failure evidence remains available while the active exact-name glob is clear.
+Touching the already-admitted runtime-v8 readiness marker rearmed the scheduler
+without changing its content or hash. Replacement requests
+`t-20260808103834-9zf8q` and `t-20260808103839-wdh2t` are Queueing; they remain
+uncompleted work.
 The North-to-East SSH transport measured 5.6 MiB/s on a read-only 128 MiB
 probe, implying about 47 minutes per 15.5 GiB run and 5.5 hours for seven
 serialized North runs. Local materializers have no process timeout, and their
@@ -474,10 +483,10 @@ training-schedule claim may be based on seed 1000 alone.
 
 ### Training jobs
 
-- [ ] **TG2-T01 [QUEUEING-V8 RETRY: `t-20260808100701-hq5cj`, North;
+- [ ] **TG2-T01 [QUEUEING-V8 RETRY: `t-20260808103834-9zf8q`, North;
   prior V7 reached step 20,000 but failed final save]**
   Train `future_off`, seed 1000; 4 GPUs.
-- [ ] **TG2-T02 [QUEUEING-V8 RETRY: `t-20260808100706-xtw8d`, North;
+- [ ] **TG2-T02 [QUEUEING-V8 RETRY: `t-20260808103839-wdh2t`, North;
   prior V7 reached step 20,000 but failed final save]**
   Train `future_off`, seed 1001; 4 GPUs.
 - [ ] **TG2-T03 [RUNNING-V8: `t-20260808023231-z5mn8`, North]**

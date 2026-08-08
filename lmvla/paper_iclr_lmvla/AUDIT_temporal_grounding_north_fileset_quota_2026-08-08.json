@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "audited_at_utc": "2026-08-08T02:16:13Z",
+  "audited_at_utc": "2026-08-08T02:41:11Z",
   "scope": "TG2 North final-checkpoint write failure and Fileset quota recovery",
   "filesystem": {
     "file_system_id": "vepfs-cnbj875793a96d6b",
@@ -48,8 +48,25 @@
   },
   "scheduler_verdict": {
     "failed_partial_artifacts_accepted": false,
-    "seed1000_retry_job_id": "t-20260808100701-hq5cj",
-    "seed1001_retry_job_id": "t-20260808100706-xtw8d",
+    "initial_retry_attempts": [
+      {
+        "job_id": "t-20260808100701-hq5cj",
+        "task": "temporal_grounding_tg2_future_off_seed1000_train",
+        "platform_state": "Failed",
+        "training_step": 0,
+        "failure": "The overwrite guard correctly rejected the retained failed-output directory."
+      },
+      {
+        "job_id": "t-20260808100706-xtw8d",
+        "task": "temporal_grounding_tg2_future_off_seed1001_train",
+        "platform_state": "Failed",
+        "training_step": 0,
+        "failure": "The overwrite guard correctly rejected the retained failed-output directory."
+      }
+    ],
+    "failed_output_preservation": "Both failed directories were atomically renamed with a .failed-final-save-<job_id> suffix; no file was deleted.",
+    "seed1000_retry_job_id": "t-20260808103834-9zf8q",
+    "seed1001_retry_job_id": "t-20260808103839-wdh2t",
     "retry_runtime_revision": "temporal_grounding_runtime_v8",
     "retry_state_at_audit": "Queueing"
   }
