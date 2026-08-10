@@ -6371,7 +6371,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 37
+    assert len(tasks) == 47
     tg1a = {
         task_id: task for task_id, task in tasks.items() if "tg1a" in task_id
     }
@@ -6381,7 +6381,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     tg2 = {
         task_id: task
         for task_id, task in tasks.items()
-        if "tg2" in task_id and task_id.endswith("_train")
+        if "tg2_" in task_id and task_id.endswith("_train")
+    }
+    tg2r = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if "tg2r_" in task_id and task_id.endswith("_train")
     }
     temporal_grounding_evals = {
         task_id for task_id in tasks if task_id.endswith("_eval")
@@ -6389,6 +6394,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert len(tg1a) == 4
     assert len(tg1b) == 4
     assert len(tg2) == 9
+    assert len(tg2r) == 9
     assert len(temporal_grounding_evals) == 17
     assert all(
         scheduler.TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task_id)
@@ -6476,6 +6482,29 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "temporal_grounding_runtime_amendment_v8.json"
         )
         assert north["ready_files_remote"]
+    recovery_stage = tasks["temporal_grounding_tg2r_north_stage"]
+    assert recovery_stage["candidates"][0]["kind"] == "local"
+    assert recovery_stage["candidates"][0]["gpus"] == 0
+    for task in tg2r.values():
+        assert task["requires_completed_tasks"] == [
+            "temporal_grounding_tg2r_north_stage"
+        ]
+        assert task["completion_requires_successful_terminal_state"] is True
+        assert task["successful_terminal_artifact_grace_seconds"] == 300
+        assert task["rearm_after_ready_file"].endswith(
+            "temporal_grounding_tg2_recovery_v1.json"
+        )
+        assert len(task["candidates"]) == 1
+        candidate = task["candidates"][0]
+        assert candidate["resource"] == "Robot-North-H20"
+        assert candidate["gpus"] == 4
+        assert candidate["runtime_revision"] == (
+            "temporal_grounding_tg2_recovery_v1"
+        )
+        assert candidate["yaml"].endswith(
+            "temporal_grounding_tg2_recovery_north_4h20.yaml"
+        )
+        assert task["ready_files_remote"]
     materializers = {
         task_id: task
         for task_id, task in tasks.items()

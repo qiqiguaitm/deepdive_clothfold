@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-08 09:20 UTC
+Updated: 2026-08-10 01:20 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -18,6 +18,80 @@ replace a job outside that scheduler. On 2026-08-07 the operator authorized the
 minimal scheduler change required to register the 16 already-frozen first-wave
 TG1A/TG1B/TG2 jobs below. The authorization does not permit changes to source,
 data, recipes, interventions, dependencies, gates, or result selection.
+
+## 0. Current status override (2026-08-10)
+
+This section supersedes stale live-state wording and checkboxes later in this
+document. Historical job IDs and operational incidents remain below as an
+audit trail; they are not the current execution plan.
+
+### TG2 parent matrix: complete checkpoints, rejected comparison
+
+All nine original TG2 training cells reached durable step-20,000 artifacts and
+all nine location-aware materializers completed. The strict v4 joint integrity
+worker then rejected the matrix because `exact_rank_data_order_within_seed`
+failed for every seed: the four-rank ordered episode/frame hashes differ across
+arms. The frozen loader used eight workers per rank with `in_order=false`, so
+worker-completion timing changed the consumed order even under a shared seed.
+
+This is a scientific protocol failure, not a missing-checkpoint failure. The
+original nine checkpoints are retained as audit artifacts, but all original
+TG2-E01--E09 evaluations are retired and must not run. They cannot establish a
+matched comparison.
+
+The scheduler-owned recovery probe `t-20260810090151-5ph8w` completed on East.
+Two independent four-rank launches, each consuming 256 microbatches and 4,096
+samples per rank with `in_order=true`, matched exactly on every rank. Canonical
+evidence is
+`logs/temporal_grounding/tg2/data_order_recovery_probe_v1/matched.json`.
+This validates the deterministic recovery path but is not policy evidence.
+
+### TG2R recovery matrix: active highest-priority training wave
+
+The versioned recovery contract is
+`lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json`.
+It preserves all original arms, seeds, initialization, target routes, batch
+128, four-GPU world size, eight workers per rank, 20,000 updates, H=E=50, and
+fixed-final-checkpoint selection. Its only training change is
+`datasets.vla_data.in_order: false -> true`.
+
+All nine cells use the same detached North source (`outer 11fb843`, LaWAM
+`71803a3`) to eliminate cross-stack source drift. A scheduler-owned zero-GPU
+staging task must first atomically install and verify the small TG2R payload;
+the nine independent four-GPU jobs may then run concurrently. North primary is
+used first up to its 20-GPU/25-job limit; the already-enabled backup profile is
+used only when the next four-GPU task cannot fit. No TG2R evaluation is
+admissible until all nine cells pass a new joint exact-order integrity gate.
+
+- [ ] **TG2R-S0 [READY]** Stage and byte-verify the recovery payload on North.
+- [ ] **TG2R-T01 [BLOCKED by S0]** `future_off`, seed 1000, North 4 GPU.
+- [ ] **TG2R-T02 [BLOCKED by S0]** `future_off`, seed 1001, North 4 GPU.
+- [ ] **TG2R-T03 [BLOCKED by S0]** `future_off`, seed 1002, North 4 GPU.
+- [ ] **TG2R-T04 [BLOCKED by S0]** `fixed_endpoint`, seed 1000, North 4 GPU.
+- [ ] **TG2R-T05 [BLOCKED by S0]** `fixed_endpoint`, seed 1001, North 4 GPU.
+- [ ] **TG2R-T06 [BLOCKED by S0]** `fixed_endpoint`, seed 1002, North 4 GPU.
+- [ ] **TG2R-T07 [BLOCKED by S0]** `raw_milestone`, seed 1000, North 4 GPU.
+- [ ] **TG2R-T08 [BLOCKED by S0]** `raw_milestone`, seed 1001, North 4 GPU.
+- [ ] **TG2R-T09 [BLOCKED by S0]** `raw_milestone`, seed 1002, North 4 GPU.
+- [ ] **TG2R-I1 [BLOCKED by T01--T09]** Materialize sidecars/checkpoints and
+  require exact initialization and rank-order equality within each seed.
+- [ ] **TG2R-E01--E09 [BLOCKED by I1]** Run the unchanged frozen paired
+  evaluation protocol only after joint integrity acceptance.
+
+### TG1 current incomplete evidence
+
+TG1A has 98 valid frozen-manifest summaries in total, but no condition is a
+complete 24-cell matrix. Normal is 20/24, null is 19/24, persistence is 21/24,
+and shuffled is 0/24 because it remains dependent on complete normal capture.
+The three platform jobs ended `Failed` after producing partial valid cells;
+partial success rates are not interpretable. TG1B remains disabled pending the
+fixed-scene validity protocol decision: `future_off,E=36` is 20/24 and
+`local_wm,E=50` is 18/24; the other two cells are incomplete. The unactivated
+retry-cap amendment remains audit-only.
+
+Task_N remains excluded by operator instruction. TG2R training and recovery of
+the incomplete TG1 evidence are the active local-TODO priorities; TG3 and all
+claim-expanding branches remain gated by the unchanged scientific criteria.
 
 ## 1. Scientific question and evidence boundary
 

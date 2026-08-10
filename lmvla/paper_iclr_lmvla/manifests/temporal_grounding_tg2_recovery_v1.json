@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_recovery_v1",
+  "created_at": "2026-08-10T01:15:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent_protocol": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json",
+    "sha256": "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
+    "disposition": "The completed parent matrix is rejected because exact rank data order differs across arms within every seed. Its checkpoints are retained only as audit artifacts and must not be evaluated."
+  },
+  "recovery_basis": {
+    "probe_job_id": "t-20260810090151-5ph8w",
+    "probe_result": "logs/temporal_grounding/tg2/data_order_recovery_probe_v1/matched.json",
+    "independent_launches": 2,
+    "world_size": 4,
+    "microbatches_per_rank": 256,
+    "samples_per_rank": 4096,
+    "acceptance": "Both launches produced identical ordered episode/frame hashes for every rank."
+  },
+  "source_identity": {
+    "north_stage": "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/temporal_grounding_11fb843",
+    "outer_commit": "11fb84349809b30ddc785dc99105080540d000c2",
+    "lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a",
+    "single_location_requirement": "All nine arms train from this exact North source and runtime overlay."
+  },
+  "only_training_change": {
+    "datasets.vla_data.in_order": [false, true]
+  },
+  "preserved_training_contract": {
+    "arms": ["future_off", "fixed_endpoint", "raw_milestone"],
+    "training_seeds": [1000, 1001, 1002],
+    "jobs": 9,
+    "world_size": 4,
+    "per_device_batch_size": 16,
+    "gradient_accumulation_steps": 2,
+    "global_batch_size": 128,
+    "updates": 20000,
+    "num_workers_per_rank": 8,
+    "val_num_workers_per_rank": 2,
+    "frame_cache": false,
+    "fused_adam": false,
+    "auto_resume": false,
+    "prediction_horizon": 50,
+    "execution_cadence": 50,
+    "checkpoint_selection": "fixed final step only"
+  },
+  "resource_policy": {
+    "candidates": ["Robot-North-H20"],
+    "reason": "Avoid source-stack drift by using one detached LaWAM commit for every arm.",
+    "credential_order": "primary first; backup only when the next four-GPU task cannot fit under the primary 20-GPU limit",
+    "parallelism": "All nine jobs are independent after scheduler-owned North staging."
+  },
+  "gates": {
+    "training_matrix": "All nine successful terminal jobs, fixed step-20000 checkpoints, initialization equality within seed, and exact rank data-order equality within seed are required.",
+    "evaluation": "No TG2R evaluation may start before the new joint matrix integrity gate passes.",
+    "tg3": "The existing TG2 scientific stop rule remains unchanged."
+  },
+  "file_sha256": {
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json": "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
+    "train_scripts/kai/run_temporal_grounding_tg2_train.sh": "e81d2c63ac5b5fbdd67b5219d7883f5338ed50b78033926b7849412cad1cd49f",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_recovery_bundle.py": "0507f4a3e512ccaedc8f356179eb77ee8ae8037d76069646c33e1aa643d9041d",
+    "train_scripts/kai/run_temporal_grounding_tg2_recovery_train.sh": "05eb6d30d55d1ef2c9623ae4d03d52de18749f5ecdae9a3bd06305fb04284316"
+  }
+}

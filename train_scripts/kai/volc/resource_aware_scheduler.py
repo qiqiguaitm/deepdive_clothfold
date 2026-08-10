@@ -336,6 +336,14 @@ for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
             ),
             "expected_steps": 20000,
         }
+        NORTH_TRAIN_WATCH_TASKS[f"tg2r_{arm}_seed{seed}"] = {
+            "log_glob": (
+                "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
+                "logs/temporal_grounding/entrypoint/"
+                f"tg2r_{arm}_s{seed}_north_*.log"
+            ),
+            "expected_steps": 20000,
+        }
 NORTH_TRAIN_WATCH_TASKS["pi05_a0_public_recipe"] = {
     "log_glob": (
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/logs/"
@@ -435,6 +443,9 @@ for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
         TRAIN_WATCH_MANAGED_TASK_IDS[
             ("Beijing", f"tg2_{arm}_seed{seed}")
         ] = f"temporal_grounding_tg2_{arm}_seed{seed}_train"
+        TRAIN_WATCH_MANAGED_TASK_IDS[
+            ("Beijing", f"tg2r_{arm}_seed{seed}")
+        ] = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
 NORTH_WATCH_TASKS = {
     "pi05_a2_residual": ("pi05_rt_a2_residual_prefix_official_v4", 24),
     "pi05_a0": ("pi05_rt_a0_official_v2", 24),
@@ -8573,6 +8584,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     order_probe_v3_path = (
         manifests / "temporal_grounding_tg2_data_order_recovery_probe_v3.json"
     )
+    tg2_recovery_path = manifests / "temporal_grounding_tg2_recovery_v1.json"
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8593,6 +8605,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         order_probe_path: "06bec622e88fde04bce61e14b60c44546538712c23fc5d7b2d8891bdc0ed8a29",
         order_probe_v2_path: "488112fa4ad23fbb0c028b17c52294ac69525389c53b8ef4124971964177ba82",
         order_probe_v3_path: "584ad084004da002077cd035127a1c962bd91b393a04335d733c8cab8f380a54",
+        tg2_recovery_path: "e16e3e7191eab3d859f7e919a96214b3f6cfd2b4a10ff111f10c34958921372b",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -9161,6 +9174,158 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             }
         )
         existing.add(order_probe_id)
+
+    recovery_stage_id = "temporal_grounding_tg2r_north_stage"
+    recovery_stage_marker = (
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg2_recovery_north_stage.ok"
+    )
+    recovery_stage_marker_remote = (
+        Path(north_stage)
+        / "logs/resource_markers/temporal_grounding_tg2_recovery_north_stage.ok"
+    )
+    recovery_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg2_recovery_train.sh"
+    )
+    recovery_verifier = (
+        REPO
+        / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_recovery_bundle.py"
+    )
+    recovery_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg2_recovery_north_4h20.yaml"
+    )
+    recovery_stage_script = (
+        REPO / "train_scripts/kai/stage_temporal_grounding_tg2_recovery_to_north.sh"
+    )
+    recovery_hashes = [
+        {
+            "path": str(tg2_recovery_path),
+            "sha256": manifest_hashes[tg2_recovery_path],
+        },
+        {
+            "path": str(recovery_runner),
+            "sha256": "05eb6d30d55d1ef2c9623ae4d03d52de18749f5ecdae9a3bd06305fb04284316",
+        },
+        {
+            "path": str(recovery_verifier),
+            "sha256": "0507f4a3e512ccaedc8f356179eb77ee8ae8037d76069646c33e1aa643d9041d",
+        },
+        {
+            "path": str(recovery_yaml),
+            "sha256": "16d91a6ebc904c586fc2f0f93ebf29ce290715c3609f06a78c693819c9b8be73",
+        },
+        {
+            "path": str(recovery_stage_script),
+            "sha256": "21863d90120195e945c20a2d044fcc2f4d4b2cd698428c333244c627a6babe6b",
+        },
+    ]
+    if recovery_stage_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": recovery_stage_id,
+                "priority": 1,
+                "description": "Atomically stage and verify the frozen TG2R payload on North",
+                "rearm_after_ready_file": str(tg2_recovery_path),
+                "completion_glob": str(recovery_stage_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(tg2_recovery_path),
+                    str(recovery_runner),
+                    str(recovery_verifier),
+                    str(recovery_yaml),
+                    str(recovery_stage_script),
+                ],
+                "ready_hashes": recovery_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 3,
+                        "status_dir": str(
+                            REPO / "logs/temporal_grounding/tg2r/north_stage"
+                        ),
+                        "command": shlex.join(
+                            ["bash", str(recovery_stage_script)]
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(recovery_stage_id)
+
+    for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+        for seed in (1000, 1001, 1002):
+            task_id = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
+            if task_id in existing:
+                continue
+            run_id = f"temporal_grounding_tg2r_{arm}_seed{seed}"
+            queue["tasks"].append(
+                {
+                    "id": task_id,
+                    "priority": 1,
+                    "description": (
+                        f"TG2R deterministic-order arm={arm} seed={seed} training"
+                    ),
+                    "requires_completed_tasks": [recovery_stage_id],
+                    "rearm_after_ready_file": str(tg2_recovery_path),
+                    "completion_locations": [
+                        {
+                            "label": "north",
+                            "glob": (
+                                f"{north_results}/*+{run_id}/final_model/"
+                                "pytorch_model.pt"
+                            ),
+                            "remote": True,
+                        }
+                    ],
+                    "completion_min_count": 1,
+                    "completion_requires_successful_terminal_state": True,
+                    "successful_terminal_artifact_grace_seconds": 300,
+                    "ready_files": [
+                        str(tg2_recovery_path),
+                        str(recovery_runner),
+                        str(recovery_verifier),
+                        str(recovery_yaml),
+                    ],
+                    "ready_files_remote": [
+                        str(recovery_stage_marker_remote),
+                        f"{north_stage}/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json",
+                        f"{north_stage}/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_recovery_bundle.py",
+                        f"{north_stage}/train_scripts/kai/run_temporal_grounding_tg2_recovery_train.sh",
+                        "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3/transformers/__init__.py",
+                        "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3/huggingface_hub/__init__.py",
+                        "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3/tokenizers/tokenizers.abi3.so",
+                        "/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3/sitecustomize.py",
+                    ],
+                    "ready_hashes": recovery_hashes[:-1],
+                    "candidates": [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-North-H20",
+                            "region": "cn-beijing",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 300,
+                            "deploy_timeout_seconds": 900,
+                            "retry_cooldown_seconds": 900,
+                            "max_failures": 1,
+                            "runtime_revision": "temporal_grounding_tg2_recovery_v1",
+                            "yaml": str(recovery_yaml.relative_to(REPO)),
+                            "task_name": (
+                                "temporal-grounding-tg2r-"
+                                f"{arm.replace('_', '-')}-s{seed}-north4g"
+                            ),
+                            "env": {
+                                "TG2R_ARM": arm,
+                                "TG2R_TRAIN_SEED": str(seed),
+                            },
+                        }
+                    ],
+                }
+            )
+            existing.add(task_id)
 
     eval_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_eval_east_4h20.yaml"
     eval_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg2_eval.sh"
