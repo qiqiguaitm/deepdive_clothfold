@@ -4803,6 +4803,12 @@ def test_north_primary_only_candidate_never_spills_to_backup() -> None:
     assert scheduler.north_queue_credential_profile(candidate, snapshot) is None
 
 
+def test_seed1002_primary_duplicate_training_watch_includes_tagged_log() -> None:
+    watch = scheduler.NORTH_TRAIN_WATCH_TASKS["tg2r_future_off_seed1002"]
+
+    assert any("s1002_primarydup_north_*.log" in str(path) for path in watch["log_globs"])
+
+
 def test_north_spills_at_full_primary_limit() -> None:
     snapshot = north_snapshot(primary=20)
     assert (

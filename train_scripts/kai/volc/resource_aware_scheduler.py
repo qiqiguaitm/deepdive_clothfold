@@ -349,6 +349,14 @@ for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
             ),
             "expected_steps": 20000,
         }
+NORTH_TRAIN_WATCH_TASKS["tg2r_future_off_seed1002"]["log_globs"] = [
+    NORTH_TRAIN_WATCH_TASKS["tg2r_future_off_seed1002"]["log_glob"],
+    (
+        "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
+        "logs/temporal_grounding/entrypoint/"
+        "tg2r_future_off_s1002_primarydup_north_*.log"
+    ),
+]
 NORTH_TRAIN_WATCH_TASKS["pi05_a0_public_recipe"] = {
     "log_glob": (
         "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/lmvla/lawam/logs/"
