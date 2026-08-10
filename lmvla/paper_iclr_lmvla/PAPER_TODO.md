@@ -62,9 +62,9 @@ recovery payload, and the byte-verified Transformers 5.2 runtime overlay. The
 East entrypoint repeats both Git checks, all overlay hashes, the parent TG2
 bundle verifier, the TG2R verifier, and the model/data hashes before training.
 The nine independent four-GPU jobs may run concurrently. Backup-profile
-submission is enabled with an eight-GPU identity-wide cap. At the 20:40 UTC
-audit, the primary identity uses 0/25 GPUs, the backup identity uses 8/8 GPUs
-and has one four-GPU request queued, and East is idle at 0/8 GPUs. No TG2R
+submission is enabled with an eight-GPU identity-wide cap. At the 23:56 UTC
+audit, the primary identity uses 4/25 GPUs, the backup identity uses 8/8 GPUs
+and retains one superseded four-GPU request queued, and East is idle at 0/8 GPUs. No TG2R
 evaluation is admissible until all nine cells
 pass a new joint exact-order integrity gate. Completion discovery is
 location-aware: both East and North final-model paths are checked, and an East
@@ -81,13 +81,16 @@ gate.
   North at 01:17 UTC; both pinned Git identities and all four payload hashes
   passed.
 - [ ] **TG2R-T01 [RUNNING: `t-20260810091838-d5ds7`, backup]** `future_off`,
-  seed 1000, North 4 GPU; step 11,353/20,000 at 20:40 UTC, ETA 4.95 hours.
+  seed 1000, North 4 GPU; step 17,047/20,000 at 23:56 UTC, ETA 1.75 hours.
 - [ ] **TG2R-T02 [RUNNING: `t-20260810091842-8p7bt`, backup]** `future_off`,
-  seed 1001, North 4 GPU; step 11,104/20,000, ETA 5.02 hours.
-- [ ] **TG2R-T03 [QUEUEING: `t-20260810091846-g8fpd`, backup]** `future_off`,
-  seed 1002, North 4 GPU. The scheduler's profile-correct `StopJob` request is
-  denied with `AccessDenied`; primary-account idleness therefore cannot be used
-  for a duplicate launch without risking concurrent writes to the frozen run.
+  seed 1001, North 4 GPU; step 16,819/20,000, ETA 1.78 hours.
+- [ ] **TG2R-T03 [RUNNING: `t-20260811075607-jqpjx`, primary]** `future_off`,
+  seed 1002, North 4 GPU. The operator explicitly authorized a primary-identity
+  duplicate. The scheduler staged and hash-verified the amendment, detached the
+  unkillable backup Queueing attempt `t-20260810091846-g8fpd`, and dispatched
+  the primary job at 23:56 UTC. The formal checkpoint and audit sidecars use
+  unique `primarydup` names; the old backup attempt is excluded from completion,
+  materialization, integrity, and evaluation provenance even if it later runs.
 - [x] **TG2R-T04 [COMPLETE: `t-20260810091825-6cgzh`, primary]**
   `fixed_endpoint`, seed 1000, North 4 GPU; durable completion at 14:08 UTC.
 - [x] **TG2R-T05 [COMPLETE: `t-20260810091829-vnvpv`, backup]**
@@ -216,6 +219,8 @@ The following immutable admission bundles are frozen and were reverified on
 | TG2R post-training v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v2.json` | Runtime-only | Passed; location-aware sidecar resolution with strict staging precedence and unchanged integrity/eval protocol |
 | TG2R post-training v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v3.json` | Runtime-only | Passed locally; preserves raw sidecars and recovers only null redundant arm metadata in an audited temporary overlay |
 | TG2R post-training v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v4.json` | Runtime-only | Passed locally; runs the unchanged v3 integrity verifier in the East root context required to read canonical mode-0600 sidecars |
+| TG2R post-training v5 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v5.json` | Runtime-only | Passed locally; adds explicit tagged-source and tagged-sidecar selection so the authorized primary seed-1002 duplicate cannot mix with the detached backup attempt |
+| TG2R seed-1002 primary duplicate | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_v1.json` | Operational-only | Operator-authorized; preserves the complete frozen scientific contract and changes only credential identity, output tag, and superseded-attempt provenance |
 | Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
 | Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
 | Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |
