@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 19:40 UTC
+Updated: 2026-08-10 20:40 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -62,8 +62,8 @@ recovery payload, and the byte-verified Transformers 5.2 runtime overlay. The
 East entrypoint repeats both Git checks, all overlay hashes, the parent TG2
 bundle verifier, the TG2R verifier, and the model/data hashes before training.
 The nine independent four-GPU jobs may run concurrently. Backup-profile
-submission is enabled with an eight-GPU identity-wide cap. At the 19:07 UTC
-audit, the primary identity uses 16/25 GPUs, the backup identity uses 8/8 GPUs
+submission is enabled with an eight-GPU identity-wide cap. At the 20:40 UTC
+audit, the primary identity uses 0/25 GPUs, the backup identity uses 8/8 GPUs
 and has one four-GPU request queued, and East is idle at 0/8 GPUs. No TG2R
 evaluation is admissible until all nine cells
 pass a new joint exact-order integrity gate. Completion discovery is
@@ -81,11 +81,13 @@ gate.
   North at 01:17 UTC; both pinned Git identities and all four payload hashes
   passed.
 - [ ] **TG2R-T01 [RUNNING: `t-20260810091838-d5ds7`, backup]** `future_off`,
-  seed 1000, North 4 GPU; step 9,593/20,000 at 19:40 UTC, ETA 6.01 hours.
+  seed 1000, North 4 GPU; step 11,353/20,000 at 20:40 UTC, ETA 4.95 hours.
 - [ ] **TG2R-T02 [RUNNING: `t-20260810091842-8p7bt`, backup]** `future_off`,
-  seed 1001, North 4 GPU; step 9,347/20,000, ETA 5.98 hours.
+  seed 1001, North 4 GPU; step 11,104/20,000, ETA 5.02 hours.
 - [ ] **TG2R-T03 [QUEUEING: `t-20260810091846-g8fpd`, backup]** `future_off`,
-  seed 1002, North 4 GPU.
+  seed 1002, North 4 GPU. The scheduler's profile-correct `StopJob` request is
+  denied with `AccessDenied`; primary-account idleness therefore cannot be used
+  for a duplicate launch without risking concurrent writes to the frozen run.
 - [x] **TG2R-T04 [COMPLETE: `t-20260810091825-6cgzh`, primary]**
   `fixed_endpoint`, seed 1000, North 4 GPU; durable completion at 14:08 UTC.
 - [x] **TG2R-T05 [COMPLETE: `t-20260810091829-vnvpv`, backup]**
