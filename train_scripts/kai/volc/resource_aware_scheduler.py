@@ -10331,6 +10331,20 @@ def backup_submission_enabled() -> bool:
         return False
 
 
+def backup_personal_limit() -> int:
+    """Read a persistent backup GPU cap, failing closed on invalid overrides."""
+    try:
+        parser = configparser.ConfigParser()
+        if not parser.read(BACKUP_CONTROL_PATH):
+            return NORTH_BACKUP_PERSONAL_LIMIT
+        raw = parser.get("scheduler", "personal_limit", fallback=None)
+        if raw is None:
+            return NORTH_BACKUP_PERSONAL_LIMIT
+        return max(0, int(raw))
+    except (OSError, configparser.Error, ValueError):
+        return 0
+
+
 def api(region: str, profile: str = "primary") -> Service:
     ak, sk = credential_values(profile)
     info = ServiceInfo(
@@ -13814,7 +13828,7 @@ def make_snapshot(state: dict[str, Any] | None = None) -> dict[str, Any]:
         "managed_active_gpus": 0,
         "managed_queued_gpus": 0,
         "managed_queueing": [],
-        "personal_limit": NORTH_BACKUP_PERSONAL_LIMIT,
+        "personal_limit": backup_personal_limit(),
         "managed_submitted_jobs": 0,
         "identity_active_gpus": 0,
         "identity_queued_gpus": 0,

@@ -98,17 +98,29 @@ Robot-East-H20、robot-task 和本地使用；北京文件由 gsy 准备，供
 Robot-North-H20 使用。脚本只显示 `primary`/`backup` profile 名称，不读取或打印密钥。
 默认拒绝超过 180 秒的旧快照，避免按过期卡池状态提交。
 
-北京主/备用身份同时受 GPU 上限和“已提交任务数”上限约束。当前资源目录中主身份
-GPU 上限默认为 20、任务上限默认为 25，备用身份两项均默认为 20；运行时以快照显示
-的配置为准。四项
+北京主/备用身份同时受 GPU 上限和“已提交任务数”上限约束。当前运行配置中主身份
+GPU 上限为 24、任务上限为 25，备用身份 GPU 上限为 8、任务上限为 20；运行时以快照
+显示的配置为准。四项
 上限均可在启动调度器前配置：
 
 ```bash
-export NORTH_PERSONAL_LIMIT=20
+export NORTH_PERSONAL_LIMIT=24
 export NORTH_BACKUP_PERSONAL_LIMIT=20
 export NORTH_PRIMARY_MAX_JOBS=25
 export NORTH_BACKUP_MAX_JOBS=20
 ```
+
+备用身份的 GPU 上限也可持久化写入仓库外控制文件，优先于上述环境变量：
+
+```ini
+[scheduler]
+enabled = true
+submission_enabled = true
+personal_limit = 8
+```
+
+`personal_limit` 只限制备用身份的活跃加排队 GPU 数，不改变任务数量上限
+`NORTH_BACKUP_MAX_JOBS`。无效或负数配置按 0 GPU 处理，禁止备用身份新派发。
 
 快照的 `Beijing Submission Quotas` 表会同时显示 submitted jobs/job limit 和
 active GPUs/GPU limit。路由器也会显示 `Jobs` 列；达到任务数额度时，即使物理卡空闲，

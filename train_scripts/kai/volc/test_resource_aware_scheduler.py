@@ -4854,6 +4854,26 @@ def test_north_does_not_use_disabled_backup_identity() -> None:
     assert scheduler.candidate_credential_profile(north_candidate(2), snapshot) is None
 
 
+def test_backup_personal_limit_reads_persistent_control(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    control = tmp_path / "scheduler-backup.conf"
+    control.write_text("[scheduler]\npersonal_limit = 8\n", encoding="utf-8")
+    monkeypatch.setattr(scheduler, "BACKUP_CONTROL_PATH", control)
+
+    assert scheduler.backup_personal_limit() == 8
+
+
+def test_backup_personal_limit_fails_closed_on_invalid_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    control = tmp_path / "scheduler-backup.conf"
+    control.write_text("[scheduler]\npersonal_limit = invalid\n", encoding="utf-8")
+    monkeypatch.setattr(scheduler, "BACKUP_CONTROL_PATH", control)
+
+    assert scheduler.backup_personal_limit() == 0
+
+
 def robot_task_snapshot(*, active: int, queueing: bool = False) -> dict:
     return {
         "resources": {
