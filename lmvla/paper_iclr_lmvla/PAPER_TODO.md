@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 19:07 UTC
+Updated: 2026-08-10 19:19 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -104,13 +104,13 @@ gate.
   without a redundant transfer.
 - [x] **TG2R-T09 [COMPLETE: `t-20260810091945-2h6rw`, primary]**
   `raw_milestone`, seed 1002, North 4 GPU; durable completion at 17:36 UTC. Its
-  serialized full-state transfer is active; the incoming tree reached 19 GiB
-  at 19:06 UTC.
+  23.49 GB serialized full-state transfer and v3 sidecar verification completed
+  with `rc=0` at 19:18 UTC.
 - [ ] **TG2R-I1 [ADMITTED; BLOCKED by T01--T09]** Run nine serialized,
   full-state, hash-verified North-to-East materializers, then require exact
   initialization and rank-order equality within each seed plus distinct order
-  across seeds. Five materializers are complete: all three fixed-endpoint rows
-  and the two East raw-milestone rows. The gate explicitly checks
+  across seeds. Six materializers are complete: all fixed-endpoint and
+  raw-milestone rows. The gate explicitly checks
   `in_order=true` and eight workers in every persisted full config.
 - [ ] **TG2R-E01--E09 [ADMITTED; BLOCKED by I1]** Run the unchanged frozen
   paired evaluation protocol on East only after joint integrity acceptance.
