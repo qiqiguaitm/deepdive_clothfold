@@ -9131,6 +9131,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "priority": 1,
                 "description": "Probe deterministic recovery of TG2 exact rank data order",
                 "supersede_obsolete_runtime_after_seconds": 60,
+                "supersede_obsolete_running_runtime_after_seconds": 300,
                 "rearm_after_ready_file": str(order_probe_v3_path),
                 "completion_glob": str(order_probe_marker),
                 "completion_min_count": 1,
@@ -14131,8 +14132,15 @@ def obsolete_runtime_supersession_ready(
     task: dict[str, Any], attempt: dict[str, Any], platform_state: str
 ) -> bool:
     """Allow an explicitly opted-in task to escape an unkillable old runtime."""
-    timeout = int(task.get("supersede_obsolete_runtime_after_seconds", 0))
-    if timeout <= 0 or platform_state not in {"Deploying", "Queueing"}:
+    if platform_state == "Running":
+        timeout = int(
+            task.get("supersede_obsolete_running_runtime_after_seconds", 0)
+        )
+    elif platform_state in {"Deploying", "Queueing"}:
+        timeout = int(task.get("supersede_obsolete_runtime_after_seconds", 0))
+    else:
+        return False
+    if timeout <= 0:
         return False
     current_revisions = {
         candidate["runtime_revision"]

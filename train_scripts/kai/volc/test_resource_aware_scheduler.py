@@ -1852,6 +1852,49 @@ def test_unstoppable_obsolete_runtime_is_detached_for_current_revision(
     ]
 
 
+def test_obsolete_running_runtime_requires_explicit_opt_in(monkeypatch) -> None:
+    task = {
+        "id": "runtime-upgrade",
+        "supersede_obsolete_running_runtime_after_seconds": 1,
+        "candidates": [
+            {
+                "kind": "platform",
+                "resource": "Robot-East-H20",
+                "runtime_revision": "runtime_v3",
+            }
+        ],
+    }
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-East-H20",
+        "region": "cn-shanghai",
+        "credential_profile": "primary",
+        "job_id": "t-obsolete-running",
+        "started_at": "2020-01-01T00:00:00Z",
+        "runtime_revision": "runtime_v2",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    stopped = []
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Running", "message": "rank0 exited"},
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "stop_platform_job",
+        lambda *args: stopped.append(args) or "primary",
+    )
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "pending"
+    assert stopped == [("cn-shanghai", "t-obsolete-running", "primary")]
+    assert attempt["superseded_by_runtime_revisions"] == ["runtime_v3"]
+    assert state["superseded_platform_attempts"][0]["stopped"] is True
+
+
 def test_current_runtime_is_never_detached_when_stop_is_denied(monkeypatch) -> None:
     task = {
         "id": "current-runtime",
@@ -6484,6 +6527,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     order_probe = tasks["temporal_grounding_tg2_data_order_recovery_probe"]
     assert order_probe["priority"] == 1
     assert order_probe["supersede_obsolete_runtime_after_seconds"] == 60
+    assert order_probe["supersede_obsolete_running_runtime_after_seconds"] == 300
     assert order_probe["rearm_after_ready_file"].endswith(
         "temporal_grounding_tg2_data_order_recovery_probe_v3.json"
     )
