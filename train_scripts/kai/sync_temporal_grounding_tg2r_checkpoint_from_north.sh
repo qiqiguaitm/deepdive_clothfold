@@ -7,11 +7,13 @@ NORTH_REPO=${NORTH_REPO:-/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.stagi
 ARM=${TG2R_ARM:?set TG2R_ARM}
 SEED=${TG2R_TRAIN_SEED:?set TG2R_TRAIN_SEED}
 RUN_ID=temporal_grounding_tg2r_${ARM}_seed${SEED}
+SOURCE_NAME_GLOB=${TG2R_SOURCE_NAME_GLOB:-*+$RUN_ID}
+AUDIT_RUN_ID=${TG2R_AUDIT_RUN_ID:-$RUN_ID}
 REMOTE_BASE=$NORTH_REPO/lmvla/lawam/results/Checkpoints/robotwin
 LOCAL_BASE=$REPO/lmvla/lawam/results/Checkpoints/robotwin
 REMOTE_AUDIT=$NORTH_REPO/logs/temporal_grounding/tg2r
-REMOTE_INIT=$REMOTE_AUDIT/initialization/$RUN_ID.json
-REMOTE_ORDER=$REMOTE_AUDIT/data_order/$RUN_ID
+REMOTE_INIT=$REMOTE_AUDIT/initialization/$AUDIT_RUN_ID.json
+REMOTE_ORDER=$REMOTE_AUDIT/data_order/$AUDIT_RUN_ID
 SIDECAR_BASE=$REPO/logs/resource_scheduler_local/temporal_grounding_tg2r_sidecars/$RUN_ID
 LOCAL_INIT_RAW=$SIDECAR_BASE/initialization.raw.json
 LOCAL_ORDER_RAW=$SIDECAR_BASE/data_order_raw
@@ -32,10 +34,10 @@ flock 9
 
 mapfile -t sources < <(
   ssh -p "$PORT" -o BatchMode=yes "$HOST" \
-    "find '$REMOTE_BASE' -mindepth 1 -maxdepth 1 -type d -name '*+$RUN_ID' -print | sort"
+    "find '$REMOTE_BASE' -mindepth 1 -maxdepth 1 -type d -name '$SOURCE_NAME_GLOB' -print | sort"
 )
 if [[ "${#sources[@]}" -ne 1 ]]; then
-  echo "expected exactly one North TG2R run for $RUN_ID, found ${#sources[@]}" >&2
+  echo "expected exactly one North TG2R run matching $SOURCE_NAME_GLOB, found ${#sources[@]}" >&2
   exit 3
 fi
 SRC=${sources[0]}

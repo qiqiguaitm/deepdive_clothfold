@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_v1",
+  "created_at": "2026-08-10T23:48:00Z",
+  "operator_authorized": true,
+  "authorization": "User explicitly authorized repeating seed1002 under the primary identity.",
+  "execution_owner": "resource_aware_scheduler",
+  "parent_protocol": "temporal_grounding_tg2_recovery_v1",
+  "parent_manifest": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json",
+  "superseded_job": {
+    "job_id": "t-20260810091846-g8fpd",
+    "credential_profile": "backup",
+    "observed_state_at_authorization": "Queueing",
+    "disposition": "Retain for audit and attempt best-effort cleanup; never admit or materialize its output."
+  },
+  "formal_attempt": {
+    "credential_profile": "primary",
+    "arm": "future_off",
+    "training_seed": 1002,
+    "output_name_glob": "*_primarydup+temporal_grounding_tg2r_future_off_seed1002",
+    "scientific_changes": [],
+    "operational_changes": [
+      "primary credential profile only",
+      "unique primarydup output tag",
+      "old queued attempt detached from scheduler completion provenance"
+    ]
+  },
+  "preserved_training_contract": {
+    "source_outer_commit": "11fb84349809b30ddc785dc99105080540d000c2",
+    "source_lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a",
+    "world_size": 4,
+    "per_device_batch_size": 16,
+    "gradient_accumulation_steps": 2,
+    "global_batch_size": 128,
+    "updates": 20000,
+    "num_workers_per_rank": 8,
+    "in_order": true,
+    "frame_cache": false,
+    "fused_adam": false,
+    "auto_resume": false,
+    "prediction_horizon": 50,
+    "execution_cadence": 50,
+    "checkpoint_selection": "fixed final step only"
+  },
+  "file_sha256": {
+    "train_scripts/kai/run_temporal_grounding_tg2r_future_off_seed1002_primary_duplicate.sh": "df6b3e97332f64dc4f6c7be6d2f9f729fd47b584fcd65b2def02ecddb26969ad",
+    "train_scripts/kai/volc/temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_north_4h20.yaml": "290631a68db44842f5a0fe56df6debd2672048e6f3508ea35deeb11cb17d0e32"
+  }
+}

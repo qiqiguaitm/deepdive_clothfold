@@ -8606,6 +8606,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg2_recovery_post_v4_path = (
         manifests / "temporal_grounding_tg2_recovery_posttraining_v4.json"
     )
+    tg2_recovery_post_v5_path = (
+        manifests / "temporal_grounding_tg2_recovery_posttraining_v5.json"
+    )
+    tg2r_seed1002_duplicate_path = (
+        manifests
+        / "temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_v1.json"
+    )
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8631,6 +8638,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         tg2_recovery_post_v2_path: "86777a59af021afb50ffb644ff3761c4d28e0e9c0ed850b4789bcfc089d06499",
         tg2_recovery_post_v3_path: "ba17cb323721b3913ca74ee1c06bd668a3f5674be91d45bb8c91ec9afc050f95",
         tg2_recovery_post_v4_path: "da069a907ad9e8b464c82dd681305d5fb18076315972d5c9a8bc14d88512733b",
+        tg2_recovery_post_v5_path: "f1f96234bcec786df4532a7ae8cab4134737f9e6374c21b7f39465c0eba230e0",
+        tg2r_seed1002_duplicate_path: "885b25a82aa3c9da3edbc3bd9cb76d7e5d7f81b451e393d04ac3720be368070a",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8647,6 +8656,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg2_recovery_post_v2 = json.loads(tg2_recovery_post_v2_path.read_text())
     tg2_recovery_post_v3 = json.loads(tg2_recovery_post_v3_path.read_text())
     tg2_recovery_post_v4 = json.loads(tg2_recovery_post_v4_path.read_text())
+    tg2_recovery_post_v5 = json.loads(tg2_recovery_post_v5_path.read_text())
     runtime_v10_hashes = [
         {"path": str(runtime_v10_path), "sha256": manifest_hashes[runtime_v10_path]},
         *(
@@ -8727,8 +8737,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             for relative, digest in tg2_recovery_post_v3["files"].items()
         ),
     ]
+    tg2_recovery_post_v5_replaced_files = set(tg2_recovery_post_v5["files"])
     tg2_recovery_post_v4_hashes = [
-        *tg2_recovery_post_v3_hashes,
+        *(
+            item
+            for item in tg2_recovery_post_v3_hashes
+            if str(Path(item["path"]).relative_to(REPO))
+            not in tg2_recovery_post_v5_replaced_files
+        ),
         {
             "path": str(tg2_recovery_post_v4_path),
             "sha256": manifest_hashes[tg2_recovery_post_v4_path],
@@ -8736,6 +8752,17 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         *(
             {"path": str(REPO / relative), "sha256": digest}
             for relative, digest in tg2_recovery_post_v4["files"].items()
+        ),
+    ]
+    tg2_recovery_post_v5_hashes = [
+        *tg2_recovery_post_v4_hashes,
+        {
+            "path": str(tg2_recovery_post_v5_path),
+            "sha256": manifest_hashes[tg2_recovery_post_v5_path],
+        },
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in tg2_recovery_post_v5["files"].items()
         ),
     ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
@@ -9338,6 +9365,76 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         )
         existing.add(recovery_stage_id)
 
+    existing_tasks = {task["id"]: task for task in queue["tasks"]}
+    duplicate_stage_id = "temporal_grounding_tg2r_seed1002_primary_duplicate_stage"
+    duplicate_manifest = tg2r_seed1002_duplicate_path
+    duplicate_runner = (
+        REPO
+        / "train_scripts/kai/run_temporal_grounding_tg2r_future_off_seed1002_primary_duplicate.sh"
+    )
+    duplicate_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_north_4h20.yaml"
+    )
+    duplicate_stage_script = (
+        REPO
+        / "train_scripts/kai/stage_temporal_grounding_tg2r_seed1002_primary_duplicate_to_north.sh"
+    )
+    duplicate_stage_marker = (
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg2r_seed1002_primary_duplicate_north_stage.ok"
+    )
+    duplicate_stage_marker_remote = (
+        Path(north_stage)
+        / "logs/resource_markers/temporal_grounding_tg2r_seed1002_primary_duplicate_north_stage.ok"
+    )
+    duplicate_hashes = [
+        {
+            "path": str(duplicate_manifest),
+            "sha256": manifest_hashes[duplicate_manifest],
+        },
+        {
+            "path": str(duplicate_runner),
+            "sha256": "df6b3e97332f64dc4f6c7be6d2f9f729fd47b584fcd65b2def02ecddb26969ad",
+        },
+        {
+            "path": str(duplicate_yaml),
+            "sha256": "290631a68db44842f5a0fe56df6debd2672048e6f3508ea35deeb11cb17d0e32",
+        },
+        {
+            "path": str(duplicate_stage_script),
+            "sha256": "689d0aea122c9e22e8f3c01c5fc8ccd34cae3166d7909d02cc209d0def1b5021",
+        },
+    ]
+    duplicate_stage_task = {
+        "id": duplicate_stage_id,
+        "priority": 1,
+        "description": "Stage the authorized seed1002 primary duplicate payload on North",
+        "rearm_after_ready_file": str(duplicate_manifest),
+        "completion_glob": str(duplicate_stage_marker),
+        "completion_min_count": 1,
+        "ready_files": [item["path"] for item in duplicate_hashes],
+        "ready_hashes": duplicate_hashes,
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 300,
+                "max_failures": 3,
+                "status_dir": str(
+                    REPO / "logs/temporal_grounding/tg2r/seed1002_primary_duplicate_stage"
+                ),
+                "command": shlex.join(["bash", str(duplicate_stage_script)]),
+            }
+        ],
+    }
+    if duplicate_stage_id not in existing:
+        queue["tasks"].append(duplicate_stage_task)
+        existing.add(duplicate_stage_id)
+    else:
+        existing_tasks[duplicate_stage_id].update(duplicate_stage_task)
+
     backup_queue_drain_tasks = {
         ("fixed_endpoint", 1002),
         ("future_off", 1000),
@@ -9484,6 +9581,70 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             )
             existing.add(task_id)
 
+    duplicate_task_id = "temporal_grounding_tg2r_future_off_seed1002_train"
+    duplicate_run_id = "temporal_grounding_tg2r_future_off_seed1002"
+    duplicate_task = next(
+        task for task in queue["tasks"] if task["id"] == duplicate_task_id
+    )
+    duplicate_task.update(
+        {
+            "description": "TG2R future-off seed1002 operator-authorized primary duplicate",
+            "requires_completed_tasks": [recovery_stage_id, duplicate_stage_id],
+            "rearm_after_ready_file": str(duplicate_manifest),
+            "completion_locations": [
+                {
+                    "label": "east",
+                    "glob": str(
+                        REPO
+                        / "lmvla/lawam/results/Checkpoints/robotwin"
+                        / f"*_primarydup+{duplicate_run_id}/final_model/pytorch_model.pt"
+                    ),
+                    "remote": False,
+                },
+                {
+                    "label": "north",
+                    "glob": (
+                        f"{north_results}/*_primarydup+{duplicate_run_id}/final_model/"
+                        "pytorch_model.pt"
+                    ),
+                    "remote": True,
+                },
+            ],
+            "ready_files": [
+                str(tg2_recovery_path),
+                str(recovery_verifier),
+                str(duplicate_manifest),
+                str(duplicate_runner),
+                str(duplicate_yaml),
+                str(duplicate_stage_script),
+            ],
+            "ready_files_remote": [
+                str(recovery_stage_marker_remote),
+                str(duplicate_stage_marker_remote),
+                f"{north_stage}/train_scripts/kai/run_temporal_grounding_tg2r_future_off_seed1002_primary_duplicate.sh",
+            ],
+            "ready_hashes": [*recovery_hashes[:3], *duplicate_hashes],
+            "supersede_obsolete_runtime_after_seconds": 1,
+            "candidates": [
+                {
+                    "kind": "platform",
+                    "resource": "Robot-North-H20",
+                    "region": "cn-beijing",
+                    "gpus": 4,
+                    "allowed_credential_profiles": ["primary"],
+                    "queue_timeout_seconds": 300,
+                    "deploy_timeout_seconds": 900,
+                    "retry_cooldown_seconds": 900,
+                    "max_failures": 1,
+                    "runtime_revision": "temporal_grounding_tg2r_seed1002_primary_duplicate_v1",
+                    "yaml": str(duplicate_yaml.relative_to(REPO)),
+                    "task_name": "temporal-grounding-tg2r-future-off-s1002-primarydup-north4g",
+                    "env": {"TG2R_ARM": "future_off", "TG2R_TRAIN_SEED": "1002"},
+                }
+            ],
+        }
+    )
+
     recovery_materialize_ids = []
     recovery_sync = (
         REPO / "train_scripts/kai/sync_temporal_grounding_tg2r_checkpoint_from_north.sh"
@@ -9505,7 +9666,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     f"Materialize full North TG2R arm={arm} seed={seed} artifacts"
                 ),
                 "materialize_north_result_for": parent_id,
-                "rearm_after_ready_file": str(tg2_recovery_post_v3_path),
+                "rearm_after_ready_file": str(tg2_recovery_post_v5_path),
                 "completion_glob": str(marker),
                 "completion_min_count": 1,
                 "ready_files": [
@@ -9513,6 +9674,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     str(tg2_recovery_post_path),
                     str(tg2_recovery_post_v2_path),
                     str(tg2_recovery_post_v3_path),
+                    str(tg2_recovery_post_v5_path),
                     str(recovery_sync),
                     str(REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"),
                     str(
@@ -9520,7 +9682,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2r_sidecars.py"
                     ),
                 ],
-                "ready_hashes": tg2_recovery_post_v3_hashes,
+                "ready_hashes": tg2_recovery_post_v5_hashes,
                 "candidates": [
                     {
                         "kind": "local",
@@ -9538,6 +9700,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 "env",
                                 f"TG2R_ARM={arm}",
                                 f"TG2R_TRAIN_SEED={seed}",
+                                *(
+                                    [
+                                        "TG2R_SOURCE_NAME_GLOB=*_primarydup+temporal_grounding_tg2r_future_off_seed1002",
+                                        "TG2R_AUDIT_RUN_ID=temporal_grounding_tg2r_future_off_seed1002.primarydup",
+                                    ]
+                                    if arm == "future_off" and seed == 1002
+                                    else []
+                                ),
                                 "bash",
                                 str(recovery_sync),
                             ]
@@ -14535,11 +14705,12 @@ def candidate_credential_profile(
 ) -> str | None:
     if candidate.get("kind") != "platform":
         return None
+    allowed = set(candidate.get("allowed_credential_profiles", ["primary", "backup"]))
     if candidate.get("resource") != "Robot-North-H20":
         return "primary" if candidate_available(candidate, snapshot) else None
-    if candidate_available(candidate, snapshot, "primary"):
+    if "primary" in allowed and candidate_available(candidate, snapshot, "primary"):
         return "primary"
-    if candidate_available(candidate, snapshot, "backup"):
+    if "backup" in allowed and candidate_available(candidate, snapshot, "backup"):
         return "backup"
     return None
 
@@ -14676,9 +14847,10 @@ def north_queue_credential_profile(
         and backup.get("available")
         and backup_gpus_fit
     )
-    if primary_gpus_fit:
+    allowed = set(candidate.get("allowed_credential_profiles", ["primary", "backup"]))
+    if primary_gpus_fit and "primary" in allowed:
         return "primary"
-    if backup_usable:
+    if backup_usable and "backup" in allowed:
         return "backup"
     return None
 

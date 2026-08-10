@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_recovery_posttraining_v5",
+  "created_at": "2026-08-10T23:49:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v4.json",
+    "sha256": "da069a907ad9e8b464c82dd681305d5fb18076315972d5c9a8bc14d88512733b"
+  },
+  "amendment": {
+    "scope": "Allow a scheduler task to select one explicitly tagged North run directory during materialization.",
+    "reason": "The operator-authorized primary seed1002 duplicate must remain isolated from its unkillable backup-identity queueing attempt.",
+    "default_behavior": "Unchanged: without TG2R_SOURCE_NAME_GLOB, exactly one directory matching *+RUN_ID is required.",
+    "scientific_changes": []
+  },
+  "files": {
+    "train_scripts/kai/sync_temporal_grounding_tg2r_checkpoint_from_north.sh": "fb7f79b687d074df3931f31a64e01d52d4ad86868125201e671952a007bf5b31"
+  }
+}

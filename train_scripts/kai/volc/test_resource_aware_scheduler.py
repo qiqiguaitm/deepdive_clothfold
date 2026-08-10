@@ -4794,6 +4794,15 @@ def test_north_spills_to_backup_when_primary_task_does_not_fit() -> None:
     )
 
 
+def test_north_primary_only_candidate_never_spills_to_backup() -> None:
+    snapshot = north_snapshot(primary=25)
+    candidate = north_candidate()
+    candidate["allowed_credential_profiles"] = ["primary"]
+
+    assert scheduler.candidate_credential_profile(candidate, snapshot) is None
+    assert scheduler.north_queue_credential_profile(candidate, snapshot) is None
+
+
 def test_north_spills_at_full_primary_limit() -> None:
     snapshot = north_snapshot(primary=20)
     assert (
@@ -6442,7 +6451,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 66
+    assert len(tasks) == 67
     tg1a = {
         task_id: task for task_id, task in tasks.items() if "tg1a" in task_id
     }
@@ -6561,14 +6570,25 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         "temporal_grounding_tg2r_raw_milestone_seed1001_train",
     }
     for task_id, task in tg2r.items():
-        assert task["requires_completed_tasks"] == [
-            "temporal_grounding_tg2r_north_stage"
-        ]
+        if task_id == "temporal_grounding_tg2r_future_off_seed1002_train":
+            assert task["requires_completed_tasks"] == [
+                "temporal_grounding_tg2r_north_stage",
+                "temporal_grounding_tg2r_seed1002_primary_duplicate_stage",
+            ]
+        else:
+            assert task["requires_completed_tasks"] == [
+                "temporal_grounding_tg2r_north_stage"
+            ]
         assert task["completion_requires_successful_terminal_state"] is True
         assert task["successful_terminal_artifact_grace_seconds"] == 300
-        assert task["rearm_after_ready_file"].endswith(
-            "temporal_grounding_tg2_recovery_v1.json"
-        )
+        if task_id == "temporal_grounding_tg2r_future_off_seed1002_train":
+            assert task["rearm_after_ready_file"].endswith(
+                "temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_v1.json"
+            )
+        else:
+            assert task["rearm_after_ready_file"].endswith(
+                "temporal_grounding_tg2_recovery_v1.json"
+            )
         assert {location["label"] for location in task["completion_locations"]} == {
             "east",
             "north",
@@ -6585,8 +6605,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         )
         assert east_completion["remote"] is False
         assert north_completion["remote"] is True
-        assert f"+{task_id.removesuffix('_train')}/final_model/pytorch_model.pt" in (
-            east_completion["glob"]
+        expected_tag = (
+            "_primarydup" if task_id == "temporal_grounding_tg2r_future_off_seed1002_train" else ""
+        )
+        assert (
+            f"{expected_tag}+{task_id.removesuffix('_train')}/final_model/pytorch_model.pt"
+            in east_completion["glob"]
         )
         assert len(task["candidates"]) == 1
         candidate = task["candidates"][0]
@@ -6598,6 +6622,15 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             )
             assert candidate["yaml"].endswith(
                 "temporal_grounding_tg2_recovery_east_4h20.yaml"
+            )
+        elif task_id == "temporal_grounding_tg2r_future_off_seed1002_train":
+            assert candidate["resource"] == "Robot-North-H20"
+            assert candidate["runtime_revision"] == (
+                "temporal_grounding_tg2r_seed1002_primary_duplicate_v1"
+            )
+            assert candidate["allowed_credential_profiles"] == ["primary"]
+            assert candidate["yaml"].endswith(
+                "temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_north_4h20.yaml"
             )
         else:
             assert candidate["resource"] == "Robot-North-H20"
@@ -6722,9 +6755,18 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     )
     assert all(
         task["rearm_after_ready_file"].endswith(
-            "temporal_grounding_tg2_recovery_posttraining_v3.json"
+            "temporal_grounding_tg2_recovery_posttraining_v5.json"
         )
         for task in recovery_materializers.values()
+    )
+    duplicate_materializer = recovery_materializers[
+        "temporal_grounding_tg2r_future_off_seed1002_train_materialize_north"
+    ]
+    assert "TG2R_SOURCE_NAME_GLOB=*_primarydup+" in (
+        duplicate_materializer["candidates"][0]["command"]
+    )
+    assert "TG2R_AUDIT_RUN_ID=temporal_grounding_tg2r_future_off_seed1002.primarydup" in (
+        duplicate_materializer["candidates"][0]["command"]
     )
     recovery_integrity = tasks["temporal_grounding_tg2r_training_integrity"]
     assert set(recovery_integrity["requires_completed_tasks"]) == set(
@@ -6794,7 +6836,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     )
     scheduler.add_temporal_grounding_tasks(queue)
     assert first_materializer["rearm_after_ready_file"].endswith(
-        "temporal_grounding_tg2_recovery_posttraining_v3.json"
+        "temporal_grounding_tg2_recovery_posttraining_v5.json"
     )
     assert first_materializer["candidates"][0]["command"].endswith(
         "sync_temporal_grounding_tg2r_checkpoint_from_north.sh"
