@@ -22,9 +22,8 @@ def isolate_scheduler_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(scheduler, "LOG_PATH", tmp_path / "resource_scheduler.log")
 
 
-def test_primary_north_defaults_to_20_gpus_and_25_submitted_jobs() -> None:
-    assert scheduler.NORTH_PERSONAL_LIMIT == 20
-    assert scheduler.NORTH_PRIMARY_MAX_JOBS == 25
+def test_primary_north_defaults_to_25_gpus() -> None:
+    assert scheduler.NORTH_PERSONAL_LIMIT == 25
 
 
 def test_primary_north_gpu_limit_is_environment_configurable() -> None:
@@ -44,9 +43,9 @@ def test_primary_north_gpu_limit_is_environment_configurable() -> None:
         check=True,
         capture_output=True,
         text=True,
-        env={**os.environ, "NORTH_PERSONAL_LIMIT": "20"},
+        env={**os.environ, "NORTH_PERSONAL_LIMIT": "25"},
     )
-    assert completed.stdout.strip() == "20"
+    assert completed.stdout.strip() == "25"
 
 
 def test_managed_execution_counts_separates_platform_queue_state() -> None:
@@ -1285,8 +1284,6 @@ def north_snapshot(
                 "owned_queued_gpus": 0,
                 "active_gpus_all_users": all_users,
                 "owned_queueing": ["primary-job"] if queueing else [],
-                "owned_submitted_jobs": 0,
-                "max_submitted_jobs": 20,
                 "queueing_all_users": ["other-job"] if queueing else [],
                 "backup": {
                     "enabled": backup_enabled,
@@ -1294,8 +1291,6 @@ def north_snapshot(
                     "managed_active_gpus": backup,
                     "managed_queued_gpus": 0,
                     "managed_queueing": [],
-                    "managed_submitted_jobs": 0,
-                    "max_submitted_jobs": 20,
                     "personal_limit": 20,
                 },
             }
@@ -1311,24 +1306,6 @@ def north_candidate(gpus: int = 4) -> dict:
     }
 
 
-def test_north_candidate_respects_configured_submitted_job_quota() -> None:
-    candidate = north_candidate(4)
-    snapshot = north_snapshot(primary=0, all_users=0)
-    beijing = snapshot["resources"]["beijing"]
-    beijing["owned_submitted_jobs"] = 3
-    beijing["max_submitted_jobs"] = 3
-    assert not scheduler.candidate_available(candidate, snapshot, "primary")
-
-    backup = beijing["backup"]
-    backup["managed_submitted_jobs"] = 1
-    backup["max_submitted_jobs"] = 2
-    assert scheduler.candidate_available(candidate, snapshot, "backup")
-    assert scheduler.candidate_credential_profile(candidate, snapshot) == "backup"
-    scheduler.reserve_dispatched_candidate(snapshot, candidate, "backup")
-    assert backup["managed_submitted_jobs"] == 2
-    assert not scheduler.candidate_available(candidate, snapshot, "backup")
-
-
 def test_backup_candidate_uses_identity_wide_quota_not_managed_subset() -> None:
     candidate = north_candidate(4)
     snapshot = north_snapshot(primary=20, all_users=40)
@@ -1338,7 +1315,6 @@ def test_backup_candidate_uses_identity_wide_quota_not_managed_subset() -> None:
             "identity_active_gpus": 8,
             "identity_queued_gpus": 12,
             "identity_queueing": ["old-1", "old-2", "old-3"],
-            "identity_submitted_jobs": 5,
         }
     )
 
@@ -1347,8 +1323,8 @@ def test_backup_candidate_uses_identity_wide_quota_not_managed_subset() -> None:
     assert scheduler.north_queue_credential_profile(candidate, snapshot) != "backup"
 
 
-def test_submitted_job_states_include_all_pre_running_wait_states() -> None:
-    assert scheduler.SUBMITTED_JOB_STATES == (
+def test_visible_nonterminal_job_states_include_all_wait_states() -> None:
+    assert scheduler.VISIBLE_NONTERMINAL_JOB_STATES == (
         "Running",
         "Deploying",
         "Creating",
@@ -1628,28 +1604,22 @@ def test_mt3_mixed_gpu_candidates_prefer_8g_only_when_all_cards_are_free() -> No
     ]
 
 
-def test_north_queue_sink_respects_primary_and_backup_job_limits() -> None:
+def test_north_queue_sink_respects_only_primary_and_backup_gpu_limits() -> None:
     candidate = north_candidate(4)
     snapshot = north_snapshot(primary=0, all_users=56, queueing=True)
     assert not scheduler.candidate_available(candidate, snapshot, "primary")
     assert scheduler.north_queue_credential_profile(candidate, snapshot) == "primary"
     scheduler.reserve_queued_north_candidate(snapshot, candidate, "primary")
-    assert snapshot["resources"]["beijing"]["owned_submitted_jobs"] == 1
     assert snapshot["resources"]["beijing"]["owned_queued_gpus"] == 4
 
     beijing = snapshot["resources"]["beijing"]
-    beijing["owned_submitted_jobs"] = beijing["max_submitted_jobs"]
+    beijing["owned_queued_gpus"] = beijing["personal_limit"]
     assert scheduler.north_queue_credential_profile(candidate, snapshot) == "backup"
     scheduler.reserve_queued_north_candidate(snapshot, candidate, "backup")
-    assert beijing["backup"]["managed_submitted_jobs"] == 1
     assert beijing["backup"]["managed_queued_gpus"] == 4
 
-    beijing["backup"]["managed_submitted_jobs"] = beijing["backup"][
-        "max_submitted_jobs"
-    ]
-    beijing["backup"]["identity_submitted_jobs"] = beijing["backup"][
-        "max_submitted_jobs"
-    ]
+    beijing["backup"]["managed_queued_gpus"] = beijing["backup"]["personal_limit"]
+    beijing["backup"]["identity_queued_gpus"] = beijing["backup"]["personal_limit"]
     assert scheduler.north_queue_credential_profile(candidate, snapshot) is None
 
 
@@ -1659,7 +1629,7 @@ def test_north_queue_sink_does_not_submit_with_paused_backup() -> None:
     backup = snapshot["resources"]["beijing"]["backup"]
     backup["submission_enabled"] = False
 
-    assert scheduler.north_queue_credential_profile(candidate, snapshot) == "primary"
+    assert scheduler.north_queue_credential_profile(candidate, snapshot) is None
     assert not scheduler.candidate_available(candidate, snapshot, "backup")
 
 
@@ -2252,7 +2222,7 @@ def test_dispatch_submits_persistent_north_queue_sink_without_gpu_reservation(
     assert attempt["persistent_north_queue_sink"] is True
     assert attempt["job_id"] == "job-queued"
     beijing = snapshot["resources"]["beijing"]
-    assert beijing["owned_submitted_jobs"] == 1
+    assert beijing["owned_queued_gpus"] == 4
     assert beijing["active_gpus_all_users"] == 56
     assert beijing["owned_active_gpus"] == 0
 
@@ -2282,10 +2252,9 @@ def test_submission_recommendation_audit_records_locality_and_selection(
                 "active_gpus_all_users": 40,
                 "personal_limit": 20,
                 "owned_active_gpus": 0,
+                "owned_queued_gpus": 0,
                 "owned_queueing": ["queued"],
                 "queueing_all_users": ["queued"],
-                "owned_submitted_jobs": 1,
-                "max_submitted_jobs": 20,
                 "backup": {"enabled": False},
             },
         },

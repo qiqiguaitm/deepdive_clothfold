@@ -98,16 +98,13 @@ Robot-East-H20、robot-task 和本地使用；北京文件由 gsy 准备，供
 Robot-North-H20 使用。脚本只显示 `primary`/`backup` profile 名称，不读取或打印密钥。
 默认拒绝超过 180 秒的旧快照，避免按过期卡池状态提交。
 
-北京主/备用身份同时受 GPU 上限和“已提交任务数”上限约束。当前运行配置中主身份
-GPU 上限为 24、任务上限为 25，备用身份 GPU 上限为 8、任务上限为 20；运行时以快照
-显示的配置为准。四项
-上限均可在启动调度器前配置：
+北京主/备用身份只按 GPU 数量限制，不设置任务数量上限。当前运行配置中主身份 GPU
+上限为 25，备用身份 GPU 上限为 8；运行时以快照显示的配置为准。主身份上限可在启动
+调度器前配置：
 
 ```bash
-export NORTH_PERSONAL_LIMIT=24
-export NORTH_BACKUP_PERSONAL_LIMIT=20
-export NORTH_PRIMARY_MAX_JOBS=25
-export NORTH_BACKUP_MAX_JOBS=20
+export NORTH_PERSONAL_LIMIT=25
+export NORTH_BACKUP_PERSONAL_LIMIT=8
 ```
 
 备用身份的 GPU 上限也可持久化写入仓库外控制文件，优先于上述环境变量：
@@ -119,16 +116,12 @@ submission_enabled = true
 personal_limit = 8
 ```
 
-`personal_limit` 只限制备用身份的活跃加排队 GPU 数，不改变任务数量上限
-`NORTH_BACKUP_MAX_JOBS`。无效或负数配置按 0 GPU 处理，禁止备用身份新派发。
+`personal_limit` 限制备用身份的活跃加排队 GPU 数。无效或负数配置按 0 GPU
+处理，禁止备用身份新派发。
 
-快照的 `Beijing Submission Quotas` 表会同时显示 submitted jobs/job limit 和
-active GPUs/GPU limit。路由器也会显示 `Jobs` 列；达到任务数额度时，即使物理卡空闲，
-仍标记 `Run now=no`。可用 `--north-max-jobs` 和 `--north-backup-max-jobs` 做一次性
-决策覆盖。若存在任何不排队目标，路由器优先选择可立即运行目标；若所有候选都必须
-等待，则把 `Robot-North-H20` 固定为第一排队选择，不向上海队列堆积等待任务。
-任务数统计覆盖 `Creating`、`Waiting`、`Queueing`、`Deploying` 和 `Running`，并按
-任务 ID 去重，避免状态切换期间重复计数或漏掉尚未开始占卡的任务。
+快照的 `Beijing GPU Quotas` 表显示 active、queued 和 GPU limit。若存在任何不排队
+目标，路由器优先选择可立即运行目标；若所有候选都必须等待，则把
+`Robot-North-H20` 固定为第一排队选择，不向上海队列堆积等待任务。
 
 常驻调度器同样强制执行该路由步骤。候选的实际执行顺序直接使用完整 router score，
 综合实时可运行状态、请求卡数偏好和数据/checkpoint locality，而不是先按另一套固定
@@ -168,11 +161,10 @@ launcher **之前**，还会保存同一推荐逻辑的审计记录。记录写�
 备用身份提交的 attempt 会记录 `credential_profile=backup`，后续查询和停止也必须使用
 同一身份。将开关改为 `false` 后，调度器不再读取备用密钥、不查询备用身份，也不提交
 新任务；主身份配置的 GPU 上限始终保留。
-主身份达到 `NORTH_PRIMARY_MAX_JOBS` 时也视为不能立即派发；若备用身份启用且其
-GPU/任务额度均可容纳，调度器会选择备用身份。主、备用均达到任务数额度时不会误报
-为即时空闲。
+主身份的活跃加排队 GPU 无法容纳下一任务时，若备用身份启用且其 GPU 额度可容纳，
+调度器会选择备用身份。
 
-North queue-sink attempt 只预留对应身份的 submitted-job slot，不增加 active GPU
+North queue-sink attempt 只预留对应身份的 queued GPU，不增加 active GPU
 计数；进入 `Queueing` 后不受上海机会型任务使用的短 queue timeout 影响。任务真正
 进入 `Running` 后，平台实时快照接管 GPU 占用统计。上海 `robot-task`/East 仍保持
 机会型策略，排队超时后撤回并在容量变化或 cooldown 后重试。

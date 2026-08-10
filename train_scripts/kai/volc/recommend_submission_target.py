@@ -29,9 +29,6 @@ class LiveCapacity:
     capacity_gpus: int
     queueing: bool
     credential_profile: str | None = None
-    submitted_jobs: int | None = None
-    max_submitted_jobs: int | None = None
-    quota_full: bool = False
     submission_enabled: bool = True
     detail: str = ""
 
@@ -44,8 +41,6 @@ class Recommendation:
     region: str
     queue: str | None
     credential_profile: str | None
-    submitted_jobs: int | None
-    max_submitted_jobs: int | None
     free_gpus: int
     capacity_gpus: int
     filesystem: str
@@ -144,60 +139,60 @@ def live_capacity(resource: str, spec: dict[str, Any], snapshot: dict[str, Any])
         queue_free = max(0, capacity - active_all)
         primary_limit = int(live.get("personal_limit", spec.get("personal_limit_gpus", 20)))
         primary_active = int(live.get("owned_active_gpus", primary_limit))
+        primary_queued = int(live.get("owned_queued_gpus", 0))
         primary_queueing = bool(live.get("owned_queueing", []))
-        primary_free = _bounded_free(queue_free, primary_limit - primary_active)
-
-        primary_jobs = int(live.get("owned_submitted_jobs", 0))
-        primary_max_jobs = int(
-            live.get("max_submitted_jobs", spec.get("max_submitted_jobs", 20))
+        primary_free = _bounded_free(
+            queue_free, primary_limit - primary_active - primary_queued
         )
+
         candidates = [
             (
                 primary_free,
-                not primary_queueing and primary_jobs < primary_max_jobs,
+                not primary_queueing,
                 "primary",
-                primary_jobs,
-                primary_max_jobs,
                 primary_queueing,
             )
         ]
         backup = live.get("backup", {})
-        if backup.get("enabled") and backup.get("available"):
+        if (
+            backup.get("enabled")
+            and backup.get("submission_enabled", backup.get("enabled"))
+            and backup.get("available")
+        ):
             backup_limit = int(backup.get("personal_limit", 20))
-            backup_active = int(backup.get("managed_active_gpus", backup_limit))
-            backup_queueing = bool(backup.get("managed_queueing", []))
-            backup_free = _bounded_free(queue_free, backup_limit - backup_active)
-            backup_jobs = int(backup.get("managed_submitted_jobs", 0))
-            backup_max_jobs = int(
-                backup.get("max_submitted_jobs", spec.get("max_submitted_jobs", 20))
+            backup_active = int(
+                backup.get("identity_active_gpus", backup.get("managed_active_gpus", backup_limit))
+            )
+            backup_queued = int(
+                backup.get("identity_queued_gpus", backup.get("managed_queued_gpus", 0))
+            )
+            backup_queueing = bool(
+                backup.get("identity_queueing", backup.get("managed_queueing", []))
+            )
+            backup_free = _bounded_free(
+                queue_free, backup_limit - backup_active - backup_queued
             )
             candidates.append(
                 (
                     backup_free,
-                    not backup_queueing and backup_jobs < backup_max_jobs,
+                    not backup_queueing,
                     "backup",
-                    backup_jobs,
-                    backup_max_jobs,
                     backup_queueing,
                 )
             )
-        free, profile_has_slot, profile, jobs, max_jobs, profile_queueing = max(
+        free, profile_has_capacity, profile, profile_queueing = max(
             candidates,
             key=lambda item: (item[1], item[0], item[2] == "primary"),
         )
-        quota_full = jobs >= max_jobs
         queueing = bool(live.get("queueing_all_users", [])) or profile_queueing
         return LiveCapacity(
             free_gpus=free,
             capacity_gpus=capacity,
-            queueing=queueing or quota_full,
+            queueing=queueing or not profile_has_capacity,
             credential_profile=profile,
-            submitted_jobs=jobs,
-            max_submitted_jobs=max_jobs,
-            quota_full=quota_full,
             detail=(
                 f"all-users active={active_all}; profile={profile}; "
-                f"submitted jobs={jobs}/{max_jobs}"
+                f"identity GPU free={free}"
             ),
         )
     raise ValueError(f"unsupported resource in catalog: {resource}")
@@ -262,10 +257,7 @@ def rank_targets(
             reasons.append(f"only {live.free_gpus} GPUs currently free")
         if live.queueing:
             score += int(scoring["queued_penalty"])
-            if live.quota_full:
-                reasons.append("credential job quota full; submission will queue")
-            else:
-                reasons.append("queue already has waiting work")
+            reasons.append("queue already has waiting work")
         if gpus >= 16 and spec["kind"] == "platform":
             reasons.append("gang-scheduling requires whole 8-GPU nodes")
         reasons.append(live.detail)
@@ -301,8 +293,6 @@ def rank_targets(
             region=resources[resource]["region"],
             queue=resources[resource].get("queue"),
             credential_profile=live.credential_profile,
-            submitted_jobs=live.submitted_jobs,
-            max_submitted_jobs=live.max_submitted_jobs,
             free_gpus=live.free_gpus,
             capacity_gpus=live.capacity_gpus,
             filesystem=resources[resource]["filesystem"],
@@ -336,20 +326,14 @@ def print_table(recommendations: list[Recommendation], locations: set[str]) -> N
     location_text = ",".join(sorted(locations)) if locations else "unknown"
     print(f"Data location: {location_text}")
     print(
-        "Rank  Target             Region        Free      Jobs     Run now  "
+        "Rank  Target             Region        Free      Run now  "
         "Transfer  Dev host       Credential"
     )
     for item in recommendations:
         credential = item.credential_profile or "-"
-        jobs = (
-            f"{item.submitted_jobs}/{item.max_submitted_jobs}"
-            if item.submitted_jobs is not None
-            else "-"
-        )
         print(
             f"{item.rank:>4}  {item.resource:<18} {item.region:<13} "
             f"{item.free_gpus:>2}/{item.capacity_gpus:<5} "
-            f"{jobs:<8} "
             f"{('yes' if item.immediately_runnable else 'no'):<8} "
             f"{('yes' if item.transfer_required else 'no'):<9} "
             f"{item.development_host:<14} {credential}"
@@ -387,16 +371,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="reject a scheduler snapshot older than this many seconds",
     )
     parser.add_argument("--allow-stale", action="store_true")
-    parser.add_argument(
-        "--north-max-jobs",
-        type=int,
-        help="override the primary Beijing submitted-job limit for this decision",
-    )
-    parser.add_argument(
-        "--north-backup-max-jobs",
-        type=int,
-        help="override the backup Beijing submitted-job limit for this decision",
-    )
     parser.add_argument("--json", action="store_true", dest="json_output")
     return parser
 
@@ -406,17 +380,6 @@ def main(argv: list[str] | None = None) -> int:
     try:
         catalog = load_json(args.catalog)
         snapshot = load_json(args.snapshot)
-        beijing = snapshot.get("resources", {}).get("beijing", {})
-        if args.north_max_jobs is not None:
-            if args.north_max_jobs < 0:
-                raise ValueError("--north-max-jobs must be non-negative")
-            beijing["max_submitted_jobs"] = args.north_max_jobs
-        if args.north_backup_max_jobs is not None:
-            if args.north_backup_max_jobs < 0:
-                raise ValueError("--north-backup-max-jobs must be non-negative")
-            beijing.setdefault("backup", {})["max_submitted_jobs"] = (
-                args.north_backup_max_jobs
-            )
         age = snapshot_age_seconds(snapshot)
         if age > args.max_snapshot_age and not args.allow_stale:
             raise ValueError(

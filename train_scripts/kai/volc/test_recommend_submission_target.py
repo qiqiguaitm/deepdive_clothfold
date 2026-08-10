@@ -15,10 +15,9 @@ def catalog():
     return router.load_json(Path(__file__).with_name("submission_resource_catalog.json"))
 
 
-def test_catalog_sets_primary_north_limits_to_25():
+def test_catalog_sets_primary_north_gpu_limit_to_25():
     north = catalog()["resources"]["Robot-North-H20"]
-    assert north["personal_limit_gpus"] == 20
-    assert north["max_submitted_jobs"] == 25
+    assert north["personal_limit_gpus"] == 25
 
 
 def snapshot(*, gf1=8, local=2, east=8, north=20, robot_task=32):
@@ -34,12 +33,12 @@ def snapshot(*, gf1=8, local=2, east=8, north=20, robot_task=32):
             },
             "beijing": {
                 "capacity": 56,
-                "personal_limit": 20,
-                "owned_active_gpus": 20 - north,
+                "personal_limit": 25,
+                "owned_active_gpus": 25 - north,
+                "owned_queued_gpus": 0,
                 "active_gpus_all_users": 56 - north,
                 "owned_queueing": [],
-                "owned_submitted_jobs": 0,
-                "max_submitted_jobs": 20,
+                "queueing_all_users": [],
                 "backup": {"enabled": False, "available": False},
             },
             "robot-task": {
@@ -166,11 +165,14 @@ def test_north_uses_enabled_backup_profile_when_primary_is_full():
     live["resources"]["beijing"]["active_gpus_all_users"] = 24
     live["resources"]["beijing"]["backup"] = {
         "enabled": True,
+        "submission_enabled": True,
         "available": True,
         "managed_active_gpus": 4,
+        "managed_queued_gpus": 0,
         "managed_queueing": [],
-        "managed_submitted_jobs": 0,
-        "max_submitted_jobs": 20,
+        "identity_active_gpus": 4,
+        "identity_queued_gpus": 0,
+        "identity_queueing": [],
         "personal_limit": 20,
     }
     capacity = router.live_capacity(
@@ -182,9 +184,11 @@ def test_north_uses_enabled_backup_profile_when_primary_is_full():
     assert capacity.free_gpus == 16
 
 
-def test_north_job_quota_moves_behind_an_immediately_runnable_target():
+def test_north_queued_gpu_quota_moves_behind_an_immediately_runnable_target():
     live = snapshot(gf1=0, east=0, north=20, robot_task=8)
-    live["resources"]["beijing"]["owned_submitted_jobs"] = 20
+    live["resources"]["beijing"]["owned_queued_gpus"] = 20
+    live["resources"]["beijing"]["owned_queueing"] = ["queued"]
+    live["resources"]["beijing"]["queueing_all_users"] = ["queued"]
     results = router.rank_targets(
         gpus=8,
         catalog=catalog(),
@@ -194,13 +198,14 @@ def test_north_job_quota_moves_behind_an_immediately_runnable_target():
     assert results[0].resource == "robot-task"
     north = next(item for item in results if item.resource == "Robot-North-H20")
     assert not north.immediately_runnable
-    assert north.submitted_jobs == north.max_submitted_jobs == 20
-    assert "quota full" in north.reason
+    assert north.free_gpus == 0
 
 
 def test_north_is_first_when_every_candidate_would_queue():
     live = snapshot(gf1=0, local=0, east=0, north=20, robot_task=0)
-    live["resources"]["beijing"]["owned_submitted_jobs"] = 20
+    live["resources"]["beijing"]["owned_queued_gpus"] = 20
+    live["resources"]["beijing"]["owned_queueing"] = ["queued"]
+    live["resources"]["beijing"]["queueing_all_users"] = ["queued"]
     results = router.rank_targets(
         gpus=8,
         catalog=catalog(),
