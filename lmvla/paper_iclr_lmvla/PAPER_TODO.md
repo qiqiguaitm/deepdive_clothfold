@@ -63,16 +63,29 @@ used first up to its 20-GPU/25-job limit; the already-enabled backup profile is
 used only when the next four-GPU task cannot fit. No TG2R evaluation is
 admissible until all nine cells pass a new joint exact-order integrity gate.
 
-- [ ] **TG2R-S0 [READY]** Stage and byte-verify the recovery payload on North.
-- [ ] **TG2R-T01 [BLOCKED by S0]** `future_off`, seed 1000, North 4 GPU.
-- [ ] **TG2R-T02 [BLOCKED by S0]** `future_off`, seed 1001, North 4 GPU.
-- [ ] **TG2R-T03 [BLOCKED by S0]** `future_off`, seed 1002, North 4 GPU.
-- [ ] **TG2R-T04 [BLOCKED by S0]** `fixed_endpoint`, seed 1000, North 4 GPU.
-- [ ] **TG2R-T05 [BLOCKED by S0]** `fixed_endpoint`, seed 1001, North 4 GPU.
-- [ ] **TG2R-T06 [BLOCKED by S0]** `fixed_endpoint`, seed 1002, North 4 GPU.
-- [ ] **TG2R-T07 [BLOCKED by S0]** `raw_milestone`, seed 1000, North 4 GPU.
-- [ ] **TG2R-T08 [BLOCKED by S0]** `raw_milestone`, seed 1001, North 4 GPU.
-- [ ] **TG2R-T09 [BLOCKED by S0]** `raw_milestone`, seed 1002, North 4 GPU.
+- [x] **TG2R-S0 [COMPLETE]** Staged and byte-verified the recovery payload on
+  North at 01:17 UTC; both pinned Git identities and all four payload hashes
+  passed.
+- [ ] **TG2R-T01 [QUEUEING: `t-20260810091838-d5ds7`, backup]** `future_off`,
+  seed 1000, North 4 GPU.
+- [ ] **TG2R-T02 [QUEUEING: `t-20260810091842-8p7bt`, backup]** `future_off`,
+  seed 1001, North 4 GPU.
+- [ ] **TG2R-T03 [QUEUEING: `t-20260810091846-g8fpd`, backup]** `future_off`,
+  seed 1002, North 4 GPU.
+- [ ] **TG2R-T04 [RUNNING: `t-20260810091825-6cgzh`, primary]**
+  `fixed_endpoint`, seed 1000, North 4 GPU; passed startup and reached the
+  optimization loop at approximately 2.29 s/step.
+- [ ] **TG2R-T05 [RUNNING: `t-20260810091829-vnvpv`, backup]**
+  `fixed_endpoint`, seed 1001, North 4 GPU; passed startup and reached the
+  optimization loop at approximately 2.36 s/step.
+- [ ] **TG2R-T06 [QUEUEING: `t-20260810091834-hfkvq`, backup]**
+  `fixed_endpoint`, seed 1002, North 4 GPU.
+- [ ] **TG2R-T07 [QUEUEING: `t-20260810091850-9z5gc`, primary]**
+  `raw_milestone`, seed 1000, North 4 GPU.
+- [ ] **TG2R-T08 [QUEUEING: `t-20260810091854-v7vbr`, primary]**
+  `raw_milestone`, seed 1001, North 4 GPU.
+- [ ] **TG2R-T09 [QUEUEING: `t-20260810091945-2h6rw`, primary]**
+  `raw_milestone`, seed 1002, North 4 GPU.
 - [ ] **TG2R-I1 [BLOCKED by T01--T09]** Materialize sidecars/checkpoints and
   require exact initialization and rank-order equality within each seed.
 - [ ] **TG2R-E01--E09 [BLOCKED by I1]** Run the unchanged frozen paired
