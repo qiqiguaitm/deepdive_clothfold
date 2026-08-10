@@ -8564,6 +8564,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     posttraining_v4_path = (
         manifests / "temporal_grounding_tg2_posttraining_pipeline_v4.json"
     )
+    order_probe_path = (
+        manifests / "temporal_grounding_tg2_data_order_recovery_probe_v1.json"
+    )
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8581,6 +8584,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         posttraining_path: "a954b31f94883d2097a259181f7c785d701c2204b04e83e08c57a8c379843fd6",
         posttraining_v3_path: "27360a03d7e8f18b3ce25fd1441b1d01748884ce3b500559da2061285d250ff7",
         posttraining_v4_path: "63227600151f332ac2ceba3338d6ecf805dd5678a618be9462289ab342cfd162",
+        order_probe_path: "06bec622e88fde04bce61e14b60c44546538712c23fc5d7b2d8891bdc0ed8a29",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8592,6 +8596,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v10 = json.loads(runtime_v10_path.read_text())
     posttraining = json.loads(posttraining_path.read_text())
     posttraining_v4 = json.loads(posttraining_v4_path.read_text())
+    order_probe = json.loads(order_probe_path.read_text())
     runtime_v10_hashes = [
         {"path": str(runtime_v10_path), "sha256": manifest_hashes[runtime_v10_path]},
         *(
@@ -8622,6 +8627,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         *(
             {"path": str(REPO / relative), "sha256": digest}
             for relative, digest in posttraining_v4["files"].items()
+        ),
+    ]
+    order_probe_hashes = [
+        {"path": str(order_probe_path), "sha256": manifest_hashes[order_probe_path]},
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in order_probe["files"].items()
         ),
     ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
@@ -9080,6 +9092,55 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             }
         )
         existing.add(integrity_id)
+
+    order_probe_id = "temporal_grounding_tg2_data_order_recovery_probe"
+    order_probe_marker = (
+        REPO
+        / "logs/temporal_grounding/tg2/data_order_recovery_probe_v1/matched.json"
+    )
+    order_probe_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg2_data_order_probe_east_4h20.yaml"
+    )
+    order_probe_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg2_data_order_probe.sh"
+    )
+    order_probe_script = (
+        REPO / "lmvla/lmwm/scripts/probe_temporal_grounding_tg2_data_order.py"
+    )
+    if order_probe_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": order_probe_id,
+                "priority": 1,
+                "description": "Probe deterministic recovery of TG2 exact rank data order",
+                "rearm_after_ready_file": str(order_probe_path),
+                "completion_glob": str(order_probe_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(order_probe_path),
+                    str(order_probe_yaml),
+                    str(order_probe_runner),
+                    str(order_probe_script),
+                ],
+                "ready_hashes": order_probe_hashes,
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 180,
+                        "retry_cooldown_seconds": 600,
+                        "max_failures": 1,
+                        "runtime_revision": "temporal_grounding_order_probe_v1",
+                        "yaml": str(order_probe_yaml.relative_to(REPO)),
+                        "task_name": "temporal-grounding-tg2-order-probe-east4g",
+                    }
+                ],
+            }
+        )
+        existing.add(order_probe_id)
 
     eval_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_eval_east_4h20.yaml"
     eval_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg2_eval.sh"

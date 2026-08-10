@@ -6328,7 +6328,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 36
+    assert len(tasks) == 37
     tg1a = {
         task_id: task for task_id, task in tasks.items() if "tg1a" in task_id
     }
@@ -6479,6 +6479,25 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "runtime_revision": "temporal_grounding_posttraining_v4",
             "yaml": "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_runtime_v4_1h20.yaml",
             "task_name": "temporal-grounding-tg2-integrity-east1g",
+        }
+    ]
+    order_probe = tasks["temporal_grounding_tg2_data_order_recovery_probe"]
+    assert order_probe["priority"] == 1
+    assert order_probe["rearm_after_ready_file"].endswith(
+        "temporal_grounding_tg2_data_order_recovery_probe_v1.json"
+    )
+    assert order_probe["candidates"] == [
+        {
+            "kind": "platform",
+            "resource": "Robot-East-H20",
+            "region": "cn-shanghai",
+            "gpus": 4,
+            "queue_timeout_seconds": 180,
+            "retry_cooldown_seconds": 600,
+            "max_failures": 1,
+            "runtime_revision": "temporal_grounding_order_probe_v1",
+            "yaml": "train_scripts/kai/volc/temporal_grounding_tg2_data_order_probe_east_4h20.yaml",
+            "task_name": "temporal-grounding-tg2-order-probe-east4g",
         }
     ]
     evals = {

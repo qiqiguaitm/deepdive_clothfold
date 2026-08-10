@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "probe": "temporal_grounding_tg2_data_order_recovery_probe_v1",
+  "created_at": "2026-08-10T00:42:54Z",
+  "scope": "Diagnose and recover the frozen TG2 exact-rank-data-order invariant before any retraining decision",
+  "operator_authorized": true,
+  "paper_evidence": false,
+  "execution_owner": "resource_aware_scheduler",
+  "observed_failure": {
+    "integrity_job_id": "t-20260810083533-qcqvg",
+    "integrity_log": "logs/temporal_grounding/tg2/integrity_platform/integrity_20260810_003558.log",
+    "issue": "All nine training jobs completed, but exact rank data-order digests differ across arms within the same training seed. The admitted loader used eight workers per rank and in_order=false, so worker completion order could enter the audited sequence."
+  },
+  "probe_contract": {
+    "training_seed": 1000,
+    "world_size": 4,
+    "per_device_batch_size": 16,
+    "num_workers_per_rank": 8,
+    "microbatches_per_rank": 256,
+    "data_mix": "robotwin2_lmwm_all6_v2",
+    "in_order": true,
+    "independent_launches": 2,
+    "acceptance": "The episode_index/frame_index SHA-256 digest must match rank-by-rank across both independent launches."
+  },
+  "invariants": [
+    "The probe imports the frozen TG2 dataset builder, collator, and Accelerate sharding path.",
+    "No model is built or trained, no checkpoint is written, and no probe output is admissible as paper evidence.",
+    "The failed nine-arm TG2 matrix and all nine evaluations remain blocked regardless of probe outcome.",
+    "A failed probe forbids deterministic TG2 retraining until another recovery design is admitted."
+  ],
+  "files": {
+    "lmvla/lmwm/scripts/probe_temporal_grounding_tg2_data_order.py": "c76ad58f0418cfe6c3c494b086dc35d46bb65f06655deae58dad868999fe6272",
+    "lmvla/lmwm/scripts/test_probe_temporal_grounding_tg2_data_order.py": "963bd7c8608d27962576c0f4d4cd23731787b047e3217f106b8caebf659f480a",
+    "train_scripts/kai/run_temporal_grounding_tg2_data_order_probe.sh": "8e3965a0d1254b5528740f92de8410a0525ef678026eabd7b7bbe1ace7474bb9",
+    "train_scripts/kai/volc/temporal_grounding_tg2_data_order_probe_east_4h20.yaml": "24cdcac1d59b2265fb2d0d274912e33d5bb337b6d8d985cb445f85b8cdd6244b",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json": "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387",
+    "lmvla/lawam/starVLA/training/train_starvla.py": "b237b0c28f0cc0c7d90a7bfa55f236763300d423a791ba490f6d7dff106458ec",
+    "lmvla/lawam/starVLA/dataloader/__init__.py": "642b5bf476b0b20a19eefb98751ad38cc79cd3443770a087438fe75939bbcd16",
+    "lmvla/lawam/starVLA/dataloader/gr00t_lerobot/datasets.py": "7e3c5eb3ca3196cde878dddf7b8e8b39a13302e965be4a26dbb5185902780086",
+    "lmvla/lawam/starVLA/config/training/train_robotwin.yaml": "0bd93322a39c3a09ac6d3fddcfe0a5e116c00759225177ea229f9c999033e85f",
+    "lmvla/lawam/dataset/robotwin2_lmwm_all6_v2_v30/meta/info.json": "265da39a37405213f1ca0501de96b434672afdb2b618d44df9656429626f465d"
+  },
+  "validation": {
+    "unit_test": "Matching four-rank records pass and a single-rank digest mutation fails.",
+    "scientific_gate_changed": false
+  }
+}

@@ -1,0 +1,40 @@
+TaskName: "temporal-grounding-tg2-order-probe-east4g"
+Description: "TG2 deterministic four-rank data-order recovery probe"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR="$REPO/logs/temporal_grounding/tg2/data_order_recovery_probe_v1"
+  mkdir -p "$LOG_DIR"
+  LOG_FILE="$LOG_DIR/platform_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG_FILE") 2>&1
+  echo "TG2_DATA_ORDER_PROBE_START host=$(hostname) runtime=order_probe_v1"
+  REPO="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg2_data_order_probe.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"
