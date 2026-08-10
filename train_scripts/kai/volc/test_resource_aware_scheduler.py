@@ -1653,6 +1653,16 @@ def test_north_queue_sink_respects_primary_and_backup_job_limits() -> None:
     assert scheduler.north_queue_credential_profile(candidate, snapshot) is None
 
 
+def test_north_queue_sink_does_not_submit_with_paused_backup() -> None:
+    candidate = north_candidate(4)
+    snapshot = north_snapshot(primary=20, all_users=56, queueing=True)
+    backup = snapshot["resources"]["beijing"]["backup"]
+    backup["submission_enabled"] = False
+
+    assert scheduler.north_queue_credential_profile(candidate, snapshot) == "primary"
+    assert not scheduler.candidate_available(candidate, snapshot, "backup")
+
+
 def test_north_queue_sink_spills_projected_gpu_quota_to_backup() -> None:
     snapshot = north_snapshot(primary=4, all_users=56, queueing=True)
     profiles = []
@@ -1746,6 +1756,45 @@ def test_queue_to_deploying_transition_starts_deployment_timer(monkeypatch) -> N
     assert attempt["last_state"] == "Deploying"
     assert attempt["deploying_started_at"] == attempt["last_checked_at"]
     assert "finished_at" not in attempt
+
+
+def test_queueing_backup_attempt_can_be_requeued_to_primary(monkeypatch) -> None:
+    task = {
+        "id": "backup-to-primary",
+        "requeue_queued_credential_profiles": ["backup"],
+        "candidates": [],
+    }
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "region": "cn-beijing",
+        "credential_profile": "backup",
+        "job_id": "t-backup-queued",
+        "started_at": "2026-08-10T00:00:00Z",
+        "last_state": "Queueing",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(scheduler, "backup_credentials_enabled", lambda: True)
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Queueing", "message": "waiting"},
+    )
+    stopped = []
+    monkeypatch.setattr(
+        scheduler,
+        "stop_platform_job",
+        lambda region, job_id, profile: stopped.append((region, job_id, profile))
+        or "backup",
+    )
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.check_managed_task(task, state)
+
+    assert stopped == [("cn-beijing", "t-backup-queued", "backup")]
+    assert state["status"] == "pending"
+    assert attempt["requeued_from_credential_profile"] == "backup"
+    assert attempt["stopped_by_credential_profile"] == "backup"
 
 
 def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(

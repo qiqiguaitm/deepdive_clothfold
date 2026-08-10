@@ -9293,6 +9293,17 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "description": (
                         f"TG2R deterministic-order arm={arm} seed={seed} training"
                     ),
+                    **(
+                        {"requeue_queued_credential_profiles": ["backup"]}
+                        if (arm, seed)
+                        in {
+                            ("fixed_endpoint", 1002),
+                            ("future_off", 1000),
+                            ("future_off", 1001),
+                            ("future_off", 1002),
+                        }
+                        else {}
+                    ),
                     "requires_completed_tasks": [recovery_stage_id],
                     "rearm_after_ready_file": str(tg2_recovery_path),
                     "completion_locations": [
@@ -10169,6 +10180,21 @@ def backup_credentials_enabled() -> bool:
         if not parser.read(BACKUP_CONTROL_PATH):
             return False
         return parser.getboolean("scheduler", "enabled", fallback=False)
+    except (OSError, configparser.Error, ValueError):
+        return False
+
+
+def backup_submission_enabled() -> bool:
+    """Allow backup monitoring while independently pausing new submissions."""
+    try:
+        parser = configparser.ConfigParser()
+        if not parser.read(BACKUP_CONTROL_PATH):
+            return False
+        return parser.getboolean(
+            "scheduler",
+            "submission_enabled",
+            fallback=parser.getboolean("scheduler", "enabled", fallback=False),
+        )
     except (OSError, configparser.Error, ValueError):
         return False
 
@@ -13210,6 +13236,27 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
         checked_at = utc_now()
         attempt["last_state"] = info["state"]
         attempt["last_checked_at"] = checked_at
+        requeue_profiles = set(task.get("requeue_queued_credential_profiles", []))
+        if info["state"] == "Queueing" and credential_profile in requeue_profiles:
+            try:
+                stop_profile = stop_platform_job(
+                    attempt["region"], attempt["job_id"], credential_profile
+                )
+                attempt["stopped_by_credential_profile"] = stop_profile
+                attempt["requeued_from_credential_profile"] = credential_profile
+                attempt["finished_at"] = checked_at
+                task_state["status"] = "pending"
+                task_state["waiting_reason"] = (
+                    f"requeued from {credential_profile} credential profile"
+                )
+                task_state["artifacts_complete"] = False
+                log(
+                    f"requeued Queueing job {attempt['job_id']} for {task['id']} "
+                    f"from profile={credential_profile}"
+                )
+                return
+            except Exception as exc:
+                attempt["requeue_stop_error"] = f"{type(exc).__name__}: {exc}"
         if info["state"] == "Deploying" and previous_state != "Deploying":
             attempt["deploying_started_at"] = checked_at
         if obsolete_runtime_supersession_ready(task, attempt, info["state"]):
@@ -13620,8 +13667,10 @@ def make_snapshot(state: dict[str, Any] | None = None) -> dict[str, Any]:
     north_watched = north_watched_statuses()
     north_watched.update(north_training_statuses())
     backup_enabled = backup_credentials_enabled()
+    backup_submit_enabled = backup_submission_enabled()
     backup_north: dict[str, Any] = {
         "enabled": backup_enabled,
+        "submission_enabled": backup_submit_enabled,
         "configured": BACKUP_CREDENTIALS_PATH.is_file(),
         "available": False,
         "managed_active_gpus": 0,
@@ -14216,6 +14265,7 @@ def candidate_available(
                 > state.get("max_submitted_jobs", NORTH_PRIMARY_MAX_JOBS)
             )
             and backup.get("enabled")
+            and backup.get("submission_enabled", backup.get("enabled"))
             and backup.get("available")
             and not backup.get("identity_queueing", backup.get("managed_queueing", []))
             and not state.get("queueing_all_users")
@@ -14434,6 +14484,7 @@ def north_queue_credential_profile(
     ) + gpus <= backup.get("personal_limit", NORTH_BACKUP_PERSONAL_LIMIT)
     backup_usable = (
         backup.get("enabled")
+        and backup.get("submission_enabled", backup.get("enabled"))
         and backup.get("available")
         and backup_jobs_fit
         and backup_gpus_fit
