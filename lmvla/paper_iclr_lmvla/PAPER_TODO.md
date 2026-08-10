@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 05:54 UTC
+Updated: 2026-08-10 09:17 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -61,10 +61,12 @@ the two East cells use a detached worktree at the same commits, the same frozen
 recovery payload, and the byte-verified Transformers 5.2 runtime overlay. The
 East entrypoint repeats both Git checks, all overlay hashes, the parent TG2
 bundle verifier, the TG2R verifier, and the model/data hashes before training.
-The nine independent four-GPU jobs may run concurrently. New backup-profile
-submission is disabled by operator instruction; three already-queued backup
-jobs remain because neither available API identity has permission to stop jobs
-created by that profile. No TG2R evaluation is admissible until all nine cells
+The nine independent four-GPU jobs may run concurrently. Backup-profile
+submission is enabled with an eight-GPU identity-wide cap; that identity
+currently has eight active and twelve queued GPUs, so the scheduler admits no
+additional backup work. The three queued jobs remain because neither available
+API identity has permission to stop jobs created by that profile. No TG2R
+evaluation is admissible until all nine cells
 pass a new joint exact-order integrity gate. Completion discovery is
 location-aware: both East and North final-model paths are checked, and an East
 parent directly satisfies its materializer dependency without a redundant
@@ -84,27 +86,27 @@ East-trained cells.
 - [ ] **TG2R-T03 [QUEUEING: `t-20260810091846-g8fpd`, backup]** `future_off`,
   seed 1002, North 4 GPU.
 - [ ] **TG2R-T04 [RUNNING: `t-20260810091825-6cgzh`, primary]**
-  `fixed_endpoint`, seed 1000, North 4 GPU; approximately step 7,089/20,000 at
-  2.27 s/step, ETA 8.1 hours at the 05:54 UTC audit.
+  `fixed_endpoint`, seed 1000, North 4 GPU; approximately step 12,389/20,000 at
+  2.28 s/step, ETA 4.82 hours at the 09:17 UTC audit.
 - [ ] **TG2R-T05 [RUNNING: `t-20260810091829-vnvpv`, backup]**
-  `fixed_endpoint`, seed 1001, North 4 GPU; approximately step 7,108/20,000 at
-  2.26 s/step, ETA 8.1 hours.
+  `fixed_endpoint`, seed 1001, North 4 GPU; approximately step 12,426/20,000 at
+  2.27 s/step, ETA 4.78 hours.
 - [ ] **TG2R-T06 [RUNNING: `t-20260810091834-hfkvq`, backup]**
-  `fixed_endpoint`, seed 1002, North 4 GPU; approximately step 6,744/20,000 at
-  2.27 s/step, ETA 8.4 hours.
+  `fixed_endpoint`, seed 1002, North 4 GPU; approximately step 12,103/20,000 at
+  2.27 s/step, ETA 4.98 hours.
 - [ ] **TG2R-T07 [RUNNING: `t-20260810102331-ktjk6`, primary]**
   `raw_milestone`, seed 1000, East 4 GPU; North attempt
   `t-20260810101504-w2mj8` was stopped before execution. The East replacement
-  passed all frozen-source checks and reached approximately step 5,314/20,000
-  at 2.28 s/step, ETA 9.3 hours.
+  passed all frozen-source checks and reached approximately step 10,579/20,000
+  at 2.28 s/step, ETA 5.97 hours.
 - [ ] **TG2R-T08 [RUNNING: `t-20260810102335-57b27`, primary]**
   `raw_milestone`, seed 1001, East 4 GPU; North attempt
   `t-20260810091854-v7vbr` was stopped before execution. The East replacement
-  passed all frozen-source checks and reached approximately step 5,331/20,000
-  at 2.32 s/step, ETA 9.5 hours.
+  passed all frozen-source checks and reached approximately step 10,608/20,000
+  at 2.32 s/step, ETA 6.05 hours.
 - [ ] **TG2R-T09 [RUNNING: `t-20260810091945-2h6rw`, primary]**
   `raw_milestone`, seed 1002, North 4 GPU; passed startup and reached
-  approximately step 1,778/20,000 at 2.28 s/step, ETA 11.5 hours.
+  approximately step 7,067/20,000 at 2.29 s/step, ETA 8.23 hours.
 - [ ] **TG2R-I1 [ADMITTED; BLOCKED by T01--T09]** Run nine serialized,
   full-state, hash-verified North-to-East materializers, then require exact
   initialization and rank-order equality within each seed plus distinct order
