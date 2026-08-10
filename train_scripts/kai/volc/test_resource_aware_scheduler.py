@@ -6465,7 +6465,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         for path in integrity["ready_files"]
     )
     assert integrity["rearm_after_ready_file"].endswith(
-        "temporal_grounding_tg2_posttraining_pipeline_v3.json"
+        "temporal_grounding_tg2_posttraining_pipeline_v4.json"
     )
     assert integrity["candidates"] == [
         {
@@ -6476,8 +6476,8 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "queue_timeout_seconds": 180,
             "retry_cooldown_seconds": 600,
             "max_failures": 1,
-            "runtime_revision": "temporal_grounding_posttraining_v3",
-            "yaml": "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_runtime_v3_1h20.yaml",
+            "runtime_revision": "temporal_grounding_posttraining_v4",
+            "yaml": "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_runtime_v4_1h20.yaml",
             "task_name": "temporal-grounding-tg2-integrity-east1g",
         }
     ]

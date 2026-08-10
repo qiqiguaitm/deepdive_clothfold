@@ -1,0 +1,44 @@
+TaskName: "temporal-grounding-tg2-integrity-east1g"
+Description: "Frozen TG2 nine-arm integrity audit with complete config provenance"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR="$REPO/logs/temporal_grounding/tg2/integrity_platform"
+  mkdir -p "$LOG_DIR"
+  LOG_FILE="$LOG_DIR/integrity_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG_FILE") 2>&1
+  echo "TG2_INTEGRITY_ENTRYPOINT_START host=$(hostname) runtime=posttraining_v4"
+  test -f "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py"
+  test -f "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py"
+  test -f "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training_v2.py"
+  test -f "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py"
+  REPO="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg2_integrity.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

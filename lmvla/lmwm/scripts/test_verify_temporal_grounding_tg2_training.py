@@ -40,7 +40,10 @@ def test_tg2_training_integrity_verifier(tmp_path: Path) -> None:
                 }},
                 "trainer": {"gradient_accumulation_steps": 2, "max_train_steps": 20000},
             }
+            full_config = json.loads(json.dumps(config))
+            del config["trainer"]["gradient_accumulation_steps"]
             (run / "config.yaml").write_text(yaml.safe_dump(config))
+            (run / "config.json").write_text(json.dumps(full_config))
             (run / "dataset_statistics.json").write_text('{"same":true}\n')
             (run / "final_model/pytorch_model.pt").write_bytes(b"checkpoint")
             (state / "optimizer.bin").write_bytes(b"optimizer")
@@ -114,3 +117,25 @@ def test_tg2_training_integrity_verifier(tmp_path: Path) -> None:
     assert all(result["checks"].values())
     assert result["protocol"] == "temporal_grounding_tg2_training_integrity_v2"
     assert staged_run in result["sidecar_audits"]
+
+    drifted = checkpoint_root / "stamp+temporal_grounding_tg2_future_off_seed1000"
+    drifted_config = json.loads((drifted / "config.json").read_text())
+    drifted_config["trainer"]["gradient_accumulation_steps"] = 1
+    (drifted / "config.json").write_text(json.dumps(drifted_config))
+    failed = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--repo",
+            str(tmp_path),
+            "--output",
+            str(output),
+            "--min-state-bytes",
+            "1",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert failed.returncode != 0
+    assert "TG2 config drift" in failed.stderr

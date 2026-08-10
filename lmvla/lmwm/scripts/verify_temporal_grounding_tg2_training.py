@@ -58,12 +58,20 @@ def main() -> None:
             run_id = f"temporal_grounding_tg2_{arm}_seed{seed}"
             run = one(sorted(checkpoint_root.glob(f"*+{run_id}")), f"run {run_id}")
             config_path = run / "config.yaml"
+            config_json_path = run / "config.json"
             stats_path = run / "dataset_statistics.json"
             final_path = run / "final_model/pytorch_model.pt"
             state_dir = run / "checkpoints/steps_20000_state"
             optimizer_path = state_dir / "optimizer.bin"
             trainer_state_path = state_dir / "trainer_state.json"
-            for path in (config_path, stats_path, final_path, optimizer_path, trainer_state_path):
+            for path in (
+                config_path,
+                config_json_path,
+                stats_path,
+                final_path,
+                optimizer_path,
+                trainer_state_path,
+            ):
                 if not path.is_file():
                     raise FileNotFoundError(path)
             if final_path.stat().st_size < args.min_state_bytes or optimizer_path.stat().st_size < args.min_state_bytes:
@@ -72,20 +80,26 @@ def main() -> None:
                 raise ValueError(f"Wrong final optimizer step for {run_id}")
 
             config = yaml.safe_load(config_path.read_text())
+            full_config = json.loads(config_json_path.read_text())
             action = config["framework"]["action_model"]
             data = config["datasets"]["vla_data"]
             trainer = config["trainer"]
+            full_action = full_config["framework"]["action_model"]
+            full_data = full_config["datasets"]["vla_data"]
+            full_trainer = full_config["trainer"]
             expected_config = {
-                "future_prediction": action["future_prediction"],
-                "enable_loss_distill": action["enable_loss_distill"],
-                "future_action_window_size": action["future_action_window_size"],
-                "action_horizon": action["action_horizon"],
-                "horizon_sec": action["flow_cfg"]["horizon_sec"],
-                "data_mix": data["data_mix"],
-                "sec_chunk": data["sec_chunk"],
-                "batch": data["per_device_batch_size"],
-                "gradient_accumulation_steps": trainer["gradient_accumulation_steps"],
-                "max_train_steps": trainer["max_train_steps"],
+                "future_prediction": full_action["future_prediction"],
+                "enable_loss_distill": full_action["enable_loss_distill"],
+                "future_action_window_size": full_action["future_action_window_size"],
+                "action_horizon": full_action["action_horizon"],
+                "horizon_sec": full_action["flow_cfg"]["horizon_sec"],
+                "data_mix": full_data["data_mix"],
+                "sec_chunk": full_data["sec_chunk"],
+                "batch": full_data["per_device_batch_size"],
+                "gradient_accumulation_steps": full_trainer[
+                    "gradient_accumulation_steps"
+                ],
+                "max_train_steps": full_trainer["max_train_steps"],
             }
             if expected_config != {
                 "future_prediction": True,
@@ -100,6 +114,35 @@ def main() -> None:
                 "max_train_steps": 20000,
             }:
                 raise ValueError(f"TG2 config drift in {run_id}: {expected_config}")
+
+            yaml_config = {
+                "future_prediction": action["future_prediction"],
+                "enable_loss_distill": action["enable_loss_distill"],
+                "future_action_window_size": action["future_action_window_size"],
+                "action_horizon": action["action_horizon"],
+                "horizon_sec": action["flow_cfg"]["horizon_sec"],
+                "data_mix": data["data_mix"],
+                "sec_chunk": data["sec_chunk"],
+                "batch": data["per_device_batch_size"],
+                "max_train_steps": trainer["max_train_steps"],
+            }
+            if yaml_config != {
+                key: value
+                for key, value in expected_config.items()
+                if key != "gradient_accumulation_steps"
+            }:
+                raise ValueError(
+                    f"TG2 config.json/config.yaml drift in {run_id}: {yaml_config}"
+                )
+            yaml_accumulation = trainer.get("gradient_accumulation_steps")
+            if yaml_accumulation is not None and yaml_accumulation != expected_config[
+                "gradient_accumulation_steps"
+            ]:
+                raise ValueError(
+                    f"TG2 config.json/config.yaml accumulation drift in {run_id}: "
+                    f"json={expected_config['gradient_accumulation_steps']} "
+                    f"yaml={yaml_accumulation}"
+                )
 
             initialization = json.loads((init_root / f"{run_id}.json").read_text())
             expected_route = {
@@ -166,6 +209,8 @@ def main() -> None:
             "optimizer_state_at_step_20000_present": True,
             "raw_target_coverage_guard_enabled": True,
             "fixed_final_checkpoint_present": True,
+            "full_json_training_config_present": True,
+            "yaml_json_protocol_fields_equal": True,
         },
     }
     atomic_write(args.output, json.dumps(result, indent=2, sort_keys=True) + "\n")

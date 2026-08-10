@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_tg2_posttraining_pipeline_v4",
+  "extends": [
+    "temporal_grounding_tg2_posttraining_pipeline_v3"
+  ],
+  "extended_manifest_sha256": {
+    "temporal_grounding_tg2_posttraining_pipeline_v3": "27360a03d7e8f18b3ce25fd1441b1d01748884ce3b500559da2061285d250ff7"
+  },
+  "created_at": "2026-08-10T00:32:44Z",
+  "scope": "TG2 integrity verifier correction for access-tracked YAML serialization",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "execution_owner": "resource_aware_scheduler",
+  "observed_failure": {
+    "job_id": "t-20260810082616-z5qzw",
+    "stage": "joint post-training integrity worker",
+    "platform_state": "Failed",
+    "completion_marker": "absent",
+    "shared_log": "logs/temporal_grounding/tg2/integrity_platform/integrity_20260810_002648.log",
+    "issue": "The verifier indexed trainer.gradient_accumulation_steps in config.yaml, but LaWAM access-tracked YAML serialization omits that already-consumed field. Every canonical TG2 run retains the effective value 2 in its complete config.json artifact."
+  },
+  "change": [
+    "Require config.json for every canonical TG2 run and read the effective gradient accumulation setting from that complete artifact.",
+    "Keep the exact expected value at 2 and reject missing, malformed, or differing JSON values.",
+    "Cross-check every protocol field shared by config.yaml and config.json, and reject an explicit YAML accumulation value if it differs from JSON.",
+    "Add a regression fixture matching the observed omitted-YAML-field shape plus a negative test proving that JSON value 1 is rejected.",
+    "Run the corrected verifier through one scheduler-owned East attempt with shared stdout and stderr persistence."
+  ],
+  "invariants": [
+    "No checkpoint, sidecar, training recipe, seed, parameter tree, optimizer state, evaluation recipe, scene identity, or result is changed.",
+    "The required gradient accumulation value remains exactly 2; no default or fallback value is accepted.",
+    "The integrity completion marker remains absent unless both integrity verifiers exit successfully.",
+    "All nine TG2 evaluations remain blocked until the corrected joint integrity task completes."
+  ],
+  "files": {
+    "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_runtime_v4_1h20.yaml": "9f07848c03a02ed26f61d71664e7659aae774c951071ad0c0581ddef4eca789d",
+    "train_scripts/kai/run_temporal_grounding_tg2_integrity.sh": "ab0ad9c750a9aa38ac4b0ed067a6ac8e2fdd8cf77b3e312860a059dfb94a68bd",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py": "062c7f3aa8d01898e385ea86bcb05824f85706ae07c98c57625ea2fd91cd971d",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training_v2.py": "bfa8d84e834cdbed6d6a5676b3cef26b2b72f033de7aae42443c2d2846c8ed67",
+    "lmvla/lmwm/scripts/test_verify_temporal_grounding_tg2_training.py": "dffaa557a4d2e11f8d9ae642af8952c5090c6b114cccbbaf8634cd099733b708",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py": "53da2d224bfdc3a1bfe518261d195362b7135f1c8f054bcb0ea80ff3b3200902",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py": "66f0a80540870db1815407e3beb07ec8ec6c7ada7d36c201e5a68cc72d247bbf"
+  },
+  "validation": {
+    "canonical_config_probe": "All nine canonical TG2 run config.json files record gradient_accumulation_steps=2; all nine config.yaml files omit that accessed field.",
+    "direct_runtime_probe": "Available East training logs print Gradient accumulation steps = 2 and Total batch size = 128.",
+    "unit_test": "Observed omitted-YAML-field fixture passes; mutated config.json value 1 fails with TG2 config drift."
+  }
+}
