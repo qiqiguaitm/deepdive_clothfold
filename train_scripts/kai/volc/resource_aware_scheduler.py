@@ -8600,6 +8600,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg2_recovery_post_v2_path = (
         manifests / "temporal_grounding_tg2_recovery_posttraining_v2.json"
     )
+    tg2_recovery_post_v3_path = (
+        manifests / "temporal_grounding_tg2_recovery_posttraining_v3.json"
+    )
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8623,6 +8626,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         tg2_recovery_path: "e16e3e7191eab3d859f7e919a96214b3f6cfd2b4a10ff111f10c34958921372b",
         tg2_recovery_post_path: "25a030aeea56f61fb9cd2b5373a8b01fd50a45f0306242a1f99f08a6cd1e549f",
         tg2_recovery_post_v2_path: "86777a59af021afb50ffb644ff3761c4d28e0e9c0ed850b4789bcfc089d06499",
+        tg2_recovery_post_v3_path: "ba17cb323721b3913ca74ee1c06bd668a3f5674be91d45bb8c91ec9afc050f95",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8637,6 +8641,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     order_probe_v3 = json.loads(order_probe_v3_path.read_text())
     tg2_recovery_post = json.loads(tg2_recovery_post_path.read_text())
     tg2_recovery_post_v2 = json.loads(tg2_recovery_post_v2_path.read_text())
+    tg2_recovery_post_v3 = json.loads(tg2_recovery_post_v3_path.read_text())
     runtime_v10_hashes = [
         {"path": str(runtime_v10_path), "sha256": manifest_hashes[runtime_v10_path]},
         *(
@@ -8684,7 +8689,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             for relative, digest in order_probe_v3["files"].items()
         ),
     ]
-    tg2_recovery_post_hashes = [
+    tg2_recovery_post_v3_replaced_files = set(tg2_recovery_post_v3["files"])
+    tg2_recovery_post_v3_hashes = [
         {
             "path": str(tg2_recovery_path),
             "sha256": manifest_hashes[tg2_recovery_path],
@@ -8693,20 +8699,27 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "path": str(tg2_recovery_post_path),
             "sha256": manifest_hashes[tg2_recovery_post_path],
         },
-        *(
-            {"path": str(REPO / relative), "sha256": digest}
-            for relative, digest in tg2_recovery_post["files"].items()
-        ),
-    ]
-    tg2_recovery_post_v2_hashes = [
-        *tg2_recovery_post_hashes,
         {
             "path": str(tg2_recovery_post_v2_path),
             "sha256": manifest_hashes[tg2_recovery_post_v2_path],
         },
+        {
+            "path": str(tg2_recovery_post_v3_path),
+            "sha256": manifest_hashes[tg2_recovery_post_v3_path],
+        },
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in tg2_recovery_post["files"].items()
+            if relative not in tg2_recovery_post_v3_replaced_files
+        ),
         *(
             {"path": str(REPO / relative), "sha256": digest}
             for relative, digest in tg2_recovery_post_v2["files"].items()
+            if relative not in tg2_recovery_post_v3_replaced_files
+        ),
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in tg2_recovery_post_v3["files"].items()
         ),
     ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
@@ -9464,60 +9477,65 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             parent_id = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
             task_id = f"{parent_id}_materialize_north"
             recovery_materialize_ids.append(task_id)
-            if task_id in existing:
-                continue
             marker = (
                 REPO
                 / "logs/resource_markers"
                 / f"temporal_grounding_tg2r_{arm}_seed{seed}_train_materialized.ok"
             )
-            queue["tasks"].append(
-                {
-                    "id": task_id,
-                    "priority": 1,
-                    "description": (
-                        f"Materialize full North TG2R arm={arm} seed={seed} artifacts"
+            materialize_task = {
+                "id": task_id,
+                "priority": 1,
+                "description": (
+                    f"Materialize full North TG2R arm={arm} seed={seed} artifacts"
+                ),
+                "materialize_north_result_for": parent_id,
+                "rearm_after_ready_file": str(tg2_recovery_post_v3_path),
+                "completion_glob": str(marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(tg2_recovery_path),
+                    str(tg2_recovery_post_path),
+                    str(tg2_recovery_post_v2_path),
+                    str(tg2_recovery_post_v3_path),
+                    str(recovery_sync),
+                    str(REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"),
+                    str(
+                        REPO
+                        / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2r_sidecars.py"
                     ),
-                    "materialize_north_result_for": parent_id,
-                    "completion_glob": str(marker),
-                    "completion_min_count": 1,
-                    "ready_files": [
-                        str(tg2_recovery_path),
-                        str(tg2_recovery_post_path),
-                        str(recovery_sync),
-                        str(REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"),
-                        str(
+                ],
+                "ready_hashes": tg2_recovery_post_v3_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 3,
+                        "status_dir": str(
                             REPO
-                            / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py"
+                            / "logs/temporal_grounding/tg2r/materialize"
+                            / f"{arm}_seed{seed}"
                         ),
-                    ],
-                    "ready_hashes": tg2_recovery_post_hashes,
-                    "candidates": [
-                        {
-                            "kind": "local",
-                            "resource": "local",
-                            "gpus": 0,
-                            "retry_cooldown_seconds": 300,
-                            "max_failures": 3,
-                            "status_dir": str(
-                                REPO
-                                / "logs/temporal_grounding/tg2r/materialize"
-                                / f"{arm}_seed{seed}"
-                            ),
-                            "command": shlex.join(
-                                [
-                                    "env",
-                                    f"TG2R_ARM={arm}",
-                                    f"TG2R_TRAIN_SEED={seed}",
-                                    "bash",
-                                    str(recovery_sync),
-                                ]
-                            ),
-                        }
-                    ],
-                }
-            )
-            existing.add(task_id)
+                        "command": shlex.join(
+                            [
+                                "env",
+                                f"TG2R_ARM={arm}",
+                                f"TG2R_TRAIN_SEED={seed}",
+                                "bash",
+                                str(recovery_sync),
+                            ]
+                        ),
+                    }
+                ],
+            }
+            if task_id not in existing:
+                queue["tasks"].append(materialize_task)
+                existing.add(task_id)
+            else:
+                next(
+                    task for task in queue["tasks"] if task.get("id") == task_id
+                ).update(materialize_task)
 
     recovery_integrity_id = "temporal_grounding_tg2r_training_integrity"
     recovery_integrity_marker = (
@@ -9525,7 +9543,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         / "logs/resource_markers/temporal_grounding_tg2r_training_integrity.ok"
     )
     recovery_integrity_runner = (
-        REPO / "train_scripts/kai/run_temporal_grounding_tg2r_integrity_v2.sh"
+        REPO / "train_scripts/kai/run_temporal_grounding_tg2r_integrity_v3.sh"
     )
     recovery_integrity_task = {
         "id": recovery_integrity_id,
@@ -9540,6 +9558,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             str(tg2_recovery_path),
             str(tg2_recovery_post_path),
             str(tg2_recovery_post_v2_path),
+            str(tg2_recovery_post_v3_path),
             str(recovery_integrity_runner),
             *(
                 str(REPO / relative)
@@ -9550,8 +9569,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 str(REPO / relative)
                 for relative in tg2_recovery_post_v2["files"]
             ),
+            *(str(REPO / relative) for relative in tg2_recovery_post_v3["files"]),
         ],
-        "ready_hashes": tg2_recovery_post_v2_hashes,
+        "ready_hashes": tg2_recovery_post_v3_hashes,
         "candidates": [
             {
                 "kind": "local",
@@ -9595,21 +9615,26 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 persisted["ready_files"] = [
                     *persisted.get("ready_files", []),
                     str(tg2_recovery_post_v2_path),
+                    str(tg2_recovery_post_v3_path),
                     *(
                         str(REPO / relative)
                         for relative in tg2_recovery_post_v2["files"]
+                    ),
+                    *(
+                        str(REPO / relative)
+                        for relative in tg2_recovery_post_v3["files"]
                     ),
                 ]
                 persisted["ready_files"] = list(
                     dict.fromkeys(persisted["ready_files"])
                 )
                 persisted["ready_hashes"] = [
-                    *tg2_recovery_post_v2_hashes,
+                    *tg2_recovery_post_v3_hashes,
                     *runtime_v10_hashes,
                 ]
                 for candidate in persisted.get("candidates", []):
                     candidate["runtime_revision"] = (
-                        "temporal_grounding_tg2_recovery_posttraining_v2"
+                        "temporal_grounding_tg2_recovery_posttraining_v3"
                     )
                 continue
             result_root = (
@@ -9629,6 +9654,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(tg2_recovery_path),
                         str(tg2_recovery_post_path),
                         str(tg2_recovery_post_v2_path),
+                        str(tg2_recovery_post_v3_path),
                         str(runtime_v10_path),
                         str(recovery_integrity_marker),
                         str(recovery_eval_runner),
@@ -9639,9 +9665,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             str(REPO / relative)
                             for relative in tg2_recovery_post_v2["files"]
                         ),
+                        *(
+                            str(REPO / relative)
+                            for relative in tg2_recovery_post_v3["files"]
+                        ),
                     ],
                     "ready_hashes": [
-                        *tg2_recovery_post_v2_hashes,
+                        *tg2_recovery_post_v3_hashes,
                         *runtime_v10_hashes,
                     ],
                     "candidates": [
@@ -9654,7 +9684,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
                             "runtime_revision": (
-                                "temporal_grounding_tg2_recovery_posttraining_v2"
+                                "temporal_grounding_tg2_recovery_posttraining_v3"
                             ),
                             "yaml": str(recovery_eval_yaml.relative_to(REPO)),
                             "task_name": (

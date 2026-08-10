@@ -141,7 +141,19 @@ launcher **之前**，还会保存同一推荐逻辑的审计记录。记录写�
 - `logs/resource_scheduler.log`
 - `logs/submission_recommendations/<task-id>/*.json`
 
-当前资源边界：北京 `Robot-North-H20` 严格限制主身份最多 20 GPU；上海
+论文 GPU TODO 另由只读小时监控留档。它不提交或停止任务，实际推进仍完全由
+`resource_aware_scheduler.py` 负责：
+
+```bash
+python train_scripts/kai/volc/monitor_paper_todo_hourly.py --interval-seconds 3600
+```
+
+监控固定核对当前冻结的 33 项 TG1A/TG2R 任务，每小时写入
+`logs/paper_todo_hourly_monitor.jsonl`，并原子更新
+`logs/paper_todo_hourly_monitor_latest.{json,md}`。调度器快照超过 5 分钟未更新时记录
+`degraded` 告警；只有 33 项全部为 `completed` 时监控才自行退出。
+
+当前资源边界：北京 `Robot-North-H20` 严格限制主身份最多 25 GPU；上海
 `Robot-East-H20` 为 8 H20，`robot-task` 为 32 A100。**截至 2026-08-04，暂停向
 `robot-task` 提交新任务**：控制标记为
 `logs/resource_controls/robot_task_submission.disabled`。标记存在时，实时推荐仍将
@@ -156,7 +168,7 @@ launcher **之前**，还会保存同一推荐逻辑的审计记录。记录写�
 北京还支持一个显式启停的备用 credential profile。密钥仅保存在仓库外、权限为
 `0600` 的 `~/.volc/credentials.scheduler-backup`；开关位于同样为 `0600` 的
 `~/.volc/scheduler-backup.conf`。即时运行时，只有开关为 `enabled = true`、主身份
-下一任务无法放入 GPU/任务额度、北京没有排队且仍有足够物理卡时，调度器才会使用
+下一任务无法放入 GPU 额度、北京没有排队且仍有足够物理卡时，调度器才会使用
 备用身份；持久 North 排队时也会在主身份达到相应额度后使用备用身份。
 备用身份提交的 attempt 会记录 `credential_profile=backup`，后续查询和停止也必须使用
 同一身份。将开关改为 `false` 后，调度器不再读取备用密钥、不查询备用身份，也不提交

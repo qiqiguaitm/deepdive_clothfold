@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 12:04 UTC
+Updated: 2026-08-10 14:37 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -62,10 +62,9 @@ recovery payload, and the byte-verified Transformers 5.2 runtime overlay. The
 East entrypoint repeats both Git checks, all overlay hashes, the parent TG2
 bundle verifier, the TG2R verifier, and the model/data hashes before training.
 The nine independent four-GPU jobs may run concurrently. Backup-profile
-submission is enabled with an eight-GPU identity-wide cap; that identity
-currently has eight active and twelve queued GPUs, so the scheduler admits no
-additional backup work. The three queued jobs remain because neither available
-API identity has permission to stop jobs created by that profile. No TG2R
+submission is enabled with an eight-GPU identity-wide cap. At the 14:37 UTC
+audit, the primary identity uses 20/25 GPUs, the backup identity uses 8/8 GPUs
+and has one four-GPU request queued, and East uses 8/8 GPUs. No TG2R
 evaluation is admissible until all nine cells
 pass a new joint exact-order integrity gate. Completion discovery is
 location-aware: both East and North final-model paths are checked, and an East
@@ -74,39 +73,38 @@ North transfer. The post-training v2 amendment also makes the joint integrity
 gate location-aware without changing any scientific check: complete North
 staging takes precedence, partial staging is rejected, and canonical shared
 sidecars are accepted only when no staging directory exists, as required for
-East-trained cells.
+East-trained cells. A post-training v3 amendment handles the instrumentation
+defect described below without changing a checkpoint, data order, or scientific
+gate.
 
 - [x] **TG2R-S0 [COMPLETE]** Staged and byte-verified the recovery payload on
   North at 01:17 UTC; both pinned Git identities and all four payload hashes
   passed.
-- [ ] **TG2R-T01 [QUEUEING: `t-20260810091838-d5ds7`, backup]** `future_off`,
-  seed 1000, North 4 GPU.
-- [ ] **TG2R-T02 [QUEUEING: `t-20260810091842-8p7bt`, backup]** `future_off`,
-  seed 1001, North 4 GPU.
+- [ ] **TG2R-T01 [RUNNING: `t-20260810091838-d5ds7`, backup]** `future_off`,
+  seed 1000, North 4 GPU; step 784/20,000 at 14:37 UTC, ETA 11.42 hours.
+- [ ] **TG2R-T02 [RUNNING: `t-20260810091842-8p7bt`, backup]** `future_off`,
+  seed 1001, North 4 GPU; step 492/20,000, ETA 11.00 hours.
 - [ ] **TG2R-T03 [QUEUEING: `t-20260810091846-g8fpd`, backup]** `future_off`,
   seed 1002, North 4 GPU.
-- [ ] **TG2R-T04 [RUNNING: `t-20260810091825-6cgzh`, primary]**
-  `fixed_endpoint`, seed 1000, North 4 GPU; approximately step 16,767/20,000 at
-  2.31 s/step, ETA 2.07 hours at the 12:04 UTC audit.
-- [ ] **TG2R-T05 [RUNNING: `t-20260810091829-vnvpv`, backup]**
-  `fixed_endpoint`, seed 1001, North 4 GPU; approximately step 16,802/20,000 at
-  2.27 s/step, ETA 2.02 hours.
-- [ ] **TG2R-T06 [RUNNING: `t-20260810091834-hfkvq`, backup]**
-  `fixed_endpoint`, seed 1002, North 4 GPU; approximately step 16,515/20,000 at
-  2.24 s/step, ETA 2.17 hours.
+- [x] **TG2R-T04 [COMPLETE: `t-20260810091825-6cgzh`, primary]**
+  `fixed_endpoint`, seed 1000, North 4 GPU; durable completion at 14:08 UTC.
+- [x] **TG2R-T05 [COMPLETE: `t-20260810091829-vnvpv`, backup]**
+  `fixed_endpoint`, seed 1001, North 4 GPU; durable completion at 14:07 UTC.
+- [x] **TG2R-T06 [COMPLETE: `t-20260810091834-hfkvq`, backup]**
+  `fixed_endpoint`, seed 1002, North 4 GPU; durable completion at 14:18 UTC.
 - [ ] **TG2R-T07 [RUNNING: `t-20260810102331-ktjk6`, primary]**
   `raw_milestone`, seed 1000, East 4 GPU; North attempt
   `t-20260810101504-w2mj8` was stopped before execution. The East replacement
-  passed all frozen-source checks and reached approximately step 14,916/20,000
-  at 2.43 s/step, ETA 3.43 hours.
+  passed all frozen-source checks and reached step 18,854/20,000 at 2.29 s/step,
+  ETA 0.73 hours at the 14:37 UTC audit.
 - [ ] **TG2R-T08 [RUNNING: `t-20260810102335-57b27`, primary]**
   `raw_milestone`, seed 1001, East 4 GPU; North attempt
   `t-20260810091854-v7vbr` was stopped before execution. The East replacement
-  passed all frozen-source checks and reached approximately step 14,954/20,000
-  at 2.29 s/step, ETA 3.21 hours.
+  passed all frozen-source checks and reached step 18,907/20,000 at 2.33 s/step,
+  ETA 0.69 hours.
 - [ ] **TG2R-T09 [RUNNING: `t-20260810091945-2h6rw`, primary]**
   `raw_milestone`, seed 1002, North 4 GPU; passed startup and reached
-  approximately step 11,428/20,000 at 2.29 s/step, ETA 5.45 hours.
+  step 15,395/20,000 at 2.29 s/step, ETA 2.92 hours.
 - [ ] **TG2R-I1 [ADMITTED; BLOCKED by T01--T09]** Run nine serialized,
   full-state, hash-verified North-to-East materializers, then require exact
   initialization and rank-order equality within each seed plus distinct order
@@ -114,6 +112,18 @@ East-trained cells.
   in every persisted full config.
 - [ ] **TG2R-E01--E09 [ADMITTED; BLOCKED by I1]** Run the unchanged frozen
   paired evaluation protocol on East only after joint integrity acceptance.
+
+The first materialization attempts for the three completed fixed-endpoint rows
+all failed closed and exhausted their three local retries. The frozen TG2R
+launcher exports `TG2R_ARM`, while the inherited audit writer reads `TG2_ARM`,
+so the redundant `arm` field is null in the initialization and four rank-order
+sidecars. Seed, route, rank, world size, counts, and ordered-sample digests are
+present. Post-training amendment v3 preserves every raw sidecar byte and its
+SHA-256, rejects any non-null arm mismatch or independent-field mismatch, and
+sets the prespecified arm only in a temporary normalized integrity overlay.
+It changes no training tensor, checkpoint, recipe, target route, data order,
+evaluation, or acceptance criterion. After the amended code is committed and
+the scheduler reloads, the v3 manifest re-arms all exhausted materializers.
 
 ### TG1 current incomplete evidence
 
@@ -186,6 +196,7 @@ The following immutable admission bundles are frozen and were reverified on
 | TG2 post-training pipeline | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_posttraining_pipeline_v1.json` | Runtime-only | Admitted; nine materializers, joint gate, and nine evals registered |
 | TG2 post-training pipeline v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_posttraining_pipeline_v2.json` | Runtime-only | Passed; strict sidecar validation, North sidecar staging, East integrity worker, and exact marker contract |
 | TG2R post-training v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v2.json` | Runtime-only | Passed; location-aware sidecar resolution with strict staging precedence and unchanged integrity/eval protocol |
+| TG2R post-training v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v3.json` | Runtime-only | Passed locally; preserves raw sidecars and recovers only null redundant arm metadata in an audited temporary overlay |
 | Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
 | Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
 | Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |

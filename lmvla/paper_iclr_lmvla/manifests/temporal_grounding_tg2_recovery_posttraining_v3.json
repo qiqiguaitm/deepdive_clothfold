@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_recovery_posttraining_v3",
+  "created_at": "2026-08-10T14:26:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v2.json",
+    "sha256": "86777a59af021afb50ffb644ff3761c4d28e0e9c0ed850b4789bcfc089d06499"
+  },
+  "incident": {
+    "observed": "The frozen TG2R launcher exported TG2R_ARM and TG2R_TRAIN_SEED, while the inherited audit writer read TG2_ARM and TG2_TRAIN_SEED. The redundant arm field is therefore null in initialization and four-rank data-order sidecars.",
+    "unaffected_evidence": [
+      "Training seed, rank, world size, microbatch count, sample count, and ordered-sample SHA-256 are present in every data-order record.",
+      "Initialization payload, parameter tree, trainable tree, optimizer tree, zero optimizer-state count, and route fields are present in every initialization record.",
+      "The frozen job identity, run directory, persisted full config, checkpoint, recipe, and route-specific environment remain unchanged."
+    ]
+  },
+  "amendment": {
+    "scope": "Recover only the redundant arm label in a temporary integrity overlay after independent route, seed, rank, count, and digest validation.",
+    "raw_preservation": "Raw initialization and rank sidecars remain byte-identical and their SHA-256 values are recorded in every materialization and joint-integrity report.",
+    "normalization": "A null arm is replaced by the prespecified run arm only in normalized copies. A non-null mismatched arm, route mismatch, seed mismatch, rank mismatch, count failure, or malformed digest is rejected.",
+    "unchanged": [
+      "All nine training recipes, seeds, checkpoints, initialization tensors, optimizer states, target routes, and data orders.",
+      "Exact initialization equality within seed, exact rank-order equality within seed, and distinct order across seeds.",
+      "in_order=true, eight workers per rank, step-20000 full-state integrity, evaluation protocol, and scientific stop rules."
+    ]
+  },
+  "files": {
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2r_sidecars.py": "011c1611ca8cee0741d3b5652913f8e1c91a923c91bd3f562821efa1f64cacbe",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_recovery_training_v3.py": "5a2c0da0ea30c80c78cea721d7c7ebcc0a006e5607e6e6dfd9b106e2b5ddd1b8",
+    "train_scripts/kai/sync_temporal_grounding_tg2r_checkpoint_from_north.sh": "b78a63f9b0454d656b3b721e85037e60965a87be932f862ed616670168b32f9d",
+    "train_scripts/kai/run_temporal_grounding_tg2r_integrity_v3.sh": "70ec5e3289fefef1af365080293534aea07fa6ea2fbbe839763f3e1f474f2656"
+  }
+}
