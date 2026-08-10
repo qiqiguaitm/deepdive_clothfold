@@ -1,0 +1,60 @@
+TaskName: "temporal-grounding-tg2-order-probe-east4g"
+Description: "TG2 deterministic data-order probe with audited Qwen3 runtime"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  OVERLAY=/vePFS/tim/runtime/tg2_transformers_5_2_py312_padding_v3
+  LOG_DIR="$REPO/logs/temporal_grounding/tg2/data_order_recovery_probe_v1"
+  mkdir -p "$LOG_DIR"
+  LOG_FILE="$LOG_DIR/platform_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG_FILE") 2>&1
+  echo "TG2_DATA_ORDER_PROBE_START host=$(hostname) runtime=order_probe_v2"
+  printf '%s  %s\n' 91b2c544c6848f4ce8213c770aaa705ce682ee656c995f4ce58352c4b7368ee7 "$OVERLAY/transformers/__init__.py" | sha256sum --check --strict
+  printf '%s  %s\n' d227f617210221463f972f20d8951b935e30196b9d9bac4fe1e3ce19f49b0c3c "$OVERLAY/huggingface_hub/__init__.py" | sha256sum --check --strict
+  printf '%s  %s\n' c116fcf1e80d461ce0a35c332974f25949e8359416f50b3d53371810d2ce1ccc "$OVERLAY/tokenizers/tokenizers.abi3.so" | sha256sum --check --strict
+  printf '%s  %s\n' 922e7b08959d01faad7ae64b04114aebdf6cd71666af6d49dfafe93380de4f90 "$OVERLAY/sitecustomize.py" | sha256sum --check --strict
+  export PYTHONPATH="$OVERLAY${PYTHONPATH:+:$PYTHONPATH}"
+  export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+  export TG2_MODEL_ROOT="$REPO/lmvla/lawam/results/Checkpoints/qwen3_weights"
+  "$REPO/kai0/.venv/bin/python" - <<'PY'
+  import os
+  import transformers
+  from transformers import AutoProcessor
+  assert transformers.__version__ == "5.2.0"
+  processor = AutoProcessor.from_pretrained(
+      os.environ["TG2_MODEL_ROOT"], trust_remote_code=True, local_files_only=True
+  )
+  assert type(processor).__name__ == "Qwen3VLProcessor"
+  assert hasattr(processor, "tokenizer")
+  print("TG2_ORDER_PROBE_RUNTIME_V2_OK")
+  PY
+  REPO="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg2_data_order_probe.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

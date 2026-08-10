@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_tg2_data_order_recovery_probe_v2",
+  "extends": [
+    "temporal_grounding_tg2_data_order_recovery_probe_v1"
+  ],
+  "extended_manifest_sha256": {
+    "temporal_grounding_tg2_data_order_recovery_probe_v1": "06bec622e88fde04bce61e14b60c44546538712c23fc5d7b2d8891bdc0ed8a29"
+  },
+  "created_at": "2026-08-10T00:48:59Z",
+  "scope": "Restore the Qwen3-compatible runtime used by admitted TG2 training",
+  "operator_authorized": true,
+  "paper_evidence": false,
+  "experiment_protocol_changed": false,
+  "execution_owner": "resource_aware_scheduler",
+  "observed_failure": {
+    "job_id": "t-20260810084530-c9xs2",
+    "stage": "first data-order probe launch",
+    "issue": "The base image resolved an incompatible Transformers processor and the collator received Qwen2TokenizerFast instead of Qwen3VLProcessor. No rank sidecar or probe result was produced."
+  },
+  "change": [
+    "Use the same immutable Transformers 5.2.0 runtime overlay that completed TG2 training.",
+    "Verify the overlay file hashes and Qwen3VLProcessor interface before launching the unchanged probe.",
+    "Permit one scheduler-owned East retry after the runtime-only failure."
+  ],
+  "invariants": [
+    "The data mix, seed, world size, workers, in_order setting, microbatch count, hash definition, and acceptance criterion are byte-identical to probe v1.",
+    "No model is built or trained and no probe output is admissible as paper evidence.",
+    "The failed TG2 matrix and all evaluations remain blocked regardless of probe outcome."
+  ],
+  "files": {
+    "train_scripts/kai/volc/temporal_grounding_tg2_data_order_probe_runtime_v2_east_4h20.yaml": "7338bae54a154be6b5255ebd05b783fbdfdf6da69b2649f4e3fca5bdc94ae910",
+    "lmvla/lmwm/scripts/probe_temporal_grounding_tg2_data_order.py": "c76ad58f0418cfe6c3c494b086dc35d46bb65f06655deae58dad868999fe6272",
+    "lmvla/lmwm/scripts/test_probe_temporal_grounding_tg2_data_order.py": "963bd7c8608d27962576c0f4d4cd23731787b047e3217f106b8caebf659f480a",
+    "train_scripts/kai/run_temporal_grounding_tg2_data_order_probe.sh": "8e3965a0d1254b5528740f92de8410a0525ef678026eabd7b7bbe1ace7474bb9"
+  }
+}
