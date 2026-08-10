@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 19:27 UTC
+Updated: 2026-08-10 19:40 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -81,9 +81,9 @@ gate.
   North at 01:17 UTC; both pinned Git identities and all four payload hashes
   passed.
 - [ ] **TG2R-T01 [RUNNING: `t-20260810091838-d5ds7`, backup]** `future_off`,
-  seed 1000, North 4 GPU; step 8,641/20,000 at 19:07 UTC, ETA 6.50 hours.
+  seed 1000, North 4 GPU; step 9,593/20,000 at 19:40 UTC, ETA 6.01 hours.
 - [ ] **TG2R-T02 [RUNNING: `t-20260810091842-8p7bt`, backup]** `future_off`,
-  seed 1001, North 4 GPU; step 8,391/20,000, ETA 6.55 hours.
+  seed 1001, North 4 GPU; step 9,347/20,000, ETA 5.98 hours.
 - [ ] **TG2R-T03 [QUEUEING: `t-20260810091846-g8fpd`, backup]** `future_off`,
   seed 1002, North 4 GPU.
 - [x] **TG2R-T04 [COMPLETE: `t-20260810091825-6cgzh`, primary]**
