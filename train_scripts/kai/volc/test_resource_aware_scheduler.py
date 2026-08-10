@@ -6483,6 +6483,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     ]
     order_probe = tasks["temporal_grounding_tg2_data_order_recovery_probe"]
     assert order_probe["priority"] == 1
+    assert order_probe["supersede_obsolete_runtime_after_seconds"] == 60
     assert order_probe["rearm_after_ready_file"].endswith(
         "temporal_grounding_tg2_data_order_recovery_probe_v3.json"
     )

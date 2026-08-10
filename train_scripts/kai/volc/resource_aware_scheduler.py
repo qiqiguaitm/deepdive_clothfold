@@ -9130,6 +9130,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "id": order_probe_id,
                 "priority": 1,
                 "description": "Probe deterministic recovery of TG2 exact rank data order",
+                "supersede_obsolete_runtime_after_seconds": 60,
                 "rearm_after_ready_file": str(order_probe_v3_path),
                 "completion_glob": str(order_probe_marker),
                 "completion_min_count": 1,
