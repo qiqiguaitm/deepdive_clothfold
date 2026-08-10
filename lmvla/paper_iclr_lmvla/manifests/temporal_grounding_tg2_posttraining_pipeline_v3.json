@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_tg2_posttraining_pipeline_v3",
+  "extends": [
+    "temporal_grounding_tg2_posttraining_pipeline_v2"
+  ],
+  "extended_manifest_sha256": {
+    "temporal_grounding_tg2_posttraining_pipeline_v2": "a954b31f94883d2097a259181f7c785d701c2204b04e83e08c57a8c379843fd6"
+  },
+  "created_at": "2026-08-10T00:25:00Z",
+  "scope": "TG2 joint-integrity worker failure observability and one scheduler-owned retry",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "execution_owner": "resource_aware_scheduler",
+  "observed_failure": {
+    "job_id": "t-20260809083014-bsfqt",
+    "stage": "joint post-training integrity worker",
+    "platform_state": "Failed",
+    "completion_marker": "absent",
+    "issue": "The platform API exposes only a generic worker failure and the v2 entrypoint did not persist stdout or stderr to shared storage, so the failed invariant cannot be diagnosed."
+  },
+  "change": [
+    "Keep the admitted integrity script, both verifiers, all inputs, and every acceptance criterion byte-identical.",
+    "Run the same integrity script from a new East YAML whose entrypoint tees stdout and stderr to a timestamped shared vePFS log before any preflight or verifier executes.",
+    "Use this amendment as the scheduler rearm file and permit one new scheduler-owned East attempt after the failed v2 attempt."
+  ],
+  "invariants": [
+    "No checkpoint, sidecar, training recipe, seed, parameter tree, optimizer state, evaluation recipe, scene identity, or result is changed.",
+    "No verifier condition is added, removed, weakened, or bypassed.",
+    "The integrity completion marker remains absent unless both unchanged verifiers exit successfully.",
+    "All nine TG2 evaluations remain blocked until the joint integrity task completes."
+  ],
+  "files": {
+    "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_runtime_v3_1h20.yaml": "1a68ebd9fec2a0e7ec8843898ca8aab9536e386df1e32769c56a62db2e654261",
+    "train_scripts/kai/run_temporal_grounding_tg2_integrity.sh": "ab0ad9c750a9aa38ac4b0ed067a6ac8e2fdd8cf77b3e312860a059dfb94a68bd",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py": "b3acf4584368a114e7d2e3edf7740ed7bffe204fd053003a5856b5322a717710",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training_v2.py": "bfa8d84e834cdbed6d6a5676b3cef26b2b72f033de7aae42443c2d2846c8ed67",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py": "53da2d224bfdc3a1bfe518261d195362b7135f1c8f054bcb0ea80ff3b3200902",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py": "66f0a80540870db1815407e3beb07ec8ec6c7ada7d36c201e5a68cc72d247bbf"
+  }
+}

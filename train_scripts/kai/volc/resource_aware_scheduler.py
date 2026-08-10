@@ -8558,6 +8558,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v9_path = manifests / "temporal_grounding_runtime_amendment_v9.json"
     runtime_v10_path = manifests / "temporal_grounding_runtime_amendment_v10.json"
     posttraining_path = manifests / "temporal_grounding_tg2_posttraining_pipeline_v2.json"
+    posttraining_v3_path = (
+        manifests / "temporal_grounding_tg2_posttraining_pipeline_v3.json"
+    )
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8573,6 +8576,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v9_path: "cc28d480647c8da5f274352fe2c0ba7e88509997e15c3e891bbf0a4db494005c",
         runtime_v10_path: "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e",
         posttraining_path: "a954b31f94883d2097a259181f7c785d701c2204b04e83e08c57a8c379843fd6",
+        posttraining_v3_path: "27360a03d7e8f18b3ce25fd1441b1d01748884ce3b500559da2061285d250ff7",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8583,6 +8587,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg2 = json.loads(tg2_path.read_text())
     runtime_v10 = json.loads(runtime_v10_path.read_text())
     posttraining = json.loads(posttraining_path.read_text())
+    posttraining_v3 = json.loads(posttraining_v3_path.read_text())
     runtime_v10_hashes = [
         {"path": str(runtime_v10_path), "sha256": manifest_hashes[runtime_v10_path]},
         *(
@@ -8595,6 +8600,17 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         *(
             {"path": str(REPO / relative), "sha256": digest}
             for relative, digest in posttraining["files"].items()
+        ),
+    ]
+    posttraining_v3_hashes = [
+        *posttraining_hashes,
+        {
+            "path": str(posttraining_v3_path),
+            "sha256": manifest_hashes[posttraining_v3_path],
+        },
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in posttraining_v3["files"].items()
         ),
     ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
@@ -9007,7 +9023,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     integrity_script = REPO / "train_scripts/kai/run_temporal_grounding_tg2_integrity.sh"
     integrity_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_1h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg2_integrity_east_runtime_v3_1h20.yaml"
     )
     seed_audit = (
         REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py"
@@ -9019,10 +9035,12 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "priority": 2,
                 "description": "Run joint TG2 checkpoint and seed-independence audits",
                 "requires_completed_tasks": materialize_ids,
+                "rearm_after_ready_file": str(posttraining_v3_path),
                 "completion_glob": str(integrity_marker),
                 "completion_min_count": 1,
                 "ready_files": [
                     str(posttraining_path),
+                    str(posttraining_v3_path),
                     str(integrity_script),
                     str(integrity_yaml),
                     str(seed_audit),
@@ -9032,7 +9050,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training_v2.py"
                     ),
                 ],
-                "ready_hashes": posttraining_hashes,
+                "ready_hashes": posttraining_v3_hashes,
                 "candidates": [
                     {
                         "kind": "platform",
@@ -9042,7 +9060,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "queue_timeout_seconds": 180,
                         "retry_cooldown_seconds": 600,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_posttraining_v2",
+                        "runtime_revision": "temporal_grounding_posttraining_v3",
                         "yaml": str(integrity_yaml.relative_to(REPO)),
                         "task_name": "temporal-grounding-tg2-integrity-east1g",
                     }
