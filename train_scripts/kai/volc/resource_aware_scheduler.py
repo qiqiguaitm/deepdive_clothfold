@@ -9219,6 +9219,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO
         / "train_scripts/kai/volc/temporal_grounding_tg2_recovery_north_4h20.yaml"
     )
+    recovery_east_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg2_recovery_east_4h20.yaml"
+    )
     recovery_stage_script = (
         REPO / "train_scripts/kai/stage_temporal_grounding_tg2_recovery_to_north.sh"
     )
@@ -9290,11 +9294,37 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
         for seed in (1000, 1001, 1002):
             task_id = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
+            east_migration = arm == "raw_milestone" and seed in {1000, 1001}
             if task_id in existing:
                 if (arm, seed) in backup_queue_drain_tasks:
                     existing_tasks[task_id][
                         "requeue_queued_credential_profiles"
                     ] = ["backup"]
+                if east_migration:
+                    task = existing_tasks[task_id]
+                    task["requeue_queued_resources"] = ["Robot-North-H20"]
+                    task["candidates"] = [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-East-H20",
+                            "region": "cn-shanghai",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 300,
+                            "deploy_timeout_seconds": 900,
+                            "retry_cooldown_seconds": 900,
+                            "max_failures": 1,
+                            "runtime_revision": "temporal_grounding_tg2_recovery_v1_east",
+                            "yaml": str(recovery_east_yaml.relative_to(REPO)),
+                            "task_name": (
+                                "temporal-grounding-tg2r-raw-milestone-"
+                                f"s{seed}-east4g"
+                            ),
+                            "env": {
+                                "TG2R_ARM": arm,
+                                "TG2R_TRAIN_SEED": str(seed),
+                            },
+                        }
+                    ]
                 continue
             run_id = f"temporal_grounding_tg2r_{arm}_seed{seed}"
             queue["tasks"].append(
@@ -9307,6 +9337,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     **(
                         {"requeue_queued_credential_profiles": ["backup"]}
                         if (arm, seed) in backup_queue_drain_tasks
+                        else {}
+                    ),
+                    **(
+                        {"requeue_queued_resources": ["Robot-North-H20"]}
+                        if east_migration
                         else {}
                     ),
                     "requires_completed_tasks": [recovery_stage_id],
@@ -9328,7 +9363,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(tg2_recovery_path),
                         str(recovery_runner),
                         str(recovery_verifier),
-                        str(recovery_yaml),
+                        str(recovery_east_yaml if east_migration else recovery_yaml),
                     ],
                     "ready_files_remote": [
                         str(recovery_stage_marker_remote),
@@ -9344,18 +9379,33 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "candidates": [
                         {
                             "kind": "platform",
-                            "resource": "Robot-North-H20",
-                            "region": "cn-beijing",
+                            "resource": (
+                                "Robot-East-H20"
+                                if east_migration
+                                else "Robot-North-H20"
+                            ),
+                            "region": "cn-shanghai" if east_migration else "cn-beijing",
                             "gpus": 4,
                             "queue_timeout_seconds": 300,
                             "deploy_timeout_seconds": 900,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 1,
-                            "runtime_revision": "temporal_grounding_tg2_recovery_v1",
-                            "yaml": str(recovery_yaml.relative_to(REPO)),
+                            "runtime_revision": (
+                                "temporal_grounding_tg2_recovery_v1_east"
+                                if east_migration
+                                else "temporal_grounding_tg2_recovery_v1"
+                            ),
+                            "yaml": str(
+                                (
+                                    recovery_east_yaml
+                                    if east_migration
+                                    else recovery_yaml
+                                ).relative_to(REPO)
+                            ),
                             "task_name": (
                                 "temporal-grounding-tg2r-"
-                                f"{arm.replace('_', '-')}-s{seed}-north4g"
+                                f"{arm.replace('_', '-')}-s{seed}-"
+                                f"{'east' if east_migration else 'north'}4g"
                             ),
                             "env": {
                                 "TG2R_ARM": arm,
@@ -13242,13 +13292,19 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
         attempt["last_state"] = info["state"]
         attempt["last_checked_at"] = checked_at
         requeue_profiles = set(task.get("requeue_queued_credential_profiles", []))
-        if info["state"] == "Queueing" and credential_profile in requeue_profiles:
+        requeue_resources = set(task.get("requeue_queued_resources", []))
+        requeue_queued = info["state"] == "Queueing" and (
+            credential_profile in requeue_profiles
+            or attempt.get("resource") in requeue_resources
+        )
+        if requeue_queued:
             try:
                 stop_profile = stop_platform_job(
                     attempt["region"], attempt["job_id"], credential_profile
                 )
                 attempt["stopped_by_credential_profile"] = stop_profile
                 attempt["requeued_from_credential_profile"] = credential_profile
+                attempt["requeued_from_resource"] = attempt.get("resource")
                 attempt["finished_at"] = checked_at
                 task_state["status"] = "pending"
                 task_state["waiting_reason"] = (

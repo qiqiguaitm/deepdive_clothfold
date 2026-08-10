@@ -1797,6 +1797,39 @@ def test_queueing_backup_attempt_can_be_requeued_to_primary(monkeypatch) -> None
     assert attempt["stopped_by_credential_profile"] == "backup"
 
 
+def test_queueing_attempt_can_be_requeued_from_resource(monkeypatch) -> None:
+    task = {
+        "id": "north-to-east",
+        "requeue_queued_resources": ["Robot-North-H20"],
+        "candidates": [],
+    }
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "job_id": "t-north-queued",
+        "started_at": "2026-08-10T00:00:00Z",
+        "last_state": "Queueing",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Queueing", "message": "waiting"},
+    )
+    monkeypatch.setattr(
+        scheduler, "stop_platform_job", lambda *_args: "primary"
+    )
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "pending"
+    assert attempt["requeued_from_resource"] == "Robot-North-H20"
+    assert attempt["stopped_by_credential_profile"] == "primary"
+
+
 def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(
     monkeypatch,
 ) -> None:
@@ -6534,7 +6567,11 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     recovery_stage = tasks["temporal_grounding_tg2r_north_stage"]
     assert recovery_stage["candidates"][0]["kind"] == "local"
     assert recovery_stage["candidates"][0]["gpus"] == 0
-    for task in tg2r.values():
+    east_tg2r = {
+        "temporal_grounding_tg2r_raw_milestone_seed1000_train",
+        "temporal_grounding_tg2r_raw_milestone_seed1001_train",
+    }
+    for task_id, task in tg2r.items():
         assert task["requires_completed_tasks"] == [
             "temporal_grounding_tg2r_north_stage"
         ]
@@ -6545,14 +6582,23 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         )
         assert len(task["candidates"]) == 1
         candidate = task["candidates"][0]
-        assert candidate["resource"] == "Robot-North-H20"
         assert candidate["gpus"] == 4
-        assert candidate["runtime_revision"] == (
-            "temporal_grounding_tg2_recovery_v1"
-        )
-        assert candidate["yaml"].endswith(
-            "temporal_grounding_tg2_recovery_north_4h20.yaml"
-        )
+        if task_id in east_tg2r:
+            assert candidate["resource"] == "Robot-East-H20"
+            assert candidate["runtime_revision"] == (
+                "temporal_grounding_tg2_recovery_v1_east"
+            )
+            assert candidate["yaml"].endswith(
+                "temporal_grounding_tg2_recovery_east_4h20.yaml"
+            )
+        else:
+            assert candidate["resource"] == "Robot-North-H20"
+            assert candidate["runtime_revision"] == (
+                "temporal_grounding_tg2_recovery_v1"
+            )
+            assert candidate["yaml"].endswith(
+                "temporal_grounding_tg2_recovery_north_4h20.yaml"
+            )
         assert task["ready_files_remote"]
     materializers = {
         task_id: task
