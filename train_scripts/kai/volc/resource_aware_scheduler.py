@@ -9280,10 +9280,21 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         )
         existing.add(recovery_stage_id)
 
+    backup_queue_drain_tasks = {
+        ("fixed_endpoint", 1002),
+        ("future_off", 1000),
+        ("future_off", 1001),
+        ("future_off", 1002),
+    }
+    existing_tasks = {task["id"]: task for task in queue["tasks"]}
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
         for seed in (1000, 1001, 1002):
             task_id = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
             if task_id in existing:
+                if (arm, seed) in backup_queue_drain_tasks:
+                    existing_tasks[task_id][
+                        "requeue_queued_credential_profiles"
+                    ] = ["backup"]
                 continue
             run_id = f"temporal_grounding_tg2r_{arm}_seed{seed}"
             queue["tasks"].append(
@@ -9295,13 +9306,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     ),
                     **(
                         {"requeue_queued_credential_profiles": ["backup"]}
-                        if (arm, seed)
-                        in {
-                            ("fixed_endpoint", 1002),
-                            ("future_off", 1000),
-                            ("future_off", 1001),
-                            ("future_off", 1002),
-                        }
+                        if (arm, seed) in backup_queue_drain_tasks
                         else {}
                     ),
                     "requires_completed_tasks": [recovery_stage_id],
