@@ -192,3 +192,6 @@ kai0/eval_*/
 *.zip
 *.tar.gz
 *.tgz
+
+# Scheduler-created detached runtime worktrees; reproducible from pinned commits.
+/.staging/

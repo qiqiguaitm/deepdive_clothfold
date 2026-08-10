@@ -6759,6 +6759,17 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
                     ("Robot-East-H20", east_label)
                 ] == task_id
 
+    for seed in (1000, 1001):
+        label = f"tg2r_raw_milestone_seed{seed}"
+        watch = scheduler.EAST_TRAIN_WATCH_TASKS[label]
+        assert watch["expected_steps"] == 20000
+        assert f"tg2r_raw_milestone_s{seed}_east_*.log" in str(
+            watch["log_glob"]
+        )
+        assert scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[
+            ("Robot-East-H20", label)
+        ] == f"temporal_grounding_tg2r_raw_milestone_seed{seed}_train"
+
 
 def test_markdown_training_heartbeat_requires_platform_running(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

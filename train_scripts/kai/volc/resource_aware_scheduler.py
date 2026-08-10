@@ -316,6 +316,13 @@ for seed in (1000, 1001, 1002):
         / f"tg2_fixed_endpoint_s{seed}_east_*.log",
         "expected_steps": 20000,
     }
+for seed in (1000, 1001):
+    EAST_TRAIN_WATCH_TASKS[f"tg2r_raw_milestone_seed{seed}"] = {
+        "log_glob": REPO
+        / "logs/temporal_grounding/entrypoint"
+        / f"tg2r_raw_milestone_s{seed}_east_*.log",
+        "expected_steps": 20000,
+    }
 NORTH_TRAIN_WATCH_TASKS = {
     variant: {
         "log_glob": (
@@ -438,6 +445,10 @@ for seed in (1000, 1001, 1002):
     TRAIN_WATCH_MANAGED_TASK_IDS[
         ("Robot-East-H20", f"tg2_fixed_endpoint_seed{seed}")
     ] = f"temporal_grounding_tg2_fixed_endpoint_seed{seed}_train"
+for seed in (1000, 1001):
+    TRAIN_WATCH_MANAGED_TASK_IDS[
+        ("Robot-East-H20", f"tg2r_raw_milestone_seed{seed}")
+    ] = f"temporal_grounding_tg2r_raw_milestone_seed{seed}_train"
 for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
     for seed in (1000, 1001, 1002):
         TRAIN_WATCH_MANAGED_TASK_IDS[

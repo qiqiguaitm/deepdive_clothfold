@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 01:20 UTC
+Updated: 2026-08-10 04:50 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -55,13 +55,17 @@ It preserves all original arms, seeds, initialization, target routes, batch
 fixed-final-checkpoint selection. Its only training change is
 `datasets.vla_data.in_order: false -> true`.
 
-All nine cells use the same detached North source (`outer 11fb843`, LaWAM
-`71803a3`) to eliminate cross-stack source drift. A scheduler-owned zero-GPU
-staging task must first atomically install and verify the small TG2R payload;
-the nine independent four-GPU jobs may then run concurrently. North primary is
-used first up to its 20-GPU/25-job limit; the already-enabled backup profile is
-used only when the next four-GPU task cannot fit. No TG2R evaluation is
-admissible until all nine cells pass a new joint exact-order integrity gate.
+All nine cells use the same detached source identity (`outer 11fb843`, LaWAM
+`71803a3`) to eliminate source drift. North uses the atomically staged source;
+the two East cells use a detached worktree at the same commits, the same frozen
+recovery payload, and the byte-verified Transformers 5.2 runtime overlay. The
+East entrypoint repeats both Git checks, all overlay hashes, the parent TG2
+bundle verifier, the TG2R verifier, and the model/data hashes before training.
+The nine independent four-GPU jobs may run concurrently. New backup-profile
+submission is disabled by operator instruction; three already-queued backup
+jobs remain because neither available API identity has permission to stop jobs
+created by that profile. No TG2R evaluation is admissible until all nine cells
+pass a new joint exact-order integrity gate.
 
 - [x] **TG2R-S0 [COMPLETE]** Staged and byte-verified the recovery payload on
   North at 01:17 UTC; both pinned Git identities and all four payload hashes
@@ -73,19 +77,27 @@ admissible until all nine cells pass a new joint exact-order integrity gate.
 - [ ] **TG2R-T03 [QUEUEING: `t-20260810091846-g8fpd`, backup]** `future_off`,
   seed 1002, North 4 GPU.
 - [ ] **TG2R-T04 [RUNNING: `t-20260810091825-6cgzh`, primary]**
-  `fixed_endpoint`, seed 1000, North 4 GPU; passed startup and reached the
-  optimization loop at approximately 2.29 s/step.
+  `fixed_endpoint`, seed 1000, North 4 GPU; approximately step 5,452/20,000 at
+  2.28 s/step, ETA 9.2 hours at the 04:50 UTC audit.
 - [ ] **TG2R-T05 [RUNNING: `t-20260810091829-vnvpv`, backup]**
-  `fixed_endpoint`, seed 1001, North 4 GPU; passed startup and reached the
-  optimization loop at approximately 2.36 s/step.
-- [ ] **TG2R-T06 [QUEUEING: `t-20260810091834-hfkvq`, backup]**
-  `fixed_endpoint`, seed 1002, North 4 GPU.
-- [ ] **TG2R-T07 [QUEUEING: `t-20260810091850-9z5gc`, primary]**
-  `raw_milestone`, seed 1000, North 4 GPU.
-- [ ] **TG2R-T08 [QUEUEING: `t-20260810091854-v7vbr`, primary]**
-  `raw_milestone`, seed 1001, North 4 GPU.
-- [ ] **TG2R-T09 [QUEUEING: `t-20260810091945-2h6rw`, primary]**
-  `raw_milestone`, seed 1002, North 4 GPU.
+  `fixed_endpoint`, seed 1001, North 4 GPU; approximately step 5,465/20,000 at
+  2.27 s/step, ETA 9.2 hours.
+- [ ] **TG2R-T06 [RUNNING: `t-20260810091834-hfkvq`, backup]**
+  `fixed_endpoint`, seed 1002, North 4 GPU; approximately step 5,088/20,000 at
+  2.25 s/step, ETA 9.3 hours.
+- [ ] **TG2R-T07 [RUNNING: `t-20260810102331-ktjk6`, primary]**
+  `raw_milestone`, seed 1000, East 4 GPU; North attempt
+  `t-20260810101504-w2mj8` was stopped before execution. The East replacement
+  passed all frozen-source checks and reached approximately step 3,704/20,000
+  at 2.29 s/step.
+- [ ] **TG2R-T08 [RUNNING: `t-20260810102335-57b27`, primary]**
+  `raw_milestone`, seed 1001, East 4 GPU; North attempt
+  `t-20260810091854-v7vbr` was stopped before execution. The East replacement
+  passed all frozen-source checks and reached approximately step 3,712/20,000
+  at 2.32 s/step.
+- [ ] **TG2R-T09 [RUNNING: `t-20260810091945-2h6rw`, primary]**
+  `raw_milestone`, seed 1002, North 4 GPU; passed startup and reached
+  approximately step 140/20,000 at 2.27 s/step, ETA 12.5 hours.
 - [ ] **TG2R-I1 [ADMITTED; BLOCKED by T01--T09]** Run nine serialized,
   full-state, hash-verified North-to-East materializers, then require exact
   initialization and rank-order equality within each seed plus distinct order
