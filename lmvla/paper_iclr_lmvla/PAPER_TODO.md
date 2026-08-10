@@ -86,10 +86,13 @@ admissible until all nine cells pass a new joint exact-order integrity gate.
   `raw_milestone`, seed 1001, North 4 GPU.
 - [ ] **TG2R-T09 [QUEUEING: `t-20260810091945-2h6rw`, primary]**
   `raw_milestone`, seed 1002, North 4 GPU.
-- [ ] **TG2R-I1 [BLOCKED by T01--T09]** Materialize sidecars/checkpoints and
-  require exact initialization and rank-order equality within each seed.
-- [ ] **TG2R-E01--E09 [BLOCKED by I1]** Run the unchanged frozen paired
-  evaluation protocol only after joint integrity acceptance.
+- [ ] **TG2R-I1 [ADMITTED; BLOCKED by T01--T09]** Run nine serialized,
+  full-state, hash-verified North-to-East materializers, then require exact
+  initialization and rank-order equality within each seed plus distinct order
+  across seeds. The gate explicitly checks `in_order=true` and eight workers
+  in every persisted full config.
+- [ ] **TG2R-E01--E09 [ADMITTED; BLOCKED by I1]** Run the unchanged frozen
+  paired evaluation protocol on East only after joint integrity acceptance.
 
 ### TG1 current incomplete evidence
 

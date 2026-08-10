@@ -132,7 +132,7 @@ TEMPORAL_GROUNDING_EVAL_RE = re.compile(
     r"temporal_grounding_(?:"
     r"tg1a_(?:normal|null|persistence|shuffled)|"
     r"tg1b_(?:future_off|local_wm)_e(?:36|50)|"
-    r"tg2_(?:future_off|fixed_endpoint|raw_milestone)_seed100[012]"
+    r"tg2r?_(?:future_off|fixed_endpoint|raw_milestone)_seed100[012]"
     r")_eval"
 )
 PI05_CONFIRMATORY_SCENE_MANIFEST_SHARED = (
@@ -8585,6 +8585,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         manifests / "temporal_grounding_tg2_data_order_recovery_probe_v3.json"
     )
     tg2_recovery_path = manifests / "temporal_grounding_tg2_recovery_v1.json"
+    tg2_recovery_post_path = (
+        manifests / "temporal_grounding_tg2_recovery_posttraining_v1.json"
+    )
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8606,6 +8609,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         order_probe_v2_path: "488112fa4ad23fbb0c028b17c52294ac69525389c53b8ef4124971964177ba82",
         order_probe_v3_path: "584ad084004da002077cd035127a1c962bd91b393a04335d733c8cab8f380a54",
         tg2_recovery_path: "e16e3e7191eab3d859f7e919a96214b3f6cfd2b4a10ff111f10c34958921372b",
+        tg2_recovery_post_path: "25a030aeea56f61fb9cd2b5373a8b01fd50a45f0306242a1f99f08a6cd1e549f",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8618,6 +8622,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     posttraining = json.loads(posttraining_path.read_text())
     posttraining_v4 = json.loads(posttraining_v4_path.read_text())
     order_probe_v3 = json.loads(order_probe_v3_path.read_text())
+    tg2_recovery_post = json.loads(tg2_recovery_post_path.read_text())
     runtime_v10_hashes = [
         {"path": str(runtime_v10_path), "sha256": manifest_hashes[runtime_v10_path]},
         *(
@@ -8663,6 +8668,20 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         *(
             {"path": str(REPO / relative), "sha256": digest}
             for relative, digest in order_probe_v3["files"].items()
+        ),
+    ]
+    tg2_recovery_post_hashes = [
+        {
+            "path": str(tg2_recovery_path),
+            "sha256": manifest_hashes[tg2_recovery_path],
+        },
+        {
+            "path": str(tg2_recovery_post_path),
+            "sha256": manifest_hashes[tg2_recovery_post_path],
+        },
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in tg2_recovery_post["files"].items()
         ),
     ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
@@ -9086,6 +9105,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "id": integrity_id,
                 "priority": 2,
                 "description": "Run joint TG2 checkpoint and seed-independence audits",
+                "enabled": False,
+                "disabled_reason": (
+                    "Original TG2 matrix rejected: exact rank data order differs "
+                    "across arms within every seed"
+                ),
                 "requires_completed_tasks": materialize_ids,
                 "rearm_after_ready_file": str(posttraining_v4_path),
                 "completion_glob": str(integrity_marker),
@@ -9327,6 +9351,188 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             )
             existing.add(task_id)
 
+    recovery_materialize_ids = []
+    recovery_sync = (
+        REPO / "train_scripts/kai/sync_temporal_grounding_tg2r_checkpoint_from_north.sh"
+    )
+    for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+        for seed in (1000, 1001, 1002):
+            parent_id = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
+            task_id = f"{parent_id}_materialize_north"
+            recovery_materialize_ids.append(task_id)
+            if task_id in existing:
+                continue
+            marker = (
+                REPO
+                / "logs/resource_markers"
+                / f"temporal_grounding_tg2r_{arm}_seed{seed}_train_materialized.ok"
+            )
+            queue["tasks"].append(
+                {
+                    "id": task_id,
+                    "priority": 1,
+                    "description": (
+                        f"Materialize full North TG2R arm={arm} seed={seed} artifacts"
+                    ),
+                    "materialize_north_result_for": parent_id,
+                    "completion_glob": str(marker),
+                    "completion_min_count": 1,
+                    "ready_files": [
+                        str(tg2_recovery_path),
+                        str(tg2_recovery_post_path),
+                        str(recovery_sync),
+                        str(REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"),
+                        str(
+                            REPO
+                            / "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py"
+                        ),
+                    ],
+                    "ready_hashes": tg2_recovery_post_hashes,
+                    "candidates": [
+                        {
+                            "kind": "local",
+                            "resource": "local",
+                            "gpus": 0,
+                            "retry_cooldown_seconds": 300,
+                            "max_failures": 3,
+                            "status_dir": str(
+                                REPO
+                                / "logs/temporal_grounding/tg2r/materialize"
+                                / f"{arm}_seed{seed}"
+                            ),
+                            "command": shlex.join(
+                                [
+                                    "env",
+                                    f"TG2R_ARM={arm}",
+                                    f"TG2R_TRAIN_SEED={seed}",
+                                    "bash",
+                                    str(recovery_sync),
+                                ]
+                            ),
+                        }
+                    ],
+                }
+            )
+            existing.add(task_id)
+
+    recovery_integrity_id = "temporal_grounding_tg2r_training_integrity"
+    recovery_integrity_marker = (
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg2r_training_integrity.ok"
+    )
+    recovery_integrity_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg2r_integrity.sh"
+    )
+    if recovery_integrity_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": recovery_integrity_id,
+                "priority": 1,
+                "description": "Run joint TG2R checkpoint and exact-order integrity gates",
+                "requires_completed_tasks": recovery_materialize_ids,
+                "completion_glob": str(recovery_integrity_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(tg2_recovery_path),
+                    str(tg2_recovery_post_path),
+                    str(recovery_integrity_runner),
+                    *(
+                        str(REPO / relative)
+                        for relative in tg2_recovery_post["files"]
+                        if "verify_temporal_grounding" in relative
+                    ),
+                ],
+                "ready_hashes": tg2_recovery_post_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 1,
+                        "status_dir": str(
+                            REPO / "logs/temporal_grounding/tg2r/integrity_launcher"
+                        ),
+                        "command": shlex.join(
+                            ["bash", str(recovery_integrity_runner)]
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(recovery_integrity_id)
+
+    recovery_eval_runner = (
+        REPO / "train_scripts/kai/eval/run_temporal_grounding_tg2r_eval.sh"
+    )
+    recovery_eval_yaml = (
+        REPO / "train_scripts/kai/volc/temporal_grounding_tg2r_eval_east_4h20.yaml"
+    )
+    recovery_renderer_marker = (
+        REPO / "logs/resource_markers/robotwin_renderer_east.ok"
+    )
+    for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
+        for seed in (1000, 1001, 1002):
+            task_id = f"temporal_grounding_tg2r_{arm}_seed{seed}_eval"
+            if task_id in existing:
+                continue
+            result_root = (
+                REPO
+                / "lmvla/lawam/results/eval_runs/robotwin"
+                / f"temporal_grounding_tg2r_{arm}_seed{seed}"
+            )
+            queue["tasks"].append(
+                {
+                    "id": task_id,
+                    "priority": 2,
+                    "description": f"TG2R arm={arm} seed={seed} paired evaluation",
+                    "requires_completed_tasks": [recovery_integrity_id],
+                    "completion_glob": str(result_root / "seed*/**/summary.json"),
+                    "completion_min_count": 24,
+                    "ready_files": [
+                        str(tg2_recovery_path),
+                        str(tg2_recovery_post_path),
+                        str(runtime_v10_path),
+                        str(recovery_integrity_marker),
+                        str(recovery_eval_runner),
+                        str(recovery_eval_yaml),
+                        str(recovery_renderer_marker),
+                        *(str(REPO / relative) for relative in runtime_v10["files"]),
+                    ],
+                    "ready_hashes": [
+                        *tg2_recovery_post_hashes,
+                        *runtime_v10_hashes,
+                    ],
+                    "candidates": [
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-East-H20",
+                            "region": "cn-shanghai",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 180,
+                            "retry_cooldown_seconds": 900,
+                            "max_failures": 1,
+                            "runtime_revision": (
+                                "temporal_grounding_tg2_recovery_posttraining_v1"
+                            ),
+                            "yaml": str(recovery_eval_yaml.relative_to(REPO)),
+                            "task_name": (
+                                "temporal-grounding-tg2r-"
+                                f"{arm.replace('_', '-')}-s{seed}-eval-east4g"
+                            ),
+                            "env": {
+                                "TG2R_ARM": arm,
+                                "TG2R_TRAIN_SEED": str(seed),
+                                "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT": str(
+                                    runtime_v10_path
+                                ),
+                            },
+                        }
+                    ],
+                }
+            )
+            existing.add(task_id)
+
     eval_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_eval_east_4h20.yaml"
     eval_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg2_eval.sh"
     renderer_marker = REPO / "logs/resource_markers/robotwin_renderer_east.ok"
@@ -9345,6 +9551,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "id": task_id,
                     "priority": 3,
                     "description": f"Frozen TG2 arm={arm} seed={seed} paired evaluation",
+                    "enabled": False,
+                    "disabled_reason": (
+                        "Original TG2 matrix rejected by exact rank data-order gate"
+                    ),
                     "requires_completed_tasks": [integrity_id],
                     "completion_glob": str(result_root / "seed*/**/summary.json"),
                     "completion_min_count": 24,

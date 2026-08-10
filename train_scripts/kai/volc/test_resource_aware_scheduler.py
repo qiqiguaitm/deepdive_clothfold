@@ -6371,7 +6371,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 47
+    assert len(tasks) == 66
     tg1a = {
         task_id: task for task_id, task in tasks.items() if "tg1a" in task_id
     }
@@ -6395,7 +6395,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert len(tg1b) == 4
     assert len(tg2) == 9
     assert len(tg2r) == 9
-    assert len(temporal_grounding_evals) == 17
+    assert len(temporal_grounding_evals) == 26
     assert all(
         scheduler.TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task_id)
         for task_id in temporal_grounding_evals
@@ -6531,6 +6531,8 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     ).read_text()
     assert "${RUN_ID}_train_materialized.ok" in materializer_script
     integrity = tasks["temporal_grounding_tg2_training_integrity"]
+    assert integrity["enabled"] is False
+    assert "data order differs" in integrity["disabled_reason"]
     assert set(integrity["requires_completed_tasks"]) == set(materializers)
     assert any(
         path.endswith("verify_temporal_grounding_tg2_training_v2.py")
@@ -6601,6 +6603,43 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT"
         ].endswith("temporal_grounding_runtime_amendment_v10.json")
         for task in evals.values()
+    )
+    assert all(task["enabled"] is False for task in evals.values())
+
+    recovery_materializers = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if task_id.startswith("temporal_grounding_tg2r_")
+        and task_id.endswith("_train_materialize_north")
+    }
+    assert len(recovery_materializers) == 9
+    assert all(
+        task["materialize_north_result_for"] in tg2r
+        for task in recovery_materializers.values()
+    )
+    recovery_integrity = tasks["temporal_grounding_tg2r_training_integrity"]
+    assert set(recovery_integrity["requires_completed_tasks"]) == set(
+        recovery_materializers
+    )
+    assert recovery_integrity["candidates"][0]["kind"] == "local"
+    assert recovery_integrity["candidates"][0]["gpus"] == 0
+    recovery_evals = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if task_id.startswith("temporal_grounding_tg2r_")
+        and task_id.endswith("_eval")
+    }
+    assert len(recovery_evals) == 9
+    assert all(
+        task["requires_completed_tasks"]
+        == ["temporal_grounding_tg2r_training_integrity"]
+        for task in recovery_evals.values()
+    )
+    assert all(task["completion_min_count"] == 24 for task in recovery_evals.values())
+    assert all(
+        task["candidates"][0]["resource"] == "Robot-East-H20"
+        and task["candidates"][0]["gpus"] == 4
+        for task in recovery_evals.values()
     )
 
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):

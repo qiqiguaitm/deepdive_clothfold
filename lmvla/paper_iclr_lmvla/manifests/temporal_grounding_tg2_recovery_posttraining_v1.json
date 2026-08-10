@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_recovery_posttraining_v1",
+  "created_at": "2026-08-10T01:28:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json",
+    "sha256": "e16e3e7191eab3d859f7e919a96214b3f6cfd2b4a10ff111f10c34958921372b"
+  },
+  "pipeline": {
+    "materialization": "Nine serialized, full-state, source/destination SHA-256 verified North-to-East transfers, including initialization and four-rank data-order sidecars.",
+    "integrity": "One joint gate over all nine runs; checks fixed step 20000, full config, optimizer state, initialization equality within seed, exact rank data-order equality within seed, distinct data order across seeds, in_order=true, and num_workers=8.",
+    "evaluation": "Nine independent four-GPU East jobs under the unchanged 24-cell paired RoboTwin protocol.",
+    "analysis": "No analysis or TG3 admission until all nine evaluations pass their exact 24-summary completion gates."
+  },
+  "invariants": [
+    "A successful platform terminal state and durable final model are both required before materialization.",
+    "No parameter-only checkpoint shortcut is permitted; optimizer state remains part of the integrity contract.",
+    "No original rejected TG2 checkpoint or evaluation result may be substituted for a TG2R cell.",
+    "The original TG2 scientific stop rules and evaluation scene manifest remain unchanged."
+  ],
+  "files": {
+    "train_scripts/kai/sync_temporal_grounding_tg2r_checkpoint_from_north.sh": "84b738944b058854ca6c45914a578edd445a3105b06794597b6742e29d8e7ba8",
+    "train_scripts/kai/sync_tree_from_north_verified.sh": "b2b233c1d92f68582fc25dccd1df3837c1e40a4472ec93cbdf7719712a1e3a63",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_sidecars.py": "66f0a80540870db1815407e3beb07ec8ec6c7ada7d36c201e5a68cc72d247bbf",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training.py": "062c7f3aa8d01898e385ea86bcb05824f85706ae07c98c57625ea2fd91cd971d",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_training_v2.py": "bfa8d84e834cdbed6d6a5676b3cef26b2b72f033de7aae42443c2d2846c8ed67",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_seed_independence.py": "53da2d224bfdc3a1bfe518261d195362b7135f1c8f054bcb0ea80ff3b3200902",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_recovery_training.py": "6fad60cbe34f6a85b4d944097509ba44fb4d0e0c1817ac14232414fd0fbfa34e",
+    "train_scripts/kai/run_temporal_grounding_tg2r_integrity.sh": "6f0af3d26d30eddfca486eb7b0af435f774df7f6bf8ab9457c58f5faf4750f46",
+    "train_scripts/kai/eval/run_temporal_grounding_tg2r_eval.sh": "9c9f5b1e401fec2959ffbf0c24fdb2310a850cba489fc6d3689d0c1b1c39d6ea",
+    "train_scripts/kai/volc/temporal_grounding_tg2r_eval_east_4h20.yaml": "5553dae7f462ce6f860cebccbca7125cf8d9414fbf2c7c0e2fa7471a16bac49b"
+  }
+}

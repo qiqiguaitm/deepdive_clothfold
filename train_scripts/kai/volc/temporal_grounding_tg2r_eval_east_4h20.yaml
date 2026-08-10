@@ -1,0 +1,50 @@
+TaskName: "temporal-grounding-tg2r-eval-east4g"
+Description: "TG2R deterministic-order matched paired evaluation"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 86400
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TG2R_ARM
+    Value: "fixed_endpoint"
+  - Name: TG2R_TRAIN_SEED
+    Value: "1000"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  test -f "$REPO/logs/resource_markers/robotwin_renderer_east.ok"
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  export STAR_VLA_PYTHON="$REPO/kai0/.venv/bin/python"
+  export ROBOTWIN_PATH=/vePFS/HuanQian/RoboTwin
+  export ROBOTWIN_PYTHON="$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh"
+  export TORCH_CUDA_ARCH_LIST=9.0
+  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/eval/run_temporal_grounding_tg2r_eval.sh"
+
+RetryOptions: {EnableRetry: false, MaxRetryTimes: 0}
+AccessType: "Public"
