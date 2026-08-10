@@ -42,6 +42,9 @@ def collect(repo: Path, label: str, microbatches: int) -> None:
     data.drop_last = True
     cfg.trainer.gradient_accumulation_steps = 2
     cfg.trainer.ddp_find_unused_parameters = False
+    output = repo / "logs/temporal_grounding/tg2/data_order_recovery_probe_v1"
+    cfg.output_dir = str(output / label / "runtime")
+    Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
 
     set_seed(int(cfg.seed))
     accelerator = build_accelerator(cfg)
@@ -61,7 +64,6 @@ def collect(repo: Path, label: str, microbatches: int) -> None:
             digest.update(value.numpy().tobytes(order="C"))
         samples += int(batch["episode_index"].shape[0])
 
-    output = repo / "logs/temporal_grounding/tg2/data_order_recovery_probe_v1"
     atomic_json(
         output / label / f"rank{accelerator.process_index}.json",
         {

@@ -6484,7 +6484,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     order_probe = tasks["temporal_grounding_tg2_data_order_recovery_probe"]
     assert order_probe["priority"] == 1
     assert order_probe["rearm_after_ready_file"].endswith(
-        "temporal_grounding_tg2_data_order_recovery_probe_v2.json"
+        "temporal_grounding_tg2_data_order_recovery_probe_v3.json"
     )
     assert order_probe["candidates"] == [
         {
@@ -6495,7 +6495,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "queue_timeout_seconds": 180,
             "retry_cooldown_seconds": 600,
             "max_failures": 1,
-            "runtime_revision": "temporal_grounding_order_probe_v2",
+            "runtime_revision": "temporal_grounding_order_probe_v3",
             "yaml": "train_scripts/kai/volc/temporal_grounding_tg2_data_order_probe_runtime_v2_east_4h20.yaml",
             "task_name": "temporal-grounding-tg2-order-probe-east4g",
         }

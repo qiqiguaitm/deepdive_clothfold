@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_tg2_data_order_recovery_probe_v3",
+  "extends": [
+    "temporal_grounding_tg2_data_order_recovery_probe_v2"
+  ],
+  "extended_manifest_sha256": {
+    "temporal_grounding_tg2_data_order_recovery_probe_v2": "488112fa4ad23fbb0c028b17c52294ac69525389c53b8ef4124971964177ba82"
+  },
+  "created_at": "2026-08-10T00:54:06Z",
+  "scope": "Provide the isolated dataset-statistics output directory required by the frozen loader",
+  "operator_authorized": true,
+  "paper_evidence": false,
+  "experiment_protocol_changed": false,
+  "execution_owner": "resource_aware_scheduler",
+  "observed_failure": {
+    "job_id": "t-20260810085044-mdz4j",
+    "stage": "frozen dataloader construction after successful runtime preflight",
+    "issue": "The standalone probe had no cfg.output_dir, while build_dataloaders requires that path to persist dataset_statistics.json. No data-order sidecar or probe result was produced."
+  },
+  "change": [
+    "Assign each independent probe launch an isolated logs-only output directory before constructing the unchanged dataloader.",
+    "Permit one scheduler-owned East retry after the probe-harness-only failure."
+  ],
+  "invariants": [
+    "The data mix, seed, world size, workers, in_order setting, microbatch count, hash definition, and acceptance criterion are unchanged.",
+    "The output directory contains loader statistics only; no model is built or trained and no checkpoint is written.",
+    "The failed TG2 matrix and all evaluations remain blocked regardless of probe outcome."
+  ],
+  "files": {
+    "lmvla/lmwm/scripts/probe_temporal_grounding_tg2_data_order.py": "92fc14bdddd414c79714cbbe6fdd150b0af41e7e2c18dd970baa0ba852542a6f",
+    "lmvla/lmwm/scripts/test_probe_temporal_grounding_tg2_data_order.py": "963bd7c8608d27962576c0f4d4cd23731787b047e3217f106b8caebf659f480a",
+    "train_scripts/kai/run_temporal_grounding_tg2_data_order_probe.sh": "8e3965a0d1254b5528740f92de8410a0525ef678026eabd7b7bbe1ace7474bb9",
+    "train_scripts/kai/volc/temporal_grounding_tg2_data_order_probe_runtime_v2_east_4h20.yaml": "7338bae54a154be6b5255ebd05b783fbdfdf6da69b2649f4e3fca5bdc94ae910"
+  }
+}
