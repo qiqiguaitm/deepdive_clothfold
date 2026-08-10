@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 09:17 UTC
+Updated: 2026-08-10 12:04 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -86,27 +86,27 @@ East-trained cells.
 - [ ] **TG2R-T03 [QUEUEING: `t-20260810091846-g8fpd`, backup]** `future_off`,
   seed 1002, North 4 GPU.
 - [ ] **TG2R-T04 [RUNNING: `t-20260810091825-6cgzh`, primary]**
-  `fixed_endpoint`, seed 1000, North 4 GPU; approximately step 12,389/20,000 at
-  2.28 s/step, ETA 4.82 hours at the 09:17 UTC audit.
+  `fixed_endpoint`, seed 1000, North 4 GPU; approximately step 16,767/20,000 at
+  2.31 s/step, ETA 2.07 hours at the 12:04 UTC audit.
 - [ ] **TG2R-T05 [RUNNING: `t-20260810091829-vnvpv`, backup]**
-  `fixed_endpoint`, seed 1001, North 4 GPU; approximately step 12,426/20,000 at
-  2.27 s/step, ETA 4.78 hours.
+  `fixed_endpoint`, seed 1001, North 4 GPU; approximately step 16,802/20,000 at
+  2.27 s/step, ETA 2.02 hours.
 - [ ] **TG2R-T06 [RUNNING: `t-20260810091834-hfkvq`, backup]**
-  `fixed_endpoint`, seed 1002, North 4 GPU; approximately step 12,103/20,000 at
-  2.27 s/step, ETA 4.98 hours.
+  `fixed_endpoint`, seed 1002, North 4 GPU; approximately step 16,515/20,000 at
+  2.24 s/step, ETA 2.17 hours.
 - [ ] **TG2R-T07 [RUNNING: `t-20260810102331-ktjk6`, primary]**
   `raw_milestone`, seed 1000, East 4 GPU; North attempt
   `t-20260810101504-w2mj8` was stopped before execution. The East replacement
-  passed all frozen-source checks and reached approximately step 10,579/20,000
-  at 2.28 s/step, ETA 5.97 hours.
+  passed all frozen-source checks and reached approximately step 14,916/20,000
+  at 2.43 s/step, ETA 3.43 hours.
 - [ ] **TG2R-T08 [RUNNING: `t-20260810102335-57b27`, primary]**
   `raw_milestone`, seed 1001, East 4 GPU; North attempt
   `t-20260810091854-v7vbr` was stopped before execution. The East replacement
-  passed all frozen-source checks and reached approximately step 10,608/20,000
-  at 2.32 s/step, ETA 6.05 hours.
+  passed all frozen-source checks and reached approximately step 14,954/20,000
+  at 2.29 s/step, ETA 3.21 hours.
 - [ ] **TG2R-T09 [RUNNING: `t-20260810091945-2h6rw`, primary]**
   `raw_milestone`, seed 1002, North 4 GPU; passed startup and reached
-  approximately step 7,067/20,000 at 2.29 s/step, ETA 8.23 hours.
+  approximately step 11,428/20,000 at 2.29 s/step, ETA 5.45 hours.
 - [ ] **TG2R-I1 [ADMITTED; BLOCKED by T01--T09]** Run nine serialized,
   full-state, hash-verified North-to-East materializers, then require exact
   initialization and rank-order equality within each seed plus distinct order
