@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 19:19 UTC
+Updated: 2026-08-10 19:27 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -130,6 +130,15 @@ materializations then passed v3 validation: each report preserves the raw
 initialization and four rank-file hashes, records arm recovery on all four
 ranks, and leaves the raw files byte-identical with `arm:null`.
 
+A read-only 19:22 UTC preflight found that the two East raw-milestone
+initialization records and all eight rank-order records are root-owned mode
+`0600`. The previously configured local zero-GPU integrity worker would
+therefore fail after all dependencies completed. Post-training amendment v4
+moves only the unchanged v3 verifier into a one-GPU `Robot-East-H20` platform
+worker, whose root execution context can read those canonical records. Its
+marker, all integrity checks, and every downstream evaluation dependency remain
+unchanged; focused and full tests pass (`219 passed`).
+
 ### TG1 current incomplete evidence
 
 TG1A has 98 valid frozen-manifest summaries in total, but no condition is a
@@ -204,6 +213,7 @@ The following immutable admission bundles are frozen and were reverified on
 | TG2 post-training pipeline v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_posttraining_pipeline_v2.json` | Runtime-only | Passed; strict sidecar validation, North sidecar staging, East integrity worker, and exact marker contract |
 | TG2R post-training v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v2.json` | Runtime-only | Passed; location-aware sidecar resolution with strict staging precedence and unchanged integrity/eval protocol |
 | TG2R post-training v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v3.json` | Runtime-only | Passed locally; preserves raw sidecars and recovers only null redundant arm metadata in an audited temporary overlay |
+| TG2R post-training v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v4.json` | Runtime-only | Passed locally; runs the unchanged v3 integrity verifier in the East root context required to read canonical mode-0600 sidecars |
 | Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
 | Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
 | Runtime v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v4.json` | Runtime-only | Passed; TG1 policy Python pinned and processor smoke verified |

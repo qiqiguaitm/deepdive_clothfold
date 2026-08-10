@@ -6730,20 +6730,24 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert set(recovery_integrity["requires_completed_tasks"]) == set(
         recovery_materializers
     )
-    assert recovery_integrity["candidates"][0]["kind"] == "local"
-    assert recovery_integrity["candidates"][0]["gpus"] == 0
-    assert recovery_integrity["candidates"][0]["command"].endswith(
-        "run_temporal_grounding_tg2r_integrity_v3.sh"
+    assert recovery_integrity["candidates"][0]["kind"] == "platform"
+    assert recovery_integrity["candidates"][0]["resource"] == "Robot-East-H20"
+    assert recovery_integrity["candidates"][0]["gpus"] == 1
+    assert recovery_integrity["candidates"][0]["yaml"].endswith(
+        "temporal_grounding_tg2r_integrity_east_posttraining_v4_1h20.yaml"
     )
-    recovery_v3_manifest = next(
+    assert recovery_integrity["rearm_after_ready_file"].endswith(
+        "temporal_grounding_tg2_recovery_posttraining_v4.json"
+    )
+    recovery_v4_manifest = next(
         item
         for item in recovery_integrity["ready_hashes"]
         if item["path"].endswith(
-            "temporal_grounding_tg2_recovery_posttraining_v3.json"
+            "temporal_grounding_tg2_recovery_posttraining_v4.json"
         )
     )
-    assert recovery_v3_manifest["sha256"] == (
-        "ba17cb323721b3913ca74ee1c06bd668a3f5674be91d45bb8c91ec9afc050f95"
+    assert recovery_v4_manifest["sha256"] == (
+        "da069a907ad9e8b464c82dd681305d5fb18076315972d5c9a8bc14d88512733b"
     )
     recovery_evals = {
         task_id: task
@@ -6765,7 +6769,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     )
     assert all(
         task["candidates"][0]["runtime_revision"]
-        == "temporal_grounding_tg2_recovery_posttraining_v3"
+        == "temporal_grounding_tg2_recovery_posttraining_v4"
         for task in recovery_evals.values()
     )
     assert all(
@@ -6778,7 +6782,10 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         for task in recovery_evals.values()
     )
 
-    recovery_integrity["candidates"][0]["command"] = "bash stale-v1.sh"
+    recovery_integrity["candidates"][0]["yaml"] = "stale-v3.yaml"
+    recovery_integrity["candidates"][0]["runtime_revision"] = (
+        "temporal_grounding_tg2_recovery_posttraining_v3"
+    )
     first_materializer = next(iter(recovery_materializers.values()))
     first_materializer["rearm_after_ready_file"] = "stale-v2.json"
     first_materializer["candidates"][0]["command"] = "bash stale-v2.sh"
@@ -6792,12 +6799,15 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert first_materializer["candidates"][0]["command"].endswith(
         "sync_temporal_grounding_tg2r_checkpoint_from_north.sh"
     )
-    assert recovery_integrity["candidates"][0]["command"].endswith(
-        "run_temporal_grounding_tg2r_integrity_v3.sh"
+    assert recovery_integrity["candidates"][0]["yaml"].endswith(
+        "temporal_grounding_tg2r_integrity_east_posttraining_v4_1h20.yaml"
+    )
+    assert recovery_integrity["candidates"][0]["runtime_revision"] == (
+        "temporal_grounding_tg2_recovery_posttraining_v4"
     )
     assert all(
         task["candidates"][0]["runtime_revision"]
-        == "temporal_grounding_tg2_recovery_posttraining_v3"
+        == "temporal_grounding_tg2_recovery_posttraining_v4"
         for task in recovery_evals.values()
     )
 

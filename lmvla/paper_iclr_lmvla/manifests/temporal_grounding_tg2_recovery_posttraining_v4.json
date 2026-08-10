@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_recovery_posttraining_v4",
+  "created_at": "2026-08-10T19:24:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v3.json",
+    "sha256": "ba17cb323721b3913ca74ee1c06bd668a3f5674be91d45bb8c91ec9afc050f95"
+  },
+  "incident": {
+    "observed": "The two East-trained raw-milestone initialization and four-rank data-order sidecars are intentionally written by the platform root identity with mode 0600. The locally configured zero-GPU integrity worker cannot read them.",
+    "preflight_evidence": "Read-only permission inspection on 2026-08-10 confirmed root:root mode 0600 for both initialization records and all eight rank records."
+  },
+  "amendment": {
+    "scope": "Integrity execution context only: run the unchanged v3 joint verifier in one Robot-East-H20 platform worker that can read the canonical East sidecars.",
+    "unchanged": [
+      "All nine training recipes, seeds, checkpoints, sidecars, normalization rules, and materialization artifacts.",
+      "The v3 exact initialization, exact rank-order, cross-seed independence, optimizer-state, in_order, worker-count, and step-20000 checks.",
+      "The nine paired RoboTwin evaluation cells, scene manifest, runtime, and scientific stop rules."
+    ],
+    "fail_closed": "The integrity marker is written only after the unchanged v3 verifier exits successfully; evaluation remains dependent on that marker."
+  },
+  "files": {
+    "train_scripts/kai/volc/temporal_grounding_tg2r_integrity_east_posttraining_v4_1h20.yaml": "b12aa6efd35943e8f73500d466e92243e780ec7b0446cdeffea235a243ecbec6"
+  }
+}
