@@ -6845,6 +6845,12 @@ def test_markdown_training_heartbeat_requires_platform_running(
                 "owned_queueing": [],
                 "active_gpus_all_users": 0,
                 "queueing_all_users": [],
+                "backup": {
+                    "enabled": True,
+                    "submission_enabled": False,
+                    "identity_active_gpus": 0,
+                    "identity_queueing": [],
+                },
                 "watched_tasks": {
                     label: {
                         "status": "STALE_LOG",
@@ -6887,6 +6893,7 @@ def test_markdown_training_heartbeat_requires_platform_running(
 
     scheduler.write_markdown_snapshot(snapshot)
     markdown = scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
+    assert "Beijing backup identity: `configured`; new submissions: `disabled`." in markdown
     assert f"`{label}`" not in markdown
     assert "| Scheduler state | Execution state |" in markdown
     assert f"| `{task_id}` | running | Queueing |" in markdown

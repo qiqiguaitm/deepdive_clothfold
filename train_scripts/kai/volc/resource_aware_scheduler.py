@@ -14098,6 +14098,12 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
         f"Updated: `{snapshot['timestamp']}`",
         "",
         "Dispatch priority: `Robot-East-H20 > Robot-North-H20 > robot-task`; gf1 is permanently retired.",
+        (
+            "Beijing backup identity: "
+            f"`{'configured' if backup.get('enabled') else 'not configured'}`; "
+            "new submissions: "
+            f"`{'enabled' if backup.get('submission_enabled', False) else 'disabled'}`."
+        ),
         f"robot-task new submissions: `{'enabled' if resources['robot-task'].get('submission_enabled', True) else 'disabled'}`.",
         "",
         "| Resource | Active GPUs | Capacity/limit | Free | Queueing |",
@@ -15456,7 +15462,9 @@ def poll_once(queue: dict[str, Any], state: dict[str, Any]) -> None:
         "resources "
         f"bj={resources['beijing']['owned_active_gpus']}/{NORTH_PERSONAL_LIMIT} queued={len(resources['beijing']['owned_queueing'])} "
         f"bj_backup={backup.get('identity_active_gpus', backup.get('managed_active_gpus', 0))}/{backup.get('personal_limit', NORTH_BACKUP_PERSONAL_LIMIT)} "
-        f"backup_enabled={backup.get('enabled', False)} backup_available={backup.get('available', False)} "
+        f"backup_configured={backup.get('enabled', False)} "
+        f"backup_submit={'enabled' if backup.get('submission_enabled', False) else 'disabled'} "
+        f"backup_available={backup.get('available', False)} "
         f"sh={resources['robot-task']['active_gpus_all_users']}/{SH_CAPACITY} queued={len(resources['robot-task']['queueing_all_users'])} "
         f"sh_owned={resources['robot-task']['owned_active_gpus']}/{SH_PERSONAL_LIMIT} "
         f"sh_submit={'enabled' if resources['robot-task'].get('submission_enabled', True) else 'disabled'} "
