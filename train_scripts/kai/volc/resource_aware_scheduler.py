@@ -9305,8 +9305,31 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
         for seed in (1000, 1001, 1002):
             task_id = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
+            run_id = f"temporal_grounding_tg2r_{arm}_seed{seed}"
+            completion_locations = [
+                {
+                    "label": "east",
+                    "glob": str(
+                        REPO
+                        / "lmvla/lawam/results/Checkpoints/robotwin"
+                        / f"*+{run_id}/final_model/pytorch_model.pt"
+                    ),
+                    "remote": False,
+                },
+                {
+                    "label": "north",
+                    "glob": (
+                        f"{north_results}/*+{run_id}/final_model/"
+                        "pytorch_model.pt"
+                    ),
+                    "remote": True,
+                },
+            ]
             east_migration = arm == "raw_milestone" and seed in {1000, 1001}
             if task_id in existing:
+                existing_tasks[task_id]["completion_locations"] = (
+                    completion_locations
+                )
                 if (arm, seed) in backup_queue_drain_tasks:
                     existing_tasks[task_id][
                         "requeue_queued_credential_profiles"
@@ -9337,7 +9360,6 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         }
                     ]
                 continue
-            run_id = f"temporal_grounding_tg2r_{arm}_seed{seed}"
             queue["tasks"].append(
                 {
                     "id": task_id,
@@ -9357,16 +9379,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     ),
                     "requires_completed_tasks": [recovery_stage_id],
                     "rearm_after_ready_file": str(tg2_recovery_path),
-                    "completion_locations": [
-                        {
-                            "label": "north",
-                            "glob": (
-                                f"{north_results}/*+{run_id}/final_model/"
-                                "pytorch_model.pt"
-                            ),
-                            "remote": True,
-                        }
-                    ],
+                    "completion_locations": completion_locations,
                     "completion_min_count": 1,
                     "completion_requires_successful_terminal_state": True,
                     "successful_terminal_artifact_grace_seconds": 300,

@@ -6580,6 +6580,25 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         assert task["rearm_after_ready_file"].endswith(
             "temporal_grounding_tg2_recovery_v1.json"
         )
+        assert {location["label"] for location in task["completion_locations"]} == {
+            "east",
+            "north",
+        }
+        east_completion = next(
+            location
+            for location in task["completion_locations"]
+            if location["label"] == "east"
+        )
+        north_completion = next(
+            location
+            for location in task["completion_locations"]
+            if location["label"] == "north"
+        )
+        assert east_completion["remote"] is False
+        assert north_completion["remote"] is True
+        assert f"+{task_id.removesuffix('_train')}/final_model/pytorch_model.pt" in (
+            east_completion["glob"]
+        )
         assert len(task["candidates"]) == 1
         candidate = task["candidates"][0]
         assert candidate["gpus"] == 4
