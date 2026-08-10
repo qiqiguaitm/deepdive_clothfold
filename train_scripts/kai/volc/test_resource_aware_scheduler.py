@@ -6737,6 +6737,19 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     )
     assert recovery_integrity["candidates"][0]["kind"] == "local"
     assert recovery_integrity["candidates"][0]["gpus"] == 0
+    assert recovery_integrity["candidates"][0]["command"].endswith(
+        "run_temporal_grounding_tg2r_integrity_v2.sh"
+    )
+    recovery_v2_manifest = next(
+        item
+        for item in recovery_integrity["ready_hashes"]
+        if item["path"].endswith(
+            "temporal_grounding_tg2_recovery_posttraining_v2.json"
+        )
+    )
+    assert recovery_v2_manifest["sha256"] == (
+        "86777a59af021afb50ffb644ff3761c4d28e0e9c0ed850b4789bcfc089d06499"
+    )
     recovery_evals = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6753,6 +6766,34 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert all(
         task["candidates"][0]["resource"] == "Robot-East-H20"
         and task["candidates"][0]["gpus"] == 4
+        for task in recovery_evals.values()
+    )
+    assert all(
+        task["candidates"][0]["runtime_revision"]
+        == "temporal_grounding_tg2_recovery_posttraining_v2"
+        for task in recovery_evals.values()
+    )
+    assert all(
+        any(
+            item["path"].endswith(
+                "temporal_grounding_tg2_recovery_posttraining_v2.json"
+            )
+            for item in task["ready_hashes"]
+        )
+        for task in recovery_evals.values()
+    )
+
+    recovery_integrity["candidates"][0]["command"] = "bash stale-v1.sh"
+    next(iter(recovery_evals.values()))["candidates"][0]["runtime_revision"] = (
+        "temporal_grounding_tg2_recovery_posttraining_v1"
+    )
+    scheduler.add_temporal_grounding_tasks(queue)
+    assert recovery_integrity["candidates"][0]["command"].endswith(
+        "run_temporal_grounding_tg2r_integrity_v2.sh"
+    )
+    assert all(
+        task["candidates"][0]["runtime_revision"]
+        == "temporal_grounding_tg2_recovery_posttraining_v2"
         for task in recovery_evals.values()
     )
 

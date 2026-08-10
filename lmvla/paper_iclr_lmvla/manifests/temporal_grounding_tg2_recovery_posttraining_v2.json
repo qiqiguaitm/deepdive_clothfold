@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_recovery_posttraining_v2",
+  "created_at": "2026-08-10T05:46:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v1.json",
+    "sha256": "25a030aeea56f61fb9cd2b5373a8b01fd50a45f0306242a1f99f08a6cd1e549f"
+  },
+  "amendment": {
+    "scope": "Integrity-sidecar location resolution only.",
+    "staged_precedence": "Use a complete North-staged initialization record and data-order directory when the per-run staging directory exists; reject partial staging without fallback.",
+    "east_fallback": "When no staging directory exists, resolve the initialization record and data-order directory from the canonical shared TG2R output written by East training.",
+    "unchanged": [
+      "All nine frozen training recipes, seeds, checkpoints, and completion gates.",
+      "The exact initialization-equality, rank-order, cross-seed independence, optimizer-state, and step-20000 integrity checks.",
+      "The nine paired RoboTwin evaluation cells, scene manifest, runtime, and scientific stop rules."
+    ]
+  },
+  "files": {
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg2_recovery_training_v2.py": "1e9a902b77e9cf832cd7755fb9fa3f77bfbf2072f954bb9a8f7e4557cce39bdc",
+    "train_scripts/kai/run_temporal_grounding_tg2r_integrity_v2.sh": "98abbd9349c45157f7c59953d8e31aa22158d2f467e82b8c4a1c091810220b6a"
+  }
+}
