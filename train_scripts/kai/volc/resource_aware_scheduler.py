@@ -8894,6 +8894,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "Stage and verify the frozen TG1 retry500 payload on North"
                 ),
                 "requires_completed_tasks": ["temporal_grounding_tg1a_normal_eval"],
+                "rearm_after_ready_file": str(tg1_north_stage_script),
                 "completion_glob": str(tg1_north_stage_marker),
                 "completion_min_count": 1,
                 "ready_files": [
@@ -8912,7 +8913,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "retry_cooldown_seconds": 300,
                         "max_failures": 3,
                         "status_dir": str(
-                            REPO / "logs/temporal_grounding/tg1/north_stage"
+                            REPO
+                            / "logs/resource_scheduler_local/"
+                            "tg1_retry500_north_stage"
                         ),
                         "command": shlex.join(
                             ["bash", str(tg1_north_stage_script)]

@@ -19,7 +19,7 @@ RSYNC_RSH="ssh -p $PORT -o BatchMode=yes"
 OUTER_FILES=(
   lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json
   lmvla/lmwm/data/robotwin_milestone_all6_v2/lmwm.pt
-  lmvla/lmwm/env/heal_lawam_symlinks.sh
+  lmvla/lmwam/env/heal_lawam_symlinks.sh
   lmvla/lmwm/scripts/activate_temporal_grounding_tg1_retry500.py
   lmvla/lmwm/scripts/analyze_temporal_grounding_tg1a.py
   lmvla/lmwm/scripts/analyze_temporal_grounding_tg1b.py
