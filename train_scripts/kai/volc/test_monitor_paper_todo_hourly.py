@@ -266,7 +266,7 @@ def test_once_writes_all_monitor_artifacts(tmp_path: Path) -> None:
         [
             "--once",
             "--max-snapshot-age-seconds",
-            "86400",
+            "172800",
             "--todo",
             str(todo),
             "--snapshot",

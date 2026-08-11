@@ -8857,6 +8857,71 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         ),
     ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
+    activation_marker = REPO / tg1_retry500["activation"]["marker"]
+    capture_marker = (
+        REPO
+        / "logs/resource_markers/"
+        "temporal_grounding_tg1a_retry500_normal_capture_complete.json"
+    )
+
+    tg1_north_stage_id = "temporal_grounding_tg1_retry500_north_stage"
+    tg1_north_stage = Path(NORTH_REPO) / ".staging/temporal_grounding_tg1_retry500_v1"
+    tg1_north_stage_marker = (
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg1_retry500_north_stage.ok"
+    )
+    tg1_north_stage_marker_remote = (
+        tg1_north_stage
+        / "logs/resource_markers/temporal_grounding_tg1_retry500_north_stage.ok"
+    )
+    tg1_north_stage_script = (
+        REPO / "train_scripts/kai/stage_temporal_grounding_tg1_retry500_to_north.sh"
+    )
+    tg1a_north_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg1a_retry500_north_4h20.yaml"
+    )
+    tg1b_north_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg1b_retry500_north_4h20.yaml"
+    )
+    if tg1_north_stage_id not in existing:
+        queue["tasks"].append(
+            {
+                "id": tg1_north_stage_id,
+                "priority": 0,
+                "description": (
+                    "Stage and verify the frozen TG1 retry500 payload on North"
+                ),
+                "requires_completed_tasks": ["temporal_grounding_tg1a_normal_eval"],
+                "completion_glob": str(tg1_north_stage_marker),
+                "completion_min_count": 1,
+                "ready_files": [
+                    str(tg1_retry500_path),
+                    str(tg1_north_stage_script),
+                    str(tg1a_north_yaml),
+                    str(tg1b_north_yaml),
+                    str(capture_marker),
+                ],
+                "ready_hashes": tg1_retry500_hashes,
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 3,
+                        "status_dir": str(
+                            REPO / "logs/temporal_grounding/tg1/north_stage"
+                        ),
+                        "command": shlex.join(
+                            ["bash", str(tg1_north_stage_script)]
+                        ),
+                    }
+                ],
+            }
+        )
+        existing.add(tg1_north_stage_id)
 
     tg1a_runner = (
         REPO
@@ -8867,12 +8932,6 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         / "train_scripts/kai/volc/temporal_grounding_tg1a_retry500_east_4h20.yaml"
     )
     tg1a_hashes = tg1_retry500_hashes
-    activation_marker = REPO / tg1_retry500["activation"]["marker"]
-    capture_marker = (
-        REPO
-        / "logs/resource_markers/"
-        "temporal_grounding_tg1a_retry500_normal_capture_complete.json"
-    )
     for condition in ("normal", "null", "persistence", "shuffled"):
         task_id = f"temporal_grounding_tg1a_{condition}_eval"
         if task_id in existing:
@@ -8894,8 +8953,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             / "lmvla/lawam/results/eval_runs/robotwin"
             / f"temporal_grounding_tg1a_{condition}"
         )
-        queue["tasks"].append(
-            {
+        task = {
                 "id": task_id,
                 "priority": 0,
                 "description": (
@@ -8929,7 +8987,55 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     }
                 ],
             }
-        )
+        if condition != "normal":
+            task["requires_completed_tasks"] = [tg1_north_stage_id]
+            task["completion_locations"] = [
+                {
+                    "label": "east",
+                    "glob": task["completion_glob"],
+                    "remote": False,
+                },
+                {
+                    "label": "north",
+                    "glob": str(
+                        Path(NORTH_REPO)
+                        / "lmvla/lawam/results/eval_runs/robotwin"
+                        / f"temporal_grounding_tg1a_{condition}"
+                        / "seed*/**/tasks/*/summary.json"
+                    ),
+                    "remote": True,
+                },
+            ]
+            task["candidates"].append(
+                {
+                    "kind": "platform",
+                    "resource": "Robot-North-H20",
+                    "region": "cn-beijing",
+                    "gpus": 4,
+                    "queue_timeout_seconds": 300,
+                    "deploy_timeout_seconds": 900,
+                    "retry_cooldown_seconds": 600,
+                    "max_failures": 1,
+                    "runtime_revision": "temporal_grounding_tg1_retry500_north_v1",
+                    "yaml": str(tg1a_north_yaml.relative_to(REPO)),
+                    "task_name": (
+                        f"temporal-grounding-tg1a-{condition}-retry500-north4g"
+                    ),
+                    "env": {
+                        "TG1A_CONDITION": condition,
+                        "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT": str(
+                            tg1_north_stage
+                            / "lmvla/paper_iclr_lmvla/manifests/"
+                            "temporal_grounding_runtime_amendment_v11.json"
+                        ),
+                    },
+                    "ready_files_remote": [
+                        str(tg1_north_stage_marker_remote),
+                        str(tg1_north_stage / "kai0/.venv/bin/python"),
+                    ],
+                }
+            )
+        queue["tasks"].append(task)
         existing.add(task_id)
 
     tg1b_runner = (
@@ -8952,14 +9058,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 / "lmvla/lawam/results/eval_runs/robotwin"
                 / f"temporal_grounding_tg1b_{checkpoint_arm}_e{cadence}"
             )
-            queue["tasks"].append(
-                {
+            task = {
                     "id": task_id,
                     "priority": 1,
                     "description": (
                         f"TG1B {checkpoint_arm} E={cadence} full rerun under "
                         "common retry500 amendment"
                     ),
+                    "requires_completed_tasks": [tg1_north_stage_id],
                     "rearm_after_ready_file": str(activation_marker),
                     "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                     "completion_min_count": 24,
@@ -8997,10 +9103,59 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                     runtime_v11_path
                                 ),
                             },
-                        }
+                        },
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-North-H20",
+                            "region": "cn-beijing",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 300,
+                            "deploy_timeout_seconds": 900,
+                            "retry_cooldown_seconds": 600,
+                            "max_failures": 1,
+                            "runtime_revision": (
+                                "temporal_grounding_tg1_retry500_north_v1"
+                            ),
+                            "yaml": str(tg1b_north_yaml.relative_to(REPO)),
+                            "task_name": (
+                                "temporal-grounding-tg1b-"
+                                f"{checkpoint_arm.replace('_', '-')}-e{cadence}-"
+                                "retry500-north4g"
+                            ),
+                            "env": {
+                                "TG1B_CHECKPOINT_ARM": checkpoint_arm,
+                                "TG1B_EXECUTION_CADENCE": str(cadence),
+                                "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT": str(
+                                    tg1_north_stage
+                                    / "lmvla/paper_iclr_lmvla/manifests/"
+                                    "temporal_grounding_runtime_amendment_v11.json"
+                                ),
+                            },
+                            "ready_files_remote": [
+                                str(tg1_north_stage_marker_remote),
+                                str(tg1_north_stage / "kai0/.venv/bin/python"),
+                            ],
+                        },
+                    ],
+                    "completion_locations": [
+                        {
+                            "label": "east",
+                            "glob": str(result_root / "seed*/**/tasks/*/summary.json"),
+                            "remote": False,
+                        },
+                        {
+                            "label": "north",
+                            "glob": str(
+                                Path(NORTH_REPO)
+                                / "lmvla/lawam/results/eval_runs/robotwin"
+                                / f"temporal_grounding_tg1b_{checkpoint_arm}_e{cadence}"
+                                / "seed*/**/tasks/*/summary.json"
+                            ),
+                            "remote": True,
+                        },
                     ],
                 }
-            )
+            queue["tasks"].append(task)
             existing.add(task_id)
 
     tg2_runner = REPO / "train_scripts/kai/run_temporal_grounding_tg2_train.sh"
@@ -12354,6 +12509,35 @@ def sync_north_eval_tree(label: str, expected: int) -> Path | None:
         log(f"North eval result sync incomplete {label}; waiting for the next poll")
         return None
     return local_root
+
+
+def refresh_temporal_grounding_north_results(state: dict[str, Any]) -> None:
+    """Materialize completed North temporal-grounding evidence before analyses."""
+    labels = {
+        **{
+            f"temporal_grounding_tg1a_{condition}_eval": (
+                f"temporal_grounding_tg1a_{condition}"
+            )
+            for condition in ("null", "persistence", "shuffled")
+        },
+        **{
+            f"temporal_grounding_tg1b_{arm}_e{cadence}_eval": (
+                f"temporal_grounding_tg1b_{arm}_e{cadence}"
+            )
+            for arm in ("future_off", "local_wm")
+            for cadence in (36, 50)
+        },
+    }
+    for task_id, label in labels.items():
+        if state.get("tasks", {}).get(task_id, {}).get("status") != "completed":
+            continue
+        local_root = (
+            REPO / "lmvla/lawam/results/eval_runs/robotwin" / label
+        )
+        if len(list(local_root.glob("**/summary.json"))) >= 24:
+            continue
+        if sync_north_eval_tree(label, 24) is not None:
+            log(f"materialized North temporal-grounding result {task_id}")
 
 
 def refresh_l2_strict_north_results() -> None:
@@ -15736,6 +15920,7 @@ def poll_once(queue: dict[str, Any], state: dict[str, Any]) -> None:
     refresh_pi05_mt12_shared_finalizers()
     refresh_pi05_mt1_replication_checkpoint_audits()
     cleanup_superseded_platform_attempts(state)
+    refresh_temporal_grounding_north_results(state)
     snapshot = make_snapshot(state)
     apply_managed_gpu_reservations(queue, state, snapshot)
     dispatch(queue, state, snapshot)

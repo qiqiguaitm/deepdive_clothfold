@@ -6457,7 +6457,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 70
+    assert len(tasks) == 71
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6504,6 +6504,11 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         "ready_files"
     ]
     assert all(task.get("enabled", True) for task in tg1a.values())
+    north_stage = tasks["temporal_grounding_tg1_retry500_north_stage"]
+    assert north_stage["requires_completed_tasks"] == [
+        "temporal_grounding_tg1a_normal_eval"
+    ]
+    assert north_stage["candidates"][0]["resource"] == "local"
     for condition in ("normal", "null", "persistence"):
         task = tg1a[f"temporal_grounding_tg1a_{condition}_eval"]
         assert capture_marker not in task["ready_files"]
@@ -6519,6 +6524,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         assert task["candidates"][0]["env"][
             "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT"
         ].endswith("temporal_grounding_runtime_amendment_v11.json")
+        if condition != "normal":
+            assert {candidate["resource"] for candidate in task["candidates"]} == {
+                "Robot-East-H20",
+                "Robot-North-H20",
+            }
+            assert task["requires_completed_tasks"] == [north_stage["id"]]
 
     assert {
         (
@@ -6536,6 +6547,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         task["candidates"][0]["yaml"].endswith(
             "temporal_grounding_tg1b_retry500_east_4h20.yaml"
         )
+        for task in tg1b.values()
+    )
+    assert all(
+        {candidate["resource"] for candidate in task["candidates"]}
+        == {"Robot-East-H20", "Robot-North-H20"}
+        and task["requires_completed_tasks"] == [north_stage["id"]]
         for task in tg1b.values()
     )
     assert all(
