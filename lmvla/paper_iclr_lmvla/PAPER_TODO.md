@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 04:44 UTC
+Updated: 2026-08-11 04:49 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -154,6 +154,13 @@ manifest, per-file SHA-256 verification, incoming-directory isolation, and
 atomic final rename are unchanged. A four-file mixed-path integration fixture
 passed every destination hash, all 197 scheduler/router/monitor tests passed,
 and all 19 TG2R downstream tasks have zero readiness-hash failures.
+
+The 04:49 UTC destination preflight found 7.3 TB free and approximately 1.01
+billion free inodes on the East shared filesystem. Each of the eight existing
+TG2R checkpoint trees occupies about 22 GB, and no recovery seed-1002
+destination or incoming path exists. The final materializer therefore has ample
+capacity and no path collision before launch; a later transfer failure should
+not be attributed to the current filesystem headroom.
 
 The first materialization attempts for the three completed fixed-endpoint rows
 all failed closed and exhausted their three local retries. The frozen TG2R
