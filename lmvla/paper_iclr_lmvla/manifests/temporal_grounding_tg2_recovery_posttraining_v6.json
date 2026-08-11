@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_recovery_posttraining_v6",
+  "created_at": "2026-08-11T04:30:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v5.json",
+    "sha256": "f1f96234bcec786df4532a7ae8cab4134737f9e6374c21b7f39465c0eba230e0"
+  },
+  "amendment": {
+    "scope": "Optionally transfer the three multi-gigabyte TG2R state files over independent SSH streams before transferring the remaining small tree.",
+    "activation": "SYNC_PARALLEL_LARGE_FILES=1 only for the pending formal future_off seed1002 materializer.",
+    "integrity": "The source manifest and final per-file SHA-256 verification are unchanged and cover both parallel and tar-stream files.",
+    "atomicity": "All streams write only to the existing unique incoming directory; every stream is joined before verification and the verified directory is atomically renamed.",
+    "scientific_changes": []
+  },
+  "throughput_probe": {
+    "source": "A completed TG2R optimizer state on the same North filesystem and SSH route.",
+    "bytes_per_stream_mib": 512,
+    "single_stream_mib_per_second": 5.70,
+    "three_stream_aggregate_mib_per_second": 8.53,
+    "aggregate_speedup": 1.50
+  },
+  "integration_probe": {
+    "files": 4,
+    "parallel_large_files": 3,
+    "other_tar_files": 1,
+    "result": "All four destination SHA-256 checks passed."
+  },
+  "files": {
+    "train_scripts/kai/sync_tree_from_north_verified.sh": "21642dc25f6e9180107ceb49f3768132b337f8c9a5df255c131617e7447855c4"
+  }
+}

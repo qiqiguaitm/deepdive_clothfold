@@ -138,6 +138,16 @@ failure; their only missing ready file is the prespecified
 YAML, renderer, or runtime repair is pending behind the final training and
 materialization dependency.
 
+The final North transfer uses post-training v6. A read-only probe on the same
+North filesystem and SSH route measured 5.70 MiB/s for one stream and 8.53
+MiB/s aggregate for three streams (`1.50x`). The v6 materializer therefore
+copies only the three multi-gigabyte model/optimizer files concurrently and
+keeps the remaining tree on the original tar stream. The original source
+manifest, per-file SHA-256 verification, incoming-directory isolation, and
+atomic final rename are unchanged. A four-file mixed-path integration fixture
+passed every destination hash, all 197 scheduler/router/monitor tests passed,
+and all 19 TG2R downstream tasks have zero readiness-hash failures.
+
 The first materialization attempts for the three completed fixed-endpoint rows
 all failed closed and exhausted their three local retries. The frozen TG2R
 launcher exports `TG2R_ARM`, while the inherited audit writer reads `TG2_ARM`,
@@ -238,6 +248,7 @@ The following immutable admission bundles are frozen and were reverified on
 | TG2R post-training v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v3.json` | Runtime-only | Passed locally; preserves raw sidecars and recovers only null redundant arm metadata in an audited temporary overlay |
 | TG2R post-training v4 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v4.json` | Runtime-only | Passed locally; runs the unchanged v3 integrity verifier in the East root context required to read canonical mode-0600 sidecars |
 | TG2R post-training v5 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v5.json` | Runtime-only | Passed locally; adds explicit tagged-source and tagged-sidecar selection so the authorized primary seed-1002 duplicate cannot mix with the detached backup attempt |
+| TG2R post-training v6 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v6.json` | Runtime-only | Passed throughput and integration probes; enables three-stream transfer only for the final seed-1002 state while preserving full SHA-256 and atomicity checks |
 | TG2R seed-1002 primary duplicate | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_v1.json` | Operational-only | Operator-authorized; preserves the complete frozen scientific contract and changes only credential identity, output tag, and superseded-attempt provenance |
 | Runtime v2 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v2.json` | Runtime-only | Passed; API framework admission |
 | Runtime v3 | `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v3.json` | Runtime-only | Passed; shared Git trust and North mount admission |
