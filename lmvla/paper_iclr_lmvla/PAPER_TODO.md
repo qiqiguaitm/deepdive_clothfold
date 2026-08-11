@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 12:20 UTC
+Updated: 2026-08-11 12:30 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -127,7 +127,7 @@ cell is eligible for reuse.
 
 Current scheduler-owned execution is:
 
-- [ ] **TG1A-E1 [RUNNING: `t-20260811151421-rlt29`, 18/24]** Evaluate normal
+- [ ] **TG1A-E1 [RUNNING: `t-20260811151421-rlt29`, 20/24]** Evaluate normal
   from an empty root under retry500 and produce a verified new feature
   capture.
 - [ ] **TG1A-E2 [RUNNING: `t-20260811151424-z9hrr`, 8/24]** Evaluate null from
