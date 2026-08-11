@@ -6805,13 +6805,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert set(recovery_integrity["requires_completed_tasks"]) == set(
         recovery_materializers
     )
-    local_integrity, east_integrity = recovery_integrity["candidates"]
-    assert local_integrity["kind"] == "local"
-    assert local_integrity["resource"] == "local"
-    assert local_integrity["gpus"] == 0
-    assert local_integrity["command"].endswith(
-        "run_temporal_grounding_tg2r_integrity_v3.sh"
-    )
+    (east_integrity,) = recovery_integrity["candidates"]
     assert east_integrity["kind"] == "platform"
     assert east_integrity["resource"] == "Robot-East-H20"
     assert east_integrity["gpus"] == 1
@@ -6864,8 +6858,8 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         for task in recovery_evals.values()
     )
 
-    recovery_integrity["candidates"][1]["yaml"] = "stale-v3.yaml"
-    recovery_integrity["candidates"][1]["runtime_revision"] = (
+    recovery_integrity["candidates"][0]["yaml"] = "stale-v3.yaml"
+    recovery_integrity["candidates"][0]["runtime_revision"] = (
         "temporal_grounding_tg2_recovery_posttraining_v3"
     )
     first_materializer = next(iter(recovery_materializers.values()))
@@ -6881,10 +6875,10 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert first_materializer["candidates"][0]["command"].endswith(
         "sync_temporal_grounding_tg2r_checkpoint_from_north.sh"
     )
-    assert recovery_integrity["candidates"][1]["yaml"].endswith(
+    assert recovery_integrity["candidates"][0]["yaml"].endswith(
         "temporal_grounding_tg2r_integrity_east_posttraining_v4_1h20.yaml"
     )
-    assert recovery_integrity["candidates"][1]["runtime_revision"] == (
+    assert recovery_integrity["candidates"][0]["runtime_revision"] == (
         "temporal_grounding_tg2_recovery_posttraining_v4"
     )
     assert all(

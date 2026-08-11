@@ -9802,19 +9802,6 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "ready_hashes": tg2_recovery_post_v7_hashes,
         "candidates": [
             {
-                "kind": "local",
-                "resource": "local",
-                "gpus": 0,
-                "retry_cooldown_seconds": 300,
-                "max_failures": 1,
-                "status_dir": str(
-                    REPO / "logs/resource_scheduler_local/tg2r_training_integrity"
-                ),
-                "command": shlex.join(
-                    ["bash", str(recovery_integrity_runner)]
-                ),
-            },
-            {
                 "kind": "platform",
                 "resource": "Robot-East-H20",
                 "region": "cn-shanghai",
