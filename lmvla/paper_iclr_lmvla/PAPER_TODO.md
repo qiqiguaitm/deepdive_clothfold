@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 12:16 UTC
+Updated: 2026-08-11 12:20 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -107,8 +107,8 @@ The expected canonical analysis output remains
 `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json`. The rejected
 parent matrix produced no such result and cannot contribute episodes.
 
-- [ ] **TG2R-A1 [BLOCKED by E01--E09 and analysis admission]** Freeze and
-  register the scheduler-owned recovery analysis command against the nine
+- [ ] **TG2R-A1 [REGISTERED; BLOCKED by E01--E09]** Run the frozen
+  scheduler-owned recovery analysis command against the nine
   `temporal_grounding_tg2r_*` result roots, then produce the canonical report
   and `temporal_grounding_tg2_gate.ok`. The parent TG2 command points to the
   rejected `temporal_grounding_tg2_*` roots and must not be reused unchanged.
@@ -127,7 +127,7 @@ cell is eligible for reuse.
 
 Current scheduler-owned execution is:
 
-- [ ] **TG1A-E1 [RUNNING: `t-20260811151421-rlt29`, 16/24]** Evaluate normal
+- [ ] **TG1A-E1 [RUNNING: `t-20260811151421-rlt29`, 18/24]** Evaluate normal
   from an empty root under retry500 and produce a verified new feature
   capture.
 - [ ] **TG1A-E2 [RUNNING: `t-20260811151424-z9hrr`, 8/24]** Evaluate null from
@@ -162,11 +162,11 @@ passes provenance verification.
   only; it does not establish correct-content use.
 - Every task must be reported. No partial panel or macro-only result may enter
   the manuscript.
-- [ ] **TG1A-A1 [BLOCKED by E1--E4 and analysis hash closure]** Register and
-  run the frozen TG1A analysis only after the common statistical helper is
-  included in the scheduler ready-hash closure.
-- [ ] **TG1B-A1 [BLOCKED by E1--E4 and analysis hash closure]** Register and
-  run the frozen TG1B analysis under the same fail-closed dependency rule.
+- [ ] **TG1A-A1 [REGISTERED; BLOCKED by E1--E4]** Run the frozen TG1A
+  analysis. The common statistical helper is included in the scheduler
+  ready-hash closure.
+- [ ] **TG1B-A1 [REGISTERED; BLOCKED by E1--E4]** Run the frozen TG1B analysis
+  under the same fail-closed dependency rule.
 
 ## 4. Result-driven downstream branches
 

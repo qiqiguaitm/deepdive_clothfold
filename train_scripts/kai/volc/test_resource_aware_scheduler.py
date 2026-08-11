@@ -6457,12 +6457,16 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 67
+    assert len(tasks) == 70
     tg1a = {
-        task_id: task for task_id, task in tasks.items() if "tg1a" in task_id
+        task_id: task
+        for task_id, task in tasks.items()
+        if "tg1a" in task_id and task_id.endswith("_eval")
     }
     tg1b = {
-        task_id: task for task_id, task in tasks.items() if "tg1b" in task_id
+        task_id: task
+        for task_id, task in tasks.items()
+        if "tg1b" in task_id and task_id.endswith("_eval")
     }
     tg2 = {
         task_id: task
@@ -6857,6 +6861,48 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         )
         for task in recovery_evals.values()
     )
+
+    analyses = {
+        task_id: tasks[task_id]
+        for task_id in (
+            "temporal_grounding_tg1a_analysis",
+            "temporal_grounding_tg1b_analysis",
+            "temporal_grounding_tg2_analysis",
+        )
+    }
+    assert all(task["candidates"][0]["kind"] == "local" for task in analyses.values())
+    assert all(task["candidates"][0]["gpus"] == 0 for task in analyses.values())
+    assert all(
+        task["rearm_after_ready_file"].endswith(
+            "temporal_grounding_analysis_execution_v1.json"
+        )
+        for task in analyses.values()
+    )
+    assert all(
+        any(
+            item["path"].endswith("analyze_mt_transition_controls.py")
+            and item["sha256"]
+            == "0b84a59d1655b84aadaf37771b7f4c37b9d1a0f3b64809858a9c5f1ad4718037"
+            for item in task["ready_hashes"]
+        )
+        for task in analyses.values()
+    )
+    assert set(analyses["temporal_grounding_tg1a_analysis"]["requires_completed_tasks"]) == {
+        f"temporal_grounding_tg1a_{condition}_eval"
+        for condition in ("normal", "null", "persistence", "shuffled")
+    }
+    assert set(analyses["temporal_grounding_tg1b_analysis"]["requires_completed_tasks"]) == {
+        f"temporal_grounding_tg1b_{arm}_e{cadence}_eval"
+        for arm in ("future_off", "local_wm")
+        for cadence in (36, 50)
+    }
+    tg2_analysis = analyses["temporal_grounding_tg2_analysis"]
+    assert set(tg2_analysis["requires_completed_tasks"]) == set(recovery_evals)
+    tg2_command = tg2_analysis["candidates"][0]["command"]
+    assert tg2_command.count("temporal_grounding_tg2r_") == 9
+    assert "robotwin/temporal_grounding_tg2_future" not in tg2_command
+    assert "robotwin/temporal_grounding_tg2_fixed" not in tg2_command
+    assert "robotwin/temporal_grounding_tg2_raw" not in tg2_command
 
     recovery_integrity["candidates"][0]["yaml"] = "stale-v3.yaml"
     recovery_integrity["candidates"][0]["runtime_revision"] = (

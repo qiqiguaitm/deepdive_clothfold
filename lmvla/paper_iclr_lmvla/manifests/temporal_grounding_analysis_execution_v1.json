@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_analysis_execution_v1",
+  "created_at": "2026-08-11T12:18:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "admission_basis": {
+    "tg1a": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_admission_v1.json",
+      "sha256": "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038"
+    },
+    "tg1b": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1b_admission_v1.json",
+      "sha256": "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919"
+    },
+    "tg2": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_admission_v1.json",
+      "sha256": "a84ce842d7fc94ba285913671edc6ab6f005cb7279608fa305351aff3f246387"
+    },
+    "tg2r_posttraining": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v7.json",
+      "sha256": "2f61491dcde52c5c3608631096b252b97e014ffa6b9228c0a87b232e58c92943"
+    }
+  },
+  "amendment": {
+    "scope": "Close transitive analysis hashes and register the three prespecified scheduler-owned analyses after their complete evaluation panels.",
+    "tg1": "The TG1A and TG1B commands, estimands, result roots, bootstrap settings, outputs, markers, and stop rules are copied unchanged from their admitted parent manifests.",
+    "tg2r": "The parent TG2 analysis command is copied unchanged except that each of its nine rejected temporal_grounding_tg2_* input roots is replaced by the corresponding admitted temporal_grounding_tg2r_* recovery root.",
+    "prohibited": "No rejected TG2 result root, partial cell, alternate seed, checkpoint, task subset, or post-hoc analysis setting may enter an output.",
+    "scientific_changes": []
+  },
+  "tasks": {
+    "temporal_grounding_tg1a_analysis": {
+      "requires_completed_tasks": [
+        "temporal_grounding_tg1a_normal_eval",
+        "temporal_grounding_tg1a_null_eval",
+        "temporal_grounding_tg1a_persistence_eval",
+        "temporal_grounding_tg1a_shuffled_eval"
+      ],
+      "command": "kai0/.venv/bin/python lmvla/lmwm/scripts/analyze_temporal_grounding_tg1a.py --normal lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_normal --shuffled lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_shuffled --null lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_null --persistence lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_persistence --scene-manifest lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json --bootstrap-samples 20000 --output lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json --marker logs/resource_markers/temporal_grounding_tg1a_gate.ok",
+      "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json",
+      "marker": "logs/resource_markers/temporal_grounding_tg1a_gate.ok"
+    },
+    "temporal_grounding_tg1b_analysis": {
+      "requires_completed_tasks": [
+        "temporal_grounding_tg1b_future_off_e36_eval",
+        "temporal_grounding_tg1b_future_off_e50_eval",
+        "temporal_grounding_tg1b_local_wm_e36_eval",
+        "temporal_grounding_tg1b_local_wm_e50_eval"
+      ],
+      "command": "kai0/.venv/bin/python lmvla/lmwm/scripts/analyze_temporal_grounding_tg1b.py --future-off-e36 lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e36 --future-off-e50 lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e50 --local-wm-e36 lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e36 --local-wm-e50 lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50 --scene-manifest lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json --bootstrap-samples 20000 --output lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1b.json --marker logs/resource_markers/temporal_grounding_tg1b_gate.ok",
+      "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1b.json",
+      "marker": "logs/resource_markers/temporal_grounding_tg1b_gate.ok"
+    },
+    "temporal_grounding_tg2_analysis": {
+      "requires_completed_tasks": [
+        "temporal_grounding_tg2r_future_off_seed1000_eval",
+        "temporal_grounding_tg2r_future_off_seed1001_eval",
+        "temporal_grounding_tg2r_future_off_seed1002_eval",
+        "temporal_grounding_tg2r_fixed_endpoint_seed1000_eval",
+        "temporal_grounding_tg2r_fixed_endpoint_seed1001_eval",
+        "temporal_grounding_tg2r_fixed_endpoint_seed1002_eval",
+        "temporal_grounding_tg2r_raw_milestone_seed1000_eval",
+        "temporal_grounding_tg2r_raw_milestone_seed1001_eval",
+        "temporal_grounding_tg2r_raw_milestone_seed1002_eval"
+      ],
+      "command": "kai0/.venv/bin/python lmvla/lmwm/scripts/analyze_temporal_grounding_tg2.py --future-off 1000=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_future_off_seed1000 --future-off 1001=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_future_off_seed1001 --future-off 1002=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_future_off_seed1002 --fixed-endpoint 1000=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_fixed_endpoint_seed1000 --fixed-endpoint 1001=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_fixed_endpoint_seed1001 --fixed-endpoint 1002=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_fixed_endpoint_seed1002 --raw-milestone 1000=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_raw_milestone_seed1000 --raw-milestone 1001=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_raw_milestone_seed1001 --raw-milestone 1002=lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg2r_raw_milestone_seed1002 --scene-manifest lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json --bootstrap-samples 20000 --output lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json --marker logs/resource_markers/temporal_grounding_tg2_gate.ok",
+      "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json",
+      "marker": "logs/resource_markers/temporal_grounding_tg2_gate.ok"
+    }
+  },
+  "file_sha256": {
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/scripts/analyze_mt_transition_controls.py": "0b84a59d1655b84aadaf37771b7f4c37b9d1a0f3b64809858a9c5f1ad4718037",
+    "lmvla/lmwm/scripts/analyze_temporal_grounding_tg1a.py": "2bc8bcf0439c12d455484386ba2ce202f118ece0d54b67deb9fbe2b3a3bc565e",
+    "lmvla/lmwm/scripts/analyze_temporal_grounding_tg1b.py": "7feb87971fd023fc536aec0eac28e3790e214fa981525751e9a93d84ee552429",
+    "lmvla/lmwm/scripts/analyze_temporal_grounding_tg2.py": "4f988f7daf7907f34e97352060ea4e5e850a80f97d02a82771af66e2528331e3"
+  }
+}

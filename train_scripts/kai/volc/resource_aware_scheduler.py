@@ -8631,6 +8631,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         manifests
         / "temporal_grounding_tg2r_future_off_seed1002_primary_duplicate_v1.json"
     )
+    analysis_execution_path = (
+        manifests / "temporal_grounding_analysis_execution_v1.json"
+    )
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8662,6 +8665,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         tg2_recovery_post_v6_path: "22727172cb8ce6e6844655283fb5be11a9b0286c237cb5e7ad7a163316a94143",
         tg2_recovery_post_v7_path: "2f61491dcde52c5c3608631096b252b97e014ffa6b9228c0a87b232e58c92943",
         tg2r_seed1002_duplicate_path: "885b25a82aa3c9da3edbc3bd9cb76d7e5d7f81b451e393d04ac3720be368070a",
+        analysis_execution_path: "18dae8cec3ac39ea6b6b8432179cdb4347cc8c2adc7adbb36f9b82390a497c4c",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -8682,6 +8686,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg2_recovery_post_v5 = json.loads(tg2_recovery_post_v5_path.read_text())
     tg2_recovery_post_v6 = json.loads(tg2_recovery_post_v6_path.read_text())
     tg2_recovery_post_v7 = json.loads(tg2_recovery_post_v7_path.read_text())
+    analysis_execution = json.loads(analysis_execution_path.read_text())
     runtime_v10_hashes = [
         {"path": str(runtime_v10_path), "sha256": manifest_hashes[runtime_v10_path]},
         *(
@@ -8832,6 +8837,23 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         *(
             {"path": str(REPO / relative), "sha256": digest}
             for relative, digest in tg2_recovery_post_v7["files"].items()
+        ),
+    ]
+    analysis_hashes = [
+        {
+            "path": str(analysis_execution_path),
+            "sha256": manifest_hashes[analysis_execution_path],
+        },
+        *(
+            {
+                "path": str(REPO / parent["path"]),
+                "sha256": parent["sha256"],
+            }
+            for parent in analysis_execution["admission_basis"].values()
+        ),
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in analysis_execution["file_sha256"].items()
         ),
     ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
@@ -9950,6 +9972,49 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 }
             )
             existing.add(task_id)
+
+    for analysis_id, spec in analysis_execution["tasks"].items():
+        analysis_task = {
+            "id": analysis_id,
+            "priority": 3,
+            "description": (
+                f"Run frozen {analysis_id.removeprefix('temporal_grounding_')}"
+            ),
+            "requires_completed_tasks": spec["requires_completed_tasks"],
+            "rearm_after_ready_file": str(analysis_execution_path),
+            "completion_glob": str(REPO / spec["marker"]),
+            "completion_min_count": 1,
+            "ready_files": [item["path"] for item in analysis_hashes],
+            "ready_hashes": analysis_hashes,
+            "candidates": [
+                {
+                    "kind": "local",
+                    "resource": "local",
+                    "gpus": 0,
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 1,
+                    "status_dir": str(
+                        REPO
+                        / "logs/resource_scheduler_local"
+                        / analysis_id.removeprefix("temporal_grounding_")
+                    ),
+                    "command": shlex.join(
+                        [
+                            "bash",
+                            "-lc",
+                            f"cd {shlex.quote(str(REPO))} && exec {spec['command']}",
+                        ]
+                    ),
+                }
+            ],
+        }
+        if analysis_id not in existing:
+            queue["tasks"].append(analysis_task)
+            existing.add(analysis_id)
+        else:
+            next(
+                task for task in queue["tasks"] if task.get("id") == analysis_id
+            ).update(analysis_task)
 
     eval_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_eval_east_4h20.yaml"
     eval_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg2_eval.sh"
