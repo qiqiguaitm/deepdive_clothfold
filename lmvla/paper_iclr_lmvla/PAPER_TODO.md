@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 23:15 UTC
+Updated: 2026-08-11 23:32 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -136,13 +136,13 @@ Current scheduler-owned execution is:
   root under retry500.
 - [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps`, East, 4/24]** Evaluate the frozen
   within-task different-episode shuffled mapping.
-- [ ] **TG1B-E1 [RUNNING: `t-20260812071322-zrk22`, North, 0/24]** Evaluate future-off,
+- [ ] **TG1B-E1 [RUNNING: `t-20260812073026-gt69q`, North, 0/24]** Evaluate future-off,
   `E=36`.
-- [ ] **TG1B-E2 [RUNNING: `t-20260812071326-4pdst`, North, 0/24]** Evaluate future-off,
+- [ ] **TG1B-E2 [RUNNING: `t-20260812073031-p9l4x`, North, 0/24]** Evaluate future-off,
   `E=50`.
-- [ ] **TG1B-E3 [RUNNING: `t-20260812071331-kmkrh`, North, 0/24]** Evaluate local-WM,
+- [ ] **TG1B-E3 [RUNNING: `t-20260812073036-54vnc`, North, 0/24]** Evaluate local-WM,
   `E=36`.
-- [ ] **TG1B-E4 [RUNNING: `t-20260812071337-kkcph`, North, 0/24]** Evaluate local-WM,
+- [ ] **TG1B-E4 [RUNNING: `t-20260812073041-kf64m`, North, 0/24]** Evaluate local-WM,
   `E=50`.
 
 Partial retry500 cells remain operational telemetry only. No rate or contrast is
