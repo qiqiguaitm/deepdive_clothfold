@@ -73,6 +73,14 @@ Entrypoint: |
   export ROBOTWIN_PYTHON=$ROOT/lmvla/lawam/robotwin_python_wrapper_northe.sh
   export TORCH_CUDA_ARCH_LIST=9.0
   "$ROBOTWIN_PYTHON" -c 'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  RESULT_ROOT="$REPO/lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_${TG1B_CHECKPOINT_ARM}_e${TG1B_EXECUTION_CADENCE}"
+  if [[ -e "$RESULT_ROOT" ]]; then
+    summary_count=$(find "$RESULT_ROOT" -type f -name summary.json | wc -l)
+    test "$summary_count" -eq 0
+    archive="${RESULT_ROOT}.failed_north_runtime_v1.$(date -u +%Y%m%d_%H%M%S)"
+    mv "$RESULT_ROOT" "$archive"
+    echo "archived empty failed-runtime result root: $archive"
+  fi
   REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/eval/run_temporal_grounding_tg1b_retry500_formal.sh"
 
 RetryOptions:

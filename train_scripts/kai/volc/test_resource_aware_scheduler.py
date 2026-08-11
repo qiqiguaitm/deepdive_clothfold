@@ -6585,7 +6585,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert all(
         task.get("enabled", True)
         and task["rearm_after_ready_file"].endswith(
-            "temporal_grounding_tg1b_north_runtime_v2.json"
+            "temporal_grounding_tg1b_north_runtime_v3.json"
         )
         and task["candidates"][0]["runtime_revision"]
         == "temporal_grounding_tg1_retry500_v1"

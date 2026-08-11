@@ -8606,6 +8606,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1b_north_runtime_v2_path = (
         manifests / "temporal_grounding_tg1b_north_runtime_v2.json"
     )
+    tg1b_north_runtime_v3_path = (
+        manifests / "temporal_grounding_tg1b_north_runtime_v3.json"
+    )
     tg1_retry500_path = (
         manifests / "temporal_grounding_tg1_retry500_amendment_v1.json"
     )
@@ -8670,6 +8673,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v10_path: "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e",
         runtime_v11_path: "91574d8c1ff32919456777aa9629359175f1f574c128fcec97563f9214d2af7f",
         tg1b_north_runtime_v2_path: "93c7f2db4485c025a09aa34f19f8a296220a230dca99590f46d516a9149b0aa4",
+        tg1b_north_runtime_v3_path: "9b47973214627948c857f209f50db302713a951a6ae48842f77560d137419b8b",
         tg1_retry500_path: "d77c7e10431e3db10b7f0746e1dd7967eedcf92b28424018c03ac552f188f553",
         posttraining_path: "a954b31f94883d2097a259181f7c785d701c2204b04e83e08c57a8c379843fd6",
         posttraining_v3_path: "27360a03d7e8f18b3ce25fd1441b1d01748884ce3b500559da2061285d250ff7",
@@ -8987,7 +8991,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 },
                 {
                     "path": str(tg1b_north_yaml),
-                    "sha256": "64696fe126344de3c06a3c84b1438ab673ca10f160a1d3f410a4e4ee0e54d2ab",
+                    "sha256": "b1f5cb5b01c8e623a990f0ed51ce403da29de0451a69824af168d8934c6c2828",
                 },
             ],
             "candidates": [
@@ -9142,8 +9146,12 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "sha256": manifest_hashes[tg1b_north_runtime_v2_path],
         },
         {
+            "path": str(tg1b_north_runtime_v3_path),
+            "sha256": manifest_hashes[tg1b_north_runtime_v3_path],
+        },
+        {
             "path": str(tg1b_north_yaml),
-            "sha256": "64696fe126344de3c06a3c84b1438ab673ca10f160a1d3f410a4e4ee0e54d2ab",
+            "sha256": "b1f5cb5b01c8e623a990f0ed51ce403da29de0451a69824af168d8934c6c2828",
         },
     ]
     for checkpoint_arm in ("future_off", "local_wm"):
@@ -9162,7 +9170,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         f"TG1B {checkpoint_arm} E={cadence} full rerun under "
                         "common retry500 amendment"
                     ),
-                    "rearm_after_ready_file": str(tg1b_north_runtime_v2_path),
+                    "rearm_after_ready_file": str(tg1b_north_runtime_v3_path),
                     "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                     "completion_min_count": 24,
                     "ready_files": [
@@ -9175,6 +9183,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(runtime_v11_path),
                         str(tg1b_runtime_yaml),
                         str(tg1b_north_runtime_v2_path),
+                        str(tg1b_north_runtime_v3_path),
                         str(tg1b_north_yaml),
                     ],
                     "ready_hashes": tg1b_hashes,
@@ -9212,7 +9221,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "retry_cooldown_seconds": 600,
                             "max_failures": 1,
                             "runtime_revision": (
-                                "temporal_grounding_tg1b_north_runtime_v2"
+                                "temporal_grounding_tg1b_north_runtime_v3"
                             ),
                             "yaml": str(tg1b_north_yaml.relative_to(REPO)),
                             "task_name": (

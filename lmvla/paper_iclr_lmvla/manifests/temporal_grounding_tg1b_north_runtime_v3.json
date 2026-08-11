@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_tg1b_north_runtime_v3",
+  "extends": "temporal_grounding_tg1b_north_runtime_v2",
+  "created_at": "2026-08-11T23:30:00Z",
+  "scope": "Archive zero-summary result roots left by rejected North runtime attempts",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "change": [
+    "Before evaluation, atomically rename a pre-existing canonical result root only when it contains zero summary.json artifacts.",
+    "Retain the rejected root with a failed_north_runtime_v1 timestamp suffix; never delete or merge it."
+  ],
+  "invariants": [
+    "Any accepted summary artifact makes cleanup fail closed.",
+    "Checkpoint, scenes, seeds, retry cap, cadence, action protocol, and analysis remain unchanged."
+  ]
+}
