@@ -6529,7 +6529,6 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
                 "Robot-East-H20",
                 "Robot-North-H20",
             }
-            assert task["requires_completed_tasks"] == [north_stage["id"]]
 
     assert {
         (
@@ -6552,7 +6551,6 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert all(
         {candidate["resource"] for candidate in task["candidates"]}
         == {"Robot-East-H20", "Robot-North-H20"}
-        and task["requires_completed_tasks"] == [north_stage["id"]]
         for task in tg1b.values()
     )
     assert all(

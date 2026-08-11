@@ -8991,7 +8991,6 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 ],
             }
         if condition != "normal":
-            task["requires_completed_tasks"] = [tg1_north_stage_id]
             task["completion_locations"] = [
                 {
                     "label": "east",
@@ -9068,7 +9067,6 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         f"TG1B {checkpoint_arm} E={cadence} full rerun under "
                         "common retry500 amendment"
                     ),
-                    "requires_completed_tasks": [tg1_north_stage_id],
                     "rearm_after_ready_file": str(activation_marker),
                     "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                     "completion_min_count": 24,
