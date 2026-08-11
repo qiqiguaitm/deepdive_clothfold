@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 12:08 UTC
+Updated: 2026-08-11 12:11 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -62,8 +62,12 @@ archived in Section 44. Only the following execution chain remains:
   scheduler retry reused the installed checkpoint, materialized and normalized
   all sidecars, and wrote the canonical marker at 12:06 UTC without retraining
   or retransmitting the large checkpoint tree.
-- [ ] **TG2R-I1 [READY: local East-root CPU audit]** Run the joint nine-arm integrity gate in the
-  admitted East root context. Require all nine successful terminal jobs,
+- [ ] **TG2R-I1 [PENDING: East capacity]** Run the joint nine-arm integrity gate in the
+  admitted East root context. A scheduler-owned local CPU attempt was rejected
+  before validation because two East-native raw-milestone sidecar sets are
+  root-owned mode 0600; the local identity has no authorized root access. The
+  unchanged East 1-GPU root-context runner remains the eligible fallback.
+  Require all nine successful terminal jobs,
   fixed step 20,000, complete optimizer state, exact initialization equality
   within seed, exact rank-order equality across arms within seed, distinct
   order across seeds, `in_order=true`, and eight workers in every full config.
