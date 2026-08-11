@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 12:30 UTC
+Updated: 2026-08-11 23:15 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -62,7 +62,7 @@ archived in Section 44. Only the following execution chain remains:
   scheduler retry reused the installed checkpoint, materialized and normalized
   all sidecars, and wrote the canonical marker at 12:06 UTC without retraining
   or retransmitting the large checkpoint tree.
-- [ ] **TG2R-I1 [PENDING: East capacity]** Run the joint nine-arm integrity gate in the
+- [ ] **TG2R-I1 [PENDING: East capacity, sole unsubmitted execution gate]** Run the joint nine-arm integrity gate in the
   admitted East root context. A scheduler-owned local CPU attempt was rejected
   before validation because two East-native raw-milestone sidecar sets are
   root-owned mode 0600; the local identity has no authorized root access. The
@@ -127,22 +127,22 @@ cell is eligible for reuse.
 
 Current scheduler-owned execution is:
 
-- [ ] **TG1A-E1 [RUNNING: `t-20260811151421-rlt29`, 20/24]** Evaluate normal
+- [x] **TG1A-E1 [COMPLETE: `t-20260811151421-rlt29`, 24/24]** Evaluate normal
   from an empty root under retry500 and produce a verified new feature
   capture.
-- [ ] **TG1A-E2 [RUNNING: `t-20260811151424-z9hrr`, 8/24]** Evaluate null from
+- [x] **TG1A-E2 [COMPLETE: `t-20260811151424-z9hrr`, 24/24]** Evaluate null from
   an empty root under retry500.
-- [ ] **TG1A-E3 [PENDING: East capacity]** Evaluate persistence from an empty
+- [ ] **TG1A-E3 [RUNNING: `t-20260811220414-45x4t`, East, 16/24]** Evaluate persistence from an empty
   root under retry500.
-- [ ] **TG1A-E4 [BLOCKED by complete E1 capture]** Evaluate the frozen
+- [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps`, East, 4/24]** Evaluate the frozen
   within-task different-episode shuffled mapping.
-- [ ] **TG1B-E1 [PENDING: East capacity]** Evaluate future-off,
+- [ ] **TG1B-E1 [RUNNING: `t-20260812071322-zrk22`, North, 0/24]** Evaluate future-off,
   `E=36`.
-- [ ] **TG1B-E2 [PENDING: East capacity]** Evaluate future-off,
+- [ ] **TG1B-E2 [RUNNING: `t-20260812071326-4pdst`, North, 0/24]** Evaluate future-off,
   `E=50`.
-- [ ] **TG1B-E3 [PENDING: East capacity]** Evaluate local-WM,
+- [ ] **TG1B-E3 [RUNNING: `t-20260812071331-kmkrh`, North, 0/24]** Evaluate local-WM,
   `E=36`.
-- [ ] **TG1B-E4 [PENDING: East capacity]** Evaluate local-WM,
+- [ ] **TG1B-E4 [RUNNING: `t-20260812071337-kkcph`, North, 0/24]** Evaluate local-WM,
   `E=50`.
 
 Partial retry500 cells remain operational telemetry only. No rate or contrast is
