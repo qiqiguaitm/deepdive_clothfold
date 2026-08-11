@@ -3,7 +3,7 @@
 
 Experiment execution remains owned by resource_aware_scheduler.py. This
 monitor only reads its state/snapshot and canonical outputs, records progress,
-and exits when the frozen TG1A/TG2R tasks and final analyses are finished.
+and exits when the frozen TG1A/TG1B/TG2R tasks and final analyses are finished.
 """
 
 from __future__ import annotations
@@ -37,6 +37,12 @@ ANALYSIS_ARTIFACT_SPECS = {
         "marker": "logs/resource_markers/temporal_grounding_tg1a_gate.ok",
         "protocol": "temporal_grounding_tg1a_released_checkpoint_content_panel_v1",
     },
+    "tg1b": {
+        "task_id": "temporal_grounding_tg1b_analysis",
+        "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1b.json",
+        "marker": "logs/resource_markers/temporal_grounding_tg1b_gate.ok",
+        "protocol": "temporal_grounding_tg1b_execution_cadence_panel_v1",
+    },
     "tg2": {
         "task_id": "temporal_grounding_tg2_analysis",
         "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json",
@@ -65,6 +71,11 @@ def expected_task_ids() -> tuple[str, ...]:
         f"temporal_grounding_tg1a_{condition}_eval"
         for condition in ("normal", "null", "persistence", "shuffled")
     ]
+    tasks.extend(
+        f"temporal_grounding_tg1b_{checkpoint_arm}_e{cadence}_eval"
+        for checkpoint_arm in ("future_off", "local_wm")
+        for cadence in (36, 50)
+    )
     tasks.append("temporal_grounding_tg2r_north_stage")
     for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
         for seed in (1000, 1001, 1002):

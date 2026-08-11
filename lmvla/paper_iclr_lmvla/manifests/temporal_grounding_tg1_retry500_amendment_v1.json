@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg1_retry500_v1",
+  "created_at": "2026-08-11T07:10:00Z",
+  "frozen": true,
+  "operator_authorized": true,
+  "experiment_protocol_changed": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "scientific_scope": "Complete the prespecified TG1A content-use and TG1B cadence panels after stochastic fixed-scene setup validity exhausted the original common retry cap.",
+  "parent_protocols": {
+    "TG1A": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_admission_v1.json",
+      "sha256": "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038"
+    },
+    "TG1B": {
+      "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1b_admission_v1.json",
+      "sha256": "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919"
+    }
+  },
+  "runtime_amendment": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v11.json",
+    "sha256": "91574d8c1ff32919456777aa9629359175f1f574c128fcec97563f9214d2af7f",
+    "scientific_change": false
+  },
+  "retry_cap": {
+    "environment_variable": "ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS",
+    "old": 3,
+    "new": 500,
+    "applies_uniformly_to_every_condition": true
+  },
+  "conditions": {
+    "TG1A": [
+      "normal",
+      "null",
+      "persistence",
+      "shuffled"
+    ],
+    "TG1B": [
+      "future_off_e36",
+      "future_off_e50",
+      "local_wm_e36",
+      "local_wm_e50"
+    ]
+  },
+  "preserved_contract": [
+    "The scene manifest and all 1,200 accepted scene identities are unchanged.",
+    "Checkpoints, initialization, tasks, evaluation seeds, interventions, execution cadence, control rate, episode count, and statistical gates are unchanged.",
+    "Every condition must independently produce exactly 24 complete task-by-evaluation-seed cells.",
+    "TG1A shuffled remains blocked until the retry500 normal feature capture passes its frozen verifier.",
+    "No cap-3 summary or feature cell may be reused in a retry500 condition."
+  ],
+  "archive_contract": {
+    "suffix": ".pre_retry500_v1",
+    "expected_partial_summary_counts": {
+      "temporal_grounding_tg1a_normal": 20,
+      "temporal_grounding_tg1a_null": 19,
+      "temporal_grounding_tg1a_persistence": 21,
+      "temporal_grounding_tg1a_shuffled": 0,
+      "temporal_grounding_tg1b_future_off_e36": 20,
+      "temporal_grounding_tg1b_future_off_e50": 0,
+      "temporal_grounding_tg1b_local_wm_e36": 0,
+      "temporal_grounding_tg1b_local_wm_e50": 18
+    },
+    "legacy_feature_capture": "logs/temporal_grounding/tg1a/predicted_endpoint_features",
+    "retry500_feature_capture": "logs/tg1_retry500/predicted_endpoint_features",
+    "feature_archive_disposition": "The root-owned cap-3 capture is retained in place as read-only excluded provenance; retry500 writes to a distinct initially absent root and never reads the legacy capture.",
+    "operation": "Recoverable same-filesystem rename of every extant result root after exact preflight; rollback all completed moves if activation fails before marker publication."
+  },
+  "activation": {
+    "marker": "logs/resource_markers/temporal_grounding_tg1_retry500_activation_v1.json",
+    "requires_all_canonical_result_roots_empty": true,
+    "requires_normal_feature_root_empty": true
+  },
+  "admissibility": {
+    "partial_results": "Operational telemetry only; no condition rate, contrast, content-use, or cadence claim.",
+    "completed_results": "Eligible for the frozen TG1 analyzers only after all required cells and provenance checks pass.",
+    "claim_boundary": "TG1A can test use of correct predicted content; TG1B can test checkpoint-specific cadence sensitivity. Neither result alone proves a general world-model control mechanism."
+  },
+  "file_sha256": {
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_admission_v1.json": "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1b_admission_v1.json": "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
+    "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v11.json": "91574d8c1ff32919456777aa9629359175f1f574c128fcec97563f9214d2af7f",
+    "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_tg1_retry500.py": "53f4e8aa5971928022439536d968c3999ccff94d89858a4843077ebea28a9118",
+    "lmvla/lmwm/scripts/activate_temporal_grounding_tg1_retry500.py": "fce0a8ce3a657f43cdc95cb234ff8d5c2b2e231ee3c7132c71ffb2b927e5c540",
+    "train_scripts/kai/eval/run_temporal_grounding_tg1a_retry500_formal.sh": "56868273667cde94d7df9e5a129fec83d5b0b568ae08bb7dfe38e36a0295131b",
+    "train_scripts/kai/eval/run_temporal_grounding_tg1b_retry500_formal.sh": "31b4a7bc3b47aa688f0b54219097904dd9508211412a5464789360fceee09db0",
+    "train_scripts/kai/volc/temporal_grounding_tg1a_retry500_east_4h20.yaml": "762c04d741dd2fe7294a019f0fa452a29b0b64bb78774df3af3a36764a4e4173",
+    "train_scripts/kai/volc/temporal_grounding_tg1b_retry500_east_4h20.yaml": "4aa83d404d4faf931e84f26b5ae30ec5820f5a0b9423e74f1a7212271f6fbdab"
+  }
+}

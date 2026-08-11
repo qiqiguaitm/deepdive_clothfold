@@ -8585,6 +8585,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v8_path = manifests / "temporal_grounding_runtime_amendment_v8.json"
     runtime_v9_path = manifests / "temporal_grounding_runtime_amendment_v9.json"
     runtime_v10_path = manifests / "temporal_grounding_runtime_amendment_v10.json"
+    runtime_v11_path = manifests / "temporal_grounding_runtime_amendment_v11.json"
+    tg1_retry500_path = (
+        manifests / "temporal_grounding_tg1_retry500_amendment_v1.json"
+    )
     posttraining_path = manifests / "temporal_grounding_tg2_posttraining_pipeline_v2.json"
     posttraining_v3_path = (
         manifests / "temporal_grounding_tg2_posttraining_pipeline_v3.json"
@@ -8638,6 +8642,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v8_path: "597459d4c346830416637b64eb0a14857affbdd8922840b969761c1b6522e678",
         runtime_v9_path: "cc28d480647c8da5f274352fe2c0ba7e88509997e15c3e891bbf0a4db494005c",
         runtime_v10_path: "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e",
+        runtime_v11_path: "91574d8c1ff32919456777aa9629359175f1f574c128fcec97563f9214d2af7f",
+        tg1_retry500_path: "d77c7e10431e3db10b7f0746e1dd7967eedcf92b28424018c03ac552f188f553",
         posttraining_path: "a954b31f94883d2097a259181f7c785d701c2204b04e83e08c57a8c379843fd6",
         posttraining_v3_path: "27360a03d7e8f18b3ce25fd1441b1d01748884ce3b500559da2061285d250ff7",
         posttraining_v4_path: "63227600151f332ac2ceba3338d6ecf805dd5678a618be9462289ab342cfd162",
@@ -8661,6 +8667,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1b = json.loads(tg1b_path.read_text())
     tg2 = json.loads(tg2_path.read_text())
     runtime_v10 = json.loads(runtime_v10_path.read_text())
+    tg1_retry500 = json.loads(tg1_retry500_path.read_text())
     posttraining = json.loads(posttraining_path.read_text())
     posttraining_v4 = json.loads(posttraining_v4_path.read_text())
     order_probe_v3 = json.loads(order_probe_v3_path.read_text())
@@ -8675,6 +8682,16 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         *(
             {"path": str(REPO / relative), "sha256": digest}
             for relative, digest in runtime_v10["files"].items()
+        ),
+    ]
+    tg1_retry500_hashes = [
+        {
+            "path": str(tg1_retry500_path),
+            "sha256": manifest_hashes[tg1_retry500_path],
+        },
+        *(
+            {"path": str(REPO / relative), "sha256": digest}
+            for relative, digest in tg1_retry500["file_sha256"].items()
         ),
     ]
     posttraining_hashes = [
@@ -8797,71 +8814,34 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     ]
     scene_manifest = REPO / tg1a["evaluation"]["scene_manifest"]
 
-    tg1a_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg1a_formal.sh"
-    tg1a_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1a_east_4h20.yaml"
+    tg1a_runner = (
+        REPO
+        / "train_scripts/kai/eval/run_temporal_grounding_tg1a_retry500_formal.sh"
+    )
     tg1a_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg1a_east_runtime_v9_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg1a_retry500_east_4h20.yaml"
     )
-    tg1a_batch_builder = (
+    tg1a_hashes = tg1_retry500_hashes
+    activation_marker = REPO / tg1_retry500["activation"]["marker"]
+    capture_marker = (
         REPO
-        / "lmvla/lawam/starVLA/model/framework/latent_world/batch_builder.py"
+        / "logs/resource_markers/"
+        "temporal_grounding_tg1a_retry500_normal_capture_complete.json"
     )
-    tg1a_context_test = (
-        REPO
-        / "lmvla/lawam/starVLA/model/framework/latent_world/runtime/"
-        "test_temporal_grounding_context.py"
-    )
-    tg1a_retry_preflight = (
-        REPO / "lmvla/lmwm/scripts/prepare_temporal_grounding_tg1a_retry.py"
-    )
-    tg1a_hashes = [
-        {"path": str(tg1a_path), "sha256": manifest_hashes[tg1a_path]},
-        {
-            "path": str(tg1a_runner),
-            "sha256": tg1a["file_sha256"][str(tg1a_runner.relative_to(REPO))],
-        },
-        {
-            "path": str(tg1a_yaml),
-            "sha256": tg1a["file_sha256"][str(tg1a_yaml.relative_to(REPO))],
-        },
-        {"path": str(runtime_v9_path), "sha256": manifest_hashes[runtime_v9_path]},
-        *runtime_v10_hashes,
-        {
-            "path": str(tg1a_runtime_yaml),
-            "sha256": "b9b83237799cfa75975eaf8e44d7a0ac8dc4caeae4b74c51018d88f2131774ab",
-        },
-        {
-            "path": str(tg1a_batch_builder),
-            "sha256": "9aa91654c274f9cbfc6f6d08066c8188ab84731baf81de64148b058c8885bc22",
-        },
-        {
-            "path": str(tg1a_context_test),
-            "sha256": "df79416a78b4d0f46b87b6dae996cdd11c916aad87fc4192934152e4de941a17",
-        },
-        {
-            "path": str(tg1a_retry_preflight),
-            "sha256": "9e226ea73b61a281b9d2719b10249ab4d6068b8fc5e285fb27b726a583fd5dd7",
-        },
-    ]
-    capture_marker = REPO / "logs/temporal_grounding/tg1a/normal_capture_complete.json"
     for condition in ("normal", "null", "persistence", "shuffled"):
         task_id = f"temporal_grounding_tg1a_{condition}_eval"
         if task_id in existing:
             continue
         ready_files = [
+            str(activation_marker),
+            str(tg1_retry500_path),
             str(tg1a_path),
             str(scene_manifest),
             str(REPO / tg1a["checkpoint"]["path"]),
             str(tg1a_runner),
-            str(tg1a_yaml),
-            str(runtime_v9_path),
-            str(runtime_v10_path),
+            str(runtime_v11_path),
             str(tg1a_runtime_yaml),
-            str(tg1a_batch_builder),
-            str(tg1a_context_test),
-            str(tg1a_retry_preflight),
-            *(str(REPO / relative) for relative in runtime_v10["files"]),
         ]
         if condition == "shuffled":
             ready_files.append(str(capture_marker))
@@ -8874,8 +8854,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             {
                 "id": task_id,
                 "priority": 0,
-                "description": f"Frozen TG1A {condition} evaluation",
-                "rearm_after_ready_file": str(runtime_v10_path),
+                "description": (
+                    f"TG1A {condition} full rerun under common retry500 amendment"
+                ),
+                "rearm_after_ready_file": str(activation_marker),
                 "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                 "completion_min_count": 24,
                 "ready_files": ready_files,
@@ -8889,13 +8871,15 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "queue_timeout_seconds": 180,
                         "retry_cooldown_seconds": 600,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_runtime_v10",
+                        "runtime_revision": "temporal_grounding_tg1_retry500_v1",
                         "yaml": str(tg1a_runtime_yaml.relative_to(REPO)),
-                        "task_name": f"temporal-grounding-tg1a-{condition}-east4g",
+                        "task_name": (
+                            f"temporal-grounding-tg1a-{condition}-retry500-east4g"
+                        ),
                         "env": {
                             "TG1A_CONDITION": condition,
                             "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT": str(
-                                runtime_v10_path
+                                runtime_v11_path
                             ),
                         },
                     }
@@ -8904,28 +8888,15 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         )
         existing.add(task_id)
 
-    tg1b_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg1b_formal.sh"
-    tg1b_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg1b_east_4h20.yaml"
+    tg1b_runner = (
+        REPO
+        / "train_scripts/kai/eval/run_temporal_grounding_tg1b_retry500_formal.sh"
+    )
     tg1b_runtime_yaml = (
         REPO
-        / "train_scripts/kai/volc/temporal_grounding_tg1b_east_runtime_v4_4h20.yaml"
+        / "train_scripts/kai/volc/temporal_grounding_tg1b_retry500_east_4h20.yaml"
     )
-    tg1b_hashes = [
-        {"path": str(tg1b_path), "sha256": manifest_hashes[tg1b_path]},
-        {
-            "path": str(tg1b_runner),
-            "sha256": tg1b["file_sha256"][str(tg1b_runner.relative_to(REPO))],
-        },
-        {
-            "path": str(tg1b_yaml),
-            "sha256": tg1b["file_sha256"][str(tg1b_yaml.relative_to(REPO))],
-        },
-        {"path": str(runtime_v4_path), "sha256": manifest_hashes[runtime_v4_path]},
-        {
-            "path": str(tg1b_runtime_yaml),
-            "sha256": "df11a4211e79b2689837e5dcdbaf1ea50c0d8166184abbe30924d0402521ac80",
-        },
-    ]
+    tg1b_hashes = tg1_retry500_hashes
     for checkpoint_arm in ("future_off", "local_wm"):
         checkpoint = REPO / tg1b["checkpoints"][checkpoint_arm]["path"]
         for cadence in (36, 50):
@@ -8941,22 +8912,21 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 {
                     "id": task_id,
                     "priority": 1,
-                    "description": f"Frozen TG1B {checkpoint_arm} E={cadence} evaluation",
-                    "enabled": False,
-                    "disabled_reason": (
-                        "TG1B blocked pending explicit protocol decision for fixed-scene "
-                        "validity exhaustion"
+                    "description": (
+                        f"TG1B {checkpoint_arm} E={cadence} full rerun under "
+                        "common retry500 amendment"
                     ),
-                    "rearm_after_ready_file": str(runtime_v4_path),
+                    "rearm_after_ready_file": str(activation_marker),
                     "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                     "completion_min_count": 24,
                     "ready_files": [
+                        str(activation_marker),
+                        str(tg1_retry500_path),
                         str(tg1b_path),
                         str(scene_manifest),
                         str(checkpoint),
                         str(tg1b_runner),
-                        str(tg1b_yaml),
-                        str(runtime_v4_path),
+                        str(runtime_v11_path),
                         str(tg1b_runtime_yaml),
                     ],
                     "ready_hashes": tg1b_hashes,
@@ -8969,14 +8939,19 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "queue_timeout_seconds": 180,
                             "retry_cooldown_seconds": 600,
                             "max_failures": 1,
+                            "runtime_revision": "temporal_grounding_tg1_retry500_v1",
                             "yaml": str(tg1b_runtime_yaml.relative_to(REPO)),
                             "task_name": (
                                 "temporal-grounding-tg1b-"
-                                f"{checkpoint_arm.replace('_', '-')}-e{cadence}-east4g"
+                                f"{checkpoint_arm.replace('_', '-')}-e{cadence}-"
+                                "retry500-east4g"
                             ),
                             "env": {
                                 "TG1B_CHECKPOINT_ARM": checkpoint_arm,
                                 "TG1B_EXECUTION_CADENCE": str(cadence),
+                                "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT": str(
+                                    runtime_v11_path
+                                ),
                             },
                         }
                     ],

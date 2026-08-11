@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_runtime_amendment_v11",
+  "extends": "temporal_grounding_runtime_amendment_v10",
+  "extended_manifest_sha256": "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e",
+  "created_at": "2026-08-11T07:10:00Z",
+  "scope": "Admit TG1B to the exact runtime-v10 LaWAM metadata-compatibility descendant already used by TG1A and TG2",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "applies_to_bundles": [
+    "TG1A",
+    "TG1B",
+    "TG2"
+  ],
+  "change": [
+    "Extend the already audited runtime-v10 source admission to TG1B.",
+    "No model, checkpoint, evaluation, retry, intervention, cadence, scene, seed, or analysis setting changes in this runtime amendment."
+  ],
+  "invariants": [
+    "The only admitted LaWAM delta remains the temporal_grounding_context metadata allowlist and its focused test.",
+    "The separate TG1 retry500 amendment is the sole scientific protocol change and is verified independently."
+  ],
+  "source_identity": {
+    "lawam_commit": "7ca170c9b98e15026ecd9004d91f0ad9c73ba5f7",
+    "parent_lawam_commit": "71803a3f8b0e55679a4557ef6af80a76604f277a",
+    "lawam_changed_files": [
+      "starVLA/model/framework/latent_world/batch_builder.py",
+      "starVLA/model/framework/latent_world/runtime/test_temporal_grounding_context.py"
+    ]
+  },
+  "files": {
+    "lmvla/lawam/starVLA/model/framework/latent_world/batch_builder.py": "9aa91654c274f9cbfc6f6d08066c8188ab84731baf81de64148b058c8885bc22",
+    "lmvla/lawam/starVLA/model/framework/latent_world/runtime/test_temporal_grounding_context.py": "df79416a78b4d0f46b87b6dae996cdd11c916aad87fc4192934152e4de941a17",
+    "lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py": "77fd0d5264a1b51a1a270b2b5bda8e7329af846721b81a6a41f961d4a8d5abd1",
+    "lmvla/lmwm/scripts/test_verify_temporal_grounding_bundle.py": "ac11f56eea200f61e00e6be2db6cdb4043312cb7f557b4552128c4d83201171d"
+  },
+  "validation": {
+    "required": "Existing bundle-verifier tests plus TG1 retry500 focused tests and scheduler registration tests"
+  }
+}

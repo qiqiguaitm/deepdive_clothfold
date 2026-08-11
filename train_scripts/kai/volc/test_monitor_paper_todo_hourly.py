@@ -62,9 +62,12 @@ def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Pa
     return todo, snapshot, state
 
 
-def test_frozen_completion_set_has_all_tg1a_and_tg2r_cells() -> None:
-    assert len(monitor.EXPECTED_TASK_IDS) == 33
+def test_frozen_completion_set_has_all_tg1a_tg1b_and_tg2r_cells() -> None:
+    assert len(monitor.EXPECTED_TASK_IDS) == 37
     assert "temporal_grounding_tg1a_shuffled_eval" in monitor.EXPECTED_TASK_IDS
+    assert (
+        "temporal_grounding_tg1b_local_wm_e50_eval" in monitor.EXPECTED_TASK_IDS
+    )
     assert "temporal_grounding_tg2r_training_integrity" in monitor.EXPECTED_TASK_IDS
     assert "temporal_grounding_tg2r_raw_milestone_seed1002_eval" in monitor.EXPECTED_TASK_IDS
 
@@ -80,7 +83,7 @@ def test_collect_marks_exact_completed_set_complete(tmp_path: Path) -> None:
     )
     assert record["complete"] is True
     assert record["monitor_status"] == "complete"
-    assert record["task_summary"]["status_counts"] == {"completed": 33}
+    assert record["task_summary"]["status_counts"] == {"completed": 37}
     assert record["todo"]["unchecked_current_override"] == 1
     assert record["todo"]["unchecked_total"] == 2
     assert record["final_analyses"]["complete"] is True

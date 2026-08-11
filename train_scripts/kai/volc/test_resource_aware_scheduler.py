@@ -6489,7 +6489,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
 
     capture_marker = str(
         scheduler.REPO
-        / "logs/temporal_grounding/tg1a/normal_capture_complete.json"
+        / "logs/resource_markers/"
+        "temporal_grounding_tg1a_retry500_normal_capture_complete.json"
+    )
+    activation_marker = str(
+        scheduler.REPO
+        / "logs/resource_markers/temporal_grounding_tg1_retry500_activation_v1.json"
     )
     assert capture_marker in tg1a["temporal_grounding_tg1a_shuffled_eval"][
         "ready_files"
@@ -6501,17 +6506,15 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         assert task["candidates"][0]["gpus"] == 4
         assert task["candidates"][0]["env"]["TG1A_CONDITION"] == condition
         assert task["candidates"][0]["runtime_revision"] == (
-            "temporal_grounding_runtime_v10"
+            "temporal_grounding_tg1_retry500_v1"
         )
         assert task["candidates"][0]["yaml"].endswith(
-            "temporal_grounding_tg1a_east_runtime_v9_4h20.yaml"
+            "temporal_grounding_tg1a_retry500_east_4h20.yaml"
         )
-        assert task["rearm_after_ready_file"].endswith(
-            "temporal_grounding_runtime_amendment_v10.json"
-        )
+        assert task["rearm_after_ready_file"] == activation_marker
         assert task["candidates"][0]["env"][
             "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT"
-        ].endswith("temporal_grounding_runtime_amendment_v10.json")
+        ].endswith("temporal_grounding_runtime_amendment_v11.json")
 
     assert {
         (
@@ -6527,13 +6530,19 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     }
     assert all(
         task["candidates"][0]["yaml"].endswith(
-            "temporal_grounding_tg1b_east_runtime_v4_4h20.yaml"
+            "temporal_grounding_tg1b_retry500_east_4h20.yaml"
         )
         for task in tg1b.values()
     )
-    assert all(not task["enabled"] for task in tg1b.values())
     assert all(
-        "protocol decision" in task["disabled_reason"] for task in tg1b.values()
+        task.get("enabled", True)
+        and task["rearm_after_ready_file"] == activation_marker
+        and task["candidates"][0]["runtime_revision"]
+        == "temporal_grounding_tg1_retry500_v1"
+        and task["candidates"][0]["env"][
+            "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT"
+        ].endswith("temporal_grounding_runtime_amendment_v11.json")
+        for task in tg1b.values()
     )
 
     for task in tg2.values():

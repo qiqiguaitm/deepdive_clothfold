@@ -1801,3 +1801,151 @@ Canonical records:
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e36`
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50`
 - `lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json`
+
+## 43. Original TG2 matrix rejection and deterministic-order recovery
+
+All nine original TG2 training jobs reached durable step-20,000 checkpoints,
+and all nine location-aware materializers completed. Checkpoint completion did
+not make the matrix admissible. The strict joint integrity worker rejected
+`exact_rank_data_order_within_seed`: for every training seed, the four-rank
+ordered episode/frame hashes differed across `future_off`, `fixed_endpoint`,
+and `raw_milestone`. The first claim-bearing verifier failure reports the
+seed-1000 mismatch directly; the consolidated scheduler disposition records
+the same failure for all three seeds.
+
+The frozen parent loader used eight workers per rank with `in_order=false`.
+Shared seeds therefore fixed the sampler inputs but did not fix the order in
+which asynchronously completed worker batches entered training. The nine
+parent checkpoints are retained as protocol-audit artifacts. All nine parent
+evaluations are disabled, and no parent checkpoint may be substituted into the
+recovery matrix. This rejection supplies no policy comparison.
+
+The scheduler-owned recovery probe tested the single proposed repair before
+retraining. Two independent four-rank launches used `in_order=true`; each rank
+consumed 256 microbatches and 4,096 samples. Both launches produced identical
+ordered episode/frame hashes on every rank. This result establishes a
+deterministic data-order path under the probed loader contract. It does not
+establish checkpoint integrity, control utility, or a temporal-grounding
+mechanism.
+
+Canonical records:
+
+- `logs/temporal_grounding/tg2/integrity_platform/integrity_20260810_003558.log`
+- `logs/temporal_grounding/tg2/data_order_recovery_probe_v1/matched.json`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_data_order_recovery_probe_v3.json`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json`
+- `logs/resource_scheduler_state.json`
+
+## 44. Completed TG2R recovery-training prerequisites through 2026-08-11
+
+TG2R preserves the parent arms, seeds, initialization, target routes, global
+batch 128, four-GPU world size, eight workers per rank, 20,000 updates,
+`H=E=50`, and fixed-final-checkpoint selection. Its only scientific training
+change is `datasets.vla_data.in_order: false -> true`. The North recovery
+payload passed both pinned Git identities and all frozen payload hashes.
+
+Eight recovery training cells are durably complete and materialized: all three
+`fixed_endpoint` seeds, all three `raw_milestone` seeds, and `future_off` seeds
+1000 and 1001. Six rows use full-state, hash-verified North-to-East transfer;
+the two East `raw_milestone` rows satisfy their location-aware materializers
+without redundant transfer. Each completed North tree includes a final model,
+step-20,000 optimizer state, initialization record, and four rank-order
+sidecars. Completion of these prerequisites is not downstream policy evidence.
+
+The raw recovery sidecars contain a null redundant `arm` field because the
+launcher exports `TG2R_ARM` while the inherited writer reads `TG2_ARM`.
+Post-training amendment v3 preserves every raw byte and hash, rejects any
+non-null or independently reconstructed field mismatch, and supplies the
+prespecified arm only in a temporary integrity overlay. Amendment v4 runs the
+unchanged verifier in an East root context so it can read the two root-owned
+East sidecar sets. These amendments repair instrumentation and access only;
+they do not change training data, weights, order, targets, evaluation, or any
+scientific acceptance gate.
+
+At the archive cutoff, `future_off` seed 1002 remains unfinished. Consequently,
+the nine-arm integrity gate, all nine closed-loop evaluations, and every TG2R
+utility or target-horizon claim remain open.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v3.json`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v4.json`
+- `logs/resource_scheduler_state.json`
+
+## 45. TG1 partial-panel disposition and common protocol gate
+
+The runtime-v10 TG1A attempts produced 20/24 normal, 19/24 null, and 21/24
+persistence summaries. Shuffled remains at 0/24 because it requires a complete
+normal feature capture. Each attempted condition ended `Failed` after frozen
+scene seeds exhausted the three permitted setup attempts. No TG1A condition is
+a complete matrix, so partial success rates and cross-condition differences are
+inadmissible.
+
+Together with the TG1B diagnosis in Section 42, the evidence supports one
+common operational explanation: stochastic simulator/setup validity under a
+three-attempt cap. It does not identify a model-specific failure or permit
+mixing completed cells from different retry recipes. The audited repair would
+set `ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS=500`, preserve every scene identity, move
+all incomplete roots aside, and rerun every TG1A and TG1B condition under the
+same cap. This repair remains a protocol proposal, not an active experiment.
+Without an explicit amendment, TG1 supplies no content-use or cadence result.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/AUDIT_temporal_grounding_live_blockers_2026-08-08.json`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_normal`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_null`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_persistence`
+- `logs/resource_scheduler_state.json`
+
+## 46. TG1 common retry500 amendment activation
+
+At 07:14:16 UTC on 2026-08-11, the operator explicitly authorized the audited
+common TG1 fixed-scene repair. The frozen amendment changes only
+`ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS` from 3 to 500 and applies identically to all
+four TG1A conditions and all four TG1B checkpoint-by-cadence cells. The scene
+manifest and its 1,200 accepted identities, checkpoints, tasks, evaluation
+seeds, interventions, cadence, control rate, episode count, and statistical
+gates remain unchanged.
+
+Activation preflight reproduced the cap-3 partial inventory: TG1A normal 20/24,
+null 19/24, persistence 21/24, and shuffled 0/24; TG1B future-off/E=36 20/24,
+future-off/E=50 0/24, local-WM/E=36 0/24, and local-WM/E=50 18/24. The five
+extant result roots were recoverably renamed with suffix
+`.pre_retry500_v1`. The other three roots were absent. A post-archive audit
+verified that all eight retry500 canonical result paths were absent before
+dispatch, so no cap-3 summary can satisfy retry500 completion.
+
+The 9.0-GB incomplete normal feature capture contains 12,109 files and is owned
+by root under a non-writable parent. An attempted directory rename was denied;
+the activation transaction rolled back all preceding result-root moves and did
+not publish a marker. The admitted second transaction retains that capture in
+place as read-only excluded provenance and routes retry500 normal and shuffled
+to the distinct, initially absent
+`logs/tg1_retry500/predicted_endpoint_features` root. The new capture has a
+separate completion marker. Thus no legacy feature is read or reused, without
+privilege escalation or destructive copying.
+
+After the activation marker was published, the existing scheduler rearmed all
+eight task IDs. It launched TG1A normal as `t-20260811151421-rlt29` and TG1A
+null as `t-20260811151424-z9hrr` on the eight available East GPUs; the remaining
+conditions wait for capacity, and shuffled also waits for the complete new
+normal capture. These are active experiments, not completed evidence. Until
+each relevant condition reaches 24/24 and the prespecified analyzers pass,
+partial retry500 output cannot support a success rate, content-use contrast, or
+cadence claim.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1_retry500_amendment_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v11.json`
+- `logs/resource_markers/temporal_grounding_tg1_retry500_activation_v1.json`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_normal.pre_retry500_v1`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_null.pre_retry500_v1`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_persistence.pre_retry500_v1`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e36.pre_retry500_v1`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50.pre_retry500_v1`
+- `logs/temporal_grounding/tg1a/predicted_endpoint_features`
+- `logs/resource_scheduler_state.json`
