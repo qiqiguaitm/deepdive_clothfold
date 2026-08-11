@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 04:16 UTC
+Updated: 2026-08-11 04:37 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -93,8 +93,8 @@ gate.
   unkillable backup Queueing attempt `t-20260810091846-g8fpd`, and dispatched
   the primary job at 23:56 UTC. The formal checkpoint and audit sidecars use
   unique `primarydup` names; the old backup attempt is excluded from completion,
-  materialization, integrity, and evaluation provenance. At 04:16 UTC the
-  formal run is healthy at step 7,477/20,000 and 2.05 seconds/step, ETA 7.13
+  materialization, integrity, and evaluation provenance. At 04:37 UTC the
+  formal run is healthy at step 8,074/20,000 and 2.04 seconds/step, ETA 6.76
   hours; the detached backup request has terminated `Failed`.
 - [x] **TG2R-T04 [COMPLETE: `t-20260810091825-6cgzh`, primary]**
   `fixed_endpoint`, seed 1000, North 4 GPU; durable completion at 14:08 UTC.
@@ -137,6 +137,13 @@ failure; their only missing ready file is the prespecified
 `temporal_grounding_tg2r_training_integrity.ok` gate marker. Thus no source,
 YAML, renderer, or runtime repair is pending behind the final training and
 materialization dependency.
+
+At 04:36 UTC the scheduler remained healthy on its 15-second loop. The primary
+identity used 4/25 North GPUs, the backup identity used 0/8, East was idle at
+0/8, and no managed job was queueing. This idleness is expected: the remaining
+integrity worker and all nine evaluations are scientifically blocked by the
+seed-1002 checkpoint, not by resource placement. Once admitted, the East
+capacity permits two four-GPU evaluation rows concurrently.
 
 The final North transfer uses post-training v6. A read-only probe on the same
 North filesystem and SSH route measured 5.70 MiB/s for one stream and 8.53
