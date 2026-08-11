@@ -6451,6 +6451,29 @@ def test_load_state_reopens_report_only_p1_materialization(
     assert task_state["attempts"][-1]["completion_misclassification_repaired"]
 
 
+def test_temporal_grounding_refreshes_persisted_tg1_runtime_candidates() -> None:
+    stale_task = {
+        "id": "temporal_grounding_tg1b_future_off_e36_eval",
+        "candidates": [{"resource": "Robot-East-H20"}],
+        "obsolete_runtime_field": True,
+    }
+    queue = {"tasks": [stale_task]}
+
+    scheduler.add_temporal_grounding_tasks(queue)
+
+    matching = [
+        task
+        for task in queue["tasks"]
+        if task["id"] == "temporal_grounding_tg1b_future_off_e36_eval"
+    ]
+    assert len(matching) == 1
+    assert {candidate["resource"] for candidate in matching[0]["candidates"]} == {
+        "Robot-East-H20",
+        "Robot-North-H20",
+    }
+    assert "obsolete_runtime_field" not in matching[0]
+
+
 def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     queue = {"tasks": []}
 

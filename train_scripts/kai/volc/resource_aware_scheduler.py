@@ -8571,6 +8571,23 @@ def add_pi05_predictive_adapter_p345_tasks(queue: dict[str, Any]) -> None:
 def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     """Register the 16 frozen, operator-authorized first-wave TG jobs."""
     existing = {task.get("id") for task in queue.get("tasks", [])}
+    existing_tasks = {
+        task.get("id"): task
+        for task in queue.get("tasks", [])
+        if task.get("id") is not None
+    }
+
+    def upsert_runtime_task(task: dict[str, Any]) -> None:
+        """Refresh generated tasks when a persisted queue predates runtime changes."""
+        task_id = task["id"]
+        current = existing_tasks.get(task_id)
+        if current is None:
+            queue["tasks"].append(task)
+            existing_tasks[task_id] = task
+            existing.add(task_id)
+            return
+        current.clear()
+        current.update(task)
     manifests = REPO / "lmvla/paper_iclr_lmvla/manifests"
     tg1a_path = manifests / "temporal_grounding_tg1a_admission_v1.json"
     tg1b_path = manifests / "temporal_grounding_tg1b_admission_v1.json"
@@ -8937,8 +8954,6 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg1a_hashes = tg1_retry500_hashes
     for condition in ("normal", "null", "persistence", "shuffled"):
         task_id = f"temporal_grounding_tg1a_{condition}_eval"
-        if task_id in existing:
-            continue
         ready_files = [
             str(activation_marker),
             str(tg1_retry500_path),
@@ -9037,8 +9052,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     ],
                 }
             )
-        queue["tasks"].append(task)
-        existing.add(task_id)
+        upsert_runtime_task(task)
 
     tg1b_runner = (
         REPO
@@ -9053,8 +9067,6 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         checkpoint = REPO / tg1b["checkpoints"][checkpoint_arm]["path"]
         for cadence in (36, 50):
             task_id = f"temporal_grounding_tg1b_{checkpoint_arm}_e{cadence}_eval"
-            if task_id in existing:
-                continue
             result_root = (
                 REPO
                 / "lmvla/lawam/results/eval_runs/robotwin"
@@ -9156,8 +9168,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         },
                     ],
                 }
-            queue["tasks"].append(task)
-            existing.add(task_id)
+            upsert_runtime_task(task)
 
     tg2_runner = REPO / "train_scripts/kai/run_temporal_grounding_tg2_train.sh"
     east_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_east_4h20.yaml"
