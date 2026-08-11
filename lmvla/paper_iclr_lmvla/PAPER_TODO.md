@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 12:04 UTC
+Updated: 2026-08-11 12:08 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -52,17 +52,17 @@ archived in Section 44. Only the following execution chain remains:
   and evaluation provenance. The operator has separately authorized another
   primary-identity seed-1002 submission only if recovery is required; no
   additional training is needed while this completed artifact verifies.
-- [ ] **TG2R-M03 [RETRY PENDING under v7]** Materialize the complete seed-1002
+- [x] **TG2R-M03 [COMPLETE under v7]** Materialize the complete seed-1002
   full-state tree from North to East with source/destination SHA-256
   verification, including initialization and four rank-order sidecars. The v6
   attempt verified and atomically installed all 19 checkpoint-tree files at
   11:58 UTC, then exited before sidecar validation because the checkpoint-only
   parallel-transfer flag leaked into the nested four-file sidecar copy. The v7
-  operational amendment disables that flag only for the nested copy. The retry
-  must reuse and verify the installed checkpoint, materialize the sidecars,
-  and write the canonical marker; it does not retrain or retransmit the large
-  checkpoint tree.
-- [ ] **TG2R-I1 [BLOCKED by M03]** Run the joint nine-arm integrity gate in the
+  operational amendment disables that flag only for the nested copy. The
+  scheduler retry reused the installed checkpoint, materialized and normalized
+  all sidecars, and wrote the canonical marker at 12:06 UTC without retraining
+  or retransmitting the large checkpoint tree.
+- [ ] **TG2R-I1 [READY: local East-root CPU audit]** Run the joint nine-arm integrity gate in the
   admitted East root context. Require all nine successful terminal jobs,
   fixed step 20,000, complete optimizer state, exact initialization equality
   within seed, exact rank-order equality across arms within seed, distinct
