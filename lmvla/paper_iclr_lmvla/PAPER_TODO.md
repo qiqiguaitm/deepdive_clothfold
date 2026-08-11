@@ -122,7 +122,10 @@ gate.
   across seeds. Eight materializers are complete: all fixed-endpoint and
   raw-milestone rows plus `future_off` seeds 1000--1001. Both newly materialized
   checkpoints have 7.17 GB final models, 9.13 GB optimizer states, and complete
-  initialization/four-rank order sidecars. The gate explicitly checks
+  initialization/four-rank order sidecars. The exact location split is six
+  verified North transfer reports and two East direct-satisfied rows; the East
+  rows retain their root-owned mode-0600 initialization and four-rank sidecars
+  for the v4 root-context gate. The gate explicitly checks
   `in_order=true` and eight workers in every persisted full config.
 - [ ] **TG2R-E01--E09 [ADMITTED; BLOCKED by I1]** Run the unchanged frozen
   paired evaluation protocol on East only after joint integrity acceptance.
