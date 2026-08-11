@@ -127,6 +127,14 @@ gate.
 - [ ] **TG2R-E01--E09 [ADMITTED; BLOCKED by I1]** Run the unchanged frozen
   paired evaluation protocol on East only after joint integrity acceptance.
 
+The 04:19 UTC downstream readiness audit rebuilt all ten scheduler tasks from
+their frozen manifests. The East one-GPU integrity worker has no missing input
+or hash failure. All nine East four-GPU evaluations likewise have no hash
+failure; their only missing ready file is the prespecified
+`temporal_grounding_tg2r_training_integrity.ok` gate marker. Thus no source,
+YAML, renderer, or runtime repair is pending behind the final training and
+materialization dependency.
+
 The first materialization attempts for the three completed fixed-endpoint rows
 all failed closed and exhausted their three local retries. The frozen TG2R
 launcher exports `TG2R_ARM`, while the inherited audit writer reads `TG2_ARM`,
