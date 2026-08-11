@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "protocol": "temporal_grounding_tg2_recovery_posttraining_v7",
+  "created_at": "2026-08-11T12:02:00Z",
+  "frozen": true,
+  "manual_execution_authorized": false,
+  "execution_owner": "resource_aware_scheduler",
+  "parent": {
+    "path": "lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v6.json",
+    "sha256": "22727172cb8ce6e6844655283fb5be11a9b0286c237cb5e7ad7a163316a94143"
+  },
+  "amendment": {
+    "scope": "Prevent the checkpoint-only parallel large-file mode from leaking into the nested four-file data-order sidecar copy.",
+    "observed_failure": "The seed1002 primary materializer verified and atomically installed all 19 checkpoint-tree files, then exited before sidecar validation because the inherited acceleration flag made the sidecar copier require three nonexistent model files.",
+    "repair": "Set SYNC_PARALLEL_LARGE_FILES=0 only for the nested data-order sidecar sync invocation.",
+    "checkpoint_reuse": "A retry verifies and reuses the already installed complete checkpoint destination, then resumes initialization and data-order sidecar materialization.",
+    "integrity": "Remote and local SHA-256 verification, atomic destination replacement, normalized sidecar validation, and the joint nine-arm integrity gate remain unchanged.",
+    "scientific_changes": []
+  },
+  "files": {
+    "train_scripts/kai/sync_temporal_grounding_tg2r_checkpoint_from_north.sh": "2bcb8da8e5c41d464bb12c8fa93cf2ab954d95beb72c87eaba0cb505a9ef0b29"
+  }
+}

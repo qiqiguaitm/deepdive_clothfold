@@ -96,7 +96,7 @@ if [[ "$local_order_digest" != "$remote_order_digest" ]]; then
   if [[ -e "$LOCAL_ORDER_RAW" ]]; then
     mv "$LOCAL_ORDER_RAW" "${LOCAL_ORDER_RAW}.quarantine.$(date -u +%Y%m%d_%H%M%S)"
   fi
-  SRC="$REMOTE_ORDER" DST="$LOCAL_ORDER_RAW" \
+  SRC="$REMOTE_ORDER" DST="$LOCAL_ORDER_RAW" SYNC_PARALLEL_LARGE_FILES=0 \
     bash "$REPO/train_scripts/kai/sync_tree_from_north_verified.sh"
 fi
 

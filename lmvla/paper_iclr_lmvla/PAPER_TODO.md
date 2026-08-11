@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 11:38 UTC
+Updated: 2026-08-11 12:04 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -52,11 +52,16 @@ archived in Section 44. Only the following execution chain remains:
   and evaluation provenance. The operator has separately authorized another
   primary-identity seed-1002 submission only if recovery is required; no
   additional training is needed while this completed artifact verifies.
-- [ ] **TG2R-M03 [RUNNING locally]** Materialize the complete seed-1002
+- [ ] **TG2R-M03 [RETRY PENDING under v7]** Materialize the complete seed-1002
   full-state tree from North to East with source/destination SHA-256
   verification, including initialization and four rank-order sidecars. The v6
-  atomic materializer started at 11:28 UTC with three parallel large-file
-  streams; its incoming tree was 8.0 GiB at 11:38 UTC.
+  attempt verified and atomically installed all 19 checkpoint-tree files at
+  11:58 UTC, then exited before sidecar validation because the checkpoint-only
+  parallel-transfer flag leaked into the nested four-file sidecar copy. The v7
+  operational amendment disables that flag only for the nested copy. The retry
+  must reuse and verify the installed checkpoint, materialize the sidecars,
+  and write the canonical marker; it does not retrain or retransmit the large
+  checkpoint tree.
 - [ ] **TG2R-I1 [BLOCKED by M03]** Run the joint nine-arm integrity gate in the
   admitted East root context. Require all nine successful terminal jobs,
   fixed step 20,000, complete optimizer state, exact initialization equality
@@ -223,7 +228,7 @@ suite/task reported; selected positive subsets are forbidden.
 - TG2R training contract:
   `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json`
 - TG2R post-training contract:
-  `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v1.json`
+  `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v7.json`
 - TG1 retry500 amendment:
   `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1_retry500_amendment_v1.json`
 - TG1 activation record:

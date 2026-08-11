@@ -6770,7 +6770,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     )
     assert all(
         task["rearm_after_ready_file"].endswith(
-            "temporal_grounding_tg2_recovery_posttraining_v6.json"
+            "temporal_grounding_tg2_recovery_posttraining_v7.json"
         )
         for task in recovery_materializers.values()
     )
@@ -6786,6 +6786,21 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert "SYNC_PARALLEL_LARGE_FILES=1" in (
         duplicate_materializer["candidates"][0]["command"]
     )
+    recovery_sync = scheduler.REPO / (
+        "train_scripts/kai/sync_temporal_grounding_tg2r_checkpoint_from_north.sh"
+    )
+    assert (
+        'SRC="$REMOTE_ORDER" DST="$LOCAL_ORDER_RAW" SYNC_PARALLEL_LARGE_FILES=0'
+        in recovery_sync.read_text(encoding="utf-8")
+    )
+    recovery_sync_hash = next(
+        item
+        for item in duplicate_materializer["ready_hashes"]
+        if item["path"] == str(recovery_sync)
+    )
+    assert recovery_sync_hash["sha256"] == (
+        "2bcb8da8e5c41d464bb12c8fa93cf2ab954d95beb72c87eaba0cb505a9ef0b29"
+    )
     recovery_integrity = tasks["temporal_grounding_tg2r_training_integrity"]
     assert set(recovery_integrity["requires_completed_tasks"]) == set(
         recovery_materializers
@@ -6797,17 +6812,17 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         "temporal_grounding_tg2r_integrity_east_posttraining_v4_1h20.yaml"
     )
     assert recovery_integrity["rearm_after_ready_file"].endswith(
-        "temporal_grounding_tg2_recovery_posttraining_v6.json"
+        "temporal_grounding_tg2_recovery_posttraining_v7.json"
     )
-    recovery_v6_manifest = next(
+    recovery_v7_manifest = next(
         item
         for item in recovery_integrity["ready_hashes"]
         if item["path"].endswith(
-            "temporal_grounding_tg2_recovery_posttraining_v6.json"
+            "temporal_grounding_tg2_recovery_posttraining_v7.json"
         )
     )
-    assert recovery_v6_manifest["sha256"] == (
-        "22727172cb8ce6e6844655283fb5be11a9b0286c237cb5e7ad7a163316a94143"
+    assert recovery_v7_manifest["sha256"] == (
+        "2f61491dcde52c5c3608631096b252b97e014ffa6b9228c0a87b232e58c92943"
     )
     recovery_evals = {
         task_id: task
@@ -6854,7 +6869,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     )
     scheduler.add_temporal_grounding_tasks(queue)
     assert first_materializer["rearm_after_ready_file"].endswith(
-        "temporal_grounding_tg2_recovery_posttraining_v6.json"
+        "temporal_grounding_tg2_recovery_posttraining_v7.json"
     )
     assert first_materializer["candidates"][0]["command"].endswith(
         "sync_temporal_grounding_tg2r_checkpoint_from_north.sh"
