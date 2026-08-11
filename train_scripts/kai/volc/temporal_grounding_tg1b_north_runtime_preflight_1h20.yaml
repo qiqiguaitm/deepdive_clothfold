@@ -1,0 +1,68 @@
+TaskName: "temporal-grounding-tg1b-runtime-preflight-north1g"
+Description: "Load one frozen TG1B policy with the admitted North HF runtime"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 1800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+
+Entrypoint: |
+  set -euo pipefail
+  ROOT=/vePFS-North-E/vis_robot/workspace/deepdive_kai0
+  REPO=$ROOT/.staging/temporal_grounding_tg1_retry500_v1
+  HF_OVERLAY=/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3
+  MARKER=$REPO/logs/resource_markers/temporal_grounding_tg1b_north_runtime_v2.ok
+  test -s "$REPO/logs/resource_markers/temporal_grounding_tg1_retry500_north_stage.ok"
+  test -f "$HF_OVERLAY/transformers/__init__.py"
+  export PYTHONPATH="$HF_OVERLAY${PYTHONPATH:+:$PYTHONPATH}"
+  cd "$REPO/lmvla/lawam"
+  "$REPO/kai0/.venv/bin/python" - <<'PY'
+  import transformers
+  from transformers import AutoProcessor
+  from starVLA.model.framework.base_framework import baseframework
+
+  processor = AutoProcessor.from_pretrained(
+      "results/Checkpoints/qwen3_weights", local_files_only=True
+  )
+  assert type(processor).__name__ == "Qwen3VLProcessor", type(processor).__name__
+  policy = baseframework.from_pretrained(
+      "results/Checkpoints/robotwin/20260731_172204+robotwin_all6_v2_nowm_seed2027/final_model/pytorch_model.pt"
+  )
+  del policy
+  print("TG1B_NORTH_POLICY_LOAD_OK", transformers.__version__, flush=True)
+  PY
+  tmp="$MARKER.tmp.$$"
+  printf 'runtime=temporal_grounding_tg1b_north_runtime_v2\ncompleted_at=%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$tmp"
+  mv -f "$tmp" "$MARKER"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

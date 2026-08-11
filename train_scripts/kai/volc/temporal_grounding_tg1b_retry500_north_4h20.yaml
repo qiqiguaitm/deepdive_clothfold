@@ -48,7 +48,27 @@ Entrypoint: |
   test "$(cat "$REPO/lmvla/lawam/.source_commit")" = 7ca170c9b98e15026ecd9004d91f0ad9c73ba5f7
   ln -sfn "$REPO" /home/tim/workspace/deepdive_kai0
   bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
-  export STAR_VLA_PYTHON=$REPO/kai0/.venv/bin/python
+  HF_OVERLAY=/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3
+  test -f "$HF_OVERLAY/transformers/__init__.py"
+  SERVER_PY=/tmp/tg1b_lawam_server_python.sh
+  cat > "$SERVER_PY" <<EOF
+  #!/usr/bin/env bash
+  export PYTHONPATH="$HF_OVERLAY\${PYTHONPATH:+:\$PYTHONPATH}"
+  exec "$REPO/kai0/.venv/bin/python" "\$@"
+  EOF
+  chmod +x "$SERVER_PY"
+  export STAR_VLA_PYTHON=$SERVER_PY
+  cd "$REPO/lmvla/lawam"
+  "$STAR_VLA_PYTHON" - <<'PY'
+  import transformers
+  from transformers import AutoProcessor
+  processor = AutoProcessor.from_pretrained(
+      "results/Checkpoints/qwen3_weights", local_files_only=True
+  )
+  assert type(processor).__name__ == "Qwen3VLProcessor", type(processor).__name__
+  assert hasattr(processor, "tokenizer")
+  print("TG1B_NORTH_RUNTIME_OK", transformers.__version__, flush=True)
+  PY
   export ROBOTWIN_PATH=/vePFS-North-E/vis_robot/huanqian/RoboTwin
   export ROBOTWIN_PYTHON=$ROOT/lmvla/lawam/robotwin_python_wrapper_northe.sh
   export TORCH_CUDA_ARCH_LIST=9.0

@@ -6480,7 +6480,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 71
+    assert len(tasks) == 72
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6532,6 +6532,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         "temporal_grounding_tg1a_normal_eval"
     ]
     assert north_stage["candidates"][0]["resource"] == "local"
+    north_preflight = tasks["temporal_grounding_tg1b_north_runtime_preflight"]
+    assert north_preflight["candidates"][0]["resource"] == "Robot-North-H20"
+    assert north_preflight["candidates"][0]["gpus"] == 1
+    assert north_preflight["candidates"][0]["runtime_revision"] == (
+        "temporal_grounding_tg1b_north_runtime_v2"
+    )
     for condition in ("normal", "null", "persistence"):
         task = tg1a[f"temporal_grounding_tg1a_{condition}_eval"]
         assert capture_marker not in task["ready_files"]
@@ -6578,12 +6584,25 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     )
     assert all(
         task.get("enabled", True)
-        and task["rearm_after_ready_file"] == activation_marker
+        and task["rearm_after_ready_file"].endswith(
+            "temporal_grounding_tg1b_north_runtime_v2.json"
+        )
         and task["candidates"][0]["runtime_revision"]
         == "temporal_grounding_tg1_retry500_v1"
         and task["candidates"][0]["env"][
             "TEMPORAL_GROUNDING_RUNTIME_AMENDMENT"
         ].endswith("temporal_grounding_runtime_amendment_v11.json")
+        for task in tg1b.values()
+    )
+    assert all(
+        any(
+            path.endswith("temporal_grounding_tg1b_north_runtime_v2.ok")
+            for path in next(
+                candidate
+                for candidate in task["candidates"]
+                if candidate["resource"] == "Robot-North-H20"
+            )["ready_files_remote"]
+        )
         for task in tg1b.values()
     )
 

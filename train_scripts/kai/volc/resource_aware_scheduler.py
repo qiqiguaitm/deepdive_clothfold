@@ -8603,6 +8603,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     runtime_v9_path = manifests / "temporal_grounding_runtime_amendment_v9.json"
     runtime_v10_path = manifests / "temporal_grounding_runtime_amendment_v10.json"
     runtime_v11_path = manifests / "temporal_grounding_runtime_amendment_v11.json"
+    tg1b_north_runtime_v2_path = (
+        manifests / "temporal_grounding_tg1b_north_runtime_v2.json"
+    )
     tg1_retry500_path = (
         manifests / "temporal_grounding_tg1_retry500_amendment_v1.json"
     )
@@ -8666,6 +8669,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         runtime_v9_path: "cc28d480647c8da5f274352fe2c0ba7e88509997e15c3e891bbf0a4db494005c",
         runtime_v10_path: "5e64a2dd541656330a708121842028b017ca6b27e5a561f575c5775e54df1b0e",
         runtime_v11_path: "91574d8c1ff32919456777aa9629359175f1f574c128fcec97563f9214d2af7f",
+        tg1b_north_runtime_v2_path: "93c7f2db4485c025a09aa34f19f8a296220a230dca99590f46d516a9149b0aa4",
         tg1_retry500_path: "d77c7e10431e3db10b7f0746e1dd7967eedcf92b28424018c03ac552f188f553",
         posttraining_path: "a954b31f94883d2097a259181f7c785d701c2204b04e83e08c57a8c379843fd6",
         posttraining_v3_path: "27360a03d7e8f18b3ce25fd1441b1d01748884ce3b500559da2061285d250ff7",
@@ -8902,6 +8906,16 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO
         / "train_scripts/kai/volc/temporal_grounding_tg1b_retry500_north_4h20.yaml"
     )
+    tg1b_north_preflight_yaml = (
+        REPO
+        / "train_scripts/kai/volc/"
+        "temporal_grounding_tg1b_north_runtime_preflight_1h20.yaml"
+    )
+    tg1b_north_preflight_id = "temporal_grounding_tg1b_north_runtime_preflight"
+    tg1b_north_preflight_marker = (
+        tg1_north_stage
+        / "logs/resource_markers/temporal_grounding_tg1b_north_runtime_v2.ok"
+    )
     if tg1_north_stage_id not in existing:
         queue["tasks"].append(
             {
@@ -8942,6 +8956,65 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             }
         )
         existing.add(tg1_north_stage_id)
+
+    upsert_runtime_task(
+        {
+            "id": tg1b_north_preflight_id,
+            "priority": 0,
+            "description": "Load one frozen TG1B policy with the North HF runtime",
+            "rearm_after_ready_file": str(tg1b_north_runtime_v2_path),
+            "completion_locations": [
+                {
+                    "label": "north",
+                    "glob": str(tg1b_north_preflight_marker),
+                    "remote": True,
+                }
+            ],
+            "completion_min_count": 1,
+            "ready_files": [
+                str(tg1b_north_runtime_v2_path),
+                str(tg1b_north_preflight_yaml),
+                str(tg1b_north_yaml),
+            ],
+            "ready_hashes": [
+                {
+                    "path": str(tg1b_north_runtime_v2_path),
+                    "sha256": manifest_hashes[tg1b_north_runtime_v2_path],
+                },
+                {
+                    "path": str(tg1b_north_preflight_yaml),
+                    "sha256": "aed8585fe4cb533de4623a782f37cd6d436d6d6fd7372ef53531f026c6f05755",
+                },
+                {
+                    "path": str(tg1b_north_yaml),
+                    "sha256": "64696fe126344de3c06a3c84b1438ab673ca10f160a1d3f410a4e4ee0e54d2ab",
+                },
+            ],
+            "candidates": [
+                {
+                    "kind": "platform",
+                    "resource": "Robot-North-H20",
+                    "region": "cn-beijing",
+                    "gpus": 1,
+                    "queue_timeout_seconds": 300,
+                    "deploy_timeout_seconds": 900,
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 1,
+                    "runtime_revision": "temporal_grounding_tg1b_north_runtime_v2",
+                    "yaml": str(tg1b_north_preflight_yaml.relative_to(REPO)),
+                    "task_name": "temporal-grounding-tg1b-runtime-preflight-north1g",
+                    "ready_files_remote": [
+                        str(tg1_north_stage_marker_remote),
+                        str(tg1_north_stage / "kai0/.venv/bin/python"),
+                        "/vePFS-North-E/vis_robot/workspace/tim/runtime/"
+                        "tg2_transformers_5_2_py312_padding_v3/transformers/__init__.py",
+                        "/vePFS-North-E/vis_robot/workspace/tim/runtime/"
+                        "tg2_transformers_5_2_py312_padding_v3/tokenizers/tokenizers.abi3.so",
+                    ],
+                }
+            ],
+        }
+    )
 
     tg1a_runner = (
         REPO
@@ -9062,7 +9135,17 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO
         / "train_scripts/kai/volc/temporal_grounding_tg1b_retry500_east_4h20.yaml"
     )
-    tg1b_hashes = tg1_retry500_hashes
+    tg1b_hashes = [
+        *tg1_retry500_hashes,
+        {
+            "path": str(tg1b_north_runtime_v2_path),
+            "sha256": manifest_hashes[tg1b_north_runtime_v2_path],
+        },
+        {
+            "path": str(tg1b_north_yaml),
+            "sha256": "64696fe126344de3c06a3c84b1438ab673ca10f160a1d3f410a4e4ee0e54d2ab",
+        },
+    ]
     for checkpoint_arm in ("future_off", "local_wm"):
         checkpoint = REPO / tg1b["checkpoints"][checkpoint_arm]["path"]
         for cadence in (36, 50):
@@ -9079,7 +9162,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         f"TG1B {checkpoint_arm} E={cadence} full rerun under "
                         "common retry500 amendment"
                     ),
-                    "rearm_after_ready_file": str(activation_marker),
+                    "rearm_after_ready_file": str(tg1b_north_runtime_v2_path),
                     "completion_glob": str(result_root / "seed*/**/tasks/*/summary.json"),
                     "completion_min_count": 24,
                     "ready_files": [
@@ -9091,6 +9174,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(tg1b_runner),
                         str(runtime_v11_path),
                         str(tg1b_runtime_yaml),
+                        str(tg1b_north_runtime_v2_path),
+                        str(tg1b_north_yaml),
                     ],
                     "ready_hashes": tg1b_hashes,
                     "candidates": [
@@ -9127,7 +9212,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "retry_cooldown_seconds": 600,
                             "max_failures": 1,
                             "runtime_revision": (
-                                "temporal_grounding_tg1_retry500_north_v1"
+                                "temporal_grounding_tg1b_north_runtime_v2"
                             ),
                             "yaml": str(tg1b_north_yaml.relative_to(REPO)),
                             "task_name": (
@@ -9146,7 +9231,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             },
                             "ready_files_remote": [
                                 str(tg1_north_stage_marker_remote),
+                                str(tg1b_north_preflight_marker),
                                 str(tg1_north_stage / "kai0/.venv/bin/python"),
+                                "/vePFS-North-E/vis_robot/workspace/tim/runtime/"
+                                "tg2_transformers_5_2_py312_padding_v3/transformers/__init__.py",
                             ],
                         },
                     ],
