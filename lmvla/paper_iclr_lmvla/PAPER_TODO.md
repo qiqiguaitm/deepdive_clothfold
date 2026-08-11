@@ -602,13 +602,15 @@ incomplete at 20/24 normal, 19/24 null, and 21/24 persistence. This is
 lifecycle validation only; it does not change a runner, scene, retry cap, or
 scientific result.
 
-The hourly read-only monitor also requires canonical TG1A and TG2 result JSONs
-with their frozen protocol identifiers plus gate markers containing
-`validated=true`. It therefore cannot exit merely because the 33 registered
-training/materialization/integrity/evaluation tasks finish. Missing analyses
-remain active blockers, while malformed or wrong-protocol outputs raise a
-degraded alert. This adds no analysis execution path and does not bypass the
-explicit amendment requirement below.
+The hourly read-only monitor also requires completed scheduler-owned TG1A and
+TG2 analysis tasks, canonical result JSONs with their frozen protocol
+identifiers, and gate markers containing `validated=true`. It therefore cannot
+exit merely because the 33 registered training/materialization/integrity/
+evaluation tasks finish, nor can a stray same-name result from the rejected TG2
+matrix satisfy completion. Unregistered or missing analyses remain active
+blockers, while malformed or wrong-protocol outputs raise a degraded alert.
+This adds no analysis execution path and does not bypass the explicit amendment
+requirement below.
 
 ## 4. Dependency graph and admission waves
 

@@ -32,11 +32,13 @@ DEFAULT_LOCK = REPO / "logs/paper_todo_hourly_monitor.lock"
 
 ANALYSIS_ARTIFACT_SPECS = {
     "tg1a": {
+        "task_id": "temporal_grounding_tg1a_analysis",
         "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json",
         "marker": "logs/resource_markers/temporal_grounding_tg1a_gate.ok",
         "protocol": "temporal_grounding_tg1a_released_checkpoint_content_panel_v1",
     },
     "tg2": {
+        "task_id": "temporal_grounding_tg2_analysis",
         "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json",
         "marker": "logs/resource_markers/temporal_grounding_tg2_gate.ok",
         "protocol": "temporal_grounding_tg2_execution_aligned_matched_matrix_v1",
@@ -102,7 +104,9 @@ def todo_metrics(path: Path) -> dict[str, Any]:
     }
 
 
-def analysis_artifact_metrics(repo_path: Path) -> dict[str, Any]:
+def analysis_artifact_metrics(
+    repo_path: Path, state_tasks: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
     analyses: dict[str, Any] = {}
     for name, spec in ANALYSIS_ARTIFACT_SPECS.items():
         report_path = repo_path / spec["report"]
@@ -112,6 +116,8 @@ def analysis_artifact_metrics(repo_path: Path) -> dict[str, Any]:
             "marker": marker_path.is_file(),
         }
         row: dict[str, Any] = {
+            "task_id": spec["task_id"],
+            "task": task_record(state_tasks.get(spec["task_id"])),
             "report": str(report_path),
             "marker": str(marker_path),
             "expected_protocol": spec["protocol"],
@@ -120,6 +126,11 @@ def analysis_artifact_metrics(repo_path: Path) -> dict[str, Any]:
             "validated": False,
             "error": None,
         }
+        task_status = row["task"]["status"]
+        if task_status == "missing":
+            row["status"] = "unregistered"
+        elif task_status != "completed":
+            row["status"] = "task_incomplete"
         if all(present.values()):
             try:
                 report = load_json(report_path)
@@ -135,7 +146,8 @@ def analysis_artifact_metrics(repo_path: Path) -> dict[str, Any]:
                     )
                 if "validated=true" not in marker_lines:
                     raise ValueError("marker does not contain validated=true")
-                row.update(status="validated", validated=True)
+                if task_status == "completed":
+                    row.update(status="validated", validated=True)
             except Exception as exc:
                 row.update(status="invalid", error=f"{type(exc).__name__}: {exc}")
         analyses[name] = row
@@ -305,7 +317,7 @@ def collect(
     incomplete = sorted(
         task_id for task_id, row in tasks.items() if row["status"] != "completed"
     )
-    analyses = analysis_artifact_metrics(repo_path)
+    analyses = analysis_artifact_metrics(repo_path, state_tasks)
     for name, row in analyses["analyses"].items():
         if row["status"] == "invalid":
             errors.append(f"{name} analysis artifact: {row['error']}")
@@ -380,13 +392,14 @@ def render_markdown(record: dict[str, Any]) -> str:
             "",
             "## Final Analyses",
             "",
-            "| Analysis | Status | Report | Marker |",
-            "|---|---|---|---|",
+            "| Analysis | Task | Status | Report | Marker |",
+            "|---|---|---|---|---|",
         ]
     )
     for name, row in sorted(record["final_analyses"]["analyses"].items()):
         lines.append(
-            f"| `{name}` | `{row['status']}` | `{row['present']['report']}` | "
+            f"| `{name}` | `{row['task']['status']}` | `{row['status']}` | "
+            f"`{row['present']['report']}` | "
             f"`{row['present']['marker']}` |"
         )
     lines.extend(["", "## Transitions", ""])

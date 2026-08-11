@@ -50,6 +50,10 @@ def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Pa
                     task_id: {"status": status, "attempts": []}
                     for task_id in monitor.EXPECTED_TASK_IDS
                 }
+                | {
+                    spec["task_id"]: {"status": status, "attempts": []}
+                    for spec in monitor.ANALYSIS_ARTIFACT_SPECS.values()
+                }
             }
         ),
         encoding="utf-8",
@@ -95,6 +99,23 @@ def test_collect_requires_final_analysis_artifacts(tmp_path: Path) -> None:
     assert record["complete"] is False
     assert record["monitor_status"] == "active"
     assert record["final_analyses"]["analyses"]["tg2"]["status"] == "partial"
+
+
+def test_collect_requires_registered_completed_analysis_task(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    payload = json.loads(state.read_text())
+    del payload["tasks"][monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]["task_id"]]
+    state.write_text(json.dumps(payload), encoding="utf-8")
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+    assert record["complete"] is False
+    assert record["monitor_status"] == "active"
+    assert record["final_analyses"]["analyses"]["tg2"]["status"] == "unregistered"
 
 
 def test_collect_rejects_invalid_final_analysis_artifact(tmp_path: Path) -> None:
