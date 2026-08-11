@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 12:11 UTC
+Updated: 2026-08-11 12:16 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -107,6 +107,12 @@ The expected canonical analysis output remains
 `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json`. The rejected
 parent matrix produced no such result and cannot contribute episodes.
 
+- [ ] **TG2R-A1 [BLOCKED by E01--E09 and analysis admission]** Freeze and
+  register the scheduler-owned recovery analysis command against the nine
+  `temporal_grounding_tg2r_*` result roots, then produce the canonical report
+  and `temporal_grounding_tg2_gate.ok`. The parent TG2 command points to the
+  rejected `temporal_grounding_tg2_*` roots and must not be reused unchanged.
+
 ## 3. Active TG1 common fixed-scene retry500 panel
 
 The operator-authorized common amendment activated at 07:14:16 UTC. It changes
@@ -156,6 +162,11 @@ passes provenance verification.
   only; it does not establish correct-content use.
 - Every task must be reported. No partial panel or macro-only result may enter
   the manuscript.
+- [ ] **TG1A-A1 [BLOCKED by E1--E4 and analysis hash closure]** Register and
+  run the frozen TG1A analysis only after the common statistical helper is
+  included in the scheduler ready-hash closure.
+- [ ] **TG1B-A1 [BLOCKED by E1--E4 and analysis hash closure]** Register and
+  run the frozen TG1B analysis under the same fail-closed dependency rule.
 
 ## 4. Result-driven downstream branches
 
