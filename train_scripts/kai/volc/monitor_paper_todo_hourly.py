@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Persist an hourly, read-only audit of the active paper GPU TODO.
+"""Persist an hourly, read-only audit of the active paper TODO.
 
 Experiment execution remains owned by resource_aware_scheduler.py. This
-monitor only reads its state/snapshot, records progress, and exits when the
-frozen TG1A/TG2R task set is completely finished.
+monitor only reads its state/snapshot and canonical outputs, records progress,
+and exits when the frozen TG1A/TG2R tasks and final analyses are finished.
 """
 
 from __future__ import annotations
@@ -29,6 +29,19 @@ DEFAULT_JSONL = REPO / "logs/paper_todo_hourly_monitor.jsonl"
 DEFAULT_LATEST_JSON = REPO / "logs/paper_todo_hourly_monitor_latest.json"
 DEFAULT_LATEST_MD = REPO / "logs/paper_todo_hourly_monitor_latest.md"
 DEFAULT_LOCK = REPO / "logs/paper_todo_hourly_monitor.lock"
+
+ANALYSIS_ARTIFACT_SPECS = {
+    "tg1a": {
+        "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json",
+        "marker": "logs/resource_markers/temporal_grounding_tg1a_gate.ok",
+        "protocol": "temporal_grounding_tg1a_released_checkpoint_content_panel_v1",
+    },
+    "tg2": {
+        "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json",
+        "marker": "logs/resource_markers/temporal_grounding_tg2_gate.ok",
+        "protocol": "temporal_grounding_tg2_execution_aligned_matched_matrix_v1",
+    },
+}
 
 STOP_REQUESTED = False
 
@@ -86,6 +99,49 @@ def todo_metrics(path: Path) -> dict[str, Any]:
         "unchecked_current_override": current.count("- [ ]"),
         "unchecked_total": text.count("- [ ]"),
         "checked_total": text.count("- [x]") + text.count("- [X]"),
+    }
+
+
+def analysis_artifact_metrics(repo_path: Path) -> dict[str, Any]:
+    analyses: dict[str, Any] = {}
+    for name, spec in ANALYSIS_ARTIFACT_SPECS.items():
+        report_path = repo_path / spec["report"]
+        marker_path = repo_path / spec["marker"]
+        present = {
+            "report": report_path.is_file(),
+            "marker": marker_path.is_file(),
+        }
+        row: dict[str, Any] = {
+            "report": str(report_path),
+            "marker": str(marker_path),
+            "expected_protocol": spec["protocol"],
+            "present": present,
+            "status": "missing" if not any(present.values()) else "partial",
+            "validated": False,
+            "error": None,
+        }
+        if all(present.values()):
+            try:
+                report = load_json(report_path)
+                observed_protocol = report.get("protocol")
+                marker_lines = {
+                    line.strip()
+                    for line in marker_path.read_text(encoding="utf-8").splitlines()
+                    if line.strip()
+                }
+                if observed_protocol != spec["protocol"]:
+                    raise ValueError(
+                        f"protocol {observed_protocol!r} != {spec['protocol']!r}"
+                    )
+                if "validated=true" not in marker_lines:
+                    raise ValueError("marker does not contain validated=true")
+                row.update(status="validated", validated=True)
+            except Exception as exc:
+                row.update(status="invalid", error=f"{type(exc).__name__}: {exc}")
+        analyses[name] = row
+    return {
+        "complete": all(row["validated"] for row in analyses.values()),
+        "analyses": analyses,
     }
 
 
@@ -203,6 +259,7 @@ def collect(
     previous: dict[str, Any] | None = None,
     max_snapshot_age_seconds: int = 300,
     now: datetime | None = None,
+    repo_path: Path = REPO,
 ) -> dict[str, Any]:
     observed_at = now or utc_now()
     errors: list[str] = []
@@ -248,7 +305,11 @@ def collect(
     incomplete = sorted(
         task_id for task_id, row in tasks.items() if row["status"] != "completed"
     )
-    complete = not errors and not missing and not incomplete
+    analyses = analysis_artifact_metrics(repo_path)
+    for name, row in analyses["analyses"].items():
+        if row["status"] == "invalid":
+            errors.append(f"{name} analysis artifact: {row['error']}")
+    complete = not errors and not missing and not incomplete and analyses["complete"]
     return {
         "timestamp": isoformat(observed_at),
         "monitor_status": "complete" if complete else ("degraded" if errors else "active"),
@@ -272,6 +333,7 @@ def collect(
             "incomplete": incomplete,
         },
         "tasks": tasks,
+        "final_analyses": analyses,
         "heartbeats": heartbeat_metrics(snapshot, tasks),
         "transitions": transitions(previous, tasks),
     }
@@ -313,6 +375,20 @@ def render_markdown(record: dict[str, Any]) -> str:
             )
     else:
         lines.append("No active TG2R heartbeat was reported.")
+    lines.extend(
+        [
+            "",
+            "## Final Analyses",
+            "",
+            "| Analysis | Status | Report | Marker |",
+            "|---|---|---|---|",
+        ]
+    )
+    for name, row in sorted(record["final_analyses"]["analyses"].items()):
+        lines.append(
+            f"| `{name}` | `{row['status']}` | `{row['present']['report']}` | "
+            f"`{row['present']['marker']}` |"
+        )
     lines.extend(["", "## Transitions", ""])
     if record["transitions"]:
         for change in record["transitions"]:
@@ -366,6 +442,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--latest-json", type=Path, default=DEFAULT_LATEST_JSON)
     parser.add_argument("--latest-md", type=Path, default=DEFAULT_LATEST_MD)
     parser.add_argument("--lock", type=Path, default=DEFAULT_LOCK)
+    parser.add_argument("--repo", type=Path, default=REPO)
     return parser
 
 
@@ -396,6 +473,7 @@ def main(argv: list[str] | None = None) -> int:
                 state_path=args.state,
                 previous=previous,
                 max_snapshot_age_seconds=args.max_snapshot_age_seconds,
+                repo_path=args.repo,
             )
             persist(
                 record,

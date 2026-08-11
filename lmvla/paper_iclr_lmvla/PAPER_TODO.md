@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 04:37 UTC
+Updated: 2026-08-11 04:44 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -585,8 +585,11 @@ The read-only machine audit
 `AUDIT_temporal_grounding_retry_panel_2026-08-08.json` independently verifies
 the exact ordered scene identities of every summary currently present, both
 frozen runners' cap of three, all eight required rerun conditions, and
-`activated=false`. All 65 summaries present across the eight roots at 09:20 UTC
-passed exact ordered-scene verification. The auditor and focused tests pass
+`activated=false`. The refreshed 04:40 UTC audit validates all 98 summaries
+across the eight roots: TG1A normal/null/persistence/shuffled contain
+20/19/21/0 valid cells, and TG1B future-off-E36/future-off-E50/local-WM-E36/
+local-WM-E50 contain 20/0/0/18. Every present summary passes exact ordered-scene
+verification. The auditor and focused tests pass
 without modifying a job, result root, runner, readiness marker, or scheduler
 state.
 At 07:31 UTC, the scheduler completion gate was hardened so every TG1A, TG1B,
@@ -594,9 +597,18 @@ and TG2 evaluation must contain exactly 24 summary files and then pass the
 frozen fixed-scene verifier. A mismatched manifest, missing scene identity,
 duplicate scene, duplicate cell, or extra summary now leaves the task
 incomplete instead of releasing its downstream gate. All 183 scheduler and
-recommendation tests pass, and the live partial roots remain correctly
-incomplete at 13/24 normal and 6/24 null. This is lifecycle validation only; it
-does not change a runner, scene, retry cap, or scientific result.
+recommendation tests pass, and the refreshed partial roots remain correctly
+incomplete at 20/24 normal, 19/24 null, and 21/24 persistence. This is
+lifecycle validation only; it does not change a runner, scene, retry cap, or
+scientific result.
+
+The hourly read-only monitor also requires canonical TG1A and TG2 result JSONs
+with their frozen protocol identifiers plus gate markers containing
+`validated=true`. It therefore cannot exit merely because the 33 registered
+training/materialization/integrity/evaluation tasks finish. Missing analyses
+remain active blockers, while malformed or wrong-protocol outputs raise a
+degraded alert. This adds no analysis execution path and does not bypass the
+explicit amendment requirement below.
 
 ## 4. Dependency graph and admission waves
 

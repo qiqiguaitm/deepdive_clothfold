@@ -14,6 +14,16 @@ SPEC.loader.exec_module(monitor)
 NOW = datetime(2026, 8, 10, 14, 0, tzinfo=timezone.utc)
 
 
+def write_analysis_artifacts(tmp_path: Path) -> None:
+    for spec in monitor.ANALYSIS_ARTIFACT_SPECS.values():
+        report = tmp_path / spec["report"]
+        marker = tmp_path / spec["marker"]
+        report.parent.mkdir(parents=True, exist_ok=True)
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(json.dumps({"protocol": spec["protocol"]}), encoding="utf-8")
+        marker.write_text("validated=true\n", encoding="utf-8")
+
+
 def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Path, Path]:
     todo = tmp_path / "PAPER_TODO.md"
     todo.write_text("# TODO\n- [ ] active\n## 1. History\n- [ ] old\n", encoding="utf-8")
@@ -44,6 +54,7 @@ def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Pa
         ),
         encoding="utf-8",
     )
+    write_analysis_artifacts(tmp_path)
     return todo, snapshot, state
 
 
@@ -57,13 +68,49 @@ def test_frozen_completion_set_has_all_tg1a_and_tg2r_cells() -> None:
 def test_collect_marks_exact_completed_set_complete(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path)
     record = monitor.collect(
-        todo_path=todo, snapshot_path=snapshot, state_path=state, now=NOW
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
     )
     assert record["complete"] is True
     assert record["monitor_status"] == "complete"
     assert record["task_summary"]["status_counts"] == {"completed": 33}
     assert record["todo"]["unchecked_current_override"] == 1
     assert record["todo"]["unchecked_total"] == 2
+    assert record["final_analyses"]["complete"] is True
+
+
+def test_collect_requires_final_analysis_artifacts(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    (tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]["marker"]).unlink()
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+    assert record["complete"] is False
+    assert record["monitor_status"] == "active"
+    assert record["final_analyses"]["analyses"]["tg2"]["status"] == "partial"
+
+
+def test_collect_rejects_invalid_final_analysis_artifact(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    report = tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]["report"]
+    report.write_text(json.dumps({"protocol": "wrong"}), encoding="utf-8")
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+    assert record["complete"] is False
+    assert record["monitor_status"] == "degraded"
+    assert record["final_analyses"]["analyses"]["tg2"]["status"] == "invalid"
 
 
 def test_collect_does_not_treat_missing_or_disabled_task_as_complete(tmp_path: Path) -> None:
@@ -75,7 +122,11 @@ def test_collect_does_not_treat_missing_or_disabled_task_as_complete(tmp_path: P
     payload["tasks"][disabled]["status"] = "disabled"
     state.write_text(json.dumps(payload), encoding="utf-8")
     record = monitor.collect(
-        todo_path=todo, snapshot_path=snapshot, state_path=state, now=NOW
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
     )
     assert record["complete"] is False
     assert missing in record["task_summary"]["missing"]
@@ -93,6 +144,7 @@ def test_stale_scheduler_snapshot_is_degraded(tmp_path: Path) -> None:
         state_path=state,
         now=NOW,
         max_snapshot_age_seconds=300,
+        repo_path=tmp_path,
     )
     assert record["complete"] is False
     assert record["monitor_status"] == "degraded"
@@ -102,7 +154,11 @@ def test_stale_scheduler_snapshot_is_degraded(tmp_path: Path) -> None:
 def test_collect_reports_task_transition(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path, status="pending")
     first = monitor.collect(
-        todo_path=todo, snapshot_path=snapshot, state_path=state, now=NOW
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
     )
     payload = json.loads(state.read_text())
     task_id = monitor.EXPECTED_TASK_IDS[0]
@@ -117,6 +173,7 @@ def test_collect_reports_task_transition(tmp_path: Path) -> None:
         state_path=state,
         previous=first,
         now=NOW,
+        repo_path=tmp_path,
     )
     assert second["transitions"] == [
         {
@@ -189,6 +246,8 @@ def test_once_writes_all_monitor_artifacts(tmp_path: Path) -> None:
             str(latest_md),
             "--lock",
             str(tmp_path / "monitor.lock"),
+            "--repo",
+            str(tmp_path),
         ]
     )
     assert result == 0
