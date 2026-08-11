@@ -72,6 +72,17 @@ def test_frozen_completion_set_has_all_tg1a_tg1b_and_tg2r_cells() -> None:
     assert "temporal_grounding_tg2r_raw_milestone_seed1002_eval" in monitor.EXPECTED_TASK_IDS
 
 
+def test_next_interval_boundary_aligns_hourly_poll_to_top_of_hour() -> None:
+    now = datetime(2026, 8, 11, 12, 21, 38, tzinfo=timezone.utc)
+    assert monitor.next_interval_boundary(now, 3600) == datetime(
+        2026, 8, 11, 13, 0, tzinfo=timezone.utc
+    )
+
+
+def test_next_interval_boundary_advances_from_exact_boundary() -> None:
+    assert monitor.next_interval_boundary(NOW, 3600) == NOW + timedelta(hours=1)
+
+
 def test_collect_marks_exact_completed_set_complete(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path)
     record = monitor.collect(

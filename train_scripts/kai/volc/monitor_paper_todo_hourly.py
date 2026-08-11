@@ -12,6 +12,7 @@ import argparse
 import fcntl
 import hashlib
 import json
+import math
 import os
 import signal
 import time
@@ -64,6 +65,27 @@ def isoformat(value: datetime) -> str:
 
 def parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def next_interval_boundary(now: datetime, interval_seconds: int) -> datetime:
+    """Return the next epoch-aligned UTC polling boundary."""
+    epoch = now.astimezone(timezone.utc).timestamp()
+    next_epoch = (math.floor(epoch / interval_seconds) + 1) * interval_seconds
+    return datetime.fromtimestamp(next_epoch, tz=timezone.utc)
+
+
+def write_lock_status(
+    handle: Any, *, started: datetime, last_poll: datetime | None, next_poll: datetime | None
+) -> None:
+    fields = [f"pid={os.getpid()}", f"started={isoformat(started)}"]
+    if last_poll is not None:
+        fields.append(f"last_poll={isoformat(last_poll)}")
+    if next_poll is not None:
+        fields.append(f"next_poll={isoformat(next_poll)}")
+    handle.seek(0)
+    handle.truncate()
+    handle.write(" ".join(fields) + "\n")
+    handle.flush()
 
 
 def expected_task_ids() -> tuple[str, ...]:
@@ -483,13 +505,14 @@ def main(argv: list[str] | None = None) -> int:
         except BlockingIOError:
             print(f"monitor already running: {args.lock}", flush=True)
             return 2
-        lock_handle.write(f"pid={os.getpid()} started={isoformat(utc_now())}\n")
-        lock_handle.flush()
+        monitor_started = utc_now()
+        write_lock_status(
+            lock_handle, started=monitor_started, last_poll=None, next_poll=None
+        )
         signal.signal(signal.SIGINT, request_stop)
         signal.signal(signal.SIGTERM, request_stop)
         polls = 0
         while not STOP_REQUESTED:
-            started = time.monotonic()
             previous = load_previous(args.latest_json)
             record = collect(
                 todo_path=args.todo,
@@ -516,8 +539,17 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             if args.max_polls is not None and polls >= args.max_polls:
                 return 0
-            remaining = max(0.0, args.interval_seconds - (time.monotonic() - started))
-            deadline = time.monotonic() + remaining
+            next_poll = next_interval_boundary(utc_now(), args.interval_seconds)
+            write_lock_status(
+                lock_handle,
+                started=monitor_started,
+                last_poll=parse_timestamp(record["timestamp"]),
+                next_poll=next_poll,
+            )
+            print(f"next_poll={isoformat(next_poll)}", flush=True)
+            deadline = time.monotonic() + max(
+                0.0, next_poll.timestamp() - time.time()
+            )
             while not STOP_REQUESTED and time.monotonic() < deadline:
                 time.sleep(min(1.0, deadline - time.monotonic()))
     return 0
