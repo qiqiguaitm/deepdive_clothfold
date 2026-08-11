@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-10 20:40 UTC
+Updated: 2026-08-11 04:16 UTC
 
 This document is the active GPU evidence plan for the temporal-grounding
 paper. It contains only unfinished training and closed-loop evaluation jobs,
@@ -62,9 +62,10 @@ recovery payload, and the byte-verified Transformers 5.2 runtime overlay. The
 East entrypoint repeats both Git checks, all overlay hashes, the parent TG2
 bundle verifier, the TG2R verifier, and the model/data hashes before training.
 The nine independent four-GPU jobs may run concurrently. Backup-profile
-submission is enabled with an eight-GPU identity-wide cap. At the 23:56 UTC
-audit, the primary identity uses 4/25 GPUs, the backup identity uses 8/8 GPUs
-and retains one superseded four-GPU request queued, and East is idle at 0/8 GPUs. No TG2R
+submission is enabled with an eight-GPU identity-wide cap. At the 04:16 UTC
+audit, the primary identity uses 4/25 GPUs, the backup identity uses 0/8 GPUs,
+and East is idle at 0/8 GPUs. The superseded backup seed-1002 request terminated
+`Failed` without becoming admissible. No TG2R
 evaluation is admissible until all nine cells
 pass a new joint exact-order integrity gate. Completion discovery is
 location-aware: both East and North final-model paths are checked, and an East
@@ -80,17 +81,21 @@ gate.
 - [x] **TG2R-S0 [COMPLETE]** Staged and byte-verified the recovery payload on
   North at 01:17 UTC; both pinned Git identities and all four payload hashes
   passed.
-- [ ] **TG2R-T01 [RUNNING: `t-20260810091838-d5ds7`, backup]** `future_off`,
-  seed 1000, North 4 GPU; step 17,047/20,000 at 23:56 UTC, ETA 1.75 hours.
-- [ ] **TG2R-T02 [RUNNING: `t-20260810091842-8p7bt`, backup]** `future_off`,
-  seed 1001, North 4 GPU; step 16,819/20,000, ETA 1.78 hours.
+- [x] **TG2R-T01 [COMPLETE: `t-20260810091838-d5ds7`, backup]** `future_off`,
+  seed 1000, North 4 GPU; durable completion at 01:39 UTC and verified
+  materialization at 02:49 UTC.
+- [x] **TG2R-T02 [COMPLETE: `t-20260810091842-8p7bt`, backup]** `future_off`,
+  seed 1001, North 4 GPU; durable completion at 01:45 UTC and verified
+  materialization at 03:59 UTC.
 - [ ] **TG2R-T03 [RUNNING: `t-20260811075607-jqpjx`, primary]** `future_off`,
   seed 1002, North 4 GPU. The operator explicitly authorized a primary-identity
   duplicate. The scheduler staged and hash-verified the amendment, detached the
   unkillable backup Queueing attempt `t-20260810091846-g8fpd`, and dispatched
   the primary job at 23:56 UTC. The formal checkpoint and audit sidecars use
   unique `primarydup` names; the old backup attempt is excluded from completion,
-  materialization, integrity, and evaluation provenance even if it later runs.
+  materialization, integrity, and evaluation provenance. At 04:16 UTC the
+  formal run is healthy at step 7,477/20,000 and 2.05 seconds/step, ETA 7.13
+  hours; the detached backup request has terminated `Failed`.
 - [x] **TG2R-T04 [COMPLETE: `t-20260810091825-6cgzh`, primary]**
   `fixed_endpoint`, seed 1000, North 4 GPU; durable completion at 14:08 UTC.
 - [x] **TG2R-T05 [COMPLETE: `t-20260810091829-vnvpv`, backup]**
@@ -114,8 +119,10 @@ gate.
 - [ ] **TG2R-I1 [ADMITTED; BLOCKED by T01--T09]** Run nine serialized,
   full-state, hash-verified North-to-East materializers, then require exact
   initialization and rank-order equality within each seed plus distinct order
-  across seeds. Six materializers are complete: all fixed-endpoint and
-  raw-milestone rows. The gate explicitly checks
+  across seeds. Eight materializers are complete: all fixed-endpoint and
+  raw-milestone rows plus `future_off` seeds 1000--1001. Both newly materialized
+  checkpoints have 7.17 GB final models, 9.13 GB optimizer states, and complete
+  initialization/four-rank order sidecars. The gate explicitly checks
   `in_order=true` and eight workers in every persisted full config.
 - [ ] **TG2R-E01--E09 [ADMITTED; BLOCKED by I1]** Run the unchanged frozen
   paired evaluation protocol on East only after joint integrity acceptance.
