@@ -4298,6 +4298,64 @@ def test_single_marker_helper_with_runtime_progress_reports_staleness(
     assert messages and "stale progress warning tail_helper" in messages[0]
 
 
+def test_individual_progress_label_cannot_be_hidden_by_other_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seed0_log = tmp_path / "seed0.log"
+    seed1_log = tmp_path / "seed1.log"
+    seed0_log.write_text("progress: 2/50\n")
+    seed1_log.write_text("progress: 2/50\n")
+    task = {
+        "id": "multi_seed_tail",
+        "enabled": True,
+        "completion_glob": str(tmp_path / "tail.ok"),
+        "completion_min_count": 1,
+        "progress_stale_seconds": 1,
+        "progress_stale_labels": ["tail_seed0", "tail_seed1"],
+        "progress_logs": [
+            {
+                "label": f"tail_seed{seed}",
+                "glob": str(log),
+                "regex": r"progress:.*?([0-9]+)/([0-9]+)",
+            }
+            for seed, log in enumerate((seed0_log, seed1_log))
+        ],
+    }
+    old = "2020-01-01T00:00:00Z"
+    state = {
+        "tasks": {
+            task["id"]: {
+                "status": "running",
+                "attempts": [{}],
+                "artifact_progress": "completion artifacts local=0/1",
+                "artifact_progress_changed_at": old,
+                "runtime_progress": "tail_seed0=2/50, tail_seed1=2/50",
+                "runtime_progress_changed_at": old,
+                "runtime_progress_components": {
+                    "tail_seed0": {"value": "2/50", "changed_at": old},
+                    "tail_seed1": {"value": "2/50", "changed_at": old},
+                },
+            }
+        }
+    }
+    seed1_log.write_text("progress: 3/50\n")
+    messages: list[str] = []
+    monkeypatch.setattr(scheduler, "log", messages.append)
+
+    scheduler.refresh_running_progress({"tasks": [task]}, state)
+
+    task_state = state["tasks"][task["id"]]
+    assert task_state["runtime_progress"] == "tail_seed0=2/50, tail_seed1=3/50"
+    assert task_state["stale_progress_labels"] == ["tail_seed0"]
+    assert task_state["runtime_progress_components"]["tail_seed0"][
+        "changed_at"
+    ] == old
+    assert task_state["runtime_progress_components"]["tail_seed1"][
+        "changed_at"
+    ] != old
+    assert messages and "labels=tail_seed0" in messages[0]
+
+
 def test_mt1_replication_overflow_fills_gf1_then_routes_seed1002_north() -> None:
     queue = json.loads(scheduler.QUEUE_PATH.read_text())
     scheduler.add_pi05_mt1_replication_eval_attach_tasks(queue)
@@ -6653,6 +6711,9 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         "temporal_grounding_tg1a_shuffled_eval"
     )
     assert shuffled_tail["progress_stale_seconds"] == 1800
+    assert shuffled_tail["progress_stale_labels"] == [
+        f"tail_seed{seed}" for seed in range(4)
+    ]
     assert len(shuffled_tail["candidates"]) == 1
     assert shuffled_tail["candidates"][0]["resource"] == "Robot-East-H20"
     assert shuffled_tail["candidates"][0]["gpus"] == 4

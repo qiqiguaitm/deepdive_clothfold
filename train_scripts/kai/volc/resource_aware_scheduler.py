@@ -9173,6 +9173,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "completion_min_count": 1,
             "satisfied_by_task": tg1a_shuffled_parent_id,
             "progress_stale_seconds": 1800,
+            "progress_stale_labels": [f"tail_seed{seed}" for seed in range(4)],
             "ready_files": [
                 str(activation_marker),
                 str(capture_marker),
@@ -16138,22 +16139,54 @@ print(json.dumps({{'numerator': numerator, 'denominator': denominator}}))
                 match = matches[-1]
                 value = "/".join(match) if isinstance(match, tuple) else str(match)
                 progress_items.append(f"{item['label']}={value}")
+        progress_components = task_state.setdefault(
+            "runtime_progress_components", {}
+        )
+        observed_progress = {
+            label: value
+            for item in progress_items
+            for label, separator, value in [item.partition("=")]
+            if separator
+        }
+        progress_timestamp = utc_now()
+        for label, value in observed_progress.items():
+            previous = progress_components.get(label, {})
+            if value != previous.get("value") or not previous.get("changed_at"):
+                progress_components[label] = {
+                    "value": value,
+                    "changed_at": progress_timestamp,
+                }
+        stale_labels = task.get("progress_stale_labels", [])
+        for label in stale_labels:
+            component = progress_components.setdefault(
+                label,
+                {"value": None, "changed_at": progress_timestamp},
+            )
+            if not component.get("changed_at"):
+                component["changed_at"] = progress_timestamp
         if progress_items:
             runtime_progress = ", ".join(progress_items)
             if runtime_progress != task_state.get(
                 "runtime_progress"
             ) or not task_state.get("runtime_progress_changed_at"):
-                task_state["runtime_progress_changed_at"] = utc_now()
-                task_state.pop("artifact_stale_warning_at", None)
+                task_state["runtime_progress_changed_at"] = progress_timestamp
+                if not stale_labels:
+                    task_state.pop("artifact_stale_warning_at", None)
             task_state["runtime_progress"] = runtime_progress
         else:
             task_state.pop("runtime_progress", None)
         # Artifact completion is not enough while a process is still active;
         # retain it as progress and let the terminal-state check close the task.
-        changed_candidates = [
-            task_state.get("artifact_progress_changed_at"),
-            task_state.get("runtime_progress_changed_at"),
-        ]
+        if stale_labels:
+            changed_candidates = [
+                progress_components[label].get("changed_at")
+                for label in stale_labels
+            ]
+        else:
+            changed_candidates = [
+                task_state.get("artifact_progress_changed_at"),
+                task_state.get("runtime_progress_changed_at"),
+            ]
         changed_candidates = [value for value in changed_candidates if value]
         stale_after = int(task.get("progress_stale_seconds", 7200))
         tracks_runtime_progress = bool(task.get("progress_logs"))
@@ -16162,20 +16195,39 @@ print(json.dumps({{'numerator': numerator, 'denominator': denominator}}))
             and not tracks_runtime_progress
         ) or not changed_candidates:
             continue
-        changed = max(
+        parsed_changes = [
             datetime.fromisoformat(value.replace("Z", "+00:00"))
             for value in changed_candidates
-        )
+        ]
+        changed = min(parsed_changes) if stale_labels else max(parsed_changes)
         stale_seconds = max(0, int((now - changed).total_seconds()))
         task_state["artifact_stale_seconds"] = stale_seconds
+        stale_progress_labels = []
+        if stale_labels:
+            stale_progress_labels = [
+                label
+                for label, changed_at in zip(stale_labels, parsed_changes, strict=True)
+                if (now - changed_at).total_seconds() >= stale_after
+            ]
+            task_state["stale_progress_labels"] = stale_progress_labels
+            if not stale_progress_labels:
+                task_state.pop("artifact_stale_warning_at", None)
         warned_at = task_state.get("artifact_stale_warning_at")
-        should_warn = stale_seconds >= stale_after
+        should_warn = bool(stale_progress_labels) if stale_labels else (
+            stale_seconds >= stale_after
+        )
         if should_warn and warned_at:
             warned = datetime.fromisoformat(warned_at.replace("Z", "+00:00"))
             should_warn = (now - warned).total_seconds() >= stale_after
         if should_warn:
+            stale_detail = (
+                f" labels={','.join(stale_progress_labels)}"
+                if stale_progress_labels
+                else ""
+            )
             log(
-                f"stale progress warning {task['id']}: {evidence} unchanged for {stale_seconds}s"
+                f"stale progress warning {task['id']}:{stale_detail} "
+                f"{evidence} unchanged for {stale_seconds}s"
             )
             task_state["artifact_stale_warning_at"] = utc_now()
 
