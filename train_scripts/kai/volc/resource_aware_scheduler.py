@@ -58,6 +58,7 @@ RECOMMENDATION_LOG_DIR = REPO / "logs/submission_recommendations"
 ROBOT_TASK_DISABLE_MARKER = (
     REPO / "logs/resource_controls/robot_task_submission.disabled"
 )
+GF1_ENABLE_MARKER = REPO / "logs/resource_controls/gf1_submission.enabled"
 PERMANENTLY_DISABLED_RESOURCES = {
     "gf1": "operator retired gf1 after permanent host shutdown on 2026-08-04",
 }
@@ -443,6 +444,15 @@ for arm in (
                 ".staging/temporal_grounding_11fb843/"
                 "logs/temporal_grounding/tg4/entrypoint/"
                 f"{arm}_s{seed}_north_*.log"
+            ),
+            "expected_steps": 20000,
+        }
+        GF1_TRAIN_WATCH_TASKS[label] = {
+            "status_path": str(
+                REPO / "logs/temporal_grounding/tg4/gf1" / label / "status"
+            ),
+            "log_path": str(
+                REPO / "logs/temporal_grounding/tg4/gf1" / label / "launcher.log"
             ),
             "expected_steps": 20000,
         }
@@ -9669,6 +9679,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "id": task_id,
                 "priority": 0,
                 "description": f"Frozen TG4 source decomposition arm={arm} seed={seed}",
+                "allow_temporary_gf1": True,
                 "requires_completed_tasks": [tg4_stage_id],
                 "rearm_after_ready_file": str(tg4_manifest),
                 "completion_locations": [
@@ -9705,6 +9716,52 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 ],
                 "ready_hashes": tg4_ready_hashes,
                 "candidates": [
+                    {
+                        "kind": "ssh",
+                        "resource": "gf1",
+                        "gpus": 4,
+                        "gpu_indices": [0, 1, 2, 3],
+                        "retry_cooldown_seconds": 900,
+                        "max_failures": 1,
+                        "runtime_revision": "temporal_grounding_tg4_gf1_v1",
+                        "status_dir": str(
+                            REPO / "logs/temporal_grounding/tg4/gf1" / f"tg4_{arm}_seed{seed}"
+                        ),
+                        "command": shlex.join(
+                            [
+                                "env",
+                                "CUDA_VISIBLE_DEVICES=0,1,2,3",
+                                f"REPO_ROOT={REPO}",
+                                f"TG4_ARM={arm}",
+                                f"TG4_TRAIN_SEED={seed}",
+                                "bash",
+                                str(tg4_runner),
+                            ]
+                        ),
+                    },
+                    {
+                        "kind": "ssh",
+                        "resource": "gf1",
+                        "gpus": 4,
+                        "gpu_indices": [4, 5, 6, 7],
+                        "retry_cooldown_seconds": 900,
+                        "max_failures": 1,
+                        "runtime_revision": "temporal_grounding_tg4_gf1_v1",
+                        "status_dir": str(
+                            REPO / "logs/temporal_grounding/tg4/gf1" / f"tg4_{arm}_seed{seed}"
+                        ),
+                        "command": shlex.join(
+                            [
+                                "env",
+                                "CUDA_VISIBLE_DEVICES=4,5,6,7",
+                                f"REPO_ROOT={REPO}",
+                                f"TG4_ARM={arm}",
+                                f"TG4_TRAIN_SEED={seed}",
+                                "bash",
+                                str(tg4_runner),
+                            ]
+                        ),
+                    },
                     {
                         "kind": "platform",
                         "resource": "Robot-East-H20",
@@ -11164,11 +11221,15 @@ def validate_queue(queue: dict[str, Any]) -> None:
 def apply_permanent_resource_policy(queue: dict[str, Any]) -> None:
     """Remove retired resources without rewriting historical queue provenance."""
     for task in queue.get("tasks", []):
+        temporary_gf1_allowed = bool(task.get("allow_temporary_gf1"))
         candidates = task.get("candidates", [])
         retired = [
             candidate
             for candidate in candidates
             if candidate.get("resource") in PERMANENTLY_DISABLED_RESOURCES
+            and not (
+                candidate.get("resource") == "gf1" and temporary_gf1_allowed
+            )
         ]
         if not retired:
             continue
@@ -11176,6 +11237,7 @@ def apply_permanent_resource_policy(queue: dict[str, Any]) -> None:
             candidate
             for candidate in candidates
             if candidate.get("resource") not in PERMANENTLY_DISABLED_RESOURCES
+            or (candidate.get("resource") == "gf1" and temporary_gf1_allowed)
         ]
         task["retired_resource_candidates"] = sorted(
             {candidate["resource"] for candidate in retired}
@@ -11364,6 +11426,8 @@ def load_state(queue: dict[str, Any]) -> dict[str, Any]:
         attempt = task_state["attempts"][-1]
         resource = attempt.get("resource")
         if resource not in PERMANENTLY_DISABLED_RESOURCES:
+            continue
+        if resource == "gf1" and task.get("allow_temporary_gf1"):
             continue
         attempt["finished_at"] = utc_now()
         attempt["failure"] = PERMANENTLY_DISABLED_RESOURCES[resource]
@@ -14427,8 +14491,24 @@ def refresh_pi05_launch_provenance(
 
 
 def launch_gf1(candidate: dict[str, Any]) -> str:
-    del candidate
-    raise RuntimeError(PERMANENTLY_DISABLED_RESOURCES["gf1"])
+    if not GF1_ENABLE_MARKER.is_file():
+        raise RuntimeError("temporary gf1 submissions are disabled")
+    status_dir = candidate["status_dir"]
+    command = candidate["command"]
+    status_path = status_dir + "/status"
+    body = (
+        "set +e; start=$(date -u +%FT%TZ); "
+        f'echo "RUNNING start=$start host=$(hostname)" > {shlex.quote(status_path)}; '
+        f"bash -c {shlex.quote(command)}; rc=$?; end=$(date -u +%FT%TZ); "
+        f'echo "FINISHED rc=$rc start=$start end=$end host=$(hostname)" > {shlex.quote(status_path)}; exit $rc'
+    )
+    remote = (
+        f"mkdir -p {shlex.quote(status_dir)}; rm -f {shlex.quote(status_path)}; "
+        f"nohup bash -c {shlex.quote(body)} "
+        f"> {shlex.quote(status_dir + '/launcher.log')} 2>&1 < /dev/null & "
+        f"echo $! | tee {shlex.quote(status_dir + '/pid')}"
+    )
+    return ssh(GF1, remote, timeout=30).strip().splitlines()[-1]
 
 
 def launch_local(candidate: dict[str, Any]) -> str:
@@ -14938,16 +15018,21 @@ def make_snapshot(state: dict[str, Any] | None = None) -> dict[str, Any]:
     east = safe_list("cn-shanghai", EAST_QUEUE, "Robot-East-H20")
     north_owned = [job for job in north if job.get("CreatedBy") == OWNER]
     shanghai_owned = [job for job in shanghai if job.get("CreatedBy") == OWNER]
-    gf1 = {
+    gf1_enabled = GF1_ENABLE_MARKER.is_file()
+    gf1 = safe_gpu_snapshot(GF1, 8, "gf1") if gf1_enabled else {
         "available": False,
-        "submission_enabled": False,
-        "retired": True,
-        "retired_reason": PERMANENTLY_DISABLED_RESOURCES["gf1"],
-        "count": 0,
+        "count": 8,
         "free_count": 0,
         "gpus": [],
-        "watched_tasks": {},
     }
+    gf1["submission_enabled"] = gf1_enabled
+    gf1["retired"] = not gf1_enabled
+    gf1["retired_reason"] = (
+        "temporary gf1 control marker is absent" if not gf1_enabled else ""
+    )
+    gf1["watched_tasks"] = (
+        gf1_watched_statuses() | gf1_training_statuses() if gf1_enabled else {}
+    )
     local = safe_gpu_snapshot(None, 2, "local")
     local["watched_tasks"] = local_watched_statuses()
     north_watched = north_watched_statuses()
@@ -15995,8 +16080,6 @@ def stop_managed_attempt(attempt: dict[str, Any]) -> None:
     if pid <= 0:
         return
     if attempt.get("kind") == "ssh":
-        if attempt.get("resource") in PERMANENTLY_DISABLED_RESOURCES:
-            return
         ssh(
             GF1,
             f"kill -TERM -- -{pid} 2>/dev/null || kill -TERM {pid} 2>/dev/null || true",
@@ -16650,7 +16733,7 @@ def poll_once(queue: dict[str, Any], state: dict[str, Any]) -> None:
         f"sh_owned={resources['robot-task']['owned_active_gpus']}/{SH_PERSONAL_LIMIT} "
         f"sh_submit={'enabled' if resources['robot-task'].get('submission_enabled', True) else 'disabled'} "
         f"east={resources['Robot-East-H20']['active_gpus_all_users']}/8 queued={len(resources['Robot-East-H20']['queueing_all_users'])} "
-        "gf1=retired "
+        f"gf1_free={resources['gf1']['free_count']}/{resources['gf1']['count']} "
         f"local_free={resources['local']['free_count']}/{resources['local']['count']}"
     )
 

@@ -1349,12 +1349,19 @@ def test_permanent_resource_policy_removes_gf1_and_disables_orphans() -> None:
                     {"resource": "gf1", "kind": "ssh", "gpus": 4},
                 ],
             },
+            {
+                "id": "temporary",
+                "allow_temporary_gf1": True,
+                "candidates": [
+                    {"resource": "gf1", "kind": "ssh", "gpus": 4},
+                ],
+            },
         ]
     }
 
     scheduler.apply_permanent_resource_policy(queue)
 
-    mixed, orphan = queue["tasks"]
+    mixed, orphan, temporary = queue["tasks"]
     assert [candidate["resource"] for candidate in mixed["candidates"]] == [
         "Robot-East-H20"
     ]
@@ -1363,6 +1370,8 @@ def test_permanent_resource_policy_removes_gf1_and_disables_orphans() -> None:
     assert orphan["candidates"] == []
     assert not orphan["enabled"]
     assert "permanent host shutdown" in orphan["disabled_reason"]
+    assert temporary["candidates"][0]["resource"] == "gf1"
+    assert temporary.get("enabled", True)
 
 
 def test_load_state_retires_running_gf1_attempt(monkeypatch, tmp_path) -> None:
@@ -1409,7 +1418,10 @@ def test_load_state_retires_running_gf1_attempt(monkeypatch, tmp_path) -> None:
     assert "monitor_error" not in task_state["attempts"][-1]
 
 
-def test_gf1_snapshot_disable_is_a_dispatch_backstop() -> None:
+def test_gf1_snapshot_disable_is_a_dispatch_backstop(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(scheduler, "GF1_ENABLE_MARKER", tmp_path / "disabled")
     candidate = {"resource": "gf1", "kind": "ssh", "gpus": 4}
     snapshot = {
         "resources": {
@@ -1424,7 +1436,7 @@ def test_gf1_snapshot_disable_is_a_dispatch_backstop() -> None:
     }
 
     assert not scheduler.candidate_available(candidate, snapshot)
-    with pytest.raises(RuntimeError, match="permanent host shutdown"):
+    with pytest.raises(RuntimeError, match="temporary gf1 submissions are disabled"):
         scheduler.launch_gf1(candidate)
 
 
@@ -6733,9 +6745,21 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert len(tg4) == 18
     assert all(
         {candidate["resource"] for candidate in task["candidates"]}
-        == {"Robot-East-H20", "Robot-North-H20"}
+        == {"gf1", "Robot-East-H20", "Robot-North-H20"}
         for task in tg4.values()
     )
+    assert all(task["allow_temporary_gf1"] for task in tg4.values())
+    for task in tg4.values():
+        gf1 = [
+            candidate
+            for candidate in task["candidates"]
+            if candidate["resource"] == "gf1"
+        ]
+        assert [candidate["gpu_indices"] for candidate in gf1] == [
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+        ]
+        assert all(candidate["gpus"] == 4 for candidate in gf1)
     assert all(
         task["requires_completed_tasks"]
         == ["temporal_grounding_tg4_north_stage"]
