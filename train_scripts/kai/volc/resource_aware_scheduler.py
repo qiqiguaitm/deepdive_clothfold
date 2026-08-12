@@ -16144,7 +16144,11 @@ print(json.dumps({{'numerator': numerator, 'denominator': denominator}}))
         ]
         changed_candidates = [value for value in changed_candidates if value]
         stale_after = int(task.get("progress_stale_seconds", 7200))
-        if int(task.get("completion_min_count", 1)) <= 1 or not changed_candidates:
+        tracks_runtime_progress = bool(task.get("progress_logs"))
+        if (
+            int(task.get("completion_min_count", 1)) <= 1
+            and not tracks_runtime_progress
+        ) or not changed_candidates:
             continue
         changed = max(
             datetime.fromisoformat(value.replace("Z", "+00:00"))

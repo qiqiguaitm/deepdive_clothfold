@@ -4253,6 +4253,51 @@ def test_runtime_progress_heartbeat_prevents_false_stale_warning(
     assert messages == []
 
 
+def test_single_marker_helper_with_runtime_progress_reports_staleness(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_log = tmp_path / "run.log"
+    run_log.write_text("progress: 1/50\n")
+    task = {
+        "id": "tail_helper",
+        "enabled": True,
+        "completion_glob": str(tmp_path / "tail.ok"),
+        "completion_min_count": 1,
+        "progress_stale_seconds": 1,
+        "progress_logs": [
+            {
+                "label": "tail_episodes",
+                "glob": str(run_log),
+                "regex": r"progress:.*?([0-9]+)/([0-9]+)",
+                "aggregate": True,
+                "total": 200,
+            }
+        ],
+    }
+    old = "2020-01-01T00:00:00Z"
+    state = {
+        "tasks": {
+            task["id"]: {
+                "status": "running",
+                "attempts": [{}],
+                "artifact_progress": "completion artifacts local=0/1",
+                "artifact_progress_changed_at": old,
+                "runtime_progress": "tail_episodes=1/200",
+                "runtime_progress_changed_at": old,
+            }
+        }
+    }
+    messages: list[str] = []
+    monkeypatch.setattr(scheduler, "log", messages.append)
+
+    scheduler.refresh_running_progress({"tasks": [task]}, state)
+
+    task_state = state["tasks"][task["id"]]
+    assert task_state["artifact_stale_seconds"] > 1
+    assert task_state["artifact_stale_warning_at"]
+    assert messages and "stale progress warning tail_helper" in messages[0]
+
+
 def test_mt1_replication_overflow_fills_gf1_then_routes_seed1002_north() -> None:
     queue = json.loads(scheduler.QUEUE_PATH.read_text())
     scheduler.add_pi05_mt1_replication_eval_attach_tasks(queue)
