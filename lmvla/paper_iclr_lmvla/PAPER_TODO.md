@@ -106,15 +106,22 @@ matched all6-v2 matrix and does not numerically mix the two protocols.
     rank-order hashes across arms within a seed and distinct hashes across
     seeds. Orthogonal auxiliary-off and conditioning-off routes have CPU tests;
     the complete scheduler and monitor suite passes 201 tests.
-  - [ ] **TG4-T01--T18 [REGISTERED; DISPATCH PENDING]** Train all six arms at
-    seeds 1100--1102. Each task has 4-GPU East and North candidates and may run
-    only after the zero-GPU North source stage verifies the frozen bundle. A
+  - [ ] **TG4-T01--T18 [ACTIVE; 10/18 SUBMITTED, 2/18 RUNNING at
+    2026-08-12 13:04 UTC]** Train all six arms at seeds 1100--1102. The North
+    source stage passed its frozen-bundle hash gate. East is running two
+    `auxiliary_only` cells on 8/8 GPUs at about 2.26--2.30 seconds/update; North
+    primary has six 4-GPU cells queued under its 25-GPU quota and the backup
+    identity has two queued under its 8-GPU quota. The remaining eight cells
+    stay scheduler-pending and will backfill released quota automatically. A
     historical 20k four-GPU cell takes about 12.8 hours; with current aggregate
     capacity, the training matrix is expected to require two to three waves
     (about 26--39 hours) if queues remain available.
-  - [ ] **TG4-I1 [BLOCKED by T01--T18]** Reject the matrix before evaluation
-    unless all 18 final checkpoints, optimizer states, initialization trees,
-    exact per-rank data orders, dataset statistics, and non-arm configs pass.
+  - [ ] **TG4-I1 [IMPLEMENTED; BLOCKED by T01--T18]** Eighteen conditional
+    materializers now copy only runs that actually land on North; East runs do
+    not move. Once all cells close, a 1-GPU East job runs the tested joint
+    verifier. Reject the matrix before evaluation unless all 18 final
+    checkpoints, optimizer states, initialization trees, exact per-rank data
+    orders, dataset statistics, and non-arm configs pass.
   - [ ] **TG4-E1 [BLOCKED by I1]** Evaluate every arm/seed on the frozen 24-cell
     scene matrix. Evaluate both normal and within-task shuffled content for all
     three full checkpoints; no partial rollout may change the panel.

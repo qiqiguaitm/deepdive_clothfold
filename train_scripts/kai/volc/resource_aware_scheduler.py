@@ -419,6 +419,33 @@ for fold in (0, 1):
         ),
         "expected_steps": 5000,
     }
+for arm in (
+    "clean_base",
+    "future_off",
+    "auxiliary_only",
+    "conditioning_only",
+    "parameter_matched_null",
+    "full",
+):
+    for seed in (1100, 1101, 1102):
+        label = f"tg4_{arm}_seed{seed}"
+        EAST_TRAIN_WATCH_TASKS[label] = {
+            "log_glob": (
+                REPO
+                / "logs/temporal_grounding/tg4/entrypoint"
+                / f"{arm}_s{seed}_east_*.log"
+            ),
+            "expected_steps": 20000,
+        }
+        NORTH_TRAIN_WATCH_TASKS[label] = {
+            "log_glob": (
+                "/vePFS-North-E/vis_robot/workspace/deepdive_kai0/"
+                ".staging/temporal_grounding_11fb843/"
+                "logs/temporal_grounding/tg4/entrypoint/"
+                f"{arm}_s{seed}_north_*.log"
+            ),
+            "expected_steps": 20000,
+        }
 TRAIN_WATCH_MANAGED_TASK_IDS = {
     ("Beijing", "combo"): "combo_seed2028_train",
     ("Beijing", "nowm"): "nowm_seed2028_train",
@@ -471,6 +498,19 @@ for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
         TRAIN_WATCH_MANAGED_TASK_IDS[
             ("Beijing", f"tg2r_{arm}_seed{seed}")
         ] = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
+for arm in (
+    "clean_base",
+    "future_off",
+    "auxiliary_only",
+    "conditioning_only",
+    "parameter_matched_null",
+    "full",
+):
+    for seed in (1100, 1101, 1102):
+        label = f"tg4_{arm}_seed{seed}"
+        task_id = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
+        TRAIN_WATCH_MANAGED_TASK_IDS[("Robot-East-H20", label)] = task_id
+        TRAIN_WATCH_MANAGED_TASK_IDS[("Beijing", label)] = task_id
 NORTH_WATCH_TASKS = {
     "pi05_a2_residual": ("pi05_rt_a2_residual_prefix_official_v4", 24),
     "pi05_a0": ("pi05_rt_a0_official_v2", 24),
@@ -9700,6 +9740,120 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 existing.add(task_id)
             else:
                 existing_tasks[task_id].update(task)
+
+    tg4_materialize_ids = []
+    tg4_sync_script = (
+        REPO / "train_scripts/kai/sync_temporal_grounding_tg4_checkpoint_from_north.sh"
+    )
+    tg4_sync_tree_script = REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"
+    tg4_integrity_verifier = (
+        REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_training.py"
+    )
+    tg4_integrity_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg4_integrity.sh"
+    )
+    tg4_integrity_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg4_integrity_east_1h20.yaml"
+    )
+    tg4_posttraining_hashes = [
+        {"path": str(tg4_sync_script), "sha256": "c0b86b715921a186735b19476568dbe985e7d8713472bc909f595ce36cf9b95d"},
+        {"path": str(tg4_sync_tree_script), "sha256": "21642dc25f6e9180107ceb49f3768132b337f8c9a5df255c131617e7447855c4"},
+        {"path": str(tg4_integrity_verifier), "sha256": "7ac9c42a88dad1a2bb3e65e1844fb6d6c1bfbae49e3ab193547218de48cab31a"},
+        {"path": str(tg4_integrity_runner), "sha256": "a5119df955b88fd6004667d7fdae07376f88f8d0e3a08fda15664afa87466522"},
+        {"path": str(tg4_integrity_yaml), "sha256": "4c6f8831493083b57664e27bc6f3bf94a76d70b7abc228a7f19e963d5e5f59f3"},
+    ]
+    for arm in (
+        "clean_base",
+        "future_off",
+        "auxiliary_only",
+        "conditioning_only",
+        "parameter_matched_null",
+        "full",
+    ):
+        for seed in (1100, 1101, 1102):
+            parent_id = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
+            task_id = f"{parent_id}_materialize_north"
+            tg4_materialize_ids.append(task_id)
+            marker = REPO / "logs/resource_markers" / f"{parent_id}_materialized.ok"
+            task = {
+                "id": task_id,
+                "priority": 0,
+                "description": f"Materialize North TG4 arm={arm} seed={seed} artifacts",
+                "materialize_north_result_for": parent_id,
+                "completion_glob": str(marker),
+                "completion_min_count": 1,
+                "ready_files": [str(tg4_sync_script), str(tg4_sync_tree_script)],
+                "ready_hashes": tg4_posttraining_hashes[:2],
+                "candidates": [
+                    {
+                        "kind": "local",
+                        "resource": "local",
+                        "gpus": 0,
+                        "retry_cooldown_seconds": 300,
+                        "max_failures": 3,
+                        "status_dir": str(
+                            REPO
+                            / "logs/temporal_grounding/tg4/materialize"
+                            / f"{arm}_seed{seed}"
+                        ),
+                        "command": shlex.join(
+                            [
+                                "env",
+                                f"TG4_ARM={arm}",
+                                f"TG4_TRAIN_SEED={seed}",
+                                "bash",
+                                str(tg4_sync_script),
+                            ]
+                        ),
+                    }
+                ],
+            }
+            if task_id not in existing:
+                queue["tasks"].append(task)
+                existing.add(task_id)
+            else:
+                existing_tasks[task_id].update(task)
+
+    tg4_integrity_id = "temporal_grounding_tg4_training_integrity"
+    tg4_integrity_marker = (
+        REPO / "logs/resource_markers/temporal_grounding_tg4_training_integrity.ok"
+    )
+    tg4_integrity_task = {
+        "id": tg4_integrity_id,
+        "priority": 0,
+        "description": "Reject or admit the frozen TG4 18-cell matrix before rollout",
+        "requires_completed_tasks": tg4_materialize_ids,
+        "rearm_after_ready_file": str(tg4_integrity_verifier),
+        "completion_glob": str(tg4_integrity_marker),
+        "completion_min_count": 1,
+        "ready_files": [
+            str(tg4_integrity_verifier),
+            str(tg4_integrity_runner),
+            str(tg4_integrity_yaml),
+        ],
+        "ready_hashes": tg4_posttraining_hashes[2:],
+        "candidates": [
+            {
+                "kind": "platform",
+                "resource": "Robot-East-H20",
+                "region": "cn-shanghai",
+                "gpus": 1,
+                "queue_timeout_seconds": 300,
+                "deploy_timeout_seconds": 900,
+                "retry_cooldown_seconds": 900,
+                "max_failures": 1,
+                "runtime_revision": "temporal_grounding_tg4_integrity_v1",
+                "yaml": str(tg4_integrity_yaml.relative_to(REPO)),
+                "task_name": "temporal-grounding-tg4-integrity-east1g",
+            }
+        ],
+    }
+    if tg4_integrity_id not in existing:
+        queue["tasks"].append(tg4_integrity_task)
+        existing.add(tg4_integrity_id)
+    else:
+        existing_tasks[tg4_integrity_id].update(tg4_integrity_task)
 
     materialize_ids = []
     sync_script = REPO / "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh"

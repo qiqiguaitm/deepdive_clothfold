@@ -6697,7 +6697,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 92
+    assert len(tasks) == 111
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6741,6 +6741,48 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         == ["temporal_grounding_tg4_north_stage"]
         for task in tg4.values()
     )
+    for arm in (
+        "clean_base",
+        "future_off",
+        "auxiliary_only",
+        "conditioning_only",
+        "parameter_matched_null",
+        "full",
+    ):
+        for seed in (1100, 1101, 1102):
+            label = f"tg4_{arm}_seed{seed}"
+            task_id = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
+            east_watch = scheduler.EAST_TRAIN_WATCH_TASKS[label]
+            north_watch = scheduler.NORTH_TRAIN_WATCH_TASKS[label]
+            assert east_watch["expected_steps"] == 20000
+            assert north_watch["expected_steps"] == 20000
+            assert f"{arm}_s{seed}_east_*.log" in str(east_watch["log_glob"])
+            assert f"{arm}_s{seed}_north_*.log" in north_watch["log_glob"]
+            assert scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[
+                ("Robot-East-H20", label)
+            ] == task_id
+            assert scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[
+                ("Beijing", label)
+            ] == task_id
+            materialize_id = f"{task_id}_materialize_north"
+            materialize = tasks[materialize_id]
+            assert materialize["materialize_north_result_for"] == task_id
+            assert materialize["candidates"][0]["gpus"] == 0
+    tg4_integrity = tasks["temporal_grounding_tg4_training_integrity"]
+    assert set(tg4_integrity["requires_completed_tasks"]) == {
+        f"temporal_grounding_tg4_{arm}_seed{seed}_train_materialize_north"
+        for arm in (
+            "clean_base",
+            "future_off",
+            "auxiliary_only",
+            "conditioning_only",
+            "parameter_matched_null",
+            "full",
+        )
+        for seed in (1100, 1101, 1102)
+    }
+    assert tg4_integrity["candidates"][0]["resource"] == "Robot-East-H20"
+    assert tg4_integrity["candidates"][0]["gpus"] == 1
     assert len(temporal_grounding_evals) == 26
     assert all(
         scheduler.TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task_id)
