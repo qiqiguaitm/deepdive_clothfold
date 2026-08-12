@@ -8657,6 +8657,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     analysis_execution_path = (
         manifests / "temporal_grounding_analysis_execution_v1.json"
     )
+    analysis_runtime_v2_path = (
+        manifests / "temporal_grounding_analysis_runtime_v2.json"
+    )
     manifest_hashes = {
         tg1a_path: "c6329abf5d2176323fb9707deb1c563242130c3d092e6097ec10a78c8fe0c038",
         tg1b_path: "73ea8c7709b5f0993c3ff8e96d16fd00d2ab62247100fc7dbe6b94257e906919",
@@ -8691,6 +8694,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         tg2_recovery_post_v7_path: "2f61491dcde52c5c3608631096b252b97e014ffa6b9228c0a87b232e58c92943",
         tg2r_seed1002_duplicate_path: "885b25a82aa3c9da3edbc3bd9cb76d7e5d7f81b451e393d04ac3720be368070a",
         analysis_execution_path: "18dae8cec3ac39ea6b6b8432179cdb4347cc8c2adc7adbb36f9b82390a497c4c",
+        analysis_runtime_v2_path: "c8593c94b0161578f7017adb6dabd1a3643cdfd23f5197614163aa9b2ac25939",
     }
     for path, expected in manifest_hashes.items():
         if sha256_file(path) != expected:
@@ -10238,6 +10242,24 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             existing.add(task_id)
 
     for analysis_id, spec in analysis_execution["tasks"].items():
+        rearm_file = (
+            analysis_runtime_v2_path
+            if analysis_id == "temporal_grounding_tg1b_analysis"
+            else analysis_execution_path
+        )
+        task_analysis_hashes = [
+            *analysis_hashes,
+            *(
+                [
+                    {
+                        "path": str(analysis_runtime_v2_path),
+                        "sha256": manifest_hashes[analysis_runtime_v2_path],
+                    }
+                ]
+                if analysis_id == "temporal_grounding_tg1b_analysis"
+                else []
+            ),
+        ]
         analysis_task = {
             "id": analysis_id,
             "priority": 3,
@@ -10245,11 +10267,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 f"Run frozen {analysis_id.removeprefix('temporal_grounding_')}"
             ),
             "requires_completed_tasks": spec["requires_completed_tasks"],
-            "rearm_after_ready_file": str(analysis_execution_path),
+            "rearm_after_ready_file": str(rearm_file),
             "completion_glob": str(REPO / spec["marker"]),
             "completion_min_count": 1,
-            "ready_files": [item["path"] for item in analysis_hashes],
-            "ready_hashes": analysis_hashes,
+            "ready_files": [item["path"] for item in task_analysis_hashes],
+            "ready_hashes": task_analysis_hashes,
             "candidates": [
                 {
                     "kind": "local",

@@ -6927,13 +6927,21 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "temporal_grounding_tg2_analysis",
         )
     }
+    assert analyses["temporal_grounding_tg1b_analysis"][
+        "rearm_after_ready_file"
+    ].endswith("temporal_grounding_analysis_runtime_v2.json")
+    assert any(
+        item["path"].endswith("temporal_grounding_analysis_runtime_v2.json")
+        for item in analyses["temporal_grounding_tg1b_analysis"]["ready_hashes"]
+    )
     assert all(task["candidates"][0]["kind"] == "local" for task in analyses.values())
     assert all(task["candidates"][0]["gpus"] == 0 for task in analyses.values())
     assert all(
         task["rearm_after_ready_file"].endswith(
             "temporal_grounding_analysis_execution_v1.json"
         )
-        for task in analyses.values()
+        for task_id, task in analyses.items()
+        if task_id != "temporal_grounding_tg1b_analysis"
     )
     assert all(
         any(

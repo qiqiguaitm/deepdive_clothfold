@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "amendment": "temporal_grounding_analysis_runtime_v2",
+  "extends": "temporal_grounding_analysis_execution_v1",
+  "created_at": "2026-08-12T02:18:00Z",
+  "scope": "Rearm TG1B analysis after all four verified North result roots were materialized locally",
+  "operator_authorized": true,
+  "experiment_protocol_changed": false,
+  "change": [
+    "Rearm only temporal_grounding_tg1b_analysis after the final North result materialization completed.",
+    "The first local attempt ran 34 seconds before the final materialization and observed zero outcomes for local_wm_e36."
+  ],
+  "invariants": [
+    "Analysis command, four input roots, scene manifest, bootstrap sample count, estimand, output, and gate marker are unchanged.",
+    "All four canonical local input roots must contain exactly 24 verified summaries before this retry is eligible."
+  ]
+}
