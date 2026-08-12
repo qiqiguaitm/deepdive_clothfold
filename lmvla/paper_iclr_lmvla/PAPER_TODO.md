@@ -134,7 +134,9 @@ Current scheduler-owned execution is:
   continue the disjoint `stack_blocks_two` cells. The scheduler records both
   the aggregate tail episode count and four per-seed counters, and treats 30
   minutes without progress as stale so that one stuck seed cannot be hidden by
-  the other workers. The rejected v1 helper
+  the other workers. Parent redispatch is held while the tail helper is
+  running, preventing an early successful parent exit from duplicating shared
+  cells; this hold changes no evaluation parameter. The rejected v1 helper
   `t-20260812120240-wdzvz` failed before claiming a cell because it omitted the
   frozen runtime-v11 verifier context, and contributes no episode.
 - [x] **TG1B-E1 [COMPLETE: `t-20260812073026-gt69q`, 24/24]** Evaluated

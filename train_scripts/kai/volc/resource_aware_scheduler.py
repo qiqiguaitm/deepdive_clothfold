@@ -9248,6 +9248,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             ],
         }
     )
+    existing_tasks[tg1a_shuffled_parent_id]["hold_retry_while_running"] = [
+        tg1a_shuffled_tail_id
+    ]
 
     tg1b_runner = (
         REPO

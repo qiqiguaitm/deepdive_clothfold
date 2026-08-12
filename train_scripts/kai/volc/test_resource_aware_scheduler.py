@@ -6707,6 +6707,10 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     ]
     assert all(task.get("enabled", True) for task in tg1a.values())
     shuffled_tail = tasks["temporal_grounding_tg1a_shuffled_tail_east4g"]
+    shuffled_parent = tasks["temporal_grounding_tg1a_shuffled_eval"]
+    assert shuffled_parent["hold_retry_while_running"] == [
+        "temporal_grounding_tg1a_shuffled_tail_east4g"
+    ]
     assert shuffled_tail["satisfied_by_task"] == (
         "temporal_grounding_tg1a_shuffled_eval"
     )
