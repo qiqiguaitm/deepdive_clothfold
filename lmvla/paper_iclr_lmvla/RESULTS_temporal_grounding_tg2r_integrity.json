@@ -1,0 +1,37 @@
+{
+  "accepted_for_evaluation": false,
+  "checks": {
+    "dataset_order_distinct_across_seeds": false,
+    "dataset_order_equal_within_seed": true,
+    "fixed_final_checkpoint_present": true,
+    "full_json_training_config_present": true,
+    "initialization_payload_equal_within_seed": true,
+    "normalization_equal": true,
+    "optimizer_state_at_step_20000_present": true,
+    "optimizer_tree_equal": true,
+    "parameter_tree_equal": true,
+    "raw_target_coverage_guard_enabled": true,
+    "sidecar_identity_and_completeness": true,
+    "trainable_tree_equal": true,
+    "yaml_json_protocol_fields_equal": true
+  },
+  "decision": "reject_tg2r_matrix_before_evaluation",
+  "evidence": {
+    "integrity_job_id": "t-20260812114314-cnp6q",
+    "integrity_log": "logs/temporal_grounding/tg2r/integrity_platform/integrity_20260812_034334.log",
+    "integrity_log_sha256": "3f7a5dd0038baabdcd0684192d27b34635cf4655e401935cec43495a1d0b093e",
+    "integrity_runner_sha256": "70ec5e3289fefef1af365080293534aea07fa6ea2fbbe839763f3e1f474f2656",
+    "seed_independence_verifier_sha256": "53da2d224bfdc3a1bfe518261d195362b7135f1c8f054bcb0ea80ff3b3200902"
+  },
+  "failure": "TG2 training seeds do not induce distinct rank data orders",
+  "protocol": "temporal_grounding_tg2r_integrity_decision_v1",
+  "scientific_disposition": {
+    "canonical_tg2_result_created": false,
+    "downstream_analysis_retired": true,
+    "evaluations_executed": 0,
+    "evaluations_retired": 9,
+    "recovery_checkpoints_retained_for_audit_only": true,
+    "same_protocol_retry_allowed": false
+  },
+  "timestamp_utc": "2026-08-12T03:44:22Z"
+}

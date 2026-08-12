@@ -49,6 +49,10 @@ ANALYSIS_ARTIFACT_SPECS = {
         "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json",
         "marker": "logs/resource_markers/temporal_grounding_tg2_gate.ok",
         "protocol": "temporal_grounding_tg2_execution_aligned_matched_matrix_v1",
+        "rejection_report": (
+            "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2r_integrity.json"
+        ),
+        "rejection_protocol": "temporal_grounding_tg2r_integrity_decision_v1",
     },
 }
 
@@ -164,7 +168,35 @@ def analysis_artifact_metrics(
             row["status"] = "unregistered"
         elif task_status != "completed":
             row["status"] = "task_incomplete"
-        if all(present.values()):
+        rejection_path_value = spec.get("rejection_report")
+        rejection_path = (
+            repo_path / rejection_path_value if rejection_path_value else None
+        )
+        if rejection_path is not None and rejection_path.is_file():
+            try:
+                rejection = load_json(rejection_path)
+                if rejection.get("protocol") != spec["rejection_protocol"]:
+                    raise ValueError("rejection protocol mismatch")
+                if rejection.get("accepted_for_evaluation") is not False:
+                    raise ValueError("rejection decision is not false")
+                if rejection.get("scientific_disposition", {}).get(
+                    "evaluations_retired"
+                ) != 9:
+                    raise ValueError("rejection does not retire all nine evaluations")
+                row.update(
+                    status="rejected",
+                    validated=True,
+                    rejection_report=str(rejection_path),
+                )
+            except Exception as exc:
+                row.update(status="invalid", error=f"{type(exc).__name__}: {exc}")
+        if row["status"] == "rejected" and any(present.values()):
+            row.update(
+                status="invalid",
+                validated=False,
+                error="canonical TG2 output exists beside a rejection decision",
+            )
+        elif all(present.values()):
             try:
                 report = load_json(report_path)
                 observed_protocol = report.get("protocol")
@@ -209,6 +241,7 @@ def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
         "job_id": attempt.get("job_id"),
         "completed_at": value.get("completed_at"),
         "failure": value.get("last_failure") or attempt.get("failure"),
+        "disabled_reason": value.get("disabled_reason"),
         "runtime_progress": value.get("runtime_progress"),
         "artifact_progress": value.get("artifact_progress"),
         "progress_changed_at": value.get("runtime_progress_changed_at")
@@ -360,13 +393,28 @@ def collect(
     tasks = {task_id: task_record(state_tasks.get(task_id)) for task_id in EXPECTED_TASK_IDS}
     status_counts = dict(sorted(Counter(row["status"] for row in tasks.values()).items()))
     missing = sorted(task_id for task_id, row in tasks.items() if row["status"] == "missing")
-    incomplete = sorted(
-        task_id for task_id, row in tasks.items() if row["status"] != "completed"
-    )
     analyses = analysis_artifact_metrics(repo_path, state_tasks)
     for name, row in analyses["analyses"].items():
         if row["status"] == "invalid":
             errors.append(f"{name} analysis artifact: {row['error']}")
+    tg2_rejection = analyses["analyses"]["tg2"].get("status") == "rejected"
+    rejection_report = analyses["analyses"]["tg2"].get("rejection_report", "")
+
+    def task_is_terminal(task_id: str, row: dict[str, Any]) -> bool:
+        if row["status"] == "completed":
+            return True
+        disabled_reason = row.get("disabled_reason") or ""
+        return (
+            tg2_rejection
+            and task_id.startswith("temporal_grounding_tg2r_")
+            and row["status"] == "disabled"
+            and disabled_reason.startswith("scientific gate rejected:")
+            and rejection_report in disabled_reason
+        )
+
+    incomplete = sorted(
+        task_id for task_id, row in tasks.items() if not task_is_terminal(task_id, row)
+    )
     complete = not errors and not missing and not incomplete and analyses["complete"]
     return {
         "timestamp": isoformat(observed_at),

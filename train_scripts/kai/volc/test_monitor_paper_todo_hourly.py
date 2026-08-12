@@ -168,6 +168,76 @@ def test_collect_does_not_treat_missing_or_disabled_task_as_complete(tmp_path: P
     assert disabled in record["task_summary"]["incomplete"]
 
 
+def test_collect_accepts_validated_tg2r_scientific_rejection(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    tg2 = monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]
+    (tmp_path / tg2["report"]).unlink()
+    (tmp_path / tg2["marker"]).unlink()
+    rejection = tmp_path / tg2["rejection_report"]
+    rejection.parent.mkdir(parents=True, exist_ok=True)
+    rejection.write_text(
+        json.dumps(
+            {
+                "protocol": tg2["rejection_protocol"],
+                "accepted_for_evaluation": False,
+                "scientific_disposition": {"evaluations_retired": 9},
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = json.loads(state.read_text())
+    for task_id, task in payload["tasks"].items():
+        if task_id.startswith("temporal_grounding_tg2r_"):
+            task["status"] = "disabled"
+            task["disabled_reason"] = f"scientific gate rejected: {rejection}"
+    payload["tasks"][tg2["task_id"]]["status"] = "disabled"
+    state.write_text(json.dumps(payload), encoding="utf-8")
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    assert record["complete"] is True
+    assert record["final_analyses"]["analyses"]["tg2"]["status"] == "rejected"
+    assert not any(
+        task_id.startswith("temporal_grounding_tg2r_")
+        for task_id in record["task_summary"]["incomplete"]
+    )
+
+
+def test_collect_rejects_tg2_result_beside_rejection_decision(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    tg2 = monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]
+    rejection = tmp_path / tg2["rejection_report"]
+    rejection.parent.mkdir(parents=True, exist_ok=True)
+    rejection.write_text(
+        json.dumps(
+            {
+                "protocol": tg2["rejection_protocol"],
+                "accepted_for_evaluation": False,
+                "scientific_disposition": {"evaluations_retired": 9},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    tg2_analysis = record["final_analyses"]["analyses"]["tg2"]
+    assert tg2_analysis["status"] == "invalid"
+    assert tg2_analysis["validated"] is False
+
+
 def test_stale_scheduler_snapshot_is_degraded(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path)
     payload = json.loads(snapshot.read_text())

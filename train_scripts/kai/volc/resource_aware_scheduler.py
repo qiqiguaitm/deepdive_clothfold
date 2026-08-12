@@ -90,6 +90,14 @@ SUPERSEDED_STATUS_INTERVAL_SECONDS = 300
 SUPERSEDED_STOP_RETRY_INTERVAL_SECONDS = 1800
 MAX_DISPATCHES_PER_POLL = 8
 GATE_DECISION_SPECS = {
+    str(
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg2r_training_integrity.ok"
+    ): (
+        REPO
+        / "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2r_integrity.json",
+        ("accepted_for_evaluation",),
+    ),
     str(REPO / "logs/resource_markers/pi05_mt1_seed1000_replication_gate.ok"): (
         REPO / "lmvla/paper_iclr_lmvla/RESULTS_pi05_mt1_seed1000_gate.json",
         ("accepted_for_replication",),
@@ -10048,6 +10056,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO
         / "logs/resource_markers/temporal_grounding_tg2r_training_integrity.ok"
     )
+    recovery_integrity_decision = (
+        REPO
+        / "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2r_integrity.json"
+    )
     recovery_integrity_runner = (
         REPO / "train_scripts/kai/run_temporal_grounding_tg2r_integrity_v3.sh"
     )
@@ -10190,6 +10202,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         str(tg2_recovery_post_v7_path),
                         str(runtime_v10_path),
                         str(recovery_integrity_marker),
+                        str(recovery_integrity_decision),
                         str(recovery_eval_runner),
                         str(recovery_eval_yaml),
                         str(recovery_renderer_marker),
@@ -10795,6 +10808,20 @@ def gate_rejection_closure(queue: dict[str, Any]) -> dict[str, str]:
             task_id = task["id"]
             if task_id in closed or not task.get("enabled", True):
                 continue
+            completion = task.get("completion_glob", "")
+            rejected_output = (
+                blocked_paths.get(completion)
+                if completion and not glob.has_magic(completion)
+                else None
+            )
+            rejected_dependency = next(
+                (
+                    closed[dependency]
+                    for dependency in task.get("requires_completed_tasks", [])
+                    if dependency in closed
+                ),
+                None,
+            )
             required_block = next(
                 (
                     blocked_paths[path]
@@ -10816,13 +10843,12 @@ def gate_rejection_closure(queue: dict[str, Any]) -> dict[str, str]:
                 for alternative in alternatives
             ]
             all_alternatives_blocked = bool(alternatives) and all(alternative_blocks)
-            reason = required_block or (
+            reason = rejected_output or rejected_dependency or required_block or (
                 alternative_blocks[0] if all_alternatives_blocked else None
             )
             if reason is None:
                 continue
             closed[task_id] = reason
-            completion = task.get("completion_glob", "")
             if completion and not glob.has_magic(completion):
                 blocked_paths[completion] = reason
             for output in task.get("produces_files", []):

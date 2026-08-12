@@ -3299,6 +3299,39 @@ def test_negative_gate_closes_transitive_artifact_dependencies(
     assert all(reason == str(decision) for reason in closed.values())
 
 
+def test_negative_gate_closes_producer_and_task_dependencies(
+    tmp_path: Path, monkeypatch
+) -> None:
+    marker = str(tmp_path / "integrity.ok")
+    decision = tmp_path / "decision.json"
+    decision.write_text('{"accepted": false}\n')
+    monkeypatch.setattr(
+        scheduler,
+        "GATE_DECISION_SPECS",
+        {marker: (decision, ("accepted",))},
+    )
+    queue = {
+        "tasks": [
+            {"id": "integrity", "completion_glob": marker},
+            {
+                "id": "evaluation",
+                "requires_completed_tasks": ["integrity"],
+                "completion_glob": str(tmp_path / "seed*/summary.json"),
+            },
+            {
+                "id": "analysis",
+                "requires_completed_tasks": ["evaluation"],
+                "completion_glob": str(tmp_path / "analysis.ok"),
+            },
+        ]
+    }
+    assert set(scheduler.gate_rejection_closure(queue)) == {
+        "integrity",
+        "evaluation",
+        "analysis",
+    }
+
+
 def test_accepted_gate_does_not_close_branch(tmp_path: Path, monkeypatch) -> None:
     marker = str(tmp_path / "pilot.ok")
     decision = tmp_path / "decision.json"

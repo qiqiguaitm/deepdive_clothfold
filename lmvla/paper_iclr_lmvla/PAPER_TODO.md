@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-12 02:24 UTC
+Updated: 2026-08-12 03:47 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -34,7 +34,7 @@ Three result boundaries remain binding:
   reproducibility result is not policy evidence. No temporal-grounding utility,
   content-use, cadence, or target-horizon gate has passed.
 
-## 2. Active TG2R recovery matrix
+## 2. Closed TG2R recovery matrix
 
 TG2R repeats `future_off`, `fixed_endpoint`, and `raw_milestone` at training
 seeds 1000--1002. It preserves the original initialization, target routes,
@@ -43,7 +43,7 @@ updates, `H=E=50`, and fixed-final-checkpoint selection. Its only scientific
 training change is `datasets.vla_data.in_order: false -> true`.
 
 Eight training cells and their location-aware materializers are complete and
-archived in Section 44. Only the following execution chain remains:
+archived in Section 44. The integrity gate closed the remaining branch:
 
 - [x] **TG2R-T03 [COMPLETE: `t-20260811075607-jqpjx`]** Trained `future_off`,
   seed 1002 on four North GPUs under the operator-authorized primary-identity
@@ -62,30 +62,25 @@ archived in Section 44. Only the following execution chain remains:
   scheduler retry reused the installed checkpoint, materialized and normalized
   all sidecars, and wrote the canonical marker at 12:06 UTC without retraining
   or retransmitting the large checkpoint tree.
-- [ ] **TG2R-I1 [PENDING: East capacity, sole unsubmitted execution gate]** Run the joint nine-arm integrity gate in the
-  admitted East root context. A scheduler-owned local CPU attempt was rejected
-  before validation because two East-native raw-milestone sidecar sets are
-  root-owned mode 0600; the local identity has no authorized root access. The
-  unchanged East 1-GPU root-context runner remains the eligible fallback.
-  Require all nine successful terminal jobs,
-  fixed step 20,000, complete optimizer state, exact initialization equality
-  within seed, exact rank-order equality across arms within seed, distinct
-  order across seeds, `in_order=true`, and eight workers in every full config.
+- [x] **TG2R-I1 [COMPLETE; GATE REJECTED: `t-20260812114314-cnp6q`]** The
+  admitted East root-context gate verified all nine terminal jobs, fixed step
+  20,000, optimizer state, initialization equality within seed, rank-order
+  equality across arms within seed, and the remaining frozen protocol fields.
+  It then rejected the matrix because seeds 1000--1002 induce the same rank
+  data orders under `in_order=true`, violating the preregistered independent-
+  training-seed requirement. The immutable decision is
+  `RESULTS_temporal_grounding_tg2r_integrity.json`; the failed `.ok` marker was
+  not created and the same protocol must not be retried.
 
 No evaluation below is admissible before
 `logs/resource_markers/temporal_grounding_tg2r_training_integrity.ok` exists.
 Each evaluation uses four East GPUs, the unchanged six-task/four-evaluation-seed
 scene manifest, and exactly 1,200 accepted episodes.
 
-- [ ] **TG2R-E01 [BLOCKED by I1]** Evaluate `future_off`, seed 1000.
-- [ ] **TG2R-E02 [BLOCKED by I1]** Evaluate `future_off`, seed 1001.
-- [ ] **TG2R-E03 [BLOCKED by I1]** Evaluate `future_off`, seed 1002.
-- [ ] **TG2R-E04 [BLOCKED by I1]** Evaluate `fixed_endpoint`, seed 1000.
-- [ ] **TG2R-E05 [BLOCKED by I1]** Evaluate `fixed_endpoint`, seed 1001.
-- [ ] **TG2R-E06 [BLOCKED by I1]** Evaluate `fixed_endpoint`, seed 1002.
-- [ ] **TG2R-E07 [BLOCKED by I1]** Evaluate `raw_milestone`, seed 1000.
-- [ ] **TG2R-E08 [BLOCKED by I1]** Evaluate `raw_milestone`, seed 1001.
-- [ ] **TG2R-E09 [BLOCKED by I1]** Evaluate `raw_milestone`, seed 1002.
+- [x] **TG2R-E01--E09 [RETIRED by I1; 0 evaluations executed]** The nine
+  checkpoint trees remain audit artifacts only. Running their closed-loop
+  evaluations would not repair the missing independent training-seed unit and
+  cannot contribute to a TG2 result.
 
 ### TG2R analysis and primary gates
 
@@ -107,11 +102,8 @@ The expected canonical analysis output remains
 `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json`. The rejected
 parent matrix produced no such result and cannot contribute episodes.
 
-- [ ] **TG2R-A1 [REGISTERED; BLOCKED by E01--E09]** Run the frozen
-  scheduler-owned recovery analysis command against the nine
-  `temporal_grounding_tg2r_*` result roots, then produce the canonical report
-  and `temporal_grounding_tg2_gate.ok`. The parent TG2 command points to the
-  rejected `temporal_grounding_tg2_*` roots and must not be reused unchanged.
+- [x] **TG2R-A1 [RETIRED by I1]** No canonical TG2 result or gate marker is
+  produced because no admissible evaluation matrix exists.
 
 ## 3. Active TG1 common fixed-scene retry500 panel
 
@@ -132,9 +124,9 @@ Current scheduler-owned execution is:
   capture.
 - [x] **TG1A-E2 [COMPLETE: `t-20260811151424-z9hrr`, 24/24]** Evaluate null from
   an empty root under retry500.
-- [ ] **TG1A-E3 [RUNNING: `t-20260811220414-45x4t`, East, 20/24]** Evaluate persistence from an empty
-  root under retry500.
-- [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps`, East, 12/24]** Evaluate the frozen
+- [x] **TG1A-E3 [COMPLETE: `t-20260811220414-45x4t`, 24/24]** Evaluated
+  persistence from an empty root under retry500 with fixed seeds verified.
+- [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps`, East, 16/24]** Evaluate the frozen
   within-task different-episode shuffled mapping.
 - [x] **TG1B-E1 [COMPLETE: `t-20260812073026-gt69q`, 24/24]** Evaluated
   future-off, `E=36`.
@@ -248,6 +240,8 @@ suite/task reported; selected positive subsets are forbidden.
   `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json`
 - TG2R post-training contract:
   `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v7.json`
+- TG2R integrity rejection:
+  `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2r_integrity.json`
 - TG1 retry500 amendment:
   `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1_retry500_amendment_v1.json`
 - TG1 activation record:
