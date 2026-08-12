@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-12 03:47 UTC
+Updated: 2026-08-12 04:07 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -126,8 +126,14 @@ Current scheduler-owned execution is:
   an empty root under retry500.
 - [x] **TG1A-E3 [COMPLETE: `t-20260811220414-45x4t`, 24/24]** Evaluated
   persistence from an empty root under retry500 with fixed seeds verified.
-- [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps`, East, 16/24]** Evaluate the frozen
-  within-task different-episode shuffled mapping.
+- [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps` + tail
+  `t-20260812120538-n7jgs`, East, 16/24]** Evaluate the frozen within-task
+  different-episode shuffled mapping. The scheduler-owned v2 tail passed the
+  same TG1A bundle, retry500, and runtime-v11 checks, then attached one locked
+  worker per seed to claim only `stack_blocks_three`; the original four workers
+  continue the disjoint `stack_blocks_two` cells. The rejected v1 helper
+  `t-20260812120240-wdzvz` failed before claiming a cell because it omitted the
+  frozen runtime-v11 verifier context, and contributes no episode.
 - [x] **TG1B-E1 [COMPLETE: `t-20260812073026-gt69q`, 24/24]** Evaluated
   future-off, `E=36`.
 - [x] **TG1B-E2 [COMPLETE: `t-20260812073031-p9l4x`, 24/24]** Evaluated
