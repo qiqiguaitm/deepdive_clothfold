@@ -1,22 +1,21 @@
-World-model-augmented robot policies condition actions on predicted future
-visual states, but latent targets can drift while a vision--language--action
-(VLA) encoder trains.  We introduce \textbf{MINT-VLA}
-(\textbf{M}ilestone \textbf{I}ntegration with \textbf{N}ative-Space
-\textbf{T}argets for \textbf{V}ision--\textbf{L}anguage--\textbf{A}ction
-models), which mines recurring stages, recomputes targets in the current
-encoder space, and injects one predicted prefix token.  Held-out latent cosine
-improves from 0.7479 for persistence to 0.8134.  Across three matched training
-seeds and 10,800 frozen-scene rollouts, no hint reaches 79.39\%, offline
-absolute conditioning 75.44\%, and MINT-VLA 70.81\%.  Their paired differences
-from no hint are $-3.94$ points (95\% CI [$-6.58$,$-0.97$]) and $-8.58$ points
-([$-11.47$,$-5.75$]).  Correct predictions also fail to outperform current,
-zero, permuted, or cross-task controls, while a three-seed oracle-transition
-arm changes success by $+0.53$ points ([$-2.06$,$+3.00$]).  Separately, a
-policy-preserving predictive adapter improves one fixed matched $\pi_{0.5}$
-A0 by 11.61 points across three candidate seeds, adding 0.50\% parameters and
-0.93\,ms direct-model latency.  Independently matched A0 training reverses
-this conclusion: the three seed effects are $+13.42$, $-5.50$, and $-2.08$
-points, with mean $+1.94$ and 95\% CI [$-5.78$,$+12.75$].  Its matched
-normal--shuffled effect is also only $+0.53$ points
-([$-2.14$,$+3.08$]).  Future-state predictability, representation alignment,
-and a one-seed gain therefore do not ensure replicated control utility.
+Predicted future representations are increasingly used to condition
+vision--language--action (VLA) policies, but representation accuracy does not
+show that a policy uses the prediction or benefits from it.  We introduce a
+temporal-contract audit and an evidence ladder that separate future-state
+predictability, matched training utility, fixed-checkpoint content use, and
+component attribution.  A source audit shows that the released LaWAM RoboTwin
+target coincides with its 36-action execution endpoint, whereas recurrence
+milestones are variable-horizon targets and only 12.50\% fall within the
+executed prefix.  At the frozen released LaWAM checkpoint, normal prediction
+reaches 94.00\% success versus 40.33\% when future content is shuffled within
+task, a paired difference of +53.67 points (95\% CI
+[$+36.08$,$+68.58$]); all six task effects are positive.  This establishes
+content use at that checkpoint, not which training component produced it.  Two
+counterexamples delimit the claim.  MINT-VLA improves held-out future-feature
+cosine from 0.7479 to 0.8134 yet lowers matched control by 8.58 points.  A new
+policy-preserving PredictiveActionAdapter learns action-conditioned future
+grids with 0.50\% additional parameters, but its independently matched
+three-seed effect is +1.94 points (95\% CI [$-5.78$,$+12.75$]) and its
+normal--shuffled contrast is unresolved.  Predicted futures can constrain VLA
+control, but neither predictability, temporal proximity, nor a one-seed gain
+alone identifies a reliable mechanism.

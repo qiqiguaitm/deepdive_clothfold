@@ -1,94 +1,83 @@
-\section{MINT-VLA}\label{sec:method}
+\section{Predictive Interfaces}\label{sec:method}
 
-\subsection{Overview}
-MINT-VLA separates future-state supervision from the mechanism used by a
-particular VLA to receive additional conditioning.  It has four components:
-(i) milestone images selected from successful demonstrations, (ii) target
-features computed by the VLA's current visual encoder, (iii) a predictor that
-estimates a milestone feature from the current observation, and (iv) a small
-architecture-specific adapter that passes this feature to the policy.  The
-demonstrations and milestone images are used only for training.  Deployment
-retains the policy encoder, milestone predictor, and adapter.
+\subsection{LaWAM fixed-endpoint conditioning}
+LaWAM combines a vision--language model, a frozen latent-action model (LAM),
+and a flow-matching action expert \citep{lawam2026}.  The VLM maps current
+images and language to a latent-action code.  A LAM decoder combines that code
+with the current DINO visual grid to predict a future observation grid.  During
+policy training, latent-code distillation and future-grid reconstruction act as
+auxiliary objectives.  The flow expert cross-attends to the current grid, the
+predicted future grid, and VLM tokens while denoising an action chunk.  At
+deployment the future grid is inferred from the current observation; the
+future image is not available.
 
-\subsection{Milestone target discovery}
-Successful demonstrations repeatedly pass through recognizable task stages:
-an object is grasped, one block is placed, or a handover is completed.  For a
-frame $o_t^i$ from episode $i$, we L2-normalize a frozen DINOv3 pooled feature
-$f(o_t^i)$ and compute
+For the released RoboTwin checkpoint, the two-frame training contract samples
+the current frame and the last valid frame of its 36-action window.  We call
+this the \emph{fixed-endpoint} interface.  Our normal, shuffled, null, and
+persistence interventions replace only the predicted future grid after the
+checkpoint is loaded.  They therefore test dependence of a fixed policy on the
+inference condition, not how that dependence arose during training.
+
+\subsection{Recurrence milestones and MINT-VLA}
+MINT-VLA replaces a fixed endpoint with a stage target mined from successful
+demonstrations.  It scores cross-episode visual recurrence, divides each
+trajectory at score valleys, and maps each frame to the representative of its
+next segment or to the terminal frame.  It stores the target image rather than
+a stale feature.  During policy training, the current visual encoder
+$E_\theta$ represents both images:
 \begin{equation}
- r(o_t^i)=\frac{1}{|\mathcal E|-1}\sum_{j\neq i}\max_s
- \exp\!\left(-\frac{\|f(o_t^i)-f(o_s^j)\|_2^2}{2\sigma^2}\right),
+ c_t=\operatorname{pool}(E_\theta(o_t)),\qquad
+ y_t=\operatorname{sg}[\operatorname{pool}(E_\theta(o_{\tau(t)}))].
 \end{equation}
-where $\sigma$ is the median cross-episode nearest-neighbor distance.  We
-Gaussian-smooth each episode's score ($\sigma_t{=}1.4$), split it at valleys
-with prominence 0.03 and temporal separation
-$\max(2,\lfloor T/12\rfloor)$, and select the highest-scoring frame in each
-segment.  Each frame is paired with the representative of the next segment, or
-with the final frame after the last boundary.  We process at most 200 uniformly
-sampled successful episodes per task.  This procedure uses task grouping and
-success labels, but no manually annotated stage boundaries.
+A two-layer residual predictor produces
+$\hat y_t=c_t+D_\phi(c_t)$ and minimizes
+$\|\hat y_t-y_t\|_2^2$.  The evaluated $\pi_{0.5}$ implementation projects
+$\hat y_t$ to one bidirectionally visible VLM prefix token.  Recomputing
+$y_t$ prevents target-coordinate drift as $E_\theta$ changes, but the target
+horizon is variable and the predictor is not action-conditioned.  Stop-gradient
+protects only the target branch; the auxiliary loss may still update the
+current visual path through $c_t$.
 
-\subsection{Native-space target construction}
-Let $E_\theta$ denote the visual encoder of the VLA being trained.  MINT-VLA
-stores the milestone image $o_t^{\mathrm{ms}}$, rather than a feature computed
-before policy training.  At each update, the current encoder maps the observation
-and milestone image into the same representation space:
+\subsection{Policy-preserving PredictiveActionAdapter}
+PredictiveActionAdapter tests a different integration hypothesis: preserve the
+pretrained prefix and place an action-conditioned correction inside the action
+expert.  Let $C_t\in\mathbb{R}^{16\times d}$ be a stop-gradient $4\times4$
+pool of current visual tokens and let
+$X=(x_1,\ldots,x_H)$ be an action chunk or flow proposal.  The adapter embeds
+each action with a learned temporal position and summarizes the complete
+proposal,
 \begin{equation}
-  c_t=\operatorname{pool}(E_\theta(o_t)),\qquad
-  y_t=\operatorname{sg}\!\left[
-  \operatorname{pool}(E_\theta(o_t^{\mathrm{ms}}))\right].
+ u_i=\operatorname{swish}(W_a x_i+p_i),\qquad
+ s=\operatorname{swish}(W_s\operatorname{vec}(u_{1:H})).
 \end{equation}
-We call $y_t$ a \emph{native-space target} because its coordinates are defined
-by the current policy encoder, not by an external encoder or an earlier encoder
-snapshot.  Stop-gradient prevents the target branch from changing
-$E_\theta$, while allowing the target itself to follow changes in the encoder
-over training.
+It predicts a residual for every visual cell,
+\begin{equation}
+ \delta_j=W_{p2}\operatorname{swish}
+   (W_{p1}[\operatorname{swish}(W_c C_{t,j});s]),\qquad
+ \hat C_{t+}=C_t+\delta,
+\end{equation}
+then summarizes the predicted change and produces one correction per action
+token,
+\begin{equation}
+ \bar\delta=\frac{1}{16}\sum_j\operatorname{swish}(W_c\delta_j),\qquad
+ r_i=W_{r2}\operatorname{swish}(W_{r1}[u_i;\bar\delta]).
+\end{equation}
+The kernel and bias of $W_{r2}$ are initialized to exactly zero, so inserting
+the adapter leaves the base policy unchanged at initialization.
 
-\subsection{Milestone prediction}
-A two-layer predictor estimates a change from the current feature and
-reconstructs an absolute milestone representation:
-\begin{equation}
-  \hat y_t=c_t+D_\phi(c_t),\qquad
-  \mathcal L_{\mathrm{ms}}=\|\hat y_t-y_t\|_2^2.
-\end{equation}
-Thus, ``residual'' describes the predictor parameterization; the policy receives
-the absolute prediction $\hat y_t$.  The current predictor is conditioned on
-the observation, while the task instruction is supplied separately to the VLA.
-This design cannot distinguish instruction-dependent futures that share the
-same visual observation.  Moreover, stop-gradient protects only the target
-branch: $\nabla_\theta\mathcal L_{\mathrm{ms}}$ can still pass through $c_t$.
-We therefore do not describe the current method as gradient-isolated.
+Training calls the same adapter twice for different purposes.  A clean expert
+action chunk predicts $\hat C_{t+}$ for a cosine loss against a stop-gradient
+target grid.  The noisy flow proposal $x_t$ produces $r_{1:H}$, which is added
+to the corresponding noisy-action tokens before the action expert predicts the
+flow velocity.  At inference no clean action is needed: each denoising step
+uses its current proposal $x_t$, recomputes the future-grid residual, and
+updates the same proposal through the routed correction.  Temporal reversal,
+action masking, and a zero route provide deterministic content and route
+interventions.  This makes the adapter a proposal-conditioned self-consistency
+interface, not a separate planner or an independently rolled-out world model.
 
-\subsection{Policy-specific conditioning adapter}
-The predicted milestone is connected to a policy through an
-architecture-specific adapter $A_\omega$:
-\begin{equation}
-  q_t=A_\omega(\hat y_t),\qquad
-  a_t=\pi_\psi(o_t,l,q_t),
-\end{equation}
-where $l$ is the instruction and $q_t$ follows the conditioning format exposed
-by the VLA.  For a token-based policy, $A_\omega$ projects the milestone into a
-conditioning token.  A policy with an existing cross-attention or latent
-conditioning input can instead map $\hat y_t$ to that interface.  Milestone
-selection, native-space supervision, and the residual prediction objective are
-shared across implementations.  The visual encoder and adapter come from the
-target VLA, and the predictor is sized to that encoder's feature width.  This
-separation makes MINT-VLA compatible by design with multiple VLA interfaces,
-but the present experiments establish performance only for the $\pi_{0.5}$
-instantiation.  We do not claim empirical transfer to a second architecture;
-that expansion was closed after the primary positive-utility gate failed.
-
-\subsection{$\pi_{0.5}$ instantiation}
-$\pi_{0.5}$ contains a PaliGemma visual-language prefix and an action expert.
-We implement $A_\omega$ as a linear projection to the prefix width and append
-one bidirectionally visible milestone token:
-\begin{equation}
-  q_t=P_\omega(\hat y_t),\qquad
-  X_{\mathrm{prefix}}=[X_{\mathrm{image}},q_t,X_{\mathrm{text}}].
-\end{equation}
-The milestone-loss weight is 0.05.  This implementation adds no cross-attention
-tower, second visual encoder, image decoder, or demonstration retrieval at
-deployment.  It adds 0.25\% parameters to the evaluated $\pi_{0.5}$ policy.
-The A0--A3 comparison arms and their matched training configuration are defined
-in Section~\ref{sec:design}; complete implementation values are listed in
-Appendix~\ref{sec:appendix}.
+The adapter adds 16.82 million parameters to $\pi_{0.5}$ (0.50\%).  Its
+architecture, exact zero-output initialization, and inherited-parameter
+isolation are audited.  These properties establish a controlled interface;
+control benefit remains subject to the matched-seed, task-safety, and
+content-use gates in Section~\ref{sec:results}.

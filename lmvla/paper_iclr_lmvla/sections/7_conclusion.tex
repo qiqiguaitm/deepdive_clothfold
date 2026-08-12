@@ -1,24 +1,46 @@
 \section{Discussion and Conclusion}\label{sec:conclusion}
-MINT-VLA improves held-out future-feature prediction, but the corrected
-three-seed control experiment rejects action utility: A2-Abs and MINT-VLA are
-$-3.94$ and $-8.58$ points below matched no-hint training, respectively.
-Correct content also fails to beat fixed-checkpoint replacements.  Oracle stage
-transitions, explicit next-subtask semantics, and privileged spatial targets do
-not reverse the result.  A later visual state can identify progress without
-specifying path, contact, arm assignment, or timing, so predictability and
-representation alignment are not sufficient evidence of action sufficiency.
 
-Preserving pretrained pathways does not yield a stable exception.  The
-predictive adapter has a strong seed-1000 screen and a positive comparison with
-one fixed A0, but independent matched A0s change the three seed effects to
-+13.42, -5.50, and -2.08 points (mean +1.94; 95\% CI
-[$-5.78$,$+12.75$]).  Its correct-versus-shuffled, route, mature-public, and
-task-safety gates also fail.  Recurrence-aligned auxiliary training and
-outcome-calibrated weighting provide further negative replication results.
+The experiments resolve one important ambiguity: a predicted future can be
+causally relevant to VLA control.  Replacing LaWAM's normal endpoint grid with
+shuffled, null, or persistent content sharply reduces success at the same
+checkpoint and on the same scenes.  This result is stronger than a system-level
+score because it identifies dependence on the particular predicted content.
+It is narrower than a method-level improvement claim because the checkpoint's
+pretraining, auxiliary objectives, and inference route were learned together.
 
-The conclusion is deliberately scoped to the tested $\pi_{0.5}$ milestone and
-predictive-adapter interfaces and the six-task RoboTwin panel.  It does not
-rule out generative, action-conditioned, spatial, or planning-oriented world
-models.  It does show that latent prediction metrics, one-seed gains, and
-extra conditioning routes must not substitute for matched training seeds and
-causal content controls.
+The contrast with MINT-VLA and PredictiveActionAdapter explains why prediction
+metrics are insufficient.  MINT-VLA predicts its target but supplies a pooled,
+variable-horizon stage through the VLM prefix; matched control deteriorates.
+PredictiveActionAdapter supplies an action-conditioned grid residual directly
+to the action expert and preserves the base policy at initialization; its
+matched effect nevertheless varies from +13.42 to $-5.50$ points across seeds,
+and reversing proposal content has no resolved effect.  These outcomes do not
+invalidate the architectures.  They show that representational dependence,
+optimization stability, task safety, and content causality are separate method
+requirements.
+
+Temporal grounding remains a plausible but unconfirmed explanation.  The
+released LaWAM target coincides with the executed chunk endpoint, whereas most
+recurrence milestones lie several policy queries ahead and carry no time-to-go.
+Such a milestone may identify eventual progress without specifying contact,
+path, arm assignment, or how far the next chunk should move.  A hierarchical
+controller could translate it into a local endpoint.  However, the completed
+cadence intervention does not detect local-WM-specific sensitivity, and the
+matched target comparison was rejected before evaluation on data-order
+integrity.  We therefore do not claim that horizon mismatch caused the MINT or
+LMWM results.
+
+The study is limited to simulated RoboTwin tasks, the evaluated $\pi_{0.5}$ and
+LaWAM interfaces, three training seeds where training comparisons are
+available, and one released checkpoint for the strong content intervention.
+It does not rule out generative video models, explicit planning, learned
+time-to-go, hierarchical subgoal conversion, other VLA backbones, or real-robot
+benefit.  TG4 must complete before the LaWAM result can be assigned to a
+training component.
+
+Predicted futures should therefore be evaluated as control inputs, not only as
+representations.  A publishable claim requires matched training utility,
+visible task-level safety, and fixed-checkpoint dependence on correct content;
+source attribution requires another matched intervention.  Applying this
+standard reveals both a strong positive case and two informative boundaries,
+without treating either as a universal verdict on world-model-augmented VLAs.

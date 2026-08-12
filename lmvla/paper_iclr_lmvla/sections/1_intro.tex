@@ -1,116 +1,88 @@
 \section{Introduction}\label{sec:intro}
-World models represent environment dynamics by predicting future observations
-or latent states from the current state and, in many formulations, an action.
-Recent vision--language--action (VLA) systems use predicted images, latent
-observation features, or visual subgoals to inform action generation
-\citep{vpp2024,susie2024,ahead2026,futurevla2026}.  Prediction quality alone,
-however, does not establish an improvement in control.  WorldArena reports a
-correlation of only $r{=}0.360$ between world-model quality and planning performance
-\citep{worldarena2026}, while VLA prediction systems use specialized attention,
-alignment, or gating before future supervision reaches the controller
-\citep{dreamvla2025,futurevla2026,deltavla2026}.  The unresolved problem is
-therefore not only how to predict a future state, but how to integrate the
-prediction into a pretrained action policy.
 
-This integration problem is especially important when the VLA visual encoder remains trainable.
-An independent visual world model preserves its own representation but repeats
-perception or generation at deployment.  A precomputed latent is cheaper, yet
-an external encoder can organize the scene differently from the policy.  Even
-a feature computed by the policy encoder becomes outdated as fine-tuning
-changes that encoder.
-Finally, an auxiliary future loss can alter shared current features whether or
-not the policy uses the predicted content.  Encoder mismatch, target drift,
-forward conditioning, and backward representation shaping are different
-causes; a method-versus-baseline comparison cannot identify them.
+World-model-augmented robot policies predict future images, latent observation
+features, or visual subgoals and supply them to an action generator
+\citep{vpp2024,susie2024,dreamvla2025,worldvla2025,ahead2026,futurevla2026,lawam2026}.
+This design is appealing because a predicted future can summarize how the
+scene should change without decoding a video at deployment.  Yet future-state
+accuracy is not a control result.  World-model quality correlates only weakly
+with planning performance in WorldArena \citep{worldarena2026}, and auxiliary
+prediction can change a shared representation even when the controller ignores
+the predicted content.  A system-level benchmark gain therefore does not show
+that the future representation caused the gain.
 
-Here we present \textbf{MINT-VLA} (\textbf{M}ilestone \textbf{I}ntegration with
-\textbf{N}ative-Space \textbf{T}argets for
-\textbf{V}ision--\textbf{L}anguage--\textbf{A}ction models), a compact adapter
-that defines milestone targets in the policy's current visual space
-(Fig.~\ref{fig:hero}).  MINT-VLA first finds stage states that recur across
-successful demonstrations and stores the corresponding frames.  During policy
-training, the current encoder represents both the observation and a
-stop-gradient milestone target.  A two-layer predictor estimates their
-displacement and reconstructs an absolute milestone feature.  An
-architecture-specific projection passes this feature through the VLA's native
-conditioning input; our $\pi_{0.5}$ implementation appends one prefix token.
-At deployment, the predictor operates
-on the current observation; it requires no retrieval, target encoder, or image
-decoder.
+A future condition has two semantics: \emph{what} state is predicted and
+\emph{when} that state should occur.  This distinction matters for policies
+that generate an action chunk and execute only a prefix before replanning.  A
+target at the chunk endpoint can directly specify the state to be reached by
+the current proposal.  A milestone several chunks away can still be useful,
+but it behaves as a high-level subgoal unless the policy also knows its horizon
+or converts it into a local target.  Most evaluations conflate this temporal
+contract with predictor quality, conditioning capacity, auxiliary gradients,
+and policy initialization.
+
+We study these factors through three interfaces (Fig.~\ref{fig:overview}).
+The released LaWAM system predicts a future visual grid and cross-attends to it
+inside a flow-matching action expert \citep{lawam2026}.  MINT-VLA recomputes a
+recurrence-defined milestone in the trainable policy encoder and injects one
+predicted prefix token.  Our \emph{PredictiveActionAdapter} instead predicts a
+future patch-grid residual from the current visual tokens and each flow action
+proposal, then returns a zero-initialized correction to the corresponding
+action-expert tokens.  These systems differ in target horizon and conditioning
+location, but no architectural difference is interpreted causally without its
+own intervention.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.96\linewidth]{figures/fig1_tension.pdf}
-  \caption{$\pi_{0.5}$ instantiation of MINT-VLA. Recurrence mining selects a
-  later milestone frame from successful demonstrations. During training, the
-  current policy encoder defines a stop-gradient target and a
-  residual-parameterized predictor produces an absolute milestone feature. The
-  $\pi_{0.5}$ adapter maps that feature to one prefix token.}
-  \label{fig:hero}
+  \includegraphics{figures/fig1_contract.pdf}
+  \caption{\textbf{Temporal contracts, conditioning interfaces, and evidence
+  levels.} \textbf{a}, A VLA predicts $H$ valid actions and executes $E\leq H$
+  before replanning.  A target at $\tau(t)$ may coincide with either endpoint
+  or lie several queries ahead. \textbf{b}, The evaluated interfaces place a
+  predicted future grid in LaWAM's action-expert context, a pooled milestone
+  token in the $\pi_{0.5}$ prefix, or a proposal-conditioned residual directly
+  on $\pi_{0.5}$ action tokens. \textbf{c}, Prediction, matched utility,
+  content use, and source attribution require separate evidence; an arrow
+  denotes a required progression, not a logical implication.}
+  \label{fig:overview}
 \end{figure}
 
-The completed experiments separate future-state predictability from control
-utility.  On 480 held-out episodes, the predictor reaches latent cosine 0.8134
-versus 0.7479 for persistence.  Yet at fixed $\pi_{0.5}$ A2 and A3 checkpoints,
-correct future content fails to outperform current, zero, feature-permuted,
-cross-task, or within-task controls on 518 common scenes after Holm correction.
-Nine supporting six-task LaWAM comparisons give the same null result.
-Preserving a privileged milestone as a
-$4\!\times\!4$ patch grid does not repair the interface: it fails to beat both
-no-goal and current-image controls on Stack-3 and significantly increases the
-Hammer action endpoint error.  Thus neither an empty predictor nor one-token
-spatial compression alone explains the control gap.  An exact-paired public
-$\pi_{0.5}$ reaches 78.17\% through the same evaluator.  Across three matched corrected
-training seeds, no hint reaches 79.39\%, offline absolute conditioning 75.44\%,
-and MINT-VLA 70.81\%.  Relative to no hint, their paired hierarchical
-differences are $-3.94$ points (95\% CI [$-6.58$,$-0.97$]) and $-8.58$ points
-([$-11.47$,$-5.75$]), respectively.  MINT-VLA is lower on all six tasks, while
-offline absolute conditioning improves only Stack-2 by 0.50 points.  The
-corrected result therefore supports an integration diagnosis, not a
-method-benefit claim.  A predeclared three-seed follow-up reaches the same
-boundary with privileged stage transitions: its mean effect over A0 is
-$+0.53$ points (95\% CI [$-2.06$,$+3.00$]), with a negative effect at seed
-1002 and regressions on Hammer and both ranking tasks.
+The resulting evidence is asymmetric.  A CPU source audit finds that the
+released LaWAM RoboTwin condition is aligned with its 36-action execution
+endpoint.  At that frozen checkpoint, normal prediction reaches 94.00\%
+success, versus 40.33\% when future content is replaced by a deterministic
+within-task, different-episode shuffle.  The +53.67-point paired difference has
+a hierarchical 95\% interval of [$+36.08$,$+68.58$], and every task and
+evaluation seed is positive.  Null and persistence controls also pass.  Thus
+the released policy uses the specific predicted endpoint content in closed
+loop.  This fixed-checkpoint intervention does not determine whether the
+dependence was created by LaWAM pretraining, downstream auxiliary shaping, or
+inference-time conditioning.
 
-We also evaluate a separate repair hypothesis that preserves the pretrained
-$\pi_{0.5}$ pathways and confines an action-conditioned predictive adapter to
-the action expert.  Its preregistered seed-1000 screen improves over a matched
-current-source A0 by 13.42 points (82.42\% versus 69.00\%) without a task-level
-regression.  The frozen P2 replication yields candidate effects of +13.42,
-+9.08, and +12.33 points across training seeds, with a mean +11.61-point
-effect and hierarchical 95\% interval [$+8.31$,$+14.67$].  This establishes
-candidate-seed replication relative to the fixed matched A0.  Once A0 is
-independently trained at all three seeds, however, the matched effects are
-+13.42, -5.50, and -2.08 points; their mean is +1.94 points with hierarchical
-95\% CI [$-5.78$,$+12.75$].  The adapter also lacks content-specific
-causality: across three seeds the margin over shuffled action
-conditioning is $+0.53$ points (95\% CI [$-2.14$,$+3.08$]; Holm-adjusted
-$p{=}0.534$).  Adding recurrence-derived CRAVE
-targets reduces success to 62.92\%; this rejects that auxiliary extension
-rather than the parent predictive adapter.
-
-A separate demonstration-weighting screen gives a second bounded positive
-direction.  At seed 1000, terminal-outcome weighting reaches 77.58\%, versus
-74.25\% for ordinary fine-tuning and 71.08\% for outcome-free CRAVE weighting.
-The predeclared three-seed replication retains positive mean differences of
-2.81 and 3.81 points, but both hierarchical 95\% intervals cross zero.  We
-therefore reject a replicated utility claim rather than reinterpret these
-sample weights as a value or control-utility mechanism.
+The negative cases show why each evidentiary step is necessary.  MINT-VLA
+predicts held-out milestones better than persistence but is 8.58 points below
+matched no-hint training across three seeds.  PredictiveActionAdapter adds only
+0.50\% parameters and passes an offline action-conditioning test, but its
+apparent +11.61-point effect against one fixed A0 becomes +1.94 points with a
+95\% interval of [$-5.78$,$+12.75$] after independently training all three A0
+seeds.  It also contains task regressions and no resolved normal--shuffled
+effect.  Finally, changing the executed prefix from 36 to 50 actions does not
+produce a local-world-model-specific cadence effect.  Temporal alignment is
+therefore a measured distinction and a plausible design hypothesis, not an
+established explanation of these outcomes.
 
 This paper makes three contributions:
 \begin{itemize}
-  \item We introduce a milestone target recomputed by the current policy encoder
-  and an adapter that uses each VLA's native conditioning input; the evaluated
-  $\pi_{0.5}$ implementation adds one token and 0.25\% parameters.
-  \item We define paired content interventions and a privileged spatial gate
-  that distinguish prediction quality, content use, and interface capacity.
-  \item We show across three matched training seeds that a nontrivial future
-  predictor need not improve control: both conditioned arms regress, correct
-  content has no resolved advantage, and a privileged oracle-transition route
-  also fails its replicated closed-loop utility gate.  A separately scoped
-  policy-preserving adapter passes a candidate-seed gate against one fixed A0,
-  but fails the independent matched-A0 gate and its content-specific
-  intervention remains unresolved.
-  Outcome-calibrated weighting also passes a one-seed directional screen, but
-  its completed three-seed gate rejects a replicated method effect.
+  \item We formalize the temporal contract between a predicted target, a VLA
+  action horizon, and its executed prefix, and define an evidence ladder that
+  prevents representation quality or public-system scores from standing in
+  for control causality.
+  \item We introduce two controlled milestone interfaces, including a
+  policy-preserving PredictiveActionAdapter that maps each noisy flow proposal
+  to a future-grid residual and an action-indexed correction while retaining
+  exact base behavior at initialization.
+  \item We provide paired content interventions, independently matched training
+  seeds, and task-level safety analyses that establish strong future-content
+  use in one released LaWAM checkpoint while rejecting broader utility claims
+  for the evaluated MINT-VLA and predictive-adapter instances.
 \end{itemize}

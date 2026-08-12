@@ -1,59 +1,75 @@
 \section{Experimental Design}\label{sec:design}
 
-\paragraph{Benchmark and pairing.}
-The main experiment uses six RoboTwin 2.0 tasks spanning contact, ranking,
-handover, and two- or three-stage stacking.  Each accepted checkpoint is
-evaluated on four simulator seeds and 50 frozen scenes per task--seed cell
-(1,200 episodes).  Contrasts pair identical scene and episode keys.  Training
-seed is the top-level uncertainty unit in a hierarchical bootstrap; paired
-episodes are resampled within each equally weighted task.  We report every task
-and require the 95\% interval for the macro difference to exclude zero.  A
-task-safe claim additionally permits no seed--task regression below -5 points.
+\paragraph{Benchmark and paired scenes.}
+We use six RoboTwin 2.0 tasks: Hammer, ranking by colour, ranking by size,
+Handover, Stack-2, and Stack-3.  Each complete policy condition contains four
+evaluation seeds and 50 accepted frozen scenes per task--seed cell, or 1,200
+episodes.  Fixed-checkpoint contrasts use identical checkpoint, scene, episode,
+observation, action bridge, and budget.  Training comparisons pair episode keys
+within matched training seeds.  Partial cells, smoke tests, intermediate
+checkpoints, and failed executions never enter a claim-bearing result.
 
-\paragraph{Matched policy comparison.}
-The corrected $\pi_{0.5}$ recipe uses absolute actions, mean/std normalization,
-batch 16, 50,000 updates, and the published optimizer schedule.  At training
-seeds 1000--1002 we compare A0 (no milestone), A2-Abs (an offline absolute
-milestone token), and A3 (the current-encoder MINT-VLA token).  All nine final
-step-49,999 checkpoints pass source, initialization, dataset, normalization,
-optimizer, and evaluator-manifest audits.  This matrix is the primary utility
-test; earlier joint-delta, batch-64, 20k-update runs are exploratory only.
+\paragraph{Released-checkpoint content panel.}
+TG1A freezes the released LaWAM RoboTwin checkpoint before evaluation.  Normal
+inference is compared with three prespecified interventions: a within-task,
+different-episode shuffle of the captured normal future grid; a learned null
+grid; and persistence of the current visual grid.  Each condition contains the
+same 1,200 scenes.  Normal--shuffled identifies use of the particular predicted
+content; normal--null tests route necessity; normal--persistence tests whether
+the route supplies more than a repeated current state.  Passing the latter two
+does not substitute for the shuffled comparison.
 
-\paragraph{Fixed-checkpoint content controls.}
-To ask whether action depends on the predicted future rather than an extra
-route or correlated token, we replace the correct condition with current,
-zero, feature-permuted, cross-task, and within-task content while holding the
-checkpoint and scenes fixed.  A separate three-seed adapter panel compares
-normal inference with shuffled actions, a zeroed route, and masked actions,
-with Holm correction over the three preregistered mechanism contrasts.
+\paragraph{Temporal-cadence diagnostic.}
+TG1B uses one matched training-seed pair from the historical local all-six-task
+setup: a local-WM checkpoint and a future-off checkpoint.  Each is evaluated
+while executing either 36 or 50 actions per policy query.  The prespecified
+difference-in-differences is
+\begin{equation}
+ (S_{\mathrm{local},50}-S_{\mathrm{local},36})-
+ (S_{\mathrm{off},50}-S_{\mathrm{off},36}).
+\end{equation}
+This panel can detect local-WM-specific cadence sensitivity for these
+checkpoints.  It cannot establish correct-content use or generalize over
+training seeds.
 
-\paragraph{Privileged upper bounds.}
-Three controls remove distinct possible bottlenecks before training further
-predictors: same-scene oracle stage transitions, explicit correct-next-subtask
-prompts on a frozen public policy, and a ground-truth $4\!\times\!4$ spatial
-milestone in a two-task offline action probe.  Each has a frozen no-condition
-or current-condition baseline and a content-shuffled control where applicable.
-Failure stops the corresponding tracker, semantic predictor, or spatial
-predictor expansion.
+\paragraph{Matched MINT-VLA comparison.}
+The corrected $\pi_{0.5}$ matrix trains no hint, an offline absolute milestone
+token, and MINT-VLA from the same official initialization at training seeds
+1000--1002.  All arms use absolute actions, mean/std normalization, batch 16,
+50,000 updates, the published optimizer schedule, and the fixed final
+step-49,999 checkpoint.  Each of the nine checkpoints passes source,
+initialization, dataset, normalization, optimizer, payload, and evaluator
+audits.  Fixed-checkpoint current, zero, permuted, within-task, and cross-task
+replacements separately test whether correct milestone content is used.
 
-\paragraph{Policy-preserving predictive branch.}
-This independently designed branch leaves inherited $\pi_{0.5}$ visual-language
-and action paths intact, stops predictive gradients at inherited features, and
-routes a zero-initialized action-conditioned adapter only into the action
-expert.  P1 screens seed 1000 against a current-source A0 and route/action
-controls.  P2 trains candidate seeds 1001 and 1002 against the fixed seed-1000
-A0.  P3 supplies the decisive denominator by independently training matched A0
-seeds 1001 and 1002; only the three seed-matched comparison can support a
-replicated method claim.  P4 tests content, route, and action-conditioning use,
-and P5 compares the candidates with the exact public checkpoint.  The adapter
-cost is measured by parameter count, compiled cost, memory, direct inference,
-WebSocket latency, and throughput.
+\paragraph{PredictiveActionAdapter gates.}
+P0 tests held-out future-grid cosine under normal, temporally reversed, and
+masked actions.  P3 is the decisive control comparison: independently trained
+candidate and A0 policies are paired at seeds 1000--1002.  P4 holds each
+candidate checkpoint fixed and compares normal inference with reversed action
+content, a zero route, and masked actions.  The three P4 pooled paired tests
+form one Holm family.  We additionally report the exact public-$\pi_{0.5}$
+reference and matched parameter, latency, throughput, and memory measurements,
+but neither replaces P3 or P4.
 
-\paragraph{Predeclared stopping.}
-Recurrence-aligned auxiliary training and outcome-calibrated demonstration
-weighting are evaluated as separate extensions.  A one-seed directional screen
-may authorize replication but cannot establish a method effect.  New task
-panels, a second VLA, or component-factorization training are launched only if
-their upstream utility gates pass.  Complete configurations, intervention
-identities, multiplicity families, and audit hashes are in
-Appendix~\ref{sec:appendix}.
+\paragraph{Uncertainty and safety gates.}
+For fixed-checkpoint panels, hierarchical bootstrap samples tasks, evaluation
+seeds within task, and paired episodes.  For replicated training comparisons,
+training seed is the highest resampling unit and paired episodes are nested
+within each equally weighted task.  All intervals use 20,000 frozen draws.  A
+positive claim requires the hierarchical 95\% interval lower endpoint above
+zero and, when prespecified, Holm-adjusted paired $p<0.05$.  A task-safe claim
+also requires no training-seed--task regression worse than five percentage
+points.  We report every task effect rather than allowing a macro average to
+hide a regression.
+
+\paragraph{Source decomposition and stopping.}
+TG4 freezes six matched LaWAM arms---clean base, future-off, auxiliary-only,
+conditioning-only, parameter-matched null, and full---at training seeds
+1100--1102.  Its 18 final checkpoints must pass initialization, data-order,
+optimizer, dataset, and non-arm equality checks before any evaluation.  The
+seven prespecified contrasts isolate pretraining, auxiliary shaping,
+conditioning, the full package, and interaction.  TG2 and its recovery were
+rejected before evaluation because their training seeds did not induce
+independent rank data orders; their checkpoints provide no policy comparison.
+No rejected branch is reopened or tuned against its outcomes.

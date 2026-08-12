@@ -1,22 +1,45 @@
-\section{Problem Setting}\label{sec:setup}
-Let $h_t=E_\theta(o_t)$ be the policy representation, $y_t$ a future milestone
-feature, and $q_t$ the condition presented to the action policy:
-\begin{equation}
-  a_t=\pi_\psi(h_t,q_t,l),
-\end{equation}
-where $l$ is the instruction.  A future-conditioned VLA couples four choices:
-which future frame defines the target; whether its feature comes from an
-external, frozen, or current encoder; whether the policy receives an absolute
-feature or displacement; and whether the auxiliary gradient updates shared
-features.  A projection aligns dimensions but not semantic neighborhoods, and
-cached targets cannot follow a trainable encoder.
+\section{Temporal Contracts and Evidence Requirements}\label{sec:setup}
 
-These choices require distinct evidence.  Matched no-condition training tests
-overall utility; fixed-checkpoint zero and shuffled controls test route use and
-content use; privileged semantic and spatial targets separate predictor error
-from interface capacity; independent training seeds measure optimization
-robustness; and a mature public checkpoint bounds recovery from weak
-fine-tuning.  Simulator seeds estimate rollout variation for one checkpoint
-and cannot replace training seeds.  LaWAM and LIBERO are supporting diagnostics
-because the former lacks a clean VLA-from-base comparison and the latter is
-near saturation for the studied policies.
+At observation $o_t$ with instruction $l$, a VLA generates $H$ valid actions
+\begin{equation}
+  A_t=(a_t,\ldots,a_{t+H-1}),
+\end{equation}
+and executes $E\leq H$ actions before the next query.  Let $\tau(t)$ denote the
+frame represented by a future condition $z_t^*=F(o_{\tau(t)})$, and let
+$\hat z_t$ be its prediction.  We summarize the target horizon relative to the
+model and execution endpoints as
+\begin{equation}
+ g_t^H=\frac{\tau(t)-t}{H-1},\qquad
+ g_t^E=\frac{\tau(t)-t}{E-1}.
+\end{equation}
+A model-endpoint target has $g_t^H=1$; an execution-endpoint target has
+$g_t^E=1$; and a multi-query milestone has $g_t^E>1$.  These definitions
+describe timing, not usefulness.  A multi-query target can be effective when a
+planner, time-to-go input, or learned hierarchy translates it into a local
+action constraint.
+
+The released RoboTwin LaWAM contract has $H=E=36$ and samples its second visual
+frame at offset 35.  Its target therefore coincides with both endpoints under
+the audited current two-frame loader.  The historical local LMWM contract has
+$H=50$ and $E=36$, so its fixed target at offset 49 lies beyond the executed
+prefix.  Recurrence milestones vary more strongly: across 420,238 frozen pairs,
+their mean horizon is 117.45 frames, only 19.35\% fall within the 50-action
+model window, and 12.50\% fall within the executed 36-action prefix.  The
+released training stream is unavailable, so endpoint alignment is inferred
+from the released config and audited loader rather than reconstructed examples.
+
+We require four levels of evidence:
+\begin{enumerate}
+  \item \textbf{Predictability:} $\hat z_t$ improves a held-out representation
+  metric over persistence or shuffled actions.
+  \item \textbf{Matched utility:} independently trained predictive and control
+  policies differ in closed-loop success across training seeds.
+  \item \textbf{Content use:} at a fixed checkpoint, correct $\hat z_t$
+  outperforms paired shuffled content; null and persistence diagnose route and
+  future-state dependence separately.
+  \item \textbf{Source attribution:} matched component arms isolate
+  pretraining, auxiliary shaping, inference conditioning, and their interaction.
+\end{enumerate}
+No level implies the next.  In particular, representation quality cannot
+establish utility, a system score cannot identify a component, and simulator
+seeds cannot substitute for training-seed replication.

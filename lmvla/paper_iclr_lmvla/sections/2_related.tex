@@ -1,59 +1,52 @@
 \section{Related Work}\label{sec:related}
 
-\paragraph{Predictive representations for robot policies.}
-Prior systems predict future images, videos, latent observation features, or
-visual subgoals.  VPP conditions inverse dynamics on future visual
-representations produced by a video diffusion model \citep{vpp2024}; SuSIE
-generates image subgoals for a goal-conditioned controller and compares them
-with ground-truth future images \citep{susie2024}.  WorldVLA predicts future
-images together with actions, whereas DreamVLA forecasts dynamic, spatial, and
-semantic scene information for action prediction
-\citep{dreamvla2025,worldvla2025}.  AHEAD predicts future patches in a frozen
-OpenVLA feature space \citep{ahead2026}.  FutureVLA learns joint visuomotor
-representations and transfers them to downstream VLAs through latent alignment
-\citep{futurevla2026}.  Concurrent $\Delta$VLA models changes relative to the
-current scene \citep{deltavla2026}.  LaWAM predicts action-conditioned future
-observation features as latent visual subgoals; WLA-0 jointly predicts subtasks,
-images, and actions; and Enfold distills a generative world model into a
-representation computed from the current observation
-\citep{lawam2026,wla02026,enfold2026}.  MINT-VLA therefore does not claim the first
-latent future state, visual subgoal, residual predictor, or auxiliary prediction
-loss.  It addresses a specific integration problem: keeping target features
-consistent with a trainable policy encoder and mapping the prediction to the
-VLA's existing conditioning interface.
+\paragraph{Fixed-horizon predicted futures.}
+Robot policies condition on future images, video features, or latent
+observations at a fixed offset.  VPP uses predictive video representations for
+inverse dynamics, WorldVLA generates images and actions autoregressively, and
+DreamVLA predicts dynamic, spatial, and semantic scene information
+\citep{vpp2024,worldvla2025,dreamvla2025}.  AHEAD predicts future patches in a
+frozen OpenVLA space, FutureVLA aligns a joint visuomotor representation with
+downstream policies, and $\Delta$VLA represents scene changes relative to the
+current observation \citep{ahead2026,futurevla2026,deltavla2026}.  LaWAM uses
+an action-conditioned latent model to predict future observation features and
+supplies the resulting visual grid to an action expert \citep{lawam2026}.  Our
+study does not claim the first future feature, residual prediction, or latent
+visual subgoal.  It asks whether the policy uses the specific predicted content
+and whether the target time has an explicit relation to the action chunk.
 
-\paragraph{Milestone selection.}
-States shared across successful trajectories have long been used as
-bottlenecks or options \citep{simsek2009,options1999}.  MINT-VLA uses
-cross-episode visual recurrence to select candidate stage states without
-manually annotated boundaries.  This differs from a fixed temporal horizon and
-from terminal-goal conditioning, but recurrence itself is not sufficient
-evidence that the selected state is useful.  Our fixed-horizon,
-shuffled-action, masked-action, terminal, and oracle controls follow SuSIE's
-principle of separating subgoal quality from controller capacity.
+\paragraph{Milestones and long-horizon subgoals.}
+Image subgoals can express task progress beyond one controller step.  SuSIE
+generates subgoal images for a goal-conditioned controller and compares them
+with ground-truth future images \citep{susie2024}; WLA-0 jointly models
+subtasks, images, and actions, while Enfold distills a generative model into a
+representation inferred from the current observation
+\citep{wla02026,enfold2026}.  Recurring states have also been used as
+bottlenecks and options \citep{simsek2009,options1999}.  Such targets need not
+fall inside the next action chunk.  A distant milestone may support
+hierarchical control, but its visual content alone does not specify how much
+progress the current chunk should make.
 
-\paragraph{Integration and negative transfer.}
-Auxiliary objectives can improve or damage a shared representation depending
-on weighting and task \citep{gradsim2018,olaux2019,pcgrad2020}; negative
-transfer is not explained by gradient conflict alone
-\citep{forkmerge2023,lyle2021aux}.  VLA systems accordingly use different
-interfaces, including structured attention, latent alignment, conditional
-variation modules, or a frozen policy feature space
-\citep{dreamvla2025,futurevla2026,deltavla2026,ahead2026}.  Selective gradient
-routing is also used to preserve pretrained VLA semantics
-\citep{knowledgeinsulation2025}.  MINT-VLA's current implementation stops the
-milestone target branch but still allows its loss to update current visual
-features through the predictor.  Because the matched utility gate fails, we do
-not attribute the regression to one gradient path; the content and privileged
-controls instead test whether the supplied condition is action-sufficient.
+\paragraph{Conditioning interfaces and representation preservation.}
+Predicted futures reach the controller through prefix tokens, cross-attention,
+latent alignment, or gated feature modulation.  These choices change both the
+forward control path and the gradients applied to pretrained features
+\citep{dreamvla2025,futurevla2026,deltavla2026}.  Knowledge insulation limits
+action-expert gradients into a pretrained VLM \citep{knowledgeinsulation2025},
+while auxiliary-task work shows that an extra loss may help or harm a shared
+representation independently of its prediction accuracy
+\citep{gradsim2018,pcgrad2020,forkmerge2023,lyle2021aux}.  MINT-VLA addresses
+target-coordinate drift but retains prefix conditioning.  The
+PredictiveActionAdapter instead keeps inherited visual features stop-gradient
+and introduces an exactly zero-output route into the action expert.
 
-\paragraph{Establishing control benefit.}
-Prediction quality and control performance can diverge
+\paragraph{Evidence for control utility.}
+Prediction metrics and decision quality can diverge
 \citep{worldarena2026,robowmbench2026,wmevalposition2026}, and correlated
-conditioning can induce causal confusion \citep{causalconfusion2019,copycat2020}.
-Evaluation seeds also do not replace independent training seeds
-\citep{henderson2018,rliable2021}.  We therefore require closed-loop success,
-fixed-checkpoint content interventions, task-level reporting, and training-seed
-replication.  These controls are necessary to determine whether performance
-depends on the predicted future state rather than merely on an additional
-visual token.
+conditioning can create causal confusion in imitation learning
+\citep{causalconfusion2019,copycat2020}.  Evaluation seeds quantify rollout
+variation for one trained policy; they do not replace independent training
+seeds \citep{henderson2018,rliable2021}.  We therefore combine matched training
+comparisons with fixed-checkpoint shuffled, null, persistence, and route
+interventions.  This design separates a training-package effect from use of the
+particular future representation.

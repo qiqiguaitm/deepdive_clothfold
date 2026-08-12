@@ -1,33 +1,38 @@
 #!/usr/bin/env python3
-"""Generate the main-paper figures from the current evidence tables."""
+"""Generate the claim-bearing main-paper figures from canonical evidence."""
+
+from __future__ import annotations
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import TwoSlopeNorm
 from matplotlib.patches import FancyArrowPatch, Rectangle
 
 import palette
 
+
 palette.apply_style()
 
-BLUE = palette.NAT_BLUE
-ORANGE = palette.NAT_ORANGE
-GREEN = palette.NAT_TEAL
-RED = palette.NAT_RED
-GRAY = palette.GREY_300
-DARK = palette.INK
-LIGHT = palette.CANVAS
+BLUE = palette.WONG_BLUE
+ORANGE = palette.WONG_ORANGE
+GREEN = palette.WONG_GREEN
+RED = palette.WONG_VERMILLION
+INK = palette.INK
+GRAY = palette.GREY_500
+LIGHT_GRAY = palette.GREY_200
+WHITE = palette.CANVAS
 
 
-def box(ax, xy, width, height, text, face=LIGHT, edge=DARK, fontsize=6.8):
+def box(ax, xy, width, height, text, *, face=WHITE, edge=INK, fontsize=6.2, weight="regular"):
     patch = Rectangle(
-        xy, width, height,
-        linewidth=palette.LW_BASELINE,
-        edgecolor=edge,
+        xy,
+        width,
+        height,
         facecolor=face,
+        edgecolor=edge,
+        linewidth=palette.LW_BASELINE,
     )
     ax.add_patch(patch)
     ax.text(
@@ -37,230 +42,191 @@ def box(ax, xy, width, height, text, face=LIGHT, edge=DARK, fontsize=6.8):
         ha="center",
         va="center",
         fontsize=fontsize,
-        color=DARK,
+        fontweight=weight,
+        color=INK,
     )
     return patch
 
 
-def arrow(ax, start, end, color=DARK, style="-", width=0.9, mutation=8):
+def arrow(ax, start, end, *, color=INK, linestyle="-", mutation=7):
     patch = FancyArrowPatch(
         start,
         end,
         arrowstyle="-|>",
         mutation_scale=mutation,
-        linewidth=width,
-        linestyle=style,
+        linewidth=palette.LW_CONNECTOR,
+        linestyle=linestyle,
         color=color,
-        connectionstyle="arc3,rad=0",
+        shrinkA=0,
+        shrinkB=0,
     )
     ax.add_patch(patch)
     return patch
 
 
-# Figure 1: actual MINT-VLA training and deployment pipeline.
-fig, ax = plt.subplots(figsize=(5.45, 2.35))
+# ---------------------------------------------------------------------------
+# Fig. 1: temporal contract, interface location, and evidence ladder.
+# The saved width equals the ICLR text width used at insertion (5.45 in).
+# ---------------------------------------------------------------------------
+fig = plt.figure(figsize=(5.45, 3.05), facecolor=WHITE)
+
+ax = fig.add_axes([0.055, 0.62, 0.90, 0.31])
 ax.set_xlim(0, 1)
 ax.set_ylim(0, 1)
 ax.axis("off")
+palette.panel_label(ax, -0.045, 1.00, "a")
+ax.text(0.0, 1.00, "Temporal contract", fontsize=palette.FS_LABEL, fontweight="bold", va="bottom")
 
-ax.text(0.02, 0.94, "Offline target mining", fontsize=7, color=ORANGE, fontweight="bold")
-box(ax, (0.02, 0.68), 0.17, 0.17, "successful\ndemonstrations", face="#FFF0EB", edge=ORANGE, fontsize=6.0)
-box(ax, (0.23, 0.68), 0.18, 0.17, "frozen DINO\nrecurrence valleys", face="#FFF0EB", edge=ORANGE, fontsize=6.0)
-box(ax, (0.45, 0.68), 0.17, 0.17, "store next\nmilestone frame", face="#FFF0EB", edge=ORANGE, fontsize=6.0)
-arrow(ax, (0.19, 0.765), (0.23, 0.765), color=ORANGE)
-arrow(ax, (0.41, 0.765), (0.45, 0.765), color=ORANGE)
+n_actions = 12
+x0, x1 = 0.04, 0.73
+cell_w = (x1 - x0) / n_actions
+for i in range(n_actions):
+    executed = i < 8
+    ax.add_patch(
+        Rectangle(
+            (x0 + i * cell_w, 0.36),
+            cell_w * 0.92,
+            0.22,
+            facecolor="#dbeaf4" if executed else "#eeeeee",
+            edgecolor=BLUE if executed else GRAY,
+            linewidth=palette.LW_BASELINE,
+        )
+    )
+ax.text(x0, 0.67, "$t$", ha="center")
+ax.text(x0 + 7.5 * cell_w, 0.67, "$t+E-1$", ha="center", color=BLUE)
+ax.text(x0 + 11.5 * cell_w, 0.67, "$t+H-1$", ha="center", color=GRAY)
+ax.plot([x0, x0 + 8 * cell_w], [0.24, 0.24], color=BLUE, lw=palette.LW_PRIMARY)
+ax.plot([x0, x1], [0.13, 0.13], color=GRAY, lw=palette.LW_SECONDARY, ls="--")
+ax.text(x0 + 4 * cell_w, 0.18, "$E$ actions executed", ha="center", color=BLUE, fontsize=6.2)
+ax.text((x0 + x1) / 2, 0.01, "$H$ valid model actions", ha="center", color=GRAY, fontsize=6.2)
+ax.plot([x0 + 7.5 * cell_w, x0 + 7.5 * cell_w], [0.58, 0.88], color=BLUE, lw=palette.LW_BASELINE)
+ax.text(x0 + 7.5 * cell_w, 0.93, "execution endpoint", ha="center", color=BLUE, fontsize=6.0)
+ax.plot([x0 + 11.5 * cell_w, x0 + 11.5 * cell_w], [0.58, 0.88], color=GRAY, lw=palette.LW_BASELINE)
+ax.text(x0 + 11.5 * cell_w, 0.82, "model endpoint", ha="center", color=GRAY, fontsize=6.0)
+arrow(ax, (0.77, 0.47), (0.94, 0.47), color=ORANGE)
+ax.plot([0.94, 0.94], [0.35, 0.59], color=ORANGE, lw=palette.LW_PRIMARY)
+ax.text(0.855, 0.67, "variable milestone", ha="center", color=ORANGE, fontsize=6.2)
+ax.text(0.855, 0.25, r"$\tau(t)$ may be multi-query", ha="center", color=ORANGE, fontsize=6.0)
 
-ax.text(0.68, 0.94, "Training target", fontsize=7, color=BLUE, fontweight="bold")
-box(ax, (0.68, 0.68), 0.13, 0.17, "current\nframe", face="#EAF3FA", edge=BLUE, fontsize=6.0)
-box(ax, (0.85, 0.68), 0.13, 0.17, "stored\nframe", face="#EAF3FA", edge=BLUE, fontsize=6.0)
-box(ax, (0.68, 0.43), 0.30, 0.15, "shared current visual encoder $E_\\theta$", face="#EAF3FA", edge=BLUE, fontsize=5.8)
-arrow(ax, (0.745, 0.68), (0.78, 0.58), color=BLUE)
-arrow(ax, (0.915, 0.68), (0.88, 0.58), color=BLUE)
+ax = fig.add_axes([0.055, 0.08, 0.58, 0.44])
+ax.set_xlim(0, 1)
+ax.set_ylim(0, 1)
+ax.axis("off")
+palette.panel_label(ax, -0.07, 1.00, "b")
+ax.text(0.0, 1.00, "Conditioning location", fontsize=palette.FS_LABEL, fontweight="bold", va="bottom")
 
-box(ax, (0.36, 0.42), 0.23, 0.17, "$\\hat y=c+D_\\phi(c)$\nresidual-parameterized", face="#E8F5EE", edge=GREEN, fontsize=6.0)
-arrow(ax, (0.68, 0.50), (0.59, 0.50), color=GREEN)
-arrow(ax, (0.91, 0.43), (0.59, 0.43), color=ORANGE, style="--")
-ax.text(0.74, 0.395, "$\\mathcal{L}_{ms}$; target stop-grad", fontsize=5.4, color=ORANGE)
+rows = [0.74, 0.45, 0.16]
+names = ["LaWAM", "MINT-VLA", "Predictive\nadapter"]
+for y, name in zip(rows, names):
+    ax.text(0.0, y + 0.07, name, ha="left", va="center", fontsize=6.1, fontweight="bold", linespacing=0.95)
 
-box(ax, (0.08, 0.42), 0.20, 0.17, "one native VLM\nprefix token", face="#E8F5EE", edge=GREEN, fontsize=6.0)
-arrow(ax, (0.36, 0.505), (0.28, 0.505), color=GREEN)
-box(ax, (0.08, 0.17), 0.20, 0.14, "$\\pi_{0.5}$ action expert", face="#F3F3F0", edge=DARK, fontsize=6.1)
-arrow(ax, (0.18, 0.42), (0.18, 0.31), color=DARK)
+box(ax, (0.24, rows[0]), 0.18, 0.14, "current\ngrid", face="#dbeaf4", edge=BLUE)
+box(ax, (0.50, rows[0]), 0.19, 0.14, "predicted endpoint\ngrid", face="#fce8d1", edge=ORANGE, fontsize=5.8)
+box(ax, (0.78, rows[0]), 0.20, 0.14, "flow action\nexpert", face="#e1f1ea", edge=GREEN)
+arrow(ax, (0.42, rows[0] + 0.07), (0.50, rows[0] + 0.07), color=ORANGE)
+arrow(ax, (0.69, rows[0] + 0.07), (0.78, rows[0] + 0.07), color=GREEN)
 
-ax.text(0.36, 0.27, "Deployment", fontsize=7, color=GREEN, fontweight="bold")
-box(ax, (0.36, 0.10), 0.62, 0.13,
-    "observation $\\rightarrow E_\\theta \\rightarrow D_\\phi \\rightarrow$ one token; no retrieval, target encoder, or decoder",
-    face="#E8F5EE", edge=GREEN, fontsize=5.7)
-arrow(ax, (0.36, 0.165), (0.28, 0.235), color=GREEN)
+box(ax, (0.24, rows[1]), 0.18, 0.14, "current\nfeature", face="#dbeaf4", edge=BLUE)
+box(ax, (0.50, rows[1]), 0.19, 0.14, "one milestone\ntoken", face="#fce8d1", edge=ORANGE)
+box(ax, (0.78, rows[1]), 0.20, 0.14, "VLM prefix +\naction expert", face="#eeeeee", edge=GRAY, fontsize=5.8)
+arrow(ax, (0.42, rows[1] + 0.07), (0.50, rows[1] + 0.07), color=ORANGE)
+arrow(ax, (0.69, rows[1] + 0.07), (0.78, rows[1] + 0.07), color=GRAY)
 
-fig.tight_layout(pad=0.25)
-fig.savefig("fig1_tension.pdf")
+box(ax, (0.24, rows[2]), 0.18, 0.14, "current grid +\nnoisy proposal", face="#dbeaf4", edge=BLUE, fontsize=5.8)
+box(ax, (0.50, rows[2]), 0.19, 0.14, "future-grid\nresidual", face="#fce8d1", edge=ORANGE)
+box(ax, (0.78, rows[2]), 0.20, 0.14, "zero-init action\ntoken residual", face="#e1f1ea", edge=GREEN, fontsize=5.8)
+arrow(ax, (0.42, rows[2] + 0.07), (0.50, rows[2] + 0.07), color=ORANGE)
+arrow(ax, (0.69, rows[2] + 0.07), (0.78, rows[2] + 0.07), color=GREEN)
+
+ax = fig.add_axes([0.69, 0.08, 0.265, 0.44])
+ax.set_xlim(0, 1)
+ax.set_ylim(0, 1)
+ax.axis("off")
+palette.panel_label(ax, -0.15, 1.00, "c")
+ax.text(0.0, 1.00, "Evidence ladder", fontsize=palette.FS_LABEL, fontweight="bold", va="bottom")
+ladder = [
+    (0.77, "Predictability", BLUE),
+    (0.53, "Matched utility", ORANGE),
+    (0.29, "Content use", GREEN),
+    (0.05, "Source attribution", RED),
+]
+for y, label, color in ladder:
+    box(ax, (0.08, y), 0.84, 0.15, label, face=WHITE, edge=color, fontsize=6.1, weight="bold")
+for upper, lower in zip(ladder[:-1], ladder[1:]):
+    arrow(ax, (0.50, upper[0]), (0.50, lower[0] + 0.15), color=GRAY, linestyle="--")
+
+fig.savefig("fig1_contract.pdf")
 plt.close(fig)
 
 
-# Figure 2: primary pi0.5 task-level effects relative to matched A0.
-tasks = ["Hammer", "Rank RGB", "Rank size", "Handover", "Stack-3", "Stack-2", "Macro"]
-methods = ["A1 ext. abs.", "A2 offline abs.", "A2 offline resid.", "A3 live pred."]
-deltas = np.array(
-    [
-        [9.5, 2.0, 0.5, -3.5, 4.5, 21.0, 5.67],
-        [8.0, 14.5, 6.5, 10.5, 13.0, 27.0, 13.25],
-        [6.5, 2.0, 10.5, 9.0, 7.5, 14.5, 8.33],
-        [-4.0, 20.0, 1.5, 17.0, 18.0, 32.0, 14.08],
-    ]
-)
-fig, ax = plt.subplots(figsize=(5.0, 1.9))
-cmap = palette.DIVERGING_CMAP
-norm = TwoSlopeNorm(vmin=-4, vcenter=0, vmax=32)
-im = ax.imshow(deltas, cmap=cmap, norm=norm, aspect="auto")
-ax.set_xticks(np.arange(len(tasks)), tasks, rotation=22, ha="right")
-ax.set_yticks(np.arange(len(methods)), methods)
-ax.axvline(5.5, color=DARK, lw=0.8)
-for i in range(deltas.shape[0]):
-    for j in range(deltas.shape[1]):
-        value = deltas[i, j]
-        color = "white" if value >= 18 or value <= -3.5 else DARK
-        ax.text(j, i, f"{value:+.1f}", ha="center", va="center", fontsize=6.2, color=color)
-for spine in ax.spines.values():
-    spine.set_visible(False)
-cbar = fig.colorbar(im, ax=ax, fraction=0.028, pad=0.025)
-cbar.set_label(r"$\Delta$ success vs. A0 (pts)", rotation=270, labelpad=10)
-cbar.ax.tick_params(labelsize=6.1, width=0.5)
-fig.tight_layout(pad=0.35)
-fig.savefig("fig2_redundancy.pdf")
-plt.close(fig)
+# ---------------------------------------------------------------------------
+# Fig. 2: TG1A released-checkpoint content intervention.
+# ---------------------------------------------------------------------------
+conditions = ["Normal", "Shuffled", "Null", "Persistence"]
+success = np.array([94.00, 40.33, 35.17, 24.42])
+condition_colors = [BLUE, ORANGE, GRAY, palette.GREY_300]
+hatches = ["", "//", "xx", ".."]
 
-
-# Figure 3: full task-level LaWAM diagnostic matrix relative to Future-off.
-tasks = ["Hammer", "Rank RGB", "Rank size", "Handover", "Stack-3", "Stack-2"]
-methods = ["Local future", "Absolute", "Residual", "Abs. + stop-grad", "Resid. + stop-grad"]
-deltas = np.array(
-    [
-        [-4.5, -4.5, -8.5, -7.0, -2.5, 0.0],
-        [-4.0, -6.0, -3.5, -3.5, 6.0, -0.5],
-        [-6.5, -14.5, -3.0, -3.5, 9.0, -0.5],
-        [-1.5, -7.0, -4.5, 1.0, 2.0, 0.0],
-        [-4.0, -2.0, -6.0, -4.5, 5.5, -0.5],
-    ]
-)
-
-fig, ax = plt.subplots(figsize=(4.8, 2.05))
-cmap = palette.DIVERGING_CMAP
-norm = TwoSlopeNorm(vmin=-15, vcenter=0, vmax=9)
-im = ax.imshow(deltas, cmap=cmap, norm=norm, aspect="auto")
-ax.set_xticks(np.arange(len(tasks)), tasks, rotation=24, ha="right")
-ax.set_yticks(np.arange(len(methods)), methods)
-ax.set_title("LaWAM task-level change relative to Future-off", loc="left", pad=4)
-for i in range(deltas.shape[0]):
-    for j in range(deltas.shape[1]):
-        value = deltas[i, j]
-        color = "white" if value <= -8 or value >= 7 else DARK
-        label = "0.0" if value == 0 else f"{value:+.1f}"
-        ax.text(j, i, label, ha="center", va="center", fontsize=6.4, color=color)
-for spine in ax.spines.values():
-    spine.set_visible(False)
-cbar = fig.colorbar(im, ax=ax, fraction=0.028, pad=0.025)
-cbar.set_label(r"$\Delta$ success (pts)", rotation=270, labelpad=9)
-cbar.ax.tick_params(labelsize=6.2, width=0.5)
-fig.tight_layout(pad=0.45)
-fig.savefig("fig3_t5.pdf")
-plt.close(fig)
-
-
-# Figure 4: claim-bearing corrected three-seed control result.
-train_seeds = np.array([1000, 1001, 1002])
-seed_macros = {
-    "A0 no hint": np.array([75.50, 80.00, 82.67]),
-    "A2 offline absolute": np.array([70.00, 74.67, 81.67]),
-    "A3 MINT-VLA": np.array([66.92, 68.92, 76.58]),
-}
-series_style = {
-    "A0 no hint": (palette.GREY_700, "o", "-"),
-    "A2 offline absolute": (palette.NAT_BLUE, "^", "--"),
-    "A3 MINT-VLA": (palette.NAT_RED, "s", ":"),
-}
-task_names = ["Hammer", "Rank RGB", "Rank size", "Handover", "Stack-2", "Stack-3"]
-a2_task_delta = np.array([-3.17, -5.83, -6.00, -5.50, 0.50, -3.67])
-a3_task_delta = np.array([-8.67, -6.50, -13.00, -8.83, -2.83, -11.67])
+tasks = ["Hammer", "Rank RGB", "Rank size", "Handover", "Stack-2", "Stack-3"]
+task_effects = np.array([17.0, 61.0, 67.0, 37.5, 64.5, 75.0])
 
 fig, axes = plt.subplots(
     1,
     2,
     figsize=(5.45, 2.35),
-    gridspec_kw={"width_ratios": [0.92, 1.25]},
+    gridspec_kw={"width_ratios": [0.93, 1.12]},
     constrained_layout=True,
 )
 
 ax = axes[0]
-for label, values in seed_macros.items():
-    color, marker, linestyle = series_style[label]
-    ax.plot(
-        train_seeds,
-        values,
-        color=color,
-        marker=marker,
-        linestyle=linestyle,
-        linewidth=palette.LW_SECONDARY,
-        markersize=3.8,
-        markerfacecolor=palette.CANVAS,
-        markeredgewidth=palette.LW_BASELINE,
-        label=label,
-    )
-ax.set_xticks(train_seeds)
-ax.set_xlabel("Training seed")
-ax.set_ylabel("Macro success (%)")
-ax.set_ylim(64, 85)
+x = np.arange(len(conditions))
+bars = ax.bar(
+    x,
+    success,
+    width=0.66,
+    color=condition_colors,
+    edgecolor=INK,
+    linewidth=palette.LW_BASELINE,
+)
+for bar, hatch in zip(bars, hatches):
+    bar.set_hatch(hatch)
+for xi, value in zip(x, success):
+    ax.text(xi, value + 2.0, f"{value:.2f}", ha="center", va="bottom", fontsize=6.1)
+ax.set_xticks(x, conditions, rotation=24, ha="right")
+ax.set_ylabel("Success (%)")
+ax.set_ylim(0, 104)
+ax.set_title("Fixed-checkpoint conditions", loc="left", pad=4)
 ax.grid(axis="y")
-ax.legend(loc="lower right", frameon=False, handlelength=2.4)
 palette.despine(ax)
-palette.panel_label(ax, -0.18, 1.02, "a")
+palette.panel_label(ax, -0.19, 1.02, "a")
 
 ax = axes[1]
-y = np.arange(len(task_names))
-ax.axvline(0, color=palette.INK, linewidth=palette.LW_BASELINE)
+y = np.arange(len(tasks))
+ax.axvline(0, color=INK, linewidth=palette.LW_BASELINE)
+for yi, effect in zip(y, task_effects):
+    ax.plot([0, effect], [yi, yi], color=BLUE, linewidth=palette.LW_SECONDARY)
 ax.scatter(
-    a2_task_delta,
-    y - 0.12,
-    s=18,
-    facecolors=palette.CANVAS,
-    edgecolors=palette.NAT_BLUE,
-    linewidths=palette.LW_SECONDARY,
-    marker="^",
-    label="A2 offline absolute",
+    task_effects,
+    y,
+    marker="o",
+    s=20,
+    facecolor=WHITE,
+    edgecolor=BLUE,
+    linewidth=palette.LW_SECONDARY,
     zorder=3,
 )
-ax.scatter(
-    a3_task_delta,
-    y + 0.12,
-    s=17,
-    facecolors=palette.CANVAS,
-    edgecolors=palette.NAT_RED,
-    linewidths=palette.LW_SECONDARY,
-    marker="s",
-    label="A3 MINT-VLA",
-    zorder=3,
-)
-for yi, v2, v3 in zip(y, a2_task_delta, a3_task_delta):
-    ax.plot([v2, 0], [yi - 0.12, yi - 0.12], color=palette.NAT_BLUE,
-            linewidth=palette.LW_FINE, linestyle="--", alpha=0.65)
-    ax.plot([v3, 0], [yi + 0.12, yi + 0.12], color=palette.NAT_RED,
-            linewidth=palette.LW_FINE, linestyle=":", alpha=0.65)
-ax.set_yticks(y, task_names)
+for yi, effect in zip(y, task_effects):
+    ax.text(effect + 1.8, yi, f"{effect:+.1f}", va="center", ha="left", fontsize=6.1)
+ax.set_yticks(y, tasks)
 ax.invert_yaxis()
-ax.set_xlim(-14.5, 2)
-ax.set_xlabel("Mean success change vs. A0 (pp)")
+ax.set_xlim(-2, 84)
+ax.set_xlabel("Normal − shuffled success (pp)")
+ax.set_title("All task effects", loc="left", pad=4)
 ax.grid(axis="x")
 palette.despine(ax)
-palette.panel_label(ax, -0.20, 1.02, "b")
+palette.panel_label(ax, -0.22, 1.02, "b")
 
-fig.savefig("fig4_confirmatory.pdf")
-fig.savefig(
-    "../../../web/showcase/reports/mint_vla_report/assets/confirmatory_three_seed.png",
-    dpi=300,
-)
+fig.savefig("fig2_content.pdf")
 plt.close(fig)
 
-print(
-    "Wrote fig1_tension.pdf, fig2_redundancy.pdf, fig3_t5.pdf, "
-    "and fig4_confirmatory.pdf"
-)
+print("Wrote fig1_contract.pdf and fig2_content.pdf")
