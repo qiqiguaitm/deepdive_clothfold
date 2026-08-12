@@ -6771,7 +6771,16 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             for candidate in gf1
         )
         assert all(
-            candidate["runtime_revision"] == "temporal_grounding_tg4_gf1_v2"
+            candidate["runtime_revision"] == "temporal_grounding_tg4_gf1_v3"
+            for candidate in gf1
+        )
+        assert all(
+            scheduler.candidate_env_value(candidate, "PYTHONPATH")
+            == "/vePFS/tim/runtime/tg2_transformers_5_2_py312_padding_v3"
+            for candidate in gf1
+        )
+        assert all(
+            scheduler.candidate_env_value(candidate, "TRANSFORMERS_OFFLINE") == "1"
             for candidate in gf1
         )
     assert all(

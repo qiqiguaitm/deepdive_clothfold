@@ -9723,7 +9723,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "gpu_indices": [0, 1, 2, 3],
                         "retry_cooldown_seconds": 900,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_tg4_gf1_v2",
+                        "runtime_revision": "temporal_grounding_tg4_gf1_v3",
                         "status_dir": str(
                             REPO / "logs/temporal_grounding/tg4/gf1" / f"tg4_{arm}_seed{seed}"
                         ),
@@ -9733,6 +9733,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 "CUDA_VISIBLE_DEVICES=0,1,2,3",
                                 f"PATH={REPO}/train_scripts/kai/gf1_bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                                 "MASTER_PORT=29501",
+                                "PYTHONPATH=/vePFS/tim/runtime/tg2_transformers_5_2_py312_padding_v3",
+                                "HF_HUB_OFFLINE=1",
+                                "TRANSFORMERS_OFFLINE=1",
+                                "TOKENIZERS_PARALLELISM=false",
                                 f"REPO_ROOT={REPO}",
                                 f"TG4_ARM={arm}",
                                 f"TG4_TRAIN_SEED={seed}",
@@ -9748,7 +9752,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "gpu_indices": [4, 5, 6, 7],
                         "retry_cooldown_seconds": 900,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_tg4_gf1_v2",
+                        "runtime_revision": "temporal_grounding_tg4_gf1_v3",
                         "status_dir": str(
                             REPO / "logs/temporal_grounding/tg4/gf1" / f"tg4_{arm}_seed{seed}"
                         ),
@@ -9758,6 +9762,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 "CUDA_VISIBLE_DEVICES=4,5,6,7",
                                 f"PATH={REPO}/train_scripts/kai/gf1_bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                                 "MASTER_PORT=29502",
+                                "PYTHONPATH=/vePFS/tim/runtime/tg2_transformers_5_2_py312_padding_v3",
+                                "HF_HUB_OFFLINE=1",
+                                "TRANSFORMERS_OFFLINE=1",
+                                "TOKENIZERS_PARALLELISM=false",
                                 f"REPO_ROOT={REPO}",
                                 f"TG4_ARM={arm}",
                                 f"TG4_TRAIN_SEED={seed}",
