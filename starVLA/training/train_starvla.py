@@ -364,8 +364,10 @@ class VLATrainer(TrainerUtils):
         payload = {
             "schema_version": 1,
             "protocol": "lawam_matched_initialization_v1",
-            "arm": os.getenv("TG2_ARM"),
-            "training_seed": int(os.getenv("TG2_TRAIN_SEED", self.config.seed)),
+            "arm": os.getenv("TG4_ARM", os.getenv("TG2_ARM")),
+            "training_seed": int(
+                os.getenv("TG4_TRAIN_SEED", os.getenv("TG2_TRAIN_SEED", self.config.seed))
+            ),
             "parameter_count": len(parameter_tree),
             "trainable_parameter_count": len(trainable_tree),
             "parameter_tree_sha256": json_digest(parameter_tree),
@@ -375,6 +377,8 @@ class VLATrainer(TrainerUtils):
             "optimizer_state_entries_before_training": len(self.optimizer.state),
             "route": {
                 "lawam_future_off": os.getenv("LAWAM_FUTURE_OFF") == "1",
+                "lawam_auxiliary_off": os.getenv("LAWAM_AUXILIARY_OFF") == "1",
+                "lawam_conditioning_off": os.getenv("LAWAM_CONDITIONING_OFF") == "1",
                 "milestone_target": os.getenv("LMWM_MILESTONE_TARGET"),
                 "milestone_target_compact": os.getenv("LMWM_TARGET_COMPACT"),
                 "require_full_target_coverage": os.getenv("LMWM_REQUIRE_FULL_TARGET_COVERAGE")
@@ -582,8 +586,10 @@ class VLATrainer(TrainerUtils):
         payload = {
             "schema_version": 1,
             "protocol": "lawam_exact_data_order_v1",
-            "arm": os.getenv("TG2_ARM"),
-            "training_seed": int(os.getenv("TG2_TRAIN_SEED", self.config.seed)),
+            "arm": os.getenv("TG4_ARM", os.getenv("TG2_ARM")),
+            "training_seed": int(
+                os.getenv("TG4_TRAIN_SEED", os.getenv("TG2_TRAIN_SEED", self.config.seed))
+            ),
             "rank": rank,
             "world_size": dist.get_world_size() if dist.is_initialized() else 1,
             "microbatches": self._data_order_microbatches,

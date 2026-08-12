@@ -155,6 +155,12 @@ def _load_dataset_statistics_override_for_training(cfg) -> Optional[dict]:
     return pretrained_statistics
 
 
+def _dataset_sampling_seed(cfg) -> int:
+    if not hasattr(cfg, "seed"):
+        raise ValueError("training config must define `seed` for reproducible data order")
+    return int(cfg.seed)
+
+
 def _build_dino_pixel_decoder_collator(cfg, *, training: bool):
     from starVLA.dataloader.dino_pixel_decoder_collator import DinoPixelDecoderCollator
 
@@ -195,6 +201,7 @@ def build_dataloaders(cfg) -> tuple[DataLoader, Optional[DataLoader]]:
         data_cfg=vla_dataset_cfg,
         mode=train_mode,
         balance_dataset_weights=balance_dataset_weights,
+        seed=_dataset_sampling_seed(cfg),
         framework_name=framework_name,
         dataset_statistics_override=dataset_statistics_override,
     )
@@ -224,6 +231,7 @@ def build_dataloaders(cfg) -> tuple[DataLoader, Optional[DataLoader]]:
             data_cfg=vla_dataset_cfg,
             mode="val",
             balance_dataset_weights=balance_dataset_weights,
+            seed=_dataset_sampling_seed(cfg),
             framework_name=framework_name,
             dataset_statistics_override=dataset_statistics_override,
         )
