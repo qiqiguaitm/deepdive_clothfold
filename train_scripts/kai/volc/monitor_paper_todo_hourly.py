@@ -14,6 +14,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import signal
 import time
 from collections import Counter
@@ -114,6 +115,7 @@ def expected_task_ids() -> tuple[str, ...]:
 
 EXPECTED_TASK_IDS = expected_task_ids()
 AUXILIARY_TASK_IDS = ("temporal_grounding_tg1a_shuffled_tail_east4g",)
+TODO_COMPLETION_ITEMS = ("TG1A-E4", "TG1A-A1")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -133,12 +135,28 @@ def atomic_write(path: Path, text: str) -> None:
 def todo_metrics(path: Path) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8")
     current = text.split("## 1.", 1)[0]
+    completion_items = {}
+    for label in TODO_COMPLETION_ITEMS:
+        match = re.search(
+            rf"^- \[([ xX])\] \*\*{re.escape(label)}(?:\s|\[)",
+            text,
+            flags=re.MULTILINE,
+        )
+        completion_items[label] = (
+            "missing"
+            if match is None
+            else ("checked" if match.group(1).lower() == "x" else "unchecked")
+        )
     return {
         "path": str(path),
         "sha256": hashlib.sha256(text.encode()).hexdigest(),
         "unchecked_current_override": current.count("- [ ]"),
         "unchecked_total": text.count("- [ ]"),
         "checked_total": text.count("- [x]") + text.count("- [X]"),
+        "completion_items": completion_items,
+        "completion_synced": all(
+            status == "checked" for status in completion_items.values()
+        ),
     }
 
 
@@ -425,7 +443,13 @@ def collect(
     incomplete = sorted(
         task_id for task_id, row in tasks.items() if not task_is_terminal(task_id, row)
     )
-    complete = not errors and not missing and not incomplete and analyses["complete"]
+    complete = (
+        not errors
+        and not missing
+        and not incomplete
+        and analyses["complete"]
+        and todo.get("completion_synced", False)
+    )
     return {
         "timestamp": isoformat(observed_at),
         "monitor_status": "complete" if complete else ("degraded" if errors else "active"),
@@ -468,6 +492,7 @@ def render_markdown(record: dict[str, Any]) -> str:
         f"(snapshot age `{scheduler['snapshot_age_seconds']}` seconds)",
         f"Frozen task set: `{summary['expected']}`; incomplete: "
         f"`{summary['incomplete_count']}`",
+        f"TODO completion synced: `{record['todo'].get('completion_synced', False)}`",
         "",
         "## Status Counts",
         "",

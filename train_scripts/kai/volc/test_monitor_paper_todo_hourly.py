@@ -26,7 +26,15 @@ def write_analysis_artifacts(tmp_path: Path) -> None:
 
 def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Path, Path]:
     todo = tmp_path / "PAPER_TODO.md"
-    todo.write_text("# TODO\n- [ ] active\n## 1. History\n- [ ] old\n", encoding="utf-8")
+    todo.write_text(
+        "# TODO\n"
+        "- [ ] active\n"
+        "- [x] **TG1A-E4 [COMPLETE]**\n"
+        "- [x] **TG1A-A1 [COMPLETE]**\n"
+        "## 1. History\n"
+        "- [ ] old\n",
+        encoding="utf-8",
+    )
     snapshot = tmp_path / "snapshot.json"
     snapshot.write_text(
         json.dumps(
@@ -97,7 +105,34 @@ def test_collect_marks_exact_completed_set_complete(tmp_path: Path) -> None:
     assert record["task_summary"]["status_counts"] == {"completed": 37}
     assert record["todo"]["unchecked_current_override"] == 1
     assert record["todo"]["unchecked_total"] == 2
+    assert record["todo"]["completion_synced"] is True
     assert record["final_analyses"]["complete"] is True
+
+
+def test_collect_waits_for_todo_completion_sync(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    todo.write_text(
+        todo.read_text(encoding="utf-8").replace(
+            "- [x] **TG1A-A1", "- [ ] **TG1A-A1"
+        ),
+        encoding="utf-8",
+    )
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    assert record["complete"] is False
+    assert record["monitor_status"] == "active"
+    assert record["todo"]["completion_items"] == {
+        "TG1A-E4": "checked",
+        "TG1A-A1": "unchecked",
+    }
+    assert "TODO completion synced: `False`" in monitor.render_markdown(record)
 
 
 def test_collect_requires_final_analysis_artifacts(tmp_path: Path) -> None:
