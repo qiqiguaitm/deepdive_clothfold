@@ -335,6 +335,7 @@ def test_auxiliary_progress_is_reported_but_does_not_block_completion(
         "attempts": [{"last_state": "Running", "job_id": "t-helper"}],
         "runtime_progress": "tail_episodes=37/200",
         "runtime_progress_changed_at": "2026-08-10T13:59:55Z",
+        "stale_progress_labels": ["tail_seed2"],
     }
     state.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -351,9 +352,13 @@ def test_auxiliary_progress_is_reported_but_does_not_block_completion(
     assert record["auxiliary_tasks"][helper_id]["runtime_progress"] == (
         "tail_episodes=37/200"
     )
+    assert record["auxiliary_tasks"][helper_id]["stale_progress_labels"] == [
+        "tail_seed2"
+    ]
     markdown = monitor.render_markdown(record)
     assert helper_id in markdown
     assert "tail_episodes=37/200" in markdown
+    assert "tail_seed2" in markdown
 
 
 def test_heartbeat_prefers_running_location_and_filters_inactive_tasks() -> None:

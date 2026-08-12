@@ -233,6 +233,7 @@ def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
             "artifact_progress": None,
             "progress_changed_at": None,
             "progress_stale_seconds": None,
+            "stale_progress_labels": [],
         }
     attempts = value.get("attempts") or []
     attempt = attempts[-1] if attempts else {}
@@ -248,6 +249,7 @@ def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
         "progress_changed_at": value.get("runtime_progress_changed_at")
         or value.get("artifact_progress_changed_at"),
         "progress_stale_seconds": value.get("artifact_stale_seconds"),
+        "stale_progress_labels": value.get("stale_progress_labels", []),
     }
 
 
@@ -503,8 +505,8 @@ def render_markdown(record: dict[str, Any]) -> str:
     if active_evaluations:
         lines.extend(
             [
-                "| Task | Execution | Runtime progress | Artifacts | Stale (s) |",
-                "|---|---|---|---|---:|",
+                "| Task | Execution | Runtime progress | Artifacts | Stale labels | Stale (s) |",
+                "|---|---|---|---|---|---:|",
             ]
         )
         for task_id, row in sorted(active_evaluations.items()):
@@ -512,6 +514,7 @@ def render_markdown(record: dict[str, Any]) -> str:
                 f"| `{task_id}` | {row.get('execution_state') or '-'} | "
                 f"{row.get('runtime_progress') or '-'} | "
                 f"{row.get('artifact_progress') or '-'} | "
+                f"{','.join(row.get('stale_progress_labels', [])) or '-'} | "
                 f"{row.get('progress_stale_seconds', '-')} |"
             )
     else:
