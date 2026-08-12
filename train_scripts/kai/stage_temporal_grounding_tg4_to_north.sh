@@ -20,7 +20,8 @@ done
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-git -C "$REPO/lmvla/lawam" archive HEAD | tar -C "$tmp" -xf -
+mkdir -p "$tmp/lmvla/lawam"
+git -C "$REPO/lmvla/lawam" archive HEAD | tar -C "$tmp/lmvla/lawam" -xf -
 tar -C "$REPO" -cf - "${MAIN_FILES[@]}" | tar -C "$tmp" -xf -
 
 tar -C "$tmp" -cf - . | ssh -p "$PORT" -o BatchMode=yes "$HOST" \

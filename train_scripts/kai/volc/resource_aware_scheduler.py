@@ -9594,14 +9594,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         ],
         "ready_hashes": [
             *tg4_ready_hashes[:3],
-            {"path": str(tg4_stage_script), "sha256": "a24f11c154f6c557e67927c8858ad498e8e5cad0c90b1ba7292c659e2e2c2fe4"},
+            {"path": str(tg4_stage_script), "sha256": "43cb390a4ec87c0c4b0ba76bf578d228983751da2901f67fc874654dfd031a57"},
         ],
         "candidates": [
             {
                 "kind": "local",
                 "resource": "local",
                 "gpus": 0,
-                "retry_cooldown_seconds": 300,
+                "retry_cooldown_seconds": 30,
                 "max_failures": 3,
                 "status_dir": str(REPO / "logs/temporal_grounding/tg4/north_stage"),
                 "command": shlex.join(["bash", str(tg4_stage_script)]),
