@@ -131,7 +131,10 @@ Current scheduler-owned execution is:
   different-episode shuffled mapping. The scheduler-owned v2 tail passed the
   same TG1A bundle, retry500, and runtime-v11 checks, then attached one locked
   worker per seed to claim only `stack_blocks_three`; the original four workers
-  continue the disjoint `stack_blocks_two` cells. The rejected v1 helper
+  continue the disjoint `stack_blocks_two` cells. The scheduler records both
+  the aggregate tail episode count and four per-seed counters, and treats 30
+  minutes without progress as stale so that one stuck seed cannot be hidden by
+  the other workers. The rejected v1 helper
   `t-20260812120240-wdzvz` failed before claiming a cell because it omitted the
   frozen runtime-v11 verifier context, and contributes no episode.
 - [x] **TG1B-E1 [COMPLETE: `t-20260812073026-gt69q`, 24/24]** Evaluated
