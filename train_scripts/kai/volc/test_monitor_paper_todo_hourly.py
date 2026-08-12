@@ -324,6 +324,38 @@ def test_collect_and_markdown_include_active_evaluation_progress(tmp_path: Path)
     assert "completion artifacts east=20/24, north=0/24" in markdown
 
 
+def test_auxiliary_progress_is_reported_but_does_not_block_completion(
+    tmp_path: Path,
+) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    payload = json.loads(state.read_text())
+    helper_id = monitor.AUXILIARY_TASK_IDS[0]
+    payload["tasks"][helper_id] = {
+        "status": "running",
+        "attempts": [{"last_state": "Running", "job_id": "t-helper"}],
+        "runtime_progress": "tail_episodes=37/200",
+        "runtime_progress_changed_at": "2026-08-10T13:59:55Z",
+    }
+    state.write_text(json.dumps(payload), encoding="utf-8")
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    assert record["complete"] is True
+    assert record["task_summary"]["expected"] == 37
+    assert record["auxiliary_tasks"][helper_id]["runtime_progress"] == (
+        "tail_episodes=37/200"
+    )
+    markdown = monitor.render_markdown(record)
+    assert helper_id in markdown
+    assert "tail_episodes=37/200" in markdown
+
+
 def test_heartbeat_prefers_running_location_and_filters_inactive_tasks() -> None:
     active_id = "temporal_grounding_tg2r_raw_milestone_seed1000_train"
     inactive_id = "temporal_grounding_tg2r_fixed_endpoint_seed1000_train"

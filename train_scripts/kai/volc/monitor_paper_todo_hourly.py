@@ -113,6 +113,7 @@ def expected_task_ids() -> tuple[str, ...]:
 
 
 EXPECTED_TASK_IDS = expected_task_ids()
+AUXILIARY_TASK_IDS = ("temporal_grounding_tg1a_shuffled_tail_east4g",)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -321,7 +322,10 @@ def transitions(
 ) -> list[dict[str, Any]]:
     if not previous:
         return []
-    prior_tasks = previous.get("tasks", {})
+    prior_tasks = {
+        **previous.get("tasks", {}),
+        **previous.get("auxiliary_tasks", {}),
+    }
     changes = []
     for task_id, current in tasks.items():
         prior = prior_tasks.get(task_id, {})
@@ -391,6 +395,10 @@ def collect(
 
     state_tasks = state.get("tasks", {})
     tasks = {task_id: task_record(state_tasks.get(task_id)) for task_id in EXPECTED_TASK_IDS}
+    auxiliary_tasks = {
+        task_id: task_record(state_tasks.get(task_id))
+        for task_id in AUXILIARY_TASK_IDS
+    }
     status_counts = dict(sorted(Counter(row["status"] for row in tasks.values()).items()))
     missing = sorted(task_id for task_id, row in tasks.items() if row["status"] == "missing")
     analyses = analysis_artifact_metrics(repo_path, state_tasks)
@@ -439,9 +447,10 @@ def collect(
             "incomplete": incomplete,
         },
         "tasks": tasks,
+        "auxiliary_tasks": auxiliary_tasks,
         "final_analyses": analyses,
         "heartbeats": heartbeat_metrics(snapshot, tasks),
-        "transitions": transitions(previous, tasks),
+        "transitions": transitions(previous, {**tasks, **auxiliary_tasks}),
     }
 
 
@@ -483,7 +492,10 @@ def render_markdown(record: dict[str, Any]) -> str:
         lines.append("No active TG2R heartbeat was reported.")
     active_evaluations = {
         task_id: row
-        for task_id, row in record["tasks"].items()
+        for task_id, row in {
+            **record["tasks"],
+            **record.get("auxiliary_tasks", {}),
+        }.items()
         if row["status"] == "running"
         and (row.get("runtime_progress") or row.get("artifact_progress"))
     }
