@@ -1,0 +1,165 @@
+{
+  "checkpoint_selection": "frozen released LaWAM checkpoint; no training or checkpoint selection",
+  "claim_gates": {
+    "correct_future_content_used": true,
+    "future_route_necessary": true,
+    "persistence_beaten": true
+  },
+  "comparisons": {
+    "null": {
+      "accepted": true,
+      "control_success_rate": 0.3516666666666667,
+      "eval_seed_effects": {
+        "0": 0.6133333333333333,
+        "1": 0.5966666666666667,
+        "2": 0.5633333333333334,
+        "3": 0.58
+      },
+      "hierarchical_paired_bootstrap": {
+        "ci95": [
+          0.36833333333333335,
+          0.7949999999999999
+        ],
+        "levels": [
+          "task",
+          "eval_seed_within_task",
+          "paired_episode"
+        ],
+        "random_seed": 20260808,
+        "samples": 20000
+      },
+      "mean_effect": 0.5883333333333334,
+      "normal_success_rate": 0.94,
+      "pooled_exact_mcnemar": {
+        "candidate_only_success": 712,
+        "candidate_success_rate": 0.94,
+        "comparison": "normal_minus_null",
+        "control_only_success": 6,
+        "control_success_rate": 0.3516666666666667,
+        "holm_adjusted_p": 5.4513729568717065e-202,
+        "mcnemar_exact_p": 2.7256864784358532e-202,
+        "paired_episodes": 1200,
+        "success_rate_delta": 0.5883333333333333
+      },
+      "task_effects": {
+        "beat_block_hammer": 0.19,
+        "blocks_ranking_rgb": 0.7100000000000001,
+        "blocks_ranking_size": 0.635,
+        "handover_block": 0.275,
+        "stack_blocks_three": 0.86,
+        "stack_blocks_two": 0.86
+      }
+    },
+    "persistence": {
+      "accepted": true,
+      "control_success_rate": 0.24416666666666667,
+      "eval_seed_effects": {
+        "0": 0.7166666666666667,
+        "1": 0.73,
+        "2": 0.6533333333333333,
+        "3": 0.6833333333333332
+      },
+      "hierarchical_paired_bootstrap": {
+        "ci95": [
+          0.4799791666666667,
+          0.8725
+        ],
+        "levels": [
+          "task",
+          "eval_seed_within_task",
+          "paired_episode"
+        ],
+        "random_seed": 20260809,
+        "samples": 20000
+      },
+      "mean_effect": 0.6958333333333333,
+      "normal_success_rate": 0.94,
+      "pooled_exact_mcnemar": {
+        "candidate_only_success": 840,
+        "candidate_success_rate": 0.94,
+        "comparison": "normal_minus_persistence",
+        "control_only_success": 5,
+        "control_success_rate": 0.24416666666666667,
+        "holm_adjusted_p": 9.127358101887589e-242,
+        "mcnemar_exact_p": 3.0424527006291963e-242,
+        "paired_episodes": 1200,
+        "success_rate_delta": 0.6958333333333333
+      },
+      "task_effects": {
+        "beat_block_hammer": 0.505,
+        "blocks_ranking_rgb": 0.865,
+        "blocks_ranking_size": 0.79,
+        "handover_block": 0.235,
+        "stack_blocks_three": 0.86,
+        "stack_blocks_two": 0.9199999999999999
+      }
+    },
+    "shuffled": {
+      "accepted": true,
+      "control_success_rate": 0.4033333333333333,
+      "eval_seed_effects": {
+        "0": 0.5599999999999999,
+        "1": 0.5499999999999999,
+        "2": 0.49666666666666665,
+        "3": 0.54
+      },
+      "hierarchical_paired_bootstrap": {
+        "ci95": [
+          0.36083333333333334,
+          0.6858333333333334
+        ],
+        "levels": [
+          "task",
+          "eval_seed_within_task",
+          "paired_episode"
+        ],
+        "random_seed": 20260807,
+        "samples": 20000
+      },
+      "mean_effect": 0.5366666666666667,
+      "normal_success_rate": 0.94,
+      "pooled_exact_mcnemar": {
+        "candidate_only_success": 653,
+        "candidate_success_rate": 0.94,
+        "comparison": "normal_minus_shuffled",
+        "control_only_success": 9,
+        "control_success_rate": 0.4033333333333333,
+        "holm_adjusted_p": 6.7518274893950805e-180,
+        "mcnemar_exact_p": 6.7518274893950805e-180,
+        "paired_episodes": 1200,
+        "success_rate_delta": 0.5366666666666666
+      },
+      "task_effects": {
+        "beat_block_hammer": 0.16999999999999998,
+        "blocks_ranking_rgb": 0.6100000000000001,
+        "blocks_ranking_size": 0.67,
+        "handover_block": 0.375,
+        "stack_blocks_three": 0.75,
+        "stack_blocks_two": 0.645
+      }
+    }
+  },
+  "complete": true,
+  "episodes_per_condition": 1200,
+  "eval_seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "holm_family": [
+    "normal_minus_shuffled",
+    "normal_minus_null",
+    "normal_minus_persistence"
+  ],
+  "protocol": "temporal_grounding_tg1a_released_checkpoint_content_panel_v1",
+  "schema_version": 1,
+  "tasks": [
+    "beat_block_hammer",
+    "blocks_ranking_rgb",
+    "stack_blocks_two",
+    "blocks_ranking_size",
+    "handover_block",
+    "stack_blocks_three"
+  ]
+}

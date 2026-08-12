@@ -31,6 +31,7 @@ def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Pa
         "- [ ] active\n"
         "- [x] **TG1A-E4 [COMPLETE]**\n"
         "- [x] **TG1A-A1 [COMPLETE]**\n"
+        "- [x] **TG4 [COMPLETE]**\n"
         "## 1. History\n"
         "- [ ] old\n",
         encoding="utf-8",
@@ -131,6 +132,7 @@ def test_collect_waits_for_todo_completion_sync(tmp_path: Path) -> None:
     assert record["todo"]["completion_items"] == {
         "TG1A-E4": "checked",
         "TG1A-A1": "unchecked",
+        "TG4": "checked",
     }
     assert "TODO completion synced: `False`" in monitor.render_markdown(record)
 

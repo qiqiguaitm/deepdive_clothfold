@@ -115,7 +115,7 @@ def expected_task_ids() -> tuple[str, ...]:
 
 EXPECTED_TASK_IDS = expected_task_ids()
 AUXILIARY_TASK_IDS = ("temporal_grounding_tg1a_shuffled_tail_east4g",)
-TODO_COMPLETION_ITEMS = ("TG1A-E4", "TG1A-A1")
+TODO_COMPLETION_ITEMS = ("TG1A-E4", "TG1A-A1", "TG4")
 
 
 def load_json(path: Path) -> dict[str, Any]:

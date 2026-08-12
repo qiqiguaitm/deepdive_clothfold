@@ -1800,6 +1800,43 @@ Canonical records:
 
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e36`
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50`
+
+## 49. TG1A released-checkpoint content-use acceptance
+
+The retry500 TG1A panel completed all four frozen conditions. Normal, shuffled,
+null, and persistence each contain exactly 24 task-by-evaluation-seed summaries
+and 1,200 fixed-scene paired episodes. The parent shuffled job
+`t-20260812040634-7kwps` produced 20 cells; the disjoint tail
+`t-20260812120538-n7jgs` produced only the four missing `stack_blocks_three`
+cells. Exact cell counts and fixed-scene hashes verify.
+
+Normal success is 94.00%, compared with 40.33% for the prespecified within-task,
+different-episode shuffled intervention. `normal - shuffled` is +53.67
+percentage points with hierarchical paired 95% CI [+36.08, +68.58] and
+Holm-adjusted exact McNemar `p=6.75e-180`. All six task effects are positive:
++17.0 Hammer, +61.0 Ranking-RGB, +67.0 Ranking-size, +37.5 Handover, +75.0
+Stack-3, and +64.5 Stack-2 points. All four evaluation-seed effects are also
+positive (+56.0, +55.0, +49.67, and +54.0 points). The correct-content-use gate
+therefore passes without a task-safety exception.
+
+The independent route controls also pass. `normal - null` is +58.83 points,
+95% CI [+36.83, +79.50], Holm-adjusted `p=5.45e-202`; `normal - persistence`
+is +69.58 points, CI [+48.00, +87.25], Holm-adjusted `p=9.13e-242`. This
+establishes that the particular predicted endpoint content has
+fixed-checkpoint closed-loop utility and that neither route removal nor visual
+persistence explains the result. It does not by itself attribute utility among
+WM pretraining, downstream auxiliary shaping, and inference-time conditioning;
+that attribution remains TG4.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json`
+- `logs/resource_markers/temporal_grounding_tg1a_gate.ok`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_normal`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_shuffled`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_null`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_persistence`
+- `logs/resource_scheduler_state.json`
 - `lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json`
 
 ## 43. Original TG2 matrix rejection and deterministic-order recovery
@@ -1949,3 +1986,76 @@ Canonical records:
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50.pre_retry500_v1`
 - `logs/temporal_grounding/tg1a/predicted_endpoint_features`
 - `logs/resource_scheduler_state.json`
+
+## 47. TG2R completion and integrity rejection
+
+TG2R completed all nine 20,000-step training cells. The final future-off
+seed-1002 job, `t-20260811075607-jqpjx`, completed under the authorized
+primary-identity duplicate. Post-training amendment v7 then completed the
+hash-verified checkpoint and four-sidecar materialization without retraining or
+retransmitting the already installed checkpoint tree.
+
+Completion did not make the matrix admissible. The East root-context integrity
+gate verified fixed step 20,000, optimizer state, full JSON configs,
+initialization equality within seed, rank-order equality across arms within
+seed, normalization, target-coverage guards, and the remaining frozen protocol
+fields. Eleven checks passed. The gate rejected
+`dataset_order_distinct_across_seeds`: training seeds 1000--1002 induced the
+same four rank data orders under `in_order=true`. This violates the
+preregistered requirement that training seed be an independent highest-level
+resampling unit.
+
+The immutable decision is `reject_tg2r_matrix_before_evaluation`. None of the
+nine closed-loop evaluations ran, no canonical TG2 utility result was created,
+and the same protocol may not be retried. This is a training-comparison
+integrity rejection, not evidence that future-off, fixed endpoint, or raw
+milestone succeeds or fails as a control target.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2r_integrity.json`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_v1.json`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg2_recovery_posttraining_v7.json`
+- `logs/temporal_grounding/tg2r/integrity_platform/integrity_20260812_034334.log`
+- `logs/resource_scheduler_state.json`
+
+## 48. Completed retry500 conditions and rejected TG1B cadence gate
+
+Seven of the eight retry500 evaluation conditions are complete and pass exact
+fixed-scene verification. TG1A normal, null, and persistence each contain 24
+task-by-evaluation-seed summaries and 1,200 paired episodes. Their success
+rates are 94.00%, 35.17%, and 24.42%, respectively. A read-only pre-analysis of
+these complete conditions gives `normal - null` = +58.83 percentage points
+(hierarchical 95% CI [+36.83, +79.50]) and `normal - persistence` = +69.58
+points ([+48.00, +87.25]). All six task effects are positive in both
+comparisons; the smallest are +19.0 and +23.5 points. These two contrasts remain
+non-claim-bearing until shuffled completes and the frozen three-comparison Holm
+family is evaluated.
+
+All four TG1B conditions contain 24 verified summaries and 1,200 paired
+episodes. Success was 91.50% for future-off/E=36, 88.42% for future-off/E=50,
+88.08% for local-WM/E=36, and 86.42% for local-WM/E=50. The preregistered
+difference-in-differences,
+`(local_wm_E50 - local_wm_E36) - (future_off_E50 - future_off_E36)`, is +1.42
+percentage points with hierarchical 95% CI [-3.00, +5.92]. The interval crosses
+zero, so the local-WM-specific cadence-sensitivity gate is rejected.
+
+The task-level difference-in-differences is heterogeneous: +5.5 points for
+Hammer, +6.5 for Ranking-RGB, +2.0 for Ranking-size, -3.0 for Handover, -1.5
+for Stack-3, and -1.0 for Stack-2. Local-WM also trails future-off in the macro
+rate at both cadences (-3.42 points at E=36 and -2.00 at E=50), but this panel
+uses one training seed and was designed for cadence diagnosis. It therefore
+does not support a general claim that LMWM is ineffective, and it does not test
+whether correct predicted content is used.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1b.json`
+- `logs/resource_markers/temporal_grounding_tg1b_gate.ok`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_normal`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_null`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_persistence`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e36`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e50`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e36`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50`
