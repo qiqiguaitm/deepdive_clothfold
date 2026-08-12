@@ -9172,6 +9172,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             ),
             "completion_min_count": 1,
             "satisfied_by_task": tg1a_shuffled_parent_id,
+            "progress_stale_seconds": 1800,
             "ready_files": [
                 str(activation_marker),
                 str(capture_marker),

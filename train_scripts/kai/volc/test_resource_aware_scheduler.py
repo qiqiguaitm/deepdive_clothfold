@@ -6652,6 +6652,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert shuffled_tail["satisfied_by_task"] == (
         "temporal_grounding_tg1a_shuffled_eval"
     )
+    assert shuffled_tail["progress_stale_seconds"] == 1800
     assert len(shuffled_tail["candidates"]) == 1
     assert shuffled_tail["candidates"][0]["resource"] == "Robot-East-H20"
     assert shuffled_tail["candidates"][0]["gpus"] == 4
