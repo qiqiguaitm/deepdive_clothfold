@@ -9195,8 +9195,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 {
                     "path": str(tg1a_shuffled_tail_runner),
                     "sha256": (
-                        "43584188b151c0be3b138621b910dc362021d4899912e488f"
-                        "f22a89eb63e4694"
+                        "9e46ec48a7f5d489771ca0bc99a787a3b757d293c70b57db"
+                        "5b847986b25c0bf7"
                     ),
                 },
                 {
@@ -9216,7 +9216,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "queue_timeout_seconds": 180,
                     "retry_cooldown_seconds": 300,
                     "max_failures": 1,
-                    "runtime_revision": "temporal_grounding_tg1a_shuffled_tail_v1",
+                    "runtime_revision": "temporal_grounding_tg1a_shuffled_tail_v2",
                     "yaml": str(tg1a_shuffled_tail_yaml.relative_to(REPO)),
                     "task_name": "temporal-grounding-tg1a-shuffled-tail-east4g",
                 }

@@ -15,6 +15,9 @@ LOG_DIR="$REPO/logs/temporal_grounding/tg1a/tail"
 STAMP="$(date -u +%Y%m%d_%H%M%S)"
 BUNDLE="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_admission_v1.json"
 AMENDMENT="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1_retry500_amendment_v1.json"
+RUNTIME_AMENDMENT="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_runtime_amendment_v11.json"
+
+export TEMPORAL_GROUNDING_RUNTIME_AMENDMENT="$RUNTIME_AMENDMENT"
 
 "$REPO/kai0/.venv/bin/python" \
   "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_bundle.py" \

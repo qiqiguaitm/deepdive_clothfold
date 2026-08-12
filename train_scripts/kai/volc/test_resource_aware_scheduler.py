@@ -6611,7 +6611,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert shuffled_tail["candidates"][0]["resource"] == "Robot-East-H20"
     assert shuffled_tail["candidates"][0]["gpus"] == 4
     assert shuffled_tail["candidates"][0]["runtime_revision"] == (
-        "temporal_grounding_tg1a_shuffled_tail_v1"
+        "temporal_grounding_tg1a_shuffled_tail_v2"
     )
     assert sum(
         path.endswith("/.task_scheduler.json")
