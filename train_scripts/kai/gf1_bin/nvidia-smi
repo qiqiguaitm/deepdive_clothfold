@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${1:-}" == "--list-gpus" && -n "${CUDA_VISIBLE_DEVICES:-}" ]]; then
+  IFS=',' read -r -a devices <<<"$CUDA_VISIBLE_DEVICES"
+  for index in "${!devices[@]}"; do
+    printf 'GPU %s: CUDA-visible device %s\n' "$index" "${devices[$index]}"
+  done
+  exit 0
+fi
+
+exec /usr/bin/nvidia-smi "$@"

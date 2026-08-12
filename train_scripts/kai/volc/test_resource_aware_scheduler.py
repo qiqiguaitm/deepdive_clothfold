@@ -6760,6 +6760,20 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             [4, 5, 6, 7],
         ]
         assert all(candidate["gpus"] == 4 for candidate in gf1)
+        assert [
+            scheduler.candidate_env_value(candidate, "MASTER_PORT")
+            for candidate in gf1
+        ] == ["29501", "29502"]
+        assert all(
+            scheduler.candidate_env_value(candidate, "PATH").endswith(
+                "/usr/bin:/sbin:/bin"
+            )
+            for candidate in gf1
+        )
+        assert all(
+            candidate["runtime_revision"] == "temporal_grounding_tg4_gf1_v2"
+            for candidate in gf1
+        )
     assert all(
         task["requires_completed_tasks"]
         == ["temporal_grounding_tg4_north_stage"]
