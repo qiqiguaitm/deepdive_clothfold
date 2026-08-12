@@ -6709,7 +6709,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 111
+    assert len(tasks) == 112
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6770,8 +6770,13 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             )
             for candidate in gf1
         )
+        expected_gf1_revision = (
+            "temporal_grounding_tg4_conditioning_ddp_gf1_v4"
+            if "conditioning_only" in task["id"]
+            else "temporal_grounding_tg4_gf1_v3"
+        )
         assert all(
-            candidate["runtime_revision"] == "temporal_grounding_tg4_gf1_v3"
+            candidate["runtime_revision"] == expected_gf1_revision
             for candidate in gf1
         )
         assert all(
@@ -6783,10 +6788,25 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             scheduler.candidate_env_value(candidate, "TRANSFORMERS_OFFLINE") == "1"
             for candidate in gf1
         )
+    for task in tg4.values():
+        expected_stage = (
+            "temporal_grounding_tg4_conditioning_ddp_repair_north_stage"
+            if "conditioning_only" in task["id"]
+            else "temporal_grounding_tg4_north_stage"
+        )
+        assert task["requires_completed_tasks"] == [expected_stage]
+    repair_stage = tasks[
+        "temporal_grounding_tg4_conditioning_ddp_repair_north_stage"
+    ]
+    assert repair_stage["candidates"][0]["gpus"] == 0
+    assert "TG4_STAGE_MARKER_NAME=" in repair_stage["candidates"][0]["command"]
     assert all(
-        task["requires_completed_tasks"]
-        == ["temporal_grounding_tg4_north_stage"]
+        candidate["runtime_revision"]
+        == "temporal_grounding_tg4_conditioning_ddp_v2"
         for task in tg4.values()
+        if "conditioning_only" in task["id"]
+        for candidate in task["candidates"]
+        if candidate["kind"] == "platform"
     )
     for arm in (
         "clean_base",

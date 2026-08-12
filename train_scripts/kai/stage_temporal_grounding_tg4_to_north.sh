@@ -6,8 +6,9 @@ REPO=${REPO:-/vePFS/tim/workspace/deepdive_kai0}
 HOST=${NORTH_HOST:-root@124.174.16.237}
 PORT=${NORTH_PORT:-16370}
 STAGE=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/temporal_grounding_11fb843
-LOCAL_MARKER=$REPO/logs/resource_markers/temporal_grounding_tg4_north_stage.ok
-REMOTE_MARKER=$STAGE/logs/resource_markers/temporal_grounding_tg4_north_stage.ok
+MARKER_NAME=${TG4_STAGE_MARKER_NAME:-temporal_grounding_tg4_north_stage.ok}
+LOCAL_MARKER=$REPO/logs/resource_markers/$MARKER_NAME
+REMOTE_MARKER=$STAGE/logs/resource_markers/$MARKER_NAME
 
 MAIN_FILES=(
   lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_source_decomposition_v1.json

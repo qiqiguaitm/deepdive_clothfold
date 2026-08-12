@@ -3,6 +3,14 @@
   "protocol": "temporal_grounding_tg4_source_decomposition_v1",
   "frozen": true,
   "frozen_at_utc": "2026-08-12T13:05:00Z",
+  "implementation_repairs": [
+    {
+      "applied_at_utc": "2026-08-12T22:25:00Z",
+      "scope": "conditioning_only distributed gradient bookkeeping",
+      "change": "enable DDP unused-parameter discovery because the frozen auxiliary-off route intentionally retains trainable auxiliary parameters outside the loss graph",
+      "scientific_effect": "none; forward values, losses, trainable parameter tree, optimizer, data order, batch size, updates, and evaluation protocol remain frozen"
+    }
+  ],
   "source": {
     "main_commit": "602117acff2e86b51336eddcff453ce6cfbd06dc",
     "lawam_commit": "4bcf17f67b71d700885e2e279700d373dc5ecbfd",
@@ -136,7 +144,7 @@
     "lmvla/lawam/starVLA/model/framework/vlas/lawam.py": "6e79abf7c078496db5534678cd08f7bc29f4f6e65dfdc6af9f76e8811c0981e4",
     "lmvla/lawam/starVLA/model/framework/latent_world/runtime/future_route_ablation.py": "31db27607f654ec0ff1dbff5c31f5ae9606303feb5f67ad08845ded34ef70dbe",
     "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17",
-    "train_scripts/kai/run_temporal_grounding_tg4_train.sh": "7677e160bb65f9aea0eef98f733c987631fc340f35e581e27a6f87b938b3b3d1",
+    "train_scripts/kai/run_temporal_grounding_tg4_train.sh": "9be485193d15d081b9eb19621b3bdd1ce4e9a5f7a681dc5d86ea2b050687695e",
     "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py": "9c4d339a52742ef68d6e47f6ddb21cd7d696baa8a7b3a469e930e2ff44f0f084"
   }
 }

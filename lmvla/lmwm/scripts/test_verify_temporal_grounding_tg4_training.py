@@ -102,6 +102,14 @@ def test_accepts_complete_matched_matrix(tmp_path: Path) -> None:
     assert all(result["checks"].values())
 
 
+def test_conditioning_only_enables_unused_parameter_discovery() -> None:
+    expected = verifier.expected_arm_config("conditioning_only")
+    assert expected[("trainer", "ddp_find_unused_parameters")] is True
+    assert verifier.expected_arm_config("full")[
+        ("trainer", "ddp_find_unused_parameters")
+    ] is False
+
+
 def test_rejects_seed_order_collapse(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="dataset_order_distinct_across_seeds"):
         verifier.verify(

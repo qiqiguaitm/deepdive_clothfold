@@ -9622,9 +9622,17 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         Path(north_stage)
         / "logs/resource_markers/temporal_grounding_tg4_north_stage.ok"
     )
+    tg4_ddp_repair_stage_id = "temporal_grounding_tg4_conditioning_ddp_repair_north_stage"
+    tg4_ddp_repair_marker_name = (
+        "temporal_grounding_tg4_conditioning_ddp_repair_north_stage.ok"
+    )
+    tg4_ddp_repair_marker = REPO / "logs/resource_markers" / tg4_ddp_repair_marker_name
+    tg4_ddp_repair_marker_remote = (
+        Path(north_stage) / "logs/resource_markers" / tg4_ddp_repair_marker_name
+    )
     tg4_ready_hashes = [
-        {"path": str(tg4_manifest), "sha256": "59e842b8d1af3a20bc1e203cd4db3d3ff2d9f75a59d028fe714d4031ad56b10f"},
-        {"path": str(tg4_runner), "sha256": "7677e160bb65f9aea0eef98f733c987631fc340f35e581e27a6f87b938b3b3d1"},
+        {"path": str(tg4_manifest), "sha256": "8df27357f1650b47eedd4eeb4c9b82e2ea82a49ad02c0afff58fc98d926d1b52"},
+        {"path": str(tg4_runner), "sha256": "9be485193d15d081b9eb19621b3bdd1ce4e9a5f7a681dc5d86ea2b050687695e"},
         {"path": str(tg4_verifier), "sha256": "9c4d339a52742ef68d6e47f6ddb21cd7d696baa8a7b3a469e930e2ff44f0f084"},
         {"path": str(tg4_east_yaml), "sha256": "d31681cabe8bfc67858970a342461782d40f975c25ea70aed428519f7d09c318"},
         {"path": str(tg4_north_yaml), "sha256": "cb4ae7408df406b95fd1bc5aa63fedb87d6e8b6a5214c19fc243dcf16fdbc64c"},
@@ -9644,7 +9652,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         ],
         "ready_hashes": [
             *tg4_ready_hashes[:3],
-            {"path": str(tg4_stage_script), "sha256": "43cb390a4ec87c0c4b0ba76bf578d228983751da2901f67fc874654dfd031a57"},
+            {"path": str(tg4_stage_script), "sha256": "0d75e14fbaf35981418a2ac6cad12383ffee0cdf9dfd3281b34e05986a06360c"},
         ],
         "candidates": [
             {
@@ -9664,6 +9672,52 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     else:
         existing_tasks[tg4_stage_id].update(tg4_stage_task)
 
+    tg4_ddp_repair_stage_task = {
+        "id": tg4_ddp_repair_stage_id,
+        "priority": 0,
+        "description": (
+            "Stage the TG4 conditioning-only DDP bookkeeping repair on North"
+        ),
+        "rearm_after_ready_file": str(tg4_manifest),
+        "completion_glob": str(tg4_ddp_repair_marker),
+        "completion_min_count": 1,
+        "ready_files": [
+            str(tg4_manifest),
+            str(tg4_runner),
+            str(tg4_verifier),
+            str(tg4_stage_script),
+        ],
+        "ready_hashes": [
+            *tg4_ready_hashes[:3],
+            {"path": str(tg4_stage_script), "sha256": "0d75e14fbaf35981418a2ac6cad12383ffee0cdf9dfd3281b34e05986a06360c"},
+        ],
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 30,
+                "max_failures": 3,
+                "status_dir": str(
+                    REPO / "logs/temporal_grounding/tg4/conditioning_ddp_repair_north_stage"
+                ),
+                "command": shlex.join(
+                    [
+                        "env",
+                        f"TG4_STAGE_MARKER_NAME={tg4_ddp_repair_marker_name}",
+                        "bash",
+                        str(tg4_stage_script),
+                    ]
+                ),
+            }
+        ],
+    }
+    if tg4_ddp_repair_stage_id not in existing:
+        queue["tasks"].append(tg4_ddp_repair_stage_task)
+        existing.add(tg4_ddp_repair_stage_id)
+    else:
+        existing_tasks[tg4_ddp_repair_stage_id].update(tg4_ddp_repair_stage_task)
+
     for arm in (
         "clean_base",
         "future_off",
@@ -9675,12 +9729,31 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         for seed in (1100, 1101, 1102):
             task_id = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
             run_id = f"temporal_grounding_tg4_{arm}_seed{seed}"
+            conditioning_ddp_repair = arm == "conditioning_only"
+            stage_dependency = (
+                tg4_ddp_repair_stage_id if conditioning_ddp_repair else tg4_stage_id
+            )
+            stage_marker_remote = (
+                tg4_ddp_repair_marker_remote
+                if conditioning_ddp_repair
+                else tg4_stage_marker_remote
+            )
+            gf1_runtime_revision = (
+                "temporal_grounding_tg4_conditioning_ddp_gf1_v4"
+                if conditioning_ddp_repair
+                else "temporal_grounding_tg4_gf1_v3"
+            )
+            platform_runtime_revision = (
+                "temporal_grounding_tg4_conditioning_ddp_v2"
+                if conditioning_ddp_repair
+                else "temporal_grounding_tg4_v1"
+            )
             task = {
                 "id": task_id,
                 "priority": 0,
                 "description": f"Frozen TG4 source decomposition arm={arm} seed={seed}",
                 "allow_temporary_gf1": True,
-                "requires_completed_tasks": [tg4_stage_id],
+                "requires_completed_tasks": [stage_dependency],
                 "rearm_after_ready_file": str(tg4_manifest),
                 "completion_locations": [
                     {
@@ -9709,7 +9782,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     str(tg4_north_yaml),
                 ],
                 "ready_files_remote": [
-                    str(tg4_stage_marker_remote),
+                    str(stage_marker_remote),
                     f"{north_stage}/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_source_decomposition_v1.json",
                     f"{north_stage}/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py",
                     f"{north_stage}/train_scripts/kai/run_temporal_grounding_tg4_train.sh",
@@ -9723,7 +9796,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "gpu_indices": [0, 1, 2, 3],
                         "retry_cooldown_seconds": 900,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_tg4_gf1_v3",
+                        "runtime_revision": gf1_runtime_revision,
                         "status_dir": str(
                             REPO / "logs/temporal_grounding/tg4/gf1" / f"tg4_{arm}_seed{seed}"
                         ),
@@ -9752,7 +9825,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "gpu_indices": [4, 5, 6, 7],
                         "retry_cooldown_seconds": 900,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_tg4_gf1_v3",
+                        "runtime_revision": gf1_runtime_revision,
                         "status_dir": str(
                             REPO / "logs/temporal_grounding/tg4/gf1" / f"tg4_{arm}_seed{seed}"
                         ),
@@ -9783,7 +9856,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "deploy_timeout_seconds": 900,
                         "retry_cooldown_seconds": 900,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_tg4_v1",
+                        "runtime_revision": platform_runtime_revision,
                         "yaml": str(tg4_east_yaml.relative_to(REPO)),
                         "task_name": f"temporal-grounding-tg4-{arm.replace('_', '-')}-s{seed}-east4g",
                         "env": {"TG4_ARM": arm, "TG4_TRAIN_SEED": str(seed)},
@@ -9797,13 +9870,15 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "deploy_timeout_seconds": 900,
                         "retry_cooldown_seconds": 900,
                         "max_failures": 1,
-                        "runtime_revision": "temporal_grounding_tg4_v1",
+                        "runtime_revision": platform_runtime_revision,
                         "yaml": str(tg4_north_yaml.relative_to(REPO)),
                         "task_name": f"temporal-grounding-tg4-{arm.replace('_', '-')}-s{seed}-north4g",
                         "env": {"TG4_ARM": arm, "TG4_TRAIN_SEED": str(seed)},
                     },
                 ],
             }
+            if conditioning_ddp_repair:
+                task["supersede_obsolete_runtime_after_seconds"] = 60
             if task_id not in existing:
                 queue["tasks"].append(task)
                 existing.add(task_id)
@@ -9828,7 +9903,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_posttraining_hashes = [
         {"path": str(tg4_sync_script), "sha256": "fb86cc347c2cc7bd20b3a866fca2a51afb0f95459ceeceee1c626ba99124f5ff"},
         {"path": str(tg4_sync_tree_script), "sha256": "21642dc25f6e9180107ceb49f3768132b337f8c9a5df255c131617e7447855c4"},
-        {"path": str(tg4_integrity_verifier), "sha256": "7ac9c42a88dad1a2bb3e65e1844fb6d6c1bfbae49e3ab193547218de48cab31a"},
+        {"path": str(tg4_integrity_verifier), "sha256": "d93358dbe6bab113baa17fcd69373ec7e07841d6919a7948158f5871eb8e7b8e"},
         {"path": str(tg4_integrity_runner), "sha256": "a5119df955b88fd6004667d7fdae07376f88f8d0e3a08fda15664afa87466522"},
         {"path": str(tg4_integrity_yaml), "sha256": "4c6f8831493083b57664e27bc6f3bf94a76d70b7abc228a7f19e963d5e5f59f3"},
     ]

@@ -69,6 +69,9 @@ case "$ARM" in
     ;;
   conditioning_only)
     export LAWAM_AUXILIARY_OFF=1
+    # The auxiliary projection remains trainable for the matched parameter-tree
+    # contract but is intentionally absent from this arm's loss graph.
+    EXTRA_ARGS+=(--trainer.ddp_find_unused_parameters=true)
     ;;
   parameter_matched_null)
     export LAWAM_FUTURE_OFF=1

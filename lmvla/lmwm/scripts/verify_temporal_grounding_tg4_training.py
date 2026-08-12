@@ -106,7 +106,11 @@ def expected_arm_config(arm: str) -> dict[tuple[str, ...], Any]:
             else "results/Checkpoints/pretrain/lawam_pretrain/final_model/pytorch_model.pt"
         ),
         ("trainer", "load_pretrained_policy_flow"): arm != "clean_base",
-        ("trainer", "ddp_find_unused_parameters"): arm in {"clean_base", "future_off"},
+        ("trainer", "ddp_find_unused_parameters"): arm in {
+            "clean_base",
+            "future_off",
+            "conditioning_only",
+        },
     }
 
 
