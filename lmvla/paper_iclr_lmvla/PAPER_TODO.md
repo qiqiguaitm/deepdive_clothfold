@@ -165,7 +165,10 @@ passes provenance verification.
   the manuscript.
 - [ ] **TG1A-A1 [REGISTERED; BLOCKED by E1--E4]** Run the frozen TG1A
   analysis. The common statistical helper is included in the scheduler
-  ready-hash closure.
+  ready-hash closure. A read-only preflight verified all 10 ready hashes and
+  exactly 1,200 fixed-scene outcomes in each completed normal, null, and
+  persistence root. The incomplete shuffled root was correctly rejected by
+  the analyzer, and neither the report nor gate marker was emitted early.
 - [x] **TG1B-A1 [COMPLETE; GATE REJECTED]** The frozen analysis completed after
   all four verified result roots were materialized locally. The cadence
   difference-in-differences is +1.42 percentage points with hierarchical 95%
