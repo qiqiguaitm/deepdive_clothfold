@@ -6697,7 +6697,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 73
+    assert len(tasks) == 92
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6718,6 +6718,11 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         for task_id, task in tasks.items()
         if "tg2r_" in task_id and task_id.endswith("_train")
     }
+    tg4 = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if "tg4_" in task_id and task_id.endswith("_train")
+    }
     temporal_grounding_evals = {
         task_id for task_id in tasks if task_id.endswith("_eval")
     }
@@ -6725,6 +6730,17 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert len(tg1b) == 4
     assert len(tg2) == 9
     assert len(tg2r) == 9
+    assert len(tg4) == 18
+    assert all(
+        {candidate["resource"] for candidate in task["candidates"]}
+        == {"Robot-East-H20", "Robot-North-H20"}
+        for task in tg4.values()
+    )
+    assert all(
+        task["requires_completed_tasks"]
+        == ["temporal_grounding_tg4_north_stage"]
+        for task in tg4.values()
+    )
     assert len(temporal_grounding_evals) == 26
     assert all(
         scheduler.TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task_id)

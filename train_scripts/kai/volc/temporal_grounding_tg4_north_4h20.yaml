@@ -1,0 +1,57 @@
+TaskName: "temporal-grounding-tg4-north4g"
+Description: "Frozen TG4 source-decomposition training on North"
+Tags: []
+
+ImageUrl: "dvs-cr-cn-beijing.cr.volces.com/vis_robot/kai:kai0-gf1"
+ResourceQueueName: "Robot-North-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnbj875793a96d6b"
+    MountPath: "/vePFS-North-E/vis_robot"
+    SubPath: "/vis_robot"
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: TG4_ARM
+    Value: "full"
+  - Name: TG4_TRAIN_SEED
+    Value: "1100"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS-North-E/vis_robot/workspace/deepdive_kai0/.staging/temporal_grounding_11fb843
+  OVERLAY=/vePFS-North-E/vis_robot/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3
+  export PYTHONPATH="$OVERLAY${PYTHONPATH:+:$PYTHONPATH}"
+  LOG_DIR="$REPO/logs/temporal_grounding/tg4/entrypoint"
+  mkdir -p "$LOG_DIR"
+  exec > >(tee -a "$LOG_DIR/${TG4_ARM}_s${TG4_TRAIN_SEED}_north_$(date -u +%Y%m%d_%H%M%S).log") 2>&1
+  echo "TG4_START arm=$TG4_ARM seed=$TG4_TRAIN_SEED resource=North"
+  test -f "$REPO/logs/resource_markers/temporal_grounding_tg4_north_stage.ok"
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg4_train.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

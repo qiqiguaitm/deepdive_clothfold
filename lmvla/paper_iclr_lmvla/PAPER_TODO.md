@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-12 12:40 UTC
+Updated: 2026-08-12 13:15 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -82,16 +82,45 @@ family and are not standalone paper claims before the four-condition analysis.
 ## 3. Conditional downstream gate
 
 TG1A satisfies the prespecified correct-content-use and task-safety prerequisite.
-No TG4 GPU task is admitted until the source-decomposition manifest and exact
-checkpoint compatibility audit are frozen.
+The TG4 protocol is now frozen. The released TG1A checkpoint remains
+fixed-checkpoint content-use evidence only because its processed training data
+and complete optimization recipe are unavailable; TG4 therefore uses a fresh
+matched all6-v2 matrix and does not numerically mix the two protocols.
 
-- [ ] **TG4 [ELIGIBLE; MANIFEST FREEZE IN PROGRESS]** Freeze a source
-  decomposition before launch: compatible clean base, future-off,
+- [ ] **TG4 [ACTIVE; 0/18 TRAINING CELLS COMPLETE]** Run the frozen source
+  decomposition: compatible clean base, future-off,
   auxiliary-only, conditioning-only, parameter-matched null, and accepted full
   checkpoint. Attribute pretraining, downstream shaping, and inference content
   only from their prespecified contrasts. Every claimed contrast needs a
   positive hierarchical lower bound, Holm-adjusted `p<0.05`, the fixed
   -5-point task-safety gate, and a fixed-checkpoint content intervention.
+
+  - [x] **TG4-P1 [PROTOCOL FROZEN]** Manifest
+    `manifests/temporal_grounding_tg4_source_decomposition_v1.json` fixes six
+    arms, training seeds 1100--1102, 4 GPUs, global batch 128, 20,000 updates,
+    exact final-checkpoint selection, the seven-comparison Holm family, and all
+    stop rules. π0.5 A0 remains the external pure-VLA baseline but is excluded
+    from within-architecture causal contrasts.
+  - [x] **TG4-P2 [IMPLEMENTATION VERIFIED]** The loader now seeds the mixture
+    RNG from the training seed. `in_order=true` must therefore produce equal
+    rank-order hashes across arms within a seed and distinct hashes across
+    seeds. Orthogonal auxiliary-off and conditioning-off routes have CPU tests;
+    the complete scheduler and monitor suite passes 201 tests.
+  - [ ] **TG4-T01--T18 [REGISTERED; DISPATCH PENDING]** Train all six arms at
+    seeds 1100--1102. Each task has 4-GPU East and North candidates and may run
+    only after the zero-GPU North source stage verifies the frozen bundle. A
+    historical 20k four-GPU cell takes about 12.8 hours; with current aggregate
+    capacity, the training matrix is expected to require two to three waves
+    (about 26--39 hours) if queues remain available.
+  - [ ] **TG4-I1 [BLOCKED by T01--T18]** Reject the matrix before evaluation
+    unless all 18 final checkpoints, optimizer states, initialization trees,
+    exact per-rank data orders, dataset statistics, and non-arm configs pass.
+  - [ ] **TG4-E1 [BLOCKED by I1]** Evaluate every arm/seed on the frozen 24-cell
+    scene matrix. Evaluate both normal and within-task shuffled content for all
+    three full checkpoints; no partial rollout may change the panel.
+  - [ ] **TG4-A1 [BLOCKED by E1]** Run the frozen hierarchical analysis with
+    training seed as the highest resampling unit and write the canonical result
+    and decision marker.
 
 TG3 temporal repair and TG5 external replication are closed because TG2R
 produced no admissible control contrast. Do not reopen them from checkpoint

@@ -1,0 +1,59 @@
+TaskName: "temporal-grounding-tg4-east4g"
+Description: "Frozen TG4 source-decomposition training on East"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 172800
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: TG4_ARM
+    Value: "full"
+  - Name: TG4_TRAIN_SEED
+    Value: "1100"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  OVERLAY=/vePFS/tim/workspace/tim/runtime/tg2_transformers_5_2_py312_padding_v3
+  export PYTHONPATH="$OVERLAY${PYTHONPATH:+:$PYTHONPATH}"
+  LOG_DIR="$REPO/logs/temporal_grounding/tg4/entrypoint"
+  mkdir -p "$LOG_DIR"
+  exec > >(tee -a "$LOG_DIR/${TG4_ARM}_s${TG4_TRAIN_SEED}_east_$(date -u +%Y%m%d_%H%M%S).log") 2>&1
+  echo "TG4_START arm=$TG4_ARM seed=$TG4_TRAIN_SEED resource=East"
+  git config --global --add safe.directory "$REPO"
+  git config --global --add safe.directory "$REPO/lmvla/lawam"
+  test "$(git -C "$REPO/lmvla/lawam" rev-parse HEAD)" = 4bcf17f67b71d700885e2e279700d373dc5ecbfd
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg4_train.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

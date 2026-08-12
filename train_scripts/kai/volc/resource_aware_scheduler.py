@@ -9548,6 +9548,159 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             )
             existing.add(task_id)
 
+    tg4_manifest = (
+        manifests / "temporal_grounding_tg4_source_decomposition_v1.json"
+    )
+    tg4_runner = REPO / "train_scripts/kai/run_temporal_grounding_tg4_train.sh"
+    tg4_verifier = (
+        REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py"
+    )
+    tg4_stage_script = (
+        REPO / "train_scripts/kai/stage_temporal_grounding_tg4_to_north.sh"
+    )
+    tg4_east_yaml = (
+        REPO / "train_scripts/kai/volc/temporal_grounding_tg4_east_4h20.yaml"
+    )
+    tg4_north_yaml = (
+        REPO / "train_scripts/kai/volc/temporal_grounding_tg4_north_4h20.yaml"
+    )
+    tg4_stage_id = "temporal_grounding_tg4_north_stage"
+    tg4_stage_marker = (
+        REPO / "logs/resource_markers/temporal_grounding_tg4_north_stage.ok"
+    )
+    tg4_stage_marker_remote = (
+        Path(north_stage)
+        / "logs/resource_markers/temporal_grounding_tg4_north_stage.ok"
+    )
+    tg4_ready_hashes = [
+        {"path": str(tg4_manifest), "sha256": "59e842b8d1af3a20bc1e203cd4db3d3ff2d9f75a59d028fe714d4031ad56b10f"},
+        {"path": str(tg4_runner), "sha256": "7677e160bb65f9aea0eef98f733c987631fc340f35e581e27a6f87b938b3b3d1"},
+        {"path": str(tg4_verifier), "sha256": "9c4d339a52742ef68d6e47f6ddb21cd7d696baa8a7b3a469e930e2ff44f0f084"},
+        {"path": str(tg4_east_yaml), "sha256": "d31681cabe8bfc67858970a342461782d40f975c25ea70aed428519f7d09c318"},
+        {"path": str(tg4_north_yaml), "sha256": "cb4ae7408df406b95fd1bc5aa63fedb87d6e8b6a5214c19fc243dcf16fdbc64c"},
+    ]
+    tg4_stage_task = {
+        "id": tg4_stage_id,
+        "priority": 0,
+        "description": "Atomically stage and verify the frozen TG4 source bundle on North",
+        "rearm_after_ready_file": str(tg4_manifest),
+        "completion_glob": str(tg4_stage_marker),
+        "completion_min_count": 1,
+        "ready_files": [
+            str(tg4_manifest),
+            str(tg4_runner),
+            str(tg4_verifier),
+            str(tg4_stage_script),
+        ],
+        "ready_hashes": [
+            *tg4_ready_hashes[:3],
+            {"path": str(tg4_stage_script), "sha256": "a24f11c154f6c557e67927c8858ad498e8e5cad0c90b1ba7292c659e2e2c2fe4"},
+        ],
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 300,
+                "max_failures": 3,
+                "status_dir": str(REPO / "logs/temporal_grounding/tg4/north_stage"),
+                "command": shlex.join(["bash", str(tg4_stage_script)]),
+            }
+        ],
+    }
+    if tg4_stage_id not in existing:
+        queue["tasks"].append(tg4_stage_task)
+        existing.add(tg4_stage_id)
+    else:
+        existing_tasks[tg4_stage_id].update(tg4_stage_task)
+
+    for arm in (
+        "clean_base",
+        "future_off",
+        "auxiliary_only",
+        "conditioning_only",
+        "parameter_matched_null",
+        "full",
+    ):
+        for seed in (1100, 1101, 1102):
+            task_id = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
+            run_id = f"temporal_grounding_tg4_{arm}_seed{seed}"
+            task = {
+                "id": task_id,
+                "priority": 0,
+                "description": f"Frozen TG4 source decomposition arm={arm} seed={seed}",
+                "requires_completed_tasks": [tg4_stage_id],
+                "rearm_after_ready_file": str(tg4_manifest),
+                "completion_locations": [
+                    {
+                        "label": "east",
+                        "glob": str(
+                            REPO
+                            / "lmvla/lawam/results/Checkpoints/robotwin"
+                            / f"*+{run_id}/final_model/pytorch_model.pt"
+                        ),
+                        "remote": False,
+                    },
+                    {
+                        "label": "north",
+                        "glob": f"{north_results}/*+{run_id}/final_model/pytorch_model.pt",
+                        "remote": True,
+                    },
+                ],
+                "completion_min_count": 1,
+                "completion_requires_successful_terminal_state": True,
+                "successful_terminal_artifact_grace_seconds": 300,
+                "ready_files": [
+                    str(tg4_manifest),
+                    str(tg4_runner),
+                    str(tg4_verifier),
+                    str(tg4_east_yaml),
+                    str(tg4_north_yaml),
+                ],
+                "ready_files_remote": [
+                    str(tg4_stage_marker_remote),
+                    f"{north_stage}/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_source_decomposition_v1.json",
+                    f"{north_stage}/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py",
+                    f"{north_stage}/train_scripts/kai/run_temporal_grounding_tg4_train.sh",
+                ],
+                "ready_hashes": tg4_ready_hashes,
+                "candidates": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-East-H20",
+                        "region": "cn-shanghai",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 300,
+                        "deploy_timeout_seconds": 900,
+                        "retry_cooldown_seconds": 900,
+                        "max_failures": 1,
+                        "runtime_revision": "temporal_grounding_tg4_v1",
+                        "yaml": str(tg4_east_yaml.relative_to(REPO)),
+                        "task_name": f"temporal-grounding-tg4-{arm.replace('_', '-')}-s{seed}-east4g",
+                        "env": {"TG4_ARM": arm, "TG4_TRAIN_SEED": str(seed)},
+                    },
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-North-H20",
+                        "region": "cn-beijing",
+                        "gpus": 4,
+                        "queue_timeout_seconds": 300,
+                        "deploy_timeout_seconds": 900,
+                        "retry_cooldown_seconds": 900,
+                        "max_failures": 1,
+                        "runtime_revision": "temporal_grounding_tg4_v1",
+                        "yaml": str(tg4_north_yaml.relative_to(REPO)),
+                        "task_name": f"temporal-grounding-tg4-{arm.replace('_', '-')}-s{seed}-north4g",
+                        "env": {"TG4_ARM": arm, "TG4_TRAIN_SEED": str(seed)},
+                    },
+                ],
+            }
+            if task_id not in existing:
+                queue["tasks"].append(task)
+                existing.add(task_id)
+            else:
+                existing_tasks[task_id].update(task)
+
     materialize_ids = []
     sync_script = REPO / "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh"
     sync_tree_script = REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"
