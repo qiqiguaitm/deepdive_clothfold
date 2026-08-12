@@ -9218,7 +9218,18 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "regex": r"progress:.*?([0-9]+)/([0-9]+)",
                     "aggregate": True,
                     "total": 200,
-                }
+                },
+                *(
+                    {
+                        "label": f"tail_seed{seed}",
+                        "glob": str(
+                            tg1a_shuffled_root
+                            / f"seed{seed}/**/tasks/stack_blocks_three/run.log"
+                        ),
+                        "regex": r"progress:.*?([0-9]+)/([0-9]+)",
+                    }
+                    for seed in range(4)
+                ),
             ],
             "candidates": [
                 {

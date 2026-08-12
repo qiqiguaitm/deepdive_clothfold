@@ -6663,20 +6663,30 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         path.endswith("/.task_scheduler.json")
         for path in shuffled_tail["ready_files"]
     ) == 4
-    assert shuffled_tail["progress_logs"] == [
-        {
-            "label": "tail_episodes",
-            "glob": str(
-                scheduler.REPO
-                / "lmvla/lawam/results/eval_runs/robotwin/"
-                "temporal_grounding_tg1a_shuffled/"
-                "seed*/**/tasks/stack_blocks_three/run.log"
-            ),
-            "regex": r"progress:.*?([0-9]+)/([0-9]+)",
-            "aggregate": True,
-            "total": 200,
-        }
+    tail_progress_logs = shuffled_tail["progress_logs"]
+    assert tail_progress_logs[0] == {
+        "label": "tail_episodes",
+        "glob": str(
+            scheduler.REPO
+            / "lmvla/lawam/results/eval_runs/robotwin/"
+            "temporal_grounding_tg1a_shuffled/"
+            "seed*/**/tasks/stack_blocks_three/run.log"
+        ),
+        "regex": r"progress:.*?([0-9]+)/([0-9]+)",
+        "aggregate": True,
+        "total": 200,
+    }
+    assert [entry["label"] for entry in tail_progress_logs[1:]] == [
+        f"tail_seed{seed}" for seed in range(4)
     ]
+    for seed, entry in enumerate(tail_progress_logs[1:]):
+        assert entry["glob"] == str(
+            scheduler.REPO
+            / "lmvla/lawam/results/eval_runs/robotwin/"
+            f"temporal_grounding_tg1a_shuffled/seed{seed}/**/tasks/"
+            "stack_blocks_three/run.log"
+        )
+        assert entry["regex"] == r"progress:.*?([0-9]+)/([0-9]+)"
     north_stage = tasks["temporal_grounding_tg1_retry500_north_stage"]
     assert north_stage["requires_completed_tasks"] == [
         "temporal_grounding_tg1a_normal_eval"
