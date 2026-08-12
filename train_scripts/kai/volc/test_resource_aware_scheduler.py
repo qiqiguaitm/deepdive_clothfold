@@ -6506,6 +6506,44 @@ def test_successful_task_retries_after_artifact_visibility_grace_expires(
     assert attempt["failure"].startswith("terminal state without complete outputs")
 
 
+def test_successful_shared_parent_waits_without_failure_label(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    marker = tmp_path / "shared" / "summary.json"
+    task = {
+        "id": "shared_parent",
+        "completion_locations": [
+            {"label": "east", "glob": str(marker), "remote": False}
+        ],
+        "completion_min_count": 1,
+        "hold_retry_while_running": ["tail_helper"],
+    }
+    attempt = {
+        "kind": "platform",
+        "region": "cn-shanghai",
+        "job_id": "job-completed-parent",
+        "credential_profile": "primary",
+        "last_state": "Running",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    messages: list[str] = []
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Completed", "message": ""},
+    )
+    monkeypatch.setattr(scheduler, "log", messages.append)
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == "pending"
+    assert attempt["passive_shared_wait"] is True
+    assert "failure" not in attempt
+    assert messages == [
+        "shared completion pending shared_parent: completion artifacts east=0/1"
+    ]
+
+
 def test_failed_task_rejects_visible_completion_file_when_success_is_required(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

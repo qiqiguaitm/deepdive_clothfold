@@ -14298,10 +14298,15 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
                     return
                 task_state["status"] = "pending"
                 attempt["finished_at"] = utc_now()
-                attempt["failure"] = (
-                    f"terminal state without complete outputs: {evidence}"
-                )
-                log(f"retrying {task['id']}: {evidence}")
+                if task.get("hold_retry_while_running"):
+                    attempt["passive_shared_wait"] = True
+                    attempt.pop("failure", None)
+                    log(f"shared completion pending {task['id']}: {evidence}")
+                else:
+                    attempt["failure"] = (
+                        f"terminal state without complete outputs: {evidence}"
+                    )
+                    log(f"retrying {task['id']}: {evidence}")
         elif info["state"] in {"Failed", "Stopped"}:
             complete, evidence = completion_evidence(task)
             attempt["completion_evidence"] = evidence
@@ -15843,6 +15848,12 @@ def dispatch(
             if state["tasks"].get(task_id, {}).get("status") == "running"
         ]
         if active_holds:
+            attempts = task_state.get("attempts", [])
+            if attempts and attempts[-1].get("last_state") in (
+                SUCCESSFUL_TERMINAL_STATES
+            ):
+                attempts[-1]["passive_shared_wait"] = True
+                attempts[-1].pop("failure", None)
             task_state["waiting_reason"] = (
                 "waiting for active helper tasks: " + ", ".join(active_holds)
             )

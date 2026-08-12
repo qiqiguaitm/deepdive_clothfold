@@ -126,12 +126,13 @@ Current scheduler-owned execution is:
   an empty root under retry500.
 - [x] **TG1A-E3 [COMPLETE: `t-20260811220414-45x4t`, 24/24]** Evaluated
   persistence from an empty root under retry500 with fixed seeds verified.
-- [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps` + tail
-  `t-20260812120538-n7jgs`, East, 16/24]** Evaluate the frozen within-task
+- [ ] **TG1A-E4 [PARENT COMPLETE: `t-20260812040634-7kwps`; tail RUNNING:
+  `t-20260812120538-n7jgs`, East, 20/24]** Evaluate the frozen within-task
   different-episode shuffled mapping. The scheduler-owned v2 tail passed the
   same TG1A bundle, retry500, and runtime-v11 checks, then attached one locked
   worker per seed to claim only `stack_blocks_three`; the original four workers
-  continue the disjoint `stack_blocks_two` cells. The scheduler records both
+  completed the disjoint `stack_blocks_two` cells at exactly 50 episodes each
+  and released their four GPUs. The scheduler records both
   the aggregate tail episode count and four per-seed counters, and treats 30
   minutes without progress as stale so that one stuck seed cannot be hidden by
   the other workers. Parent redispatch is held while the tail helper is
