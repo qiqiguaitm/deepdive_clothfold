@@ -1916,6 +1916,48 @@ def test_unstoppable_obsolete_runtime_is_detached_for_current_revision(
     ]
 
 
+def test_superseded_waiting_job_is_reattached_when_revision_becomes_current(
+    monkeypatch,
+) -> None:
+    task = {
+        "id": "runtime-reverted",
+        "priority": 0,
+        "candidates": [{"runtime_revision": "runtime_v6"}],
+    }
+    attempt = {
+        "job_id": "t-waiting",
+        "runtime_revision": "runtime_v6",
+        "detached_at": "2026-08-12T00:00:00Z",
+        "superseded_by_runtime_revisions": ["runtime_v7"],
+        "supersession_stop_error": "denied",
+    }
+    task_state = {
+        "status": "pending",
+        "waiting_reason": "waiting for an eligible resource",
+        "attempts": [attempt],
+        "superseded_platform_attempts": [
+            {
+                "job_id": "t-waiting",
+                "runtime_revision": "runtime_v6",
+                "last_state": "Queueing",
+                "stopped": False,
+            }
+        ],
+    }
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.reattach_superseded_attempts_for_current_runtime(
+        {"tasks": [task]}, {"tasks": {task["id"]: task_state}}
+    )
+
+    assert task_state["status"] == "running"
+    assert "waiting_reason" not in task_state
+    assert "superseded_platform_attempts" not in task_state
+    assert "detached_at" not in attempt
+    assert "superseded_by_runtime_revisions" not in attempt
+    assert "supersession_stop_error" not in attempt
+
+
 def test_obsolete_running_runtime_requires_explicit_opt_in(monkeypatch) -> None:
     task = {
         "id": "runtime-upgrade",
@@ -6802,7 +6844,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert "TG4_STAGE_MARKER_NAME=" in repair_stage["candidates"][0]["command"]
     assert all(
         candidate["runtime_revision"]
-        == "temporal_grounding_tg4_conditioning_ddp_v2"
+        == "temporal_grounding_tg4_v1"
         for task in tg4.values()
         if "conditioning_only" in task["id"]
         for candidate in task["candidates"]

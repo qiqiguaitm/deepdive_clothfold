@@ -9743,11 +9743,6 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 if conditioning_ddp_repair
                 else "temporal_grounding_tg4_gf1_v3"
             )
-            platform_runtime_revision = (
-                "temporal_grounding_tg4_conditioning_ddp_v2"
-                if conditioning_ddp_repair
-                else "temporal_grounding_tg4_v1"
-            )
             task = {
                 "id": task_id,
                 "priority": 0,
@@ -9856,7 +9851,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "deploy_timeout_seconds": 900,
                         "retry_cooldown_seconds": 900,
                         "max_failures": 1,
-                        "runtime_revision": platform_runtime_revision,
+                        "runtime_revision": "temporal_grounding_tg4_v1",
                         "yaml": str(tg4_east_yaml.relative_to(REPO)),
                         "task_name": f"temporal-grounding-tg4-{arm.replace('_', '-')}-s{seed}-east4g",
                         "env": {"TG4_ARM": arm, "TG4_TRAIN_SEED": str(seed)},
@@ -9870,15 +9865,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "deploy_timeout_seconds": 900,
                         "retry_cooldown_seconds": 900,
                         "max_failures": 1,
-                        "runtime_revision": platform_runtime_revision,
+                        "runtime_revision": "temporal_grounding_tg4_v1",
                         "yaml": str(tg4_north_yaml.relative_to(REPO)),
                         "task_name": f"temporal-grounding-tg4-{arm.replace('_', '-')}-s{seed}-north4g",
                         "env": {"TG4_ARM": arm, "TG4_TRAIN_SEED": str(seed)},
                     },
                 ],
             }
-            if conditioning_ddp_repair:
-                task["supersede_obsolete_runtime_after_seconds"] = 60
             if task_id not in existing:
                 queue["tasks"].append(task)
                 existing.add(task_id)
@@ -16185,11 +16178,62 @@ def north_materialization_required(parent_state: dict[str, Any]) -> bool | None:
     return parent_state["attempts"][-1].get("resource") == "Robot-North-H20"
 
 
+def reattach_superseded_attempts_for_current_runtime(
+    queue: dict[str, Any], state: dict[str, Any]
+) -> None:
+    """Re-adopt a waiting job when its runtime revision becomes current again."""
+    for task in queue["tasks"]:
+        task_state = state["tasks"].get(task["id"], {})
+        if task_state.get("status") != "pending":
+            continue
+        current_revisions = {
+            candidate.get("runtime_revision")
+            for candidate in task.get("candidates", [])
+            if candidate.get("runtime_revision")
+        }
+        superseded = task_state.get("superseded_platform_attempts", [])
+        for orphan in reversed(superseded):
+            if (
+                orphan.get("stopped")
+                or orphan.get("runtime_revision") not in current_revisions
+                or orphan.get("last_state") not in {"Queueing", "Deploying", "Running"}
+            ):
+                continue
+            attempt = next(
+                (
+                    item
+                    for item in reversed(task_state.get("attempts", []))
+                    if item.get("job_id") == orphan.get("job_id")
+                ),
+                None,
+            )
+            if attempt is None:
+                continue
+            for key in (
+                "detached_at",
+                "superseded_by_runtime_revisions",
+                "supersession_stop_error",
+            ):
+                attempt.pop(key, None)
+            superseded.remove(orphan)
+            if not superseded:
+                task_state.pop("superseded_platform_attempts", None)
+            task_state["status"] = "running"
+            task_state.pop("waiting_reason", None)
+            log(
+                f"reattached current runtime job {attempt['job_id']} for {task['id']} "
+                f"revision={attempt.get('runtime_revision')}"
+            )
+            break
+
+
 def dispatch(
     queue: dict[str, Any], state: dict[str, Any], snapshot: dict[str, Any]
 ) -> None:
     tasks = sorted(queue["tasks"], key=lambda item: (item["priority"], item["id"]))
     dispatched = 0
+
+    reattach_superseded_attempts_for_current_runtime(queue, state)
 
     for task in tasks:
         ready_file = task.get("rearm_after_ready_file")
