@@ -1,17 +1,19 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-12 15:05 UTC
+Updated: 2026-08-12 22:44 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
 execution history are in `PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`, Sections
-41--48.
+41--50.
 
 The resource-aware scheduler is the sole execution owner. A checkbox records
 scientific completion; it does not authorize manual launch, stop, restart,
 reprioritization, or replacement. Mutable execution state is authoritative only
 in `logs/resource_scheduler_snapshot.{md,json}` and
-`logs/resource_scheduler_state.json`.
+`logs/resource_scheduler_state.json`. Per-task canonical attempts override stale
+heartbeat rows. Unmet publication gates below record claim eligibility; they do
+not create scheduler tasks or authorize reopening a closed experiment plan.
 
 ## 1. Current evidence boundary
 
@@ -20,131 +22,144 @@ The paper asks:
 > When does a predicted future representation provide a usable constraint for
 > fixed-horizon VLA action generation?
 
-Three boundaries currently determine the answer:
+The closed evidence establishes the following boundaries:
 
-- The local contract audit establishes endpoint alignment for the released
-  LaWAM path and documents that historical raw milestones are usually
-  multi-chunk targets without time-to-go. This is timing evidence, not control
-  utility.
-- Both TG2 training matrices are closed without policy evaluation. The original
-  matrix failed matched rank-order integrity across arms; TG2R repaired that
-  mismatch but then failed the preregistered requirement that training seeds
-  induce distinct rank data orders. These protocol rejections say nothing about
-  which target improves control.
-- The complete TG1B diagnostic did not detect local-WM-specific cadence
-  sensitivity: difference-in-differences +1.42 percentage points, hierarchical
-  95% CI [-3.00, +5.92]. This rejects the cadence gate for the audited
-  same-training-seed checkpoints, but it neither establishes correct-content
-  use nor proves LMWM generally ineffective.
+- The released LaWAM route is endpoint-aligned. Historical raw milestones are
+  usually multi-chunk targets without time-to-go. This is timing evidence, not
+  control utility.
+- TG2 and TG2R were both rejected before evaluation for training-comparison
+  integrity failures. They provide no policy or target-horizon comparison.
+- TG1B did not detect local-WM-specific cadence sensitivity: difference-in-
+  differences +1.42 percentage points, hierarchical 95% CI [-3.00, +5.92].
+  This rejects the audited cadence gate, not LMWM as a general method.
+- TG1A does establish fixed-checkpoint content use. Normal success is 94.00%
+  versus 40.33% under the prespecified within-task, different-episode shuffled
+  intervention: +53.67 points, hierarchical 95% CI [+36.08, +68.58],
+  Holm-adjusted exact McNemar `p=6.75e-180`. All six task effects and all four
+  evaluation-seed effects are positive. Null and persistence controls also pass.
 
-TG1A establishes released-checkpoint content use under the frozen retry500
-panel. All three prespecified contrasts pass their hierarchical confidence,
-Holm-adjusted significance, and task-safety gates. This is fixed-checkpoint
-control evidence; it does not yet decompose whether the utility comes from WM
-pretraining, downstream auxiliary shaping, or inference-time conditioning.
+TG1A therefore shows that the particular predicted endpoint content can improve
+closed-loop control for this released checkpoint. It does not attribute the
+gain among LaWAM policy pretraining, downstream auxiliary shaping, and
+inference-time conditioning. TG4 is the only remaining claim-bearing experiment
+and performs that source decomposition under one fresh matched protocol.
 
-## 2. Active TG1A content-use panel
+## 2. Active TG4 source decomposition
 
-Normal, null, and persistence are complete at 24/24 task-by-evaluation-seed
-cells and 1,200 fixed-scene episodes per condition. Their audited rates and
-pre-analysis are archived in Section 48. They remain inputs to the frozen Holm
-family and are not standalone paper claims before the four-condition analysis.
+The frozen manifest specifies six arms (`clean_base`, `future_off`,
+`auxiliary_only`, `conditioning_only`, `parameter_matched_null`, and `full`) at
+training seeds 1100--1102, for 18 total 20,000-step cells. All arms use four
+GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
+orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
+are excluded from within-architecture causal contrasts.
 
-- [x] **TG1A-E4 [COMPLETE: parent `t-20260812040634-7kwps`, tail
-  `t-20260812120538-n7jgs`]** The frozen within-task, different-episode shuffled
-  mapping contains exactly 24 task-by-evaluation-seed summaries and 1,200
-  accepted episodes. The tail filled only the four missing
-  `stack_blocks_three` cells. All fixed-scene hashes and 50-episode cell counts
-  verify.
-- [x] **TG1A-A1 [COMPLETE; ALL THREE GATES ACCEPTED]** The frozen analysis
-  consumed exactly 1,200 paired outcomes per condition. Success was 94.00% for
-  normal and 40.33% for shuffled. `normal - shuffled` is +53.67 points with
-  hierarchical 95% CI [+36.08, +68.58] and Holm-adjusted
-  `p=6.75e-180`. All six task effects and four evaluation-seed effects are
-  positive. `normal - null` is +58.83 points, CI [+36.83, +79.50], and
-  `normal - persistence` is +69.58 points, CI [+48.00, +87.25]; both are also
-  accepted. The canonical result and marker are present.
+- [ ] **TG4-T01--T18 [ACTIVE; 0/18 COMPLETE]** At the 22:44 UTC canonical
+  snapshot, ten training tasks are scheduler-active: eight platform jobs are
+  Running and two are Queueing. The Running cells are all three
+  `auxiliary_only`, all three `clean_base`, and `full` seeds 1100 and 1101;
+  `full` seed 1102 and repaired `conditioning_only` seed 1100 are Queueing.
+  All eight remaining cells are waiting for eligible resources. A step-0 DDP
+  bookkeeping failure in
+  `conditioning_only` required `find_unused_parameters=true` because its frozen
+  auxiliary-off route retains trainable auxiliary parameters outside the loss
+  graph. The manifest records this implementation-only repair, its North
+  restaging has passed, and its verifier preserves the arm-specific config.
+  The conditioning seed-1100 Queueing attempt was reattached after its shared
+  North runner matched the repaired runtime revision, so it will load the
+  fixed runner when scheduled. All earlier failed gf1 attempts remain excluded
+  and cannot contribute artifacts; their partial roots were moved to a dated
+  quarantine. No training cell has a complete final artifact yet. Do not
+  inspect partial training to alter the protocol.
+- [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
+  the joint verifier are implemented. Reject the complete matrix before
+  evaluation unless all final checkpoints, optimizer states, initialization
+  trees, exact per-rank data orders, dataset statistics, and non-arm configs
+  pass. Rank-order hashes must match across arms within seed and differ across
+  seeds.
+- [ ] **TG4-E1 [IMPLEMENTED; BLOCKED by I1]** Twenty-one scheduler tasks are
+  registered under the independently frozen evaluation manifest: normal for
+  all 18 arm/seed cells and within-task shuffled content for all three `full`
+  checkpoints. Each task requires exactly 24 fixed-scene summaries and can use
+  local 2-GPU or East 4-GPU execution. `full` shuffled additionally depends on
+  the matching normal capture. Partial rollouts cannot change the panel or
+  support a claim.
+- [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
+  depends on all 21 evaluations and implements the seven frozen contrasts,
+  training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,
+  Holm correction, and per-training-seed/task safety gate. It writes the
+  canonical result and immutable decision marker before manuscript claims can
+  change.
 
-### TG1A acceptance gates
+### TG4 claim gates
 
-- **Correct-content use:** `normal - shuffled` requires a hierarchical paired
-  95% CI lower bound above zero and Holm-adjusted paired `p<0.05`.
-- **Route necessity:** apply the same two-part gate independently to
-  `normal - null`.
-- **Endpoint content beyond persistence:** apply it independently to
-  `normal - persistence`.
-- Report every task effect and every evaluation-seed effect. A macro average
-  cannot hide a negative task.
-- Passing null or persistence alone does not establish correct-content use.
-  Only the prespecified shuffled contrast identifies whether the particular
-  predicted content matters.
+The seven prespecified Holm-family contrasts are:
 
-## 3. Conditional downstream gate
+1. pretraining: `future_off - clean_base`;
+2. auxiliary shaping: `auxiliary_only - parameter_matched_null`;
+3. conditioning without auxiliary loss:
+   `conditioning_only - parameter_matched_null`;
+4. full total effect: `full - parameter_matched_null`;
+5. full versus historical future-off: `full - future_off`;
+6. route interaction:
+   `full - auxiliary_only - conditioning_only + parameter_matched_null`;
+7. content use: `full_normal - full_shuffled` at each fixed checkpoint.
 
-TG1A satisfies the prespecified correct-content-use and task-safety prerequisite.
-The TG4 protocol is now frozen. The released TG1A checkpoint remains
-fixed-checkpoint content-use evidence only because its processed training data
-and complete optimization recipe are unavailable; TG4 therefore uses a fresh
-matched all6-v2 matrix and does not numerically mix the two protocols.
+Every claimed positive contrast requires a hierarchical 95% CI lower bound
+above zero, Holm-adjusted paired `p<0.05`, and no regression worse than five
+percentage points on any training-seed/task cell. Report every task effect and
+every negative effect. A macro mean cannot hide a regression. A source may be
+called causal only for its matched contrast; neither representation quality nor
+public-system performance identifies a component's control contribution.
 
-- [ ] **TG4 [ACTIVE; 0/18 TRAINING CELLS COMPLETE]** Run the frozen source
-  decomposition: compatible clean base, future-off,
-  auxiliary-only, conditioning-only, parameter-matched null, and accepted full
-  checkpoint. Attribute pretraining, downstream shaping, and inference content
-  only from their prespecified contrasts. Every claimed contrast needs a
-  positive hierarchical lower bound, Holm-adjusted `p<0.05`, the fixed
-  -5-point task-safety gate, and a fixed-checkpoint content intervention.
+## 3. PredictiveActionAdapter core-method publication gates
 
-  - [x] **TG4-P1 [PROTOCOL FROZEN]** Manifest
-    `manifests/temporal_grounding_tg4_source_decomposition_v1.json` fixes six
-    arms, training seeds 1100--1102, 4 GPUs, global batch 128, 20,000 updates,
-    exact final-checkpoint selection, the seven-comparison Holm family, and all
-    stop rules. π0.5 A0 remains the external pure-VLA baseline but is excluded
-    from within-architecture causal contrasts.
-  - [x] **TG4-P2 [IMPLEMENTATION VERIFIED]** The loader now seeds the mixture
-    RNG from the training seed. `in_order=true` must therefore produce equal
-    rank-order hashes across arms within a seed and distinct hashes across
-    seeds. Orthogonal auxiliary-off and conditioning-off routes have CPU tests;
-    the complete scheduler and monitor suite passes 201 tests.
-  - [ ] **TG4-T01--T18 [ACTIVE; 12/18 SUBMITTED, 4/18 RUNNING at
-    2026-08-12 15:05 UTC]** Train all six arms at seeds 1100--1102. The North
-    source stage passed its frozen-bundle hash gate. East is running two
-    `auxiliary_only` cells on 8/8 GPUs at about 2.26--2.30 seconds/update; North
-    primary has six 4-GPU cells queued under its 25-GPU quota and the backup
-    identity has two queued under its 8-GPU quota. The temporarily enabled gf1
-    host is running `full` seeds 1101 and 1102 as independent four-GPU jobs on
-    all 8 A100 GPUs. Both passed the frozen-bundle gate, loaded the platform-
-    matched runtime, and entered training from step 0. The remaining six cells
-    stay scheduler-pending and will backfill released quota automatically. A
-    historical 20k four-GPU H20 cell takes about 12.8 hours; the initial gf1
-    A100 rate is about 2.28--2.29 seconds/update, or about 12.7 hours per cell.
-    With current aggregate capacity, the training matrix is expected to require
-    two to three waves (about 26--39 hours) if queues remain available.
-  - [ ] **TG4-I1 [IMPLEMENTED; BLOCKED by T01--T18]** Eighteen conditional
-    materializers now copy only runs that actually land on North; East runs do
-    not move. North transfer is SHA256-verified and excludes the redundant
-    step-20000 model copy while retaining the final model and optimizer state.
-    Once all cells close, a 1-GPU East job runs the tested joint verifier.
-    Reject the matrix before evaluation unless all 18 final
-    checkpoints, optimizer states, initialization trees, exact per-rank data
-    orders, dataset statistics, and non-arm configs pass.
-  - [ ] **TG4-E1 [BLOCKED by I1]** Evaluate every arm/seed on the frozen 24-cell
-    scene matrix. Evaluate both normal and within-task shuffled content for all
-    three full checkpoints; no partial rollout may change the panel.
-  - [ ] **TG4-A1 [BLOCKED by E1]** Run the frozen hierarchical analysis with
-    training seed as the highest resampling unit and write the canonical result
-    and decision marker.
+PredictiveActionAdapter remains an admissible architectural contribution: P0
+establishes action-conditioned latent prediction, exact inherited-parameter
+isolation, and zero-output initialization, and the completed efficiency audit
+establishes 0.50% additional parameters and low measured runtime overhead. To
+present it instead as a primary *control-improving method*, all three gates
+below must pass. They are separate claims; passing one cannot substitute for
+another.
 
-TG3 temporal repair and TG5 external replication are closed because TG2R
-produced no admissible control contrast. Do not reopen them from checkpoint
-existence, training losses, or the failed integrity matrix. If TG1A rejects
-correct-content use, close TG4 and end temporal-grounding GPU work under the
-current plan.
+- [ ] **PA-U1 [UNMET; CLOSED UNDER THE CURRENT PLAN] Matched-seed utility.**
+  Compare candidate and A0 trained independently from the same initialization,
+  data order, optimization recipe, checkpoint step, and evaluation scenes at
+  each training seed. The hierarchical paired 95% CI lower endpoint for the
+  equally weighted candidate-minus-A0 effect must exceed zero, with training
+  seed as the highest resampling unit. P3 completed this test at seeds
+  1000--1002: effects were +13.42, -5.50, and -2.08 points; mean +1.94 points,
+  95% CI [-5.78, +12.75]. The gate is not met.
+- [ ] **PA-S1 [UNMET; CLOSED UNDER THE CURRENT PLAN] Task safety.** A claim of
+  safe or broadly consistent improvement additionally requires no candidate-
+  minus-A0 regression worse than five percentage points in any prespecified
+  training-seed/task cell. P3 fails this gate: seed 1001 regresses by 13 points
+  on Ranking-size and 9 points on Stack-3, and seed 1002 regresses by 5.5 points
+  on Ranking-RGB. These task-level failures must remain visible beside the
+  macro result.
+- [ ] **PA-C1 [UNMET; CLOSED UNDER THE CURRENT PLAN] Content-specific
+  causality.** At fixed checkpoints and exactly paired scenes, normal inference
+  must outperform the prespecified shuffled-action intervention with a
+  hierarchical 95% CI lower endpoint above zero and Holm-adjusted paired
+  `p<0.05`. P4 completed the three-seed panel: normal minus shuffled is +0.53
+  points, 95% CI [-2.14, +3.08], Holm-adjusted `p=0.534`. The gate is not met.
+  The separate normal-minus-zero-route and normal-minus-masked gates are also
+  unresolved, so route necessity and action-conditioning use cannot be used as
+  substitutes for correct-content evidence.
+
+**Current claim boundary:** the manuscript may present PredictiveActionAdapter
+as a new, policy-preserving predictive-control interface and report its latent
+prediction and efficiency properties. It must not claim independently
+replicated utility, task-safe improvement, or causal use of the predicted
+content. P6 and P7 remain closed, and this section authorizes no new training or
+evaluation. Reopening any gate would require a new result-independent frozen
+protocol and explicit operator authorization; existing P3/P4 rollouts may not
+be selectively extended or reinterpreted.
 
 ## 4. Stop and reporting rules
 
-- Do not reopen MINT-VLA, predictive-adapter P0--P5, R0--R4, outcome weighting,
-  oracle-transition, or failed helper jobs to search for a positive result.
+- Do not reopen MINT-VLA, predictive-adapter P0--P5, R0--R4, TG2/TG2R, TG3,
+  TG5, outcome weighting, oracle-transition, or failed helper jobs to search for
+  a positive result.
 - Do not evaluate either rejected TG2 matrix or substitute one of its
   checkpoints into another protocol.
 - Partial rollouts, smoke tests, training losses, representation metrics,
@@ -152,24 +167,29 @@ current plan.
 - Representation prediction does not establish control utility. Cadence
   sensitivity does not establish correct-content use. A public system score
   does not identify its causal component.
-- Preserve the fixed -5-point task-safety threshold and every task-level
-  regression. Do not promote a macro-only improvement.
 - Do not tune target horizon, task groups, training seeds, checkpoint step,
-  intervention mapping, retry recipe, or loss weight against outcomes.
+  intervention mapping, retry recipe, arm set, or loss weight against outcomes.
 - Task_N remains outside this paper plan by operator instruction.
 
-## 5. Canonical live sources
+## 5. Canonical sources
 
 - Active scheduler summary: `logs/resource_scheduler_snapshot.md`
 - Canonical mutable state: `logs/resource_scheduler_snapshot.json` and
   `logs/resource_scheduler_state.json`
-- TG1 retry500 amendment:
-  `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1_retry500_amendment_v1.json`
-- TG1A frozen analyzer:
-  `lmvla/lmwm/scripts/analyze_temporal_grounding_tg1a.py`
-- Completed TG1B result:
-  `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1b.json`
-- TG2R integrity rejection:
-  `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2r_integrity.json`
+- TG4 frozen protocol:
+  `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_source_decomposition_v1.json`
+- TG4 training verifier:
+  `lmvla/lmwm/scripts/verify_temporal_grounding_tg4_training.py`
+- TG4 frozen evaluation protocol:
+  `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_evaluation_v1.json`
+- TG4 evaluation runner and analysis:
+  `train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh` and
+  `lmvla/lmwm/scripts/analyze_temporal_grounding_tg4.py`
+- Completed TG1A result:
+  `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json`
+- Completed predictive-adapter matched-seed result:
+  `lmvla/lmwm/docs/pi05_predictive_adapter_p3_matched_seed_gate.json`
+- Completed predictive-adapter intervention result:
+  `lmvla/lmwm/docs/pi05_predictive_adapter_p4_intervention_gate.json`
 - Completed evidence and protocol history:
   `lmvla/paper_iclr_lmvla/PAPER_EVIDENCE_ARCHIVE_2026-08-01.md`

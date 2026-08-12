@@ -6751,7 +6751,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 112
+    assert len(tasks) == 134
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6779,6 +6779,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     }
     temporal_grounding_evals = {
         task_id for task_id in tasks if task_id.endswith("_eval")
+    }
+    tg4_evals = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if task_id.startswith("temporal_grounding_tg4_")
+        and task_id.endswith("_eval")
     }
     assert len(tg1a) == 4
     assert len(tg1b) == 4
@@ -6892,11 +6898,48 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     }
     assert tg4_integrity["candidates"][0]["resource"] == "Robot-East-H20"
     assert tg4_integrity["candidates"][0]["gpus"] == 1
-    assert len(temporal_grounding_evals) == 26
+    assert len(temporal_grounding_evals) == 47
     assert all(
         scheduler.TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task_id)
         for task_id in temporal_grounding_evals
     )
+    assert len(tg4_evals) == 21
+    assert all(
+        {candidate["resource"] for candidate in task["candidates"]}
+        == {"local", "Robot-East-H20"}
+        for task in tg4_evals.values()
+    )
+    assert all(
+        {candidate["resource"]: candidate["gpus"] for candidate in task["candidates"]}
+        == {"local": 2, "Robot-East-H20": 4}
+        for task in tg4_evals.values()
+    )
+    assert all(task["completion_min_count"] == 24 for task in tg4_evals.values())
+    assert all(
+        "temporal_grounding_tg4_training_integrity"
+        in task["requires_completed_tasks"]
+        for task in tg4_evals.values()
+    )
+    shuffled_tg4 = {
+        task_id: task
+        for task_id, task in tg4_evals.items()
+        if "_shuffled_eval" in task_id
+    }
+    assert set(shuffled_tg4) == {
+        f"temporal_grounding_tg4_full_seed{seed}_shuffled_eval"
+        for seed in (1100, 1101, 1102)
+    }
+    for seed in (1100, 1101, 1102):
+        task = shuffled_tg4[
+            f"temporal_grounding_tg4_full_seed{seed}_shuffled_eval"
+        ]
+        assert f"temporal_grounding_tg4_full_seed{seed}_normal_eval" in task[
+            "requires_completed_tasks"
+        ]
+    tg4_analysis = tasks["temporal_grounding_tg4_analysis"]
+    assert set(tg4_analysis["requires_completed_tasks"]) == set(tg4_evals)
+    assert tg4_analysis["candidates"][0]["resource"] == "local"
+    assert tg4_analysis["candidates"][0]["gpus"] == 0
 
     capture_marker = str(
         scheduler.REPO

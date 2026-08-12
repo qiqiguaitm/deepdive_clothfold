@@ -139,7 +139,9 @@ TEMPORAL_GROUNDING_EVAL_RE = re.compile(
     r"temporal_grounding_(?:"
     r"tg1a_(?:normal|null|persistence|shuffled)|"
     r"tg1b_(?:future_off|local_wm)_e(?:36|50)|"
-    r"tg2r?_(?:future_off|fixed_endpoint|raw_milestone)_seed100[012]"
+    r"tg2r?_(?:future_off|fixed_endpoint|raw_milestone)_seed100[012]|"
+    r"tg4_(?:clean_base|future_off|auxiliary_only|conditioning_only|"
+    r"parameter_matched_null|full)_seed110[012]_(?:normal|shuffled)"
     r")_eval"
 )
 PI05_CONFIRMATORY_SCENE_MANIFEST_SHARED = (
@@ -9991,6 +9993,189 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         existing.add(tg4_integrity_id)
     else:
         existing_tasks[tg4_integrity_id].update(tg4_integrity_task)
+
+    tg4_eval_manifest = (
+        manifests / "temporal_grounding_tg4_evaluation_v1.json"
+    )
+    tg4_eval_verifier = (
+        REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_evaluation.py"
+    )
+    tg4_eval_runner = (
+        REPO / "train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh"
+    )
+    tg4_eval_yaml = (
+        REPO / "train_scripts/kai/volc/temporal_grounding_tg4_eval_east_4h20.yaml"
+    )
+    tg4_scene_manifest = (
+        REPO / "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"
+    )
+    tg4_shuffle_manifest = (
+        manifests / "temporal_grounding_tg1a_shuffle_v1.json"
+    )
+    tg4_eval_hashes = [
+        {"path": str(tg4_eval_manifest), "sha256": "9a1782312e01c9b29d1054ac2e0e2da3baeaeb9b78ee09620e3a48c7a1e43a3c"},
+        {"path": str(tg4_eval_verifier), "sha256": "75b3a7ee1ffb1b2fa703b199cc12ac24a8e5b9ca0908a692cf5a0cbafad464ee"},
+        {"path": str(tg4_eval_runner), "sha256": "3b2a6ff269253f82fa2ab7e85ee3ad615e0322cfb0a6cffaf06dd44831e7ba09"},
+        {"path": str(tg4_eval_yaml), "sha256": "ec30b41b56ec29f102adb4d8e38ef7505381de1102f56968c3bb918447e77417"},
+        {"path": str(tg4_scene_manifest), "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17"},
+        {"path": str(tg4_shuffle_manifest), "sha256": "0843341173b71d5009337e6eecd0eee89f28f034c698ce44840e1b08529804f7"},
+    ]
+    tg4_eval_ids = []
+    for arm in (
+        "clean_base",
+        "future_off",
+        "auxiliary_only",
+        "conditioning_only",
+        "parameter_matched_null",
+        "full",
+    ):
+        conditions = ("normal", "shuffled") if arm == "full" else ("normal",)
+        for seed in (1100, 1101, 1102):
+            for condition in conditions:
+                task_id = (
+                    f"temporal_grounding_tg4_{arm}_seed{seed}_{condition}_eval"
+                )
+                tg4_eval_ids.append(task_id)
+                run_id = f"temporal_grounding_tg4_{arm}_seed{seed}"
+                result_root = (
+                    REPO
+                    / "lmvla/lawam/results/eval_runs/robotwin"
+                    / f"{run_id}_{condition}"
+                )
+                dependencies = [tg4_integrity_id]
+                ready_files = [
+                    str(tg4_integrity_marker),
+                    str(tg4_eval_manifest),
+                    str(tg4_eval_verifier),
+                    str(tg4_eval_runner),
+                    str(tg4_eval_yaml),
+                    str(tg4_scene_manifest),
+                    str(tg4_shuffle_manifest),
+                ]
+                if condition == "shuffled":
+                    dependencies.append(
+                        f"temporal_grounding_tg4_full_seed{seed}_normal_eval"
+                    )
+                    ready_files.append(
+                        str(
+                            REPO
+                            / "logs/resource_markers"
+                            / f"{run_id}_normal_capture_complete.json"
+                        )
+                    )
+                local_body = (
+                    f"source {shlex.quote(str(REPO / 'lmvla/lmwm/env/prepare_robotwin_renderer.sh'))}; "
+                    "export STAR_VLA_PYTHON=/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python; "
+                    f"env LOCAL_GPU_COUNT=2 REPO_ROOT={shlex.quote(str(REPO))} "
+                    f"TG4_ARM={arm} TG4_TRAIN_SEED={seed} TG4_CONDITION={condition} "
+                    f"bash {shlex.quote(str(tg4_eval_runner))}"
+                )
+                task = {
+                    "id": task_id,
+                    "priority": 0,
+                    "description": (
+                        f"TG4 fixed-scene evaluation arm={arm} seed={seed} "
+                        f"condition={condition}"
+                    ),
+                    "requires_completed_tasks": dependencies,
+                    "rearm_after_ready_file": str(tg4_eval_manifest),
+                    "completion_glob": str(
+                        result_root / "seed*/**/tasks/*/summary.json"
+                    ),
+                    "completion_min_count": 24,
+                    "completion_requires_successful_terminal_state": True,
+                    "ready_files": ready_files,
+                    "ready_hashes": tg4_eval_hashes,
+                    "candidates": [
+                        {
+                            "kind": "local",
+                            "resource": "local",
+                            "gpus": 2,
+                            "retry_cooldown_seconds": 900,
+                            "max_failures": 1,
+                            "status_dir": str(
+                                REPO
+                                / "logs/temporal_grounding/tg4/eval_local"
+                                / f"{arm}_seed{seed}_{condition}"
+                            ),
+                            "command": shlex.join(["bash", "-lc", local_body]),
+                        },
+                        {
+                            "kind": "platform",
+                            "resource": "Robot-East-H20",
+                            "region": "cn-shanghai",
+                            "gpus": 4,
+                            "queue_timeout_seconds": 300,
+                            "deploy_timeout_seconds": 900,
+                            "retry_cooldown_seconds": 900,
+                            "max_failures": 1,
+                            "runtime_revision": "temporal_grounding_tg4_eval_v1",
+                            "yaml": str(tg4_eval_yaml.relative_to(REPO)),
+                            "task_name": (
+                                f"temporal-grounding-tg4-{arm.replace('_', '-')}-"
+                                f"s{seed}-{condition}-eval-east4g"
+                            ),
+                            "env": {
+                                "TG4_ARM": arm,
+                                "TG4_TRAIN_SEED": str(seed),
+                                "TG4_CONDITION": condition,
+                            },
+                        },
+                    ],
+                }
+                if task_id not in existing:
+                    queue["tasks"].append(task)
+                    existing.add(task_id)
+                else:
+                    existing_tasks[task_id].update(task)
+
+    tg4_analysis_id = "temporal_grounding_tg4_analysis"
+    tg4_analyzer = REPO / "lmvla/lmwm/scripts/analyze_temporal_grounding_tg4.py"
+    tg4_analysis_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg4_analysis.sh"
+    )
+    tg4_analysis_output = (
+        REPO / "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg4.json"
+    )
+    tg4_analysis_marker = (
+        REPO / "logs/resource_markers/temporal_grounding_tg4_analysis.ok"
+    )
+    tg4_analysis_task = {
+        "id": tg4_analysis_id,
+        "priority": 0,
+        "description": "Run the frozen TG4 seven-contrast hierarchical analysis",
+        "requires_completed_tasks": tg4_eval_ids,
+        "rearm_after_ready_file": str(tg4_eval_manifest),
+        "completion_glob": str(tg4_analysis_marker),
+        "completion_min_count": 1,
+        "ready_files": [
+            str(tg4_eval_manifest),
+            str(tg4_analyzer),
+            str(tg4_analysis_runner),
+        ],
+        "ready_hashes": [
+            tg4_eval_hashes[0],
+            {"path": str(tg4_analyzer), "sha256": "ca887ae25e67e4c229fb629344d55deafff7d6987bcda2e2ddf72a13242a777d"},
+            {"path": str(tg4_analysis_runner), "sha256": "7d57e543436b6e3c51780aa8902582f3f6844f178d4ef184a52c7dce7771a699"},
+        ],
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 300,
+                "max_failures": 1,
+                "status_dir": str(REPO / "logs/temporal_grounding/tg4/analysis"),
+                "command": shlex.join(["bash", str(tg4_analysis_runner)]),
+            }
+        ],
+        "result_path": str(tg4_analysis_output),
+    }
+    if tg4_analysis_id not in existing:
+        queue["tasks"].append(tg4_analysis_task)
+        existing.add(tg4_analysis_id)
+    else:
+        existing_tasks[tg4_analysis_id].update(tg4_analysis_task)
 
     materialize_ids = []
     sync_script = REPO / "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh"

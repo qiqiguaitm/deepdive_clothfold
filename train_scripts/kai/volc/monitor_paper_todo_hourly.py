@@ -3,7 +3,7 @@
 
 Experiment execution remains owned by resource_aware_scheduler.py. This
 monitor only reads its state/snapshot and canonical outputs, records progress,
-and exits when the frozen TG1A/TG1B/TG2R tasks and final analyses are finished.
+and exits when the frozen TG4 matrix and final analysis are finished.
 """
 
 from __future__ import annotations
@@ -33,27 +33,11 @@ DEFAULT_LATEST_MD = REPO / "logs/paper_todo_hourly_monitor_latest.md"
 DEFAULT_LOCK = REPO / "logs/paper_todo_hourly_monitor.lock"
 
 ANALYSIS_ARTIFACT_SPECS = {
-    "tg1a": {
-        "task_id": "temporal_grounding_tg1a_analysis",
-        "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json",
-        "marker": "logs/resource_markers/temporal_grounding_tg1a_gate.ok",
-        "protocol": "temporal_grounding_tg1a_released_checkpoint_content_panel_v1",
-    },
-    "tg1b": {
-        "task_id": "temporal_grounding_tg1b_analysis",
-        "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1b.json",
-        "marker": "logs/resource_markers/temporal_grounding_tg1b_gate.ok",
-        "protocol": "temporal_grounding_tg1b_execution_cadence_panel_v1",
-    },
-    "tg2": {
-        "task_id": "temporal_grounding_tg2_analysis",
-        "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2.json",
-        "marker": "logs/resource_markers/temporal_grounding_tg2_gate.ok",
-        "protocol": "temporal_grounding_tg2_execution_aligned_matched_matrix_v1",
-        "rejection_report": (
-            "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg2r_integrity.json"
-        ),
-        "rejection_protocol": "temporal_grounding_tg2r_integrity_decision_v1",
+    "tg4": {
+        "task_id": "temporal_grounding_tg4_analysis",
+        "report": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg4.json",
+        "marker": "logs/resource_markers/temporal_grounding_tg4_analysis.ok",
+        "protocol": "temporal_grounding_tg4_source_decomposition_analysis_v1",
     },
 }
 
@@ -94,28 +78,36 @@ def write_lock_status(
 
 
 def expected_task_ids() -> tuple[str, ...]:
-    tasks = [
-        f"temporal_grounding_tg1a_{condition}_eval"
-        for condition in ("normal", "null", "persistence", "shuffled")
-    ]
-    tasks.extend(
-        f"temporal_grounding_tg1b_{checkpoint_arm}_e{cadence}_eval"
-        for checkpoint_arm in ("future_off", "local_wm")
-        for cadence in (36, 50)
+    arms = (
+        "clean_base",
+        "future_off",
+        "auxiliary_only",
+        "conditioning_only",
+        "parameter_matched_null",
+        "full",
     )
-    tasks.append("temporal_grounding_tg2r_north_stage")
-    for arm in ("future_off", "fixed_endpoint", "raw_milestone"):
-        for seed in (1000, 1001, 1002):
-            parent = f"temporal_grounding_tg2r_{arm}_seed{seed}_train"
+    tasks = []
+    for arm in arms:
+        for seed in (1100, 1101, 1102):
+            parent = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
             tasks.extend((parent, f"{parent}_materialize_north"))
-            tasks.append(f"temporal_grounding_tg2r_{arm}_seed{seed}_eval")
-    tasks.append("temporal_grounding_tg2r_training_integrity")
+            tasks.append(f"temporal_grounding_tg4_{arm}_seed{seed}_normal_eval")
+            if arm == "full":
+                tasks.append(
+                    f"temporal_grounding_tg4_{arm}_seed{seed}_shuffled_eval"
+                )
+    tasks.extend(
+        ("temporal_grounding_tg4_training_integrity", "temporal_grounding_tg4_analysis")
+    )
     return tuple(tasks)
 
 
 EXPECTED_TASK_IDS = expected_task_ids()
-AUXILIARY_TASK_IDS = ("temporal_grounding_tg1a_shuffled_tail_east4g",)
-TODO_COMPLETION_ITEMS = ("TG1A-E4", "TG1A-A1", "TG4")
+AUXILIARY_TASK_IDS = (
+    "temporal_grounding_tg4_north_stage",
+    "temporal_grounding_tg4_conditioning_ddp_repair_north_stage",
+)
+TODO_COMPLETION_ITEMS = ("TG4-T01--T18", "TG4-I1", "TG4-E1", "TG4-A1")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -187,35 +179,7 @@ def analysis_artifact_metrics(
             row["status"] = "unregistered"
         elif task_status != "completed":
             row["status"] = "task_incomplete"
-        rejection_path_value = spec.get("rejection_report")
-        rejection_path = (
-            repo_path / rejection_path_value if rejection_path_value else None
-        )
-        if rejection_path is not None and rejection_path.is_file():
-            try:
-                rejection = load_json(rejection_path)
-                if rejection.get("protocol") != spec["rejection_protocol"]:
-                    raise ValueError("rejection protocol mismatch")
-                if rejection.get("accepted_for_evaluation") is not False:
-                    raise ValueError("rejection decision is not false")
-                if rejection.get("scientific_disposition", {}).get(
-                    "evaluations_retired"
-                ) != 9:
-                    raise ValueError("rejection does not retire all nine evaluations")
-                row.update(
-                    status="rejected",
-                    validated=True,
-                    rejection_report=str(rejection_path),
-                )
-            except Exception as exc:
-                row.update(status="invalid", error=f"{type(exc).__name__}: {exc}")
-        if row["status"] == "rejected" and any(present.values()):
-            row.update(
-                status="invalid",
-                validated=False,
-                error="canonical TG2 output exists beside a rejection decision",
-            )
-        elif all(present.values()):
+        if all(present.values()):
             try:
                 report = load_json(report_path)
                 observed_protocol = report.get("protocol")
@@ -293,6 +257,7 @@ def resource_metrics(snapshot: dict[str, Any]) -> dict[str, Any]:
             ),
             "capacity": resources.get("Robot-East-H20", {}).get("capacity"),
         },
+        "gf1": resources.get("gf1", {}),
         "local": resources.get("local", {}),
     }
 
@@ -305,7 +270,7 @@ def heartbeat_metrics(
     active_names = {
         task_id[len(prefix) : -len(suffix)]
         for task_id, row in tasks.items()
-        if task_id.startswith(f"{prefix}tg2r_")
+        if task_id.startswith(f"{prefix}tg4_")
         and task_id.endswith(suffix)
         and row["status"] == "running"
         and row["execution_state"] == "Running"
@@ -425,20 +390,8 @@ def collect(
     for name, row in analyses["analyses"].items():
         if row["status"] == "invalid":
             errors.append(f"{name} analysis artifact: {row['error']}")
-    tg2_rejection = analyses["analyses"]["tg2"].get("status") == "rejected"
-    rejection_report = analyses["analyses"]["tg2"].get("rejection_report", "")
-
     def task_is_terminal(task_id: str, row: dict[str, Any]) -> bool:
-        if row["status"] == "completed":
-            return True
-        disabled_reason = row.get("disabled_reason") or ""
-        return (
-            tg2_rejection
-            and task_id.startswith("temporal_grounding_tg2r_")
-            and row["status"] == "disabled"
-            and disabled_reason.startswith("scientific gate rejected:")
-            and rejection_report in disabled_reason
-        )
+        return row["status"] == "completed"
 
     incomplete = sorted(
         task_id for task_id, row in tasks.items() if not task_is_terminal(task_id, row)
@@ -516,7 +469,7 @@ def render_markdown(record: dict[str, Any]) -> str:
                 f"{row.get('health', '-')} | {row.get('status', '-')} |"
             )
     else:
-        lines.append("No active TG2R heartbeat was reported.")
+        lines.append("No active TG4 heartbeat was reported.")
     active_evaluations = {
         task_id: row
         for task_id, row in {

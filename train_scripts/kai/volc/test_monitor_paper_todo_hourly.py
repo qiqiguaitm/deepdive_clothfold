@@ -29,9 +29,10 @@ def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Pa
     todo.write_text(
         "# TODO\n"
         "- [ ] active\n"
-        "- [x] **TG1A-E4 [COMPLETE]**\n"
-        "- [x] **TG1A-A1 [COMPLETE]**\n"
-        "- [x] **TG4 [COMPLETE]**\n"
+        "- [x] **TG4-T01--T18 [COMPLETE]**\n"
+        "- [x] **TG4-I1 [COMPLETE]**\n"
+        "- [x] **TG4-E1 [COMPLETE]**\n"
+        "- [x] **TG4-A1 [COMPLETE]**\n"
         "## 1. History\n"
         "- [ ] old\n",
         encoding="utf-8",
@@ -71,14 +72,16 @@ def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Pa
     return todo, snapshot, state
 
 
-def test_frozen_completion_set_has_all_tg1a_tg1b_and_tg2r_cells() -> None:
-    assert len(monitor.EXPECTED_TASK_IDS) == 37
-    assert "temporal_grounding_tg1a_shuffled_eval" in monitor.EXPECTED_TASK_IDS
+def test_frozen_completion_set_has_all_tg4_cells() -> None:
+    assert len(monitor.EXPECTED_TASK_IDS) == 59
+    assert "temporal_grounding_tg4_clean_base_seed1100_train" in monitor.EXPECTED_TASK_IDS
     assert (
-        "temporal_grounding_tg1b_local_wm_e50_eval" in monitor.EXPECTED_TASK_IDS
+        "temporal_grounding_tg4_parameter_matched_null_seed1102_normal_eval"
+        in monitor.EXPECTED_TASK_IDS
     )
-    assert "temporal_grounding_tg2r_training_integrity" in monitor.EXPECTED_TASK_IDS
-    assert "temporal_grounding_tg2r_raw_milestone_seed1002_eval" in monitor.EXPECTED_TASK_IDS
+    assert "temporal_grounding_tg4_full_seed1102_shuffled_eval" in monitor.EXPECTED_TASK_IDS
+    assert "temporal_grounding_tg4_training_integrity" in monitor.EXPECTED_TASK_IDS
+    assert "temporal_grounding_tg4_analysis" in monitor.EXPECTED_TASK_IDS
 
 
 def test_next_interval_boundary_aligns_hourly_poll_to_top_of_hour() -> None:
@@ -103,7 +106,7 @@ def test_collect_marks_exact_completed_set_complete(tmp_path: Path) -> None:
     )
     assert record["complete"] is True
     assert record["monitor_status"] == "complete"
-    assert record["task_summary"]["status_counts"] == {"completed": 37}
+    assert record["task_summary"]["status_counts"] == {"completed": 59}
     assert record["todo"]["unchecked_current_override"] == 1
     assert record["todo"]["unchecked_total"] == 2
     assert record["todo"]["completion_synced"] is True
@@ -114,7 +117,7 @@ def test_collect_waits_for_todo_completion_sync(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path)
     todo.write_text(
         todo.read_text(encoding="utf-8").replace(
-            "- [x] **TG1A-A1", "- [ ] **TG1A-A1"
+            "- [x] **TG4-E1", "- [ ] **TG4-E1"
         ),
         encoding="utf-8",
     )
@@ -130,16 +133,17 @@ def test_collect_waits_for_todo_completion_sync(tmp_path: Path) -> None:
     assert record["complete"] is False
     assert record["monitor_status"] == "active"
     assert record["todo"]["completion_items"] == {
-        "TG1A-E4": "checked",
-        "TG1A-A1": "unchecked",
-        "TG4": "checked",
+        "TG4-T01--T18": "checked",
+        "TG4-I1": "checked",
+        "TG4-E1": "unchecked",
+        "TG4-A1": "checked",
     }
     assert "TODO completion synced: `False`" in monitor.render_markdown(record)
 
 
 def test_collect_requires_final_analysis_artifacts(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path)
-    (tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]["marker"]).unlink()
+    (tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg4"]["marker"]).unlink()
     record = monitor.collect(
         todo_path=todo,
         snapshot_path=snapshot,
@@ -149,13 +153,13 @@ def test_collect_requires_final_analysis_artifacts(tmp_path: Path) -> None:
     )
     assert record["complete"] is False
     assert record["monitor_status"] == "active"
-    assert record["final_analyses"]["analyses"]["tg2"]["status"] == "partial"
+    assert record["final_analyses"]["analyses"]["tg4"]["status"] == "partial"
 
 
 def test_collect_requires_registered_completed_analysis_task(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path)
     payload = json.loads(state.read_text())
-    del payload["tasks"][monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]["task_id"]]
+    del payload["tasks"][monitor.ANALYSIS_ARTIFACT_SPECS["tg4"]["task_id"]]
     state.write_text(json.dumps(payload), encoding="utf-8")
     record = monitor.collect(
         todo_path=todo,
@@ -166,12 +170,12 @@ def test_collect_requires_registered_completed_analysis_task(tmp_path: Path) -> 
     )
     assert record["complete"] is False
     assert record["monitor_status"] == "active"
-    assert record["final_analyses"]["analyses"]["tg2"]["status"] == "unregistered"
+    assert record["final_analyses"]["analyses"]["tg4"]["status"] == "unregistered"
 
 
 def test_collect_rejects_invalid_final_analysis_artifact(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path)
-    report = tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]["report"]
+    report = tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg4"]["report"]
     report.write_text(json.dumps({"protocol": "wrong"}), encoding="utf-8")
     record = monitor.collect(
         todo_path=todo,
@@ -182,7 +186,7 @@ def test_collect_rejects_invalid_final_analysis_artifact(tmp_path: Path) -> None
     )
     assert record["complete"] is False
     assert record["monitor_status"] == "degraded"
-    assert record["final_analyses"]["analyses"]["tg2"]["status"] == "invalid"
+    assert record["final_analyses"]["analyses"]["tg4"]["status"] == "invalid"
 
 
 def test_collect_does_not_treat_missing_or_disabled_task_as_complete(tmp_path: Path) -> None:
@@ -203,76 +207,6 @@ def test_collect_does_not_treat_missing_or_disabled_task_as_complete(tmp_path: P
     assert record["complete"] is False
     assert missing in record["task_summary"]["missing"]
     assert disabled in record["task_summary"]["incomplete"]
-
-
-def test_collect_accepts_validated_tg2r_scientific_rejection(tmp_path: Path) -> None:
-    todo, snapshot, state = write_inputs(tmp_path)
-    tg2 = monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]
-    (tmp_path / tg2["report"]).unlink()
-    (tmp_path / tg2["marker"]).unlink()
-    rejection = tmp_path / tg2["rejection_report"]
-    rejection.parent.mkdir(parents=True, exist_ok=True)
-    rejection.write_text(
-        json.dumps(
-            {
-                "protocol": tg2["rejection_protocol"],
-                "accepted_for_evaluation": False,
-                "scientific_disposition": {"evaluations_retired": 9},
-            }
-        ),
-        encoding="utf-8",
-    )
-    payload = json.loads(state.read_text())
-    for task_id, task in payload["tasks"].items():
-        if task_id.startswith("temporal_grounding_tg2r_"):
-            task["status"] = "disabled"
-            task["disabled_reason"] = f"scientific gate rejected: {rejection}"
-    payload["tasks"][tg2["task_id"]]["status"] = "disabled"
-    state.write_text(json.dumps(payload), encoding="utf-8")
-
-    record = monitor.collect(
-        todo_path=todo,
-        snapshot_path=snapshot,
-        state_path=state,
-        now=NOW,
-        repo_path=tmp_path,
-    )
-
-    assert record["complete"] is True
-    assert record["final_analyses"]["analyses"]["tg2"]["status"] == "rejected"
-    assert not any(
-        task_id.startswith("temporal_grounding_tg2r_")
-        for task_id in record["task_summary"]["incomplete"]
-    )
-
-
-def test_collect_rejects_tg2_result_beside_rejection_decision(tmp_path: Path) -> None:
-    todo, snapshot, state = write_inputs(tmp_path)
-    tg2 = monitor.ANALYSIS_ARTIFACT_SPECS["tg2"]
-    rejection = tmp_path / tg2["rejection_report"]
-    rejection.parent.mkdir(parents=True, exist_ok=True)
-    rejection.write_text(
-        json.dumps(
-            {
-                "protocol": tg2["rejection_protocol"],
-                "accepted_for_evaluation": False,
-                "scientific_disposition": {"evaluations_retired": 9},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    record = monitor.collect(
-        todo_path=todo,
-        snapshot_path=snapshot,
-        state_path=state,
-        now=NOW,
-        repo_path=tmp_path,
-    )
-
-    tg2_analysis = record["final_analyses"]["analyses"]["tg2"]
-    assert tg2_analysis["status"] == "invalid"
-    assert tg2_analysis["validated"] is False
 
 
 def test_stale_scheduler_snapshot_is_degraded(tmp_path: Path) -> None:
@@ -329,7 +263,7 @@ def test_collect_reports_task_transition(tmp_path: Path) -> None:
 def test_collect_and_markdown_include_active_evaluation_progress(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path, status="pending")
     payload = json.loads(state.read_text())
-    task_id = "temporal_grounding_tg1a_persistence_eval"
+    task_id = "temporal_grounding_tg4_full_seed1100_normal_eval"
     payload["tasks"][task_id] = {
         "status": "running",
         "attempts": [{"last_state": "Running", "job_id": "t-test"}],
@@ -385,7 +319,7 @@ def test_auxiliary_progress_is_reported_but_does_not_block_completion(
     )
 
     assert record["complete"] is True
-    assert record["task_summary"]["expected"] == 37
+    assert record["task_summary"]["expected"] == 59
     assert record["auxiliary_tasks"][helper_id]["runtime_progress"] == (
         "tail_episodes=37/200"
     )
@@ -399,8 +333,8 @@ def test_auxiliary_progress_is_reported_but_does_not_block_completion(
 
 
 def test_heartbeat_prefers_running_location_and_filters_inactive_tasks() -> None:
-    active_id = "temporal_grounding_tg2r_raw_milestone_seed1000_train"
-    inactive_id = "temporal_grounding_tg2r_fixed_endpoint_seed1000_train"
+    active_id = "temporal_grounding_tg4_full_seed1100_train"
+    inactive_id = "temporal_grounding_tg4_future_off_seed1100_train"
     tasks = {
         active_id: {"status": "running", "execution_state": "Running"},
         inactive_id: {"status": "completed", "execution_state": "Completed"},
@@ -409,11 +343,11 @@ def test_heartbeat_prefers_running_location_and_filters_inactive_tasks() -> None
         "resources": {
             "Robot-East-H20": {
                 "watched_tasks": {
-                    "tg2r_raw_milestone_seed1000": {
+                    "tg4_full_seed1100": {
                         "status": "RUNNING",
                         "step": 18000,
                     },
-                    "tg2r_fixed_endpoint_seed1000": {
+                    "tg4_future_off_seed1100": {
                         "status": "STALE_LOG",
                         "step": 20000,
                     },
@@ -421,14 +355,14 @@ def test_heartbeat_prefers_running_location_and_filters_inactive_tasks() -> None
             },
             "beijing": {
                 "watched_tasks": {
-                    "tg2r_raw_milestone_seed1000": {"status": "WAITING_FOR_LOG"}
+                    "tg4_full_seed1100": {"status": "WAITING_FOR_LOG"}
                 }
             },
         }
     }
     result = monitor.heartbeat_metrics(snapshot, tasks)
     assert result == {
-        "tg2r_raw_milestone_seed1000": {
+        "tg4_full_seed1100": {
             "resource": "Robot-East-H20",
             "status": "RUNNING",
             "step": 18000,
@@ -445,7 +379,7 @@ def test_once_writes_all_monitor_artifacts(tmp_path: Path) -> None:
         [
             "--once",
             "--max-snapshot-age-seconds",
-            "172800",
+            "604800",
             "--todo",
             str(todo),
             "--snapshot",

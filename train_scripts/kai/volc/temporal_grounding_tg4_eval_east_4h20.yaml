@@ -1,0 +1,67 @@
+TaskName: "temporal-grounding-tg4-eval-east4g"
+Description: "Frozen TG4 source-decomposition fixed-scene evaluation"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 129600
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+  - Name: TG4_ARM
+    Value: "full"
+  - Name: TG4_TRAIN_SEED
+    Value: "1100"
+  - Name: TG4_CONDITION
+    Value: "normal"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR="$REPO/logs/temporal_grounding/tg4/eval_entrypoint"
+  mkdir -p "$LOG_DIR"
+  LOG_FILE="$LOG_DIR/${TG4_ARM}_s${TG4_TRAIN_SEED}_${TG4_CONDITION}_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG_FILE") 2>&1
+  echo "TG4_EVAL_START arm=$TG4_ARM seed=$TG4_TRAIN_SEED condition=$TG4_CONDITION host=$(hostname)"
+  git config --global --add safe.directory "$REPO"
+  git config --global --add safe.directory "$REPO/lmvla/lawam"
+  test -f "$REPO/logs/resource_markers/robotwin_renderer_east.ok"
+  test -f "$REPO/logs/resource_markers/temporal_grounding_tg4_training_integrity.ok"
+  bash "$REPO/lmvla/lmwm/env/heal_lawam_symlinks.sh"
+  source "$REPO/lmvla/lmwm/env/prepare_robotwin_renderer.sh"
+  "$REPO/lmvla/lmwm/scripts/robotwin_python_wrapper.sh" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  export STAR_VLA_PYTHON=/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python
+  test -x "$STAR_VLA_PYTHON"
+  LOCAL_GPU_COUNT=4 REPO_ROOT="$REPO" \
+    bash "$REPO/train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

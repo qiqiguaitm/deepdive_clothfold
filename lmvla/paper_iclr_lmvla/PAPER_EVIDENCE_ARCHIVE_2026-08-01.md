@@ -1801,44 +1801,6 @@ Canonical records:
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e36`
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50`
 
-## 49. TG1A released-checkpoint content-use acceptance
-
-The retry500 TG1A panel completed all four frozen conditions. Normal, shuffled,
-null, and persistence each contain exactly 24 task-by-evaluation-seed summaries
-and 1,200 fixed-scene paired episodes. The parent shuffled job
-`t-20260812040634-7kwps` produced 20 cells; the disjoint tail
-`t-20260812120538-n7jgs` produced only the four missing `stack_blocks_three`
-cells. Exact cell counts and fixed-scene hashes verify.
-
-Normal success is 94.00%, compared with 40.33% for the prespecified within-task,
-different-episode shuffled intervention. `normal - shuffled` is +53.67
-percentage points with hierarchical paired 95% CI [+36.08, +68.58] and
-Holm-adjusted exact McNemar `p=6.75e-180`. All six task effects are positive:
-+17.0 Hammer, +61.0 Ranking-RGB, +67.0 Ranking-size, +37.5 Handover, +75.0
-Stack-3, and +64.5 Stack-2 points. All four evaluation-seed effects are also
-positive (+56.0, +55.0, +49.67, and +54.0 points). The correct-content-use gate
-therefore passes without a task-safety exception.
-
-The independent route controls also pass. `normal - null` is +58.83 points,
-95% CI [+36.83, +79.50], Holm-adjusted `p=5.45e-202`; `normal - persistence`
-is +69.58 points, CI [+48.00, +87.25], Holm-adjusted `p=9.13e-242`. This
-establishes that the particular predicted endpoint content has
-fixed-checkpoint closed-loop utility and that neither route removal nor visual
-persistence explains the result. It does not by itself attribute utility among
-WM pretraining, downstream auxiliary shaping, and inference-time conditioning;
-that attribution remains TG4.
-
-Canonical records:
-
-- `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json`
-- `logs/resource_markers/temporal_grounding_tg1a_gate.ok`
-- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_normal`
-- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_shuffled`
-- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_null`
-- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_persistence`
-- `logs/resource_scheduler_state.json`
-- `lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json`
-
 ## 43. Original TG2 matrix rejection and deterministic-order recovery
 
 All nine original TG2 training jobs reached durable step-20,000 checkpoints,
@@ -2059,3 +2021,103 @@ Canonical records:
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_future_off_e50`
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e36`
 - `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1b_local_wm_e50`
+
+## 49. TG1A released-checkpoint content-use acceptance
+
+The retry500 TG1A panel completed all four frozen conditions. Normal, shuffled,
+null, and persistence each contain exactly 24 task-by-evaluation-seed summaries
+and 1,200 fixed-scene paired episodes. The parent shuffled job
+`t-20260812040634-7kwps` produced 20 cells; the disjoint tail
+`t-20260812120538-n7jgs` produced only the four missing `stack_blocks_three`
+cells. Exact cell counts and fixed-scene hashes verify.
+
+Normal success is 94.00%, compared with 40.33% for the prespecified within-task,
+different-episode shuffled intervention. `normal - shuffled` is +53.67
+percentage points with hierarchical paired 95% CI [+36.08, +68.58] and
+Holm-adjusted exact McNemar `p=6.75e-180`. All six task effects are positive:
++17.0 Hammer, +61.0 Ranking-RGB, +67.0 Ranking-size, +37.5 Handover, +75.0
+Stack-3, and +64.5 Stack-2 points. All four evaluation-seed effects are also
+positive (+56.0, +55.0, +49.67, and +54.0 points). The correct-content-use gate
+therefore passes without a task-safety exception.
+
+The independent route controls also pass. `normal - null` is +58.83 points,
+95% CI [+36.83, +79.50], Holm-adjusted `p=5.45e-202`; `normal - persistence`
+is +69.58 points, CI [+48.00, +87.25], Holm-adjusted `p=9.13e-242`. This
+establishes that the particular predicted endpoint content has
+fixed-checkpoint closed-loop utility and that neither route removal nor visual
+persistence explains the result. It does not by itself attribute utility among
+WM pretraining, downstream auxiliary shaping, and inference-time conditioning;
+that attribution remains TG4.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg1a.json`
+- `logs/resource_markers/temporal_grounding_tg1a_gate.ok`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_normal`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_shuffled`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_null`
+- `lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_persistence`
+- `logs/resource_scheduler_state.json`
+- `lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json`
+
+## 50. TG4 protocol freeze, activation, and superseded gf1 attempts
+
+TG1A's accepted correct-content-use and task-safety gates admitted the frozen
+TG4 source decomposition. The protocol contains six arms at training seeds
+1100--1102: compatible clean base, historical future-off, auxiliary-only,
+conditioning-only, parameter-matched null, and full. The resulting 18 cells
+share four-GPU world size, global batch 128, 20,000 updates, exact final-step
+selection, and seeded `in_order=true` data loading. The seven-comparison Holm
+family separately tests pretraining, auxiliary shaping, conditioning without
+the auxiliary loss, total full-route utility, full versus historical off, route
+interaction, and fixed-checkpoint content use. The official pi0.5 A0 result is a
+descriptive external baseline and is not part of these causal contrasts.
+
+The North frozen-bundle stage passed. The mixture loader now seeds its RNG from
+the training seed; CPU tests cover orthogonal auxiliary-off and
+conditioning-off routes, and the TG4 joint verifier requires equal rank-order
+hashes across arms within a seed and distinct hashes across seeds before any
+evaluation. These are protocol and implementation checks, not scientific
+results.
+
+The temporary gf1 attempts are superseded execution history. Initial `full`
+seed-1101 and seed-1102 attempts failed before step 0 or were later marked dead
+after three monitor polls. Subsequent `future_off`, parameter-null, and
+conditioning-only gf1 attempts likewise failed before producing a durable
+completion artifact. Canonical per-task attempt records mark them finished or
+failed; residual heartbeat rows that still say `RUNNING` are stale and cannot
+be counted as active experiments or evidence.
+
+The first conditioning-only launches exposed a distributed-gradient bookkeeping
+failure before producing any completion artifact. Because this frozen arm keeps
+the auxiliary parameters trainable but intentionally removes the auxiliary
+loss, commit `bcd04618` enables DDP unused-parameter discovery only for this arm
+and records the repair in the manifest. It does not change forward values,
+losses, the trainable parameter tree, optimizer, data order, batch size, update
+count, or evaluation protocol. The repaired bundle passed its separate North
+restaging gate at 22:28 UTC. The conditioning seed-1100 Queueing attempt was
+subsequently reattached after the shared North staging tree matched the repaired
+runtime revision, so it will load the fixed runner when scheduled. Earlier
+failed gf1 attempts remain excluded, and their 11 partial checkpoint roots were
+moved intact to
+`logs/resource_scheduler_local/tg4_failed_partial_quarantine_20260812T2235Z`
+so they cannot collide with later canonical runs.
+
+At the canonical snapshot of 2026-08-12 22:44 UTC, TG4 has 0/18 completed
+training cells. Ten training tasks are scheduler-active: eight platform jobs
+are Running and two are Queueing; eight further training cells are waiting for
+eligible resources. All 18 materializers and the joint integrity gate remain
+pending on their parents. The independently frozen evaluation bundle registers
+18 normal and three full-shuffled fixed-scene evaluations, followed by the
+seven-contrast hierarchical analyzer. All remain dependency-blocked, so no TG4
+policy result or scientific contrast exists yet.
+
+Canonical records:
+
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_source_decomposition_v1.json`
+- `logs/resource_markers/temporal_grounding_tg4_north_stage.ok`
+- `logs/resource_markers/temporal_grounding_tg4_conditioning_ddp_repair_north_stage.ok`
+- `lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_evaluation_v1.json`
+- `logs/resource_scheduler_snapshot.md`
+- `logs/resource_scheduler_snapshot.json`
+- `logs/resource_scheduler_state.json`
