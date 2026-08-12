@@ -1,0 +1,62 @@
+{
+  "claim_gate": {
+    "interpretation_boundary": "diagnostic only; does not establish future-content use",
+    "local_wm_specific_cadence_sensitivity": false
+  },
+  "complete": true,
+  "difference_in_differences": {
+    "estimand": "(local_wm_e50-local_wm_e36)-(future_off_e50-future_off_e36)",
+    "eval_seed_effects": {
+      "0": 0.030000000000000002,
+      "1": 0.03333333333333333,
+      "2": -0.016666666666666666,
+      "3": 0.009999999999999995
+    },
+    "hierarchical_paired_bootstrap": {
+      "ci95": [
+        -0.03,
+        0.059187499999998186
+      ],
+      "levels": [
+        "task",
+        "eval_seed_within_task",
+        "paired_episode"
+      ],
+      "random_seed": 20260808,
+      "samples": 20000
+    },
+    "mean": 0.014166666666666668,
+    "task_effects": {
+      "beat_block_hammer": 0.055,
+      "blocks_ranking_rgb": 0.065,
+      "blocks_ranking_size": 0.019999999999999997,
+      "handover_block": -0.030000000000000002,
+      "stack_blocks_three": -0.015,
+      "stack_blocks_two": -0.01
+    }
+  },
+  "episodes_per_panel_cell": 1200,
+  "eval_seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "protocol": "temporal_grounding_tg1b_execution_cadence_panel_v1",
+  "schema_version": 1,
+  "success_rates": {
+    "future_off_e36": 0.915,
+    "future_off_e50": 0.8841666666666667,
+    "local_wm_e36": 0.8808333333333334,
+    "local_wm_e50": 0.8641666666666666
+  },
+  "tasks": [
+    "beat_block_hammer",
+    "blocks_ranking_rgb",
+    "stack_blocks_two",
+    "blocks_ranking_size",
+    "handover_block",
+    "stack_blocks_three"
+  ],
+  "training_seed": 2027
+}

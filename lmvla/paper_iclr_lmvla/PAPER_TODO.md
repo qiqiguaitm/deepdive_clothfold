@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-11 23:32 UTC
+Updated: 2026-08-12 02:24 UTC
 
 This file contains only unfinished training/evaluation evidence and the gates
 that control later GPU work. Completed evidence, rejected protocols, and
@@ -132,18 +132,18 @@ Current scheduler-owned execution is:
   capture.
 - [x] **TG1A-E2 [COMPLETE: `t-20260811151424-z9hrr`, 24/24]** Evaluate null from
   an empty root under retry500.
-- [ ] **TG1A-E3 [RUNNING: `t-20260811220414-45x4t`, East, 16/24]** Evaluate persistence from an empty
+- [ ] **TG1A-E3 [RUNNING: `t-20260811220414-45x4t`, East, 20/24]** Evaluate persistence from an empty
   root under retry500.
-- [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps`, East, 4/24]** Evaluate the frozen
+- [ ] **TG1A-E4 [RUNNING: `t-20260812040634-7kwps`, East, 12/24]** Evaluate the frozen
   within-task different-episode shuffled mapping.
-- [ ] **TG1B-E1 [RUNNING: `t-20260812073026-gt69q`, North, 0/24]** Evaluate future-off,
-  `E=36`.
-- [ ] **TG1B-E2 [RUNNING: `t-20260812073031-p9l4x`, North, 0/24]** Evaluate future-off,
-  `E=50`.
-- [ ] **TG1B-E3 [RUNNING: `t-20260812073036-54vnc`, North, 0/24]** Evaluate local-WM,
-  `E=36`.
-- [ ] **TG1B-E4 [RUNNING: `t-20260812073041-kf64m`, North, 0/24]** Evaluate local-WM,
-  `E=50`.
+- [x] **TG1B-E1 [COMPLETE: `t-20260812073026-gt69q`, 24/24]** Evaluated
+  future-off, `E=36`.
+- [x] **TG1B-E2 [COMPLETE: `t-20260812073031-p9l4x`, 24/24]** Evaluated
+  future-off, `E=50`.
+- [x] **TG1B-E3 [COMPLETE: `t-20260812073036-54vnc`, 24/24]** Evaluated
+  local-WM, `E=36`.
+- [x] **TG1B-E4 [COMPLETE: `t-20260812073041-kf64m`, 24/24]** Evaluated
+  local-WM, `E=50`.
 
 Partial retry500 cells remain operational telemetry only. No rate or contrast is
 admissible until each required condition reaches exactly 24/24 summaries and
@@ -165,8 +165,12 @@ passes provenance verification.
 - [ ] **TG1A-A1 [REGISTERED; BLOCKED by E1--E4]** Run the frozen TG1A
   analysis. The common statistical helper is included in the scheduler
   ready-hash closure.
-- [ ] **TG1B-A1 [REGISTERED; BLOCKED by E1--E4]** Run the frozen TG1B analysis
-  under the same fail-closed dependency rule.
+- [x] **TG1B-A1 [COMPLETE; GATE REJECTED]** The frozen analysis completed after
+  all four verified result roots were materialized locally. The cadence
+  difference-in-differences is +1.42 percentage points with hierarchical 95%
+  CI [-3.00, +5.92]; the interval crosses zero, so
+  `local_wm_specific_cadence_sensitivity=false`. This is a diagnostic negative
+  result and does not establish future-content use.
 
 ## 4. Result-driven downstream branches
 
