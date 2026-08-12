@@ -9757,7 +9757,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         / "train_scripts/kai/volc/temporal_grounding_tg4_integrity_east_1h20.yaml"
     )
     tg4_posttraining_hashes = [
-        {"path": str(tg4_sync_script), "sha256": "c0b86b715921a186735b19476568dbe985e7d8713472bc909f595ce36cf9b95d"},
+        {"path": str(tg4_sync_script), "sha256": "fb86cc347c2cc7bd20b3a866fca2a51afb0f95459ceeceee1c626ba99124f5ff"},
         {"path": str(tg4_sync_tree_script), "sha256": "21642dc25f6e9180107ceb49f3768132b337f8c9a5df255c131617e7447855c4"},
         {"path": str(tg4_integrity_verifier), "sha256": "7ac9c42a88dad1a2bb3e65e1844fb6d6c1bfbae49e3ab193547218de48cab31a"},
         {"path": str(tg4_integrity_runner), "sha256": "a5119df955b88fd6004667d7fdae07376f88f8d0e3a08fda15664afa87466522"},

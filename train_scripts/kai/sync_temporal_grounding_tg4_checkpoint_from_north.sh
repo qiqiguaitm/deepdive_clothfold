@@ -52,10 +52,39 @@ verify_run() {
     "$root/checkpoints/steps_20000_state/trainer_state.json")" = 20000
 }
 
+sync_required_run_files() {
+  local src=$1 dst=$2 parent incoming manifest
+  local -a files=(
+    config.json
+    config.yaml
+    dataset_statistics.json
+    final_model/pytorch_model.pt
+    checkpoints/steps_20000_state/optimizer.bin
+    checkpoints/steps_20000_state/trainer_state.json
+  )
+  parent=$(dirname "$dst")
+  incoming="$parent/.$(basename "$dst").incoming.$(date -u +%Y%m%d_%H%M%S).$$"
+  manifest=$(mktemp)
+  trap 'rm -f "$manifest"; rm -rf "$incoming"' RETURN
+  ssh -p "$PORT" -o BatchMode=yes "$HOST" \
+    "cd $(printf %q "$src") && sha256sum -- $(printf '%q ' "${files[@]}")" \
+    >"$manifest"
+  test "$(wc -l <"$manifest")" -eq "${#files[@]}"
+  mkdir -p "$incoming"
+  ssh -p "$PORT" -o BatchMode=yes "$HOST" \
+    "tar -C $(printf %q "$src") -cf - -- $(printf '%q ' "${files[@]}")" \
+    | tar -C "$incoming" -xf -
+  (cd "$incoming" && sha256sum -c "$manifest")
+  rm -rf "$dst"
+  mv "$incoming" "$dst"
+  rm -f "$manifest"
+  trap - RETURN
+}
+
 if [[ -e "$DST" ]]; then
   verify_run "$DST" || { echo "incomplete existing TG4 destination: $DST" >&2; exit 4; }
 else
-  SRC="$SRC" DST="$DST" bash "$REPO/train_scripts/kai/sync_tree_from_north_verified.sh"
+  sync_required_run_files "$SRC" "$DST"
   verify_run "$DST"
 fi
 

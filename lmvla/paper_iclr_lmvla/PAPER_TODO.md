@@ -118,8 +118,10 @@ matched all6-v2 matrix and does not numerically mix the two protocols.
     (about 26--39 hours) if queues remain available.
   - [ ] **TG4-I1 [IMPLEMENTED; BLOCKED by T01--T18]** Eighteen conditional
     materializers now copy only runs that actually land on North; East runs do
-    not move. Once all cells close, a 1-GPU East job runs the tested joint
-    verifier. Reject the matrix before evaluation unless all 18 final
+    not move. North transfer is SHA256-verified and excludes the redundant
+    step-20000 model copy while retaining the final model and optimizer state.
+    Once all cells close, a 1-GPU East job runs the tested joint verifier.
+    Reject the matrix before evaluation unless all 18 final
     checkpoints, optimizer states, initialization trees, exact per-rank data
     orders, dataset statistics, and non-arm configs pass.
   - [ ] **TG4-E1 [BLOCKED by I1]** Evaluate every arm/seed on the frozen 24-cell
