@@ -15335,7 +15335,7 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
         "",
         f"Updated: `{snapshot['timestamp']}`",
         "",
-        "Dispatch priority: `Robot-East-H20 > Robot-North-H20 > robot-task`; gf1 is permanently retired.",
+        "Dispatch priority for allowlisted TG4 work while the operator marker is enabled: `gf1 > Robot-East-H20 > Robot-North-H20 > robot-task`; legacy gf1 candidates remain retired.",
         (
             "Beijing backup identity: "
             f"`{'configured' if backup.get('enabled') else 'not configured'}`; "

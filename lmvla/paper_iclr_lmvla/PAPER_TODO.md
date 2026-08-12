@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-12 13:15 UTC
+Updated: 2026-08-12 15:05 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -106,16 +106,20 @@ matched all6-v2 matrix and does not numerically mix the two protocols.
     rank-order hashes across arms within a seed and distinct hashes across
     seeds. Orthogonal auxiliary-off and conditioning-off routes have CPU tests;
     the complete scheduler and monitor suite passes 201 tests.
-  - [ ] **TG4-T01--T18 [ACTIVE; 10/18 SUBMITTED, 2/18 RUNNING at
-    2026-08-12 13:04 UTC]** Train all six arms at seeds 1100--1102. The North
+  - [ ] **TG4-T01--T18 [ACTIVE; 12/18 SUBMITTED, 4/18 RUNNING at
+    2026-08-12 15:05 UTC]** Train all six arms at seeds 1100--1102. The North
     source stage passed its frozen-bundle hash gate. East is running two
     `auxiliary_only` cells on 8/8 GPUs at about 2.26--2.30 seconds/update; North
     primary has six 4-GPU cells queued under its 25-GPU quota and the backup
-    identity has two queued under its 8-GPU quota. The remaining eight cells
+    identity has two queued under its 8-GPU quota. The temporarily enabled gf1
+    host is running `full` seeds 1101 and 1102 as independent four-GPU jobs on
+    all 8 A100 GPUs. Both passed the frozen-bundle gate, loaded the platform-
+    matched runtime, and entered training from step 0. The remaining six cells
     stay scheduler-pending and will backfill released quota automatically. A
-    historical 20k four-GPU cell takes about 12.8 hours; with current aggregate
-    capacity, the training matrix is expected to require two to three waves
-    (about 26--39 hours) if queues remain available.
+    historical 20k four-GPU H20 cell takes about 12.8 hours; the initial gf1
+    A100 rate is about 2.28--2.29 seconds/update, or about 12.7 hours per cell.
+    With current aggregate capacity, the training matrix is expected to require
+    two to three waves (about 26--39 hours) if queues remain available.
   - [ ] **TG4-I1 [IMPLEMENTED; BLOCKED by T01--T18]** Eighteen conditional
     materializers now copy only runs that actually land on North; East runs do
     not move. North transfer is SHA256-verified and excludes the redundant
