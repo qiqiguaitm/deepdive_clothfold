@@ -10302,6 +10302,38 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 task for task in queue["tasks"] if task.get("id") == analysis_id
             ).update(analysis_task)
 
+    for task in queue["tasks"]:
+        if not re.fullmatch(
+            r"temporal_grounding_(?:tg1a|tg1b|tg2r)_.+_eval", task["id"]
+        ) or int(task.get("completion_min_count", 1)) != 24:
+            continue
+        local_location = next(
+            (
+                location
+                for location in task.get("completion_locations", [])
+                if not location.get("remote")
+            ),
+            None,
+        )
+        summary_glob = (
+            local_location["glob"] if local_location else task["completion_glob"]
+        )
+        run_glob = re.sub(r"/summary\.json$", "/run.log", summary_glob)
+        task["progress_logs"] = [
+            item
+            for item in task.get("progress_logs", [])
+            if item.get("label") != "episodes"
+        ]
+        task["progress_logs"].append(
+            {
+                "label": "episodes",
+                "glob": run_glob,
+                "regex": r"progress:.*?([0-9]+)/([0-9]+)",
+                "aggregate": True,
+                "total": 1200,
+            }
+        )
+
     eval_yaml = REPO / "train_scripts/kai/volc/temporal_grounding_tg2_eval_east_4h20.yaml"
     eval_runner = REPO / "train_scripts/kai/eval/run_temporal_grounding_tg2_eval.sh"
     renderer_marker = REPO / "logs/resource_markers/robotwin_renderer_east.ok"
@@ -15976,16 +16008,29 @@ print(json.dumps({{'numerator': numerator, 'denominator': denominator}}))
                 value = "/".join(match) if isinstance(match, tuple) else str(match)
                 progress_items.append(f"{item['label']}={value}")
         if progress_items:
-            task_state["runtime_progress"] = ", ".join(progress_items)
+            runtime_progress = ", ".join(progress_items)
+            if runtime_progress != task_state.get(
+                "runtime_progress"
+            ) or not task_state.get("runtime_progress_changed_at"):
+                task_state["runtime_progress_changed_at"] = utc_now()
+                task_state.pop("artifact_stale_warning_at", None)
+            task_state["runtime_progress"] = runtime_progress
         else:
             task_state.pop("runtime_progress", None)
         # Artifact completion is not enough while a process is still active;
         # retain it as progress and let the terminal-state check close the task.
-        changed_at = task_state.get("artifact_progress_changed_at")
+        changed_candidates = [
+            task_state.get("artifact_progress_changed_at"),
+            task_state.get("runtime_progress_changed_at"),
+        ]
+        changed_candidates = [value for value in changed_candidates if value]
         stale_after = int(task.get("progress_stale_seconds", 7200))
-        if int(task.get("completion_min_count", 1)) <= 1 or not changed_at:
+        if int(task.get("completion_min_count", 1)) <= 1 or not changed_candidates:
             continue
-        changed = datetime.fromisoformat(changed_at.replace("Z", "+00:00"))
+        changed = max(
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+            for value in changed_candidates
+        )
         stale_seconds = max(0, int((now - changed).total_seconds()))
         task_state["artifact_stale_seconds"] = stale_seconds
         warned_at = task_state.get("artifact_stale_warning_at")

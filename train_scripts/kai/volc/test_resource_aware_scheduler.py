@@ -4177,6 +4177,49 @@ def test_north_running_progress_counts_remote_artifacts(
     assert "pi05_r4_terminal_outcome_seed1000" in commands[0]
 
 
+def test_runtime_progress_heartbeat_prevents_false_stale_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_log = tmp_path / "run.log"
+    run_log.write_text("progress: 1/50\n")
+    task = {
+        "id": "long_tail_eval",
+        "enabled": True,
+        "completion_glob": str(tmp_path / "**/summary.json"),
+        "completion_min_count": 24,
+        "progress_stale_seconds": 1,
+        "progress_logs": [
+            {
+                "label": "episodes",
+                "glob": str(run_log),
+                "regex": r"progress:.*?([0-9]+)/([0-9]+)",
+                "aggregate": True,
+                "total": 1200,
+            }
+        ],
+    }
+    state = {"tasks": {task["id"]: {"status": "running", "attempts": [{}]}}}
+    scheduler.refresh_running_progress({"tasks": [task]}, state)
+    task_state = state["tasks"][task["id"]]
+    assert task_state["runtime_progress"] == "episodes=1/1200"
+
+    old = "2020-01-01T00:00:00Z"
+    task_state["artifact_progress_changed_at"] = old
+    task_state["runtime_progress_changed_at"] = old
+    task_state["artifact_stale_warning_at"] = old
+    run_log.write_text("progress: 2/50\n")
+    messages: list[str] = []
+    monkeypatch.setattr(scheduler, "log", messages.append)
+
+    scheduler.refresh_running_progress({"tasks": [task]}, state)
+
+    assert task_state["runtime_progress"] == "episodes=2/1200"
+    assert task_state["runtime_progress_changed_at"] != old
+    assert task_state["artifact_stale_seconds"] < 1
+    assert "artifact_stale_warning_at" not in task_state
+    assert messages == []
+
+
 def test_mt1_replication_overflow_fills_gf1_then_routes_seed1002_north() -> None:
     queue = json.loads(scheduler.QUEUE_PATH.read_text())
     scheduler.add_pi05_mt1_replication_eval_attach_tasks(queue)
@@ -6917,6 +6960,30 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             for item in task["ready_hashes"]
         )
         for task in recovery_evals.values()
+    )
+    temporal_evals = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if re.fullmatch(
+            r"temporal_grounding_(?:tg1a|tg1b|tg2r)_.+_eval", task_id
+        )
+        and task["completion_min_count"] == 24
+    }
+    assert len(temporal_evals) == 17
+    assert all(
+        task["progress_logs"]
+        == [
+            {
+                "label": "episodes",
+                "glob": task["completion_glob"].replace(
+                    "/summary.json", "/run.log"
+                ),
+                "regex": r"progress:.*?([0-9]+)/([0-9]+)",
+                "aggregate": True,
+                "total": 1200,
+            }
+        ]
+        for task in temporal_evals.values()
     )
 
     analyses = {
