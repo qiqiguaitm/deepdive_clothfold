@@ -6617,6 +6617,20 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         path.endswith("/.task_scheduler.json")
         for path in shuffled_tail["ready_files"]
     ) == 4
+    assert shuffled_tail["progress_logs"] == [
+        {
+            "label": "tail_episodes",
+            "glob": str(
+                scheduler.REPO
+                / "lmvla/lawam/results/eval_runs/robotwin/"
+                "temporal_grounding_tg1a_shuffled/"
+                "seed*/**/tasks/stack_blocks_three/run.log"
+            ),
+            "regex": r"progress:.*?([0-9]+)/([0-9]+)",
+            "aggregate": True,
+            "total": 200,
+        }
+    ]
     north_stage = tasks["temporal_grounding_tg1_retry500_north_stage"]
     assert north_stage["requires_completed_tasks"] == [
         "temporal_grounding_tg1a_normal_eval"
