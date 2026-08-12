@@ -6556,7 +6556,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 72
+    assert len(tasks) == 73
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6603,6 +6603,20 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         "ready_files"
     ]
     assert all(task.get("enabled", True) for task in tg1a.values())
+    shuffled_tail = tasks["temporal_grounding_tg1a_shuffled_tail_east4g"]
+    assert shuffled_tail["satisfied_by_task"] == (
+        "temporal_grounding_tg1a_shuffled_eval"
+    )
+    assert len(shuffled_tail["candidates"]) == 1
+    assert shuffled_tail["candidates"][0]["resource"] == "Robot-East-H20"
+    assert shuffled_tail["candidates"][0]["gpus"] == 4
+    assert shuffled_tail["candidates"][0]["runtime_revision"] == (
+        "temporal_grounding_tg1a_shuffled_tail_v1"
+    )
+    assert sum(
+        path.endswith("/.task_scheduler.json")
+        for path in shuffled_tail["ready_files"]
+    ) == 4
     north_stage = tasks["temporal_grounding_tg1_retry500_north_stage"]
     assert north_stage["requires_completed_tasks"] == [
         "temporal_grounding_tg1a_normal_eval"

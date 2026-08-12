@@ -9143,6 +9143,87 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             )
         upsert_runtime_task(task)
 
+    tg1a_shuffled_tail_id = "temporal_grounding_tg1a_shuffled_tail_east4g"
+    tg1a_shuffled_parent_id = "temporal_grounding_tg1a_shuffled_eval"
+    tg1a_shuffled_tail_runner = (
+        REPO
+        / "train_scripts/kai/eval/attach_temporal_grounding_tg1a_shuffled_tail.sh"
+    )
+    tg1a_shuffled_tail_yaml = (
+        REPO
+        / "train_scripts/kai/volc/"
+        "temporal_grounding_tg1a_shuffled_tail_east_4h20.yaml"
+    )
+    tg1a_shuffled_root = (
+        REPO
+        / "lmvla/lawam/results/eval_runs/robotwin/temporal_grounding_tg1a_shuffled"
+    )
+    upsert_runtime_task(
+        {
+            "id": tg1a_shuffled_tail_id,
+            "priority": 0,
+            "description": (
+                "Attach one East worker per seed to the TG1A shuffled task tail"
+            ),
+            "completion_glob": str(
+                REPO
+                / "logs/resource_markers/"
+                "temporal_grounding_tg1a_shuffled_tail_east4g.ok"
+            ),
+            "completion_min_count": 1,
+            "satisfied_by_task": tg1a_shuffled_parent_id,
+            "ready_files": [
+                str(activation_marker),
+                str(capture_marker),
+                str(tg1_retry500_path),
+                str(tg1a_path),
+                str(runtime_v11_path),
+                str(tg1a_shuffled_tail_runner),
+                str(tg1a_shuffled_tail_yaml),
+                *(
+                    str(
+                        tg1a_shuffled_root
+                        / f"seed{seed}"
+                        / "lawam_robotwin_sft_release__demo_clean"
+                        / f"tg1a-shuffled-seed{seed}"
+                        / ".task_scheduler.json"
+                    )
+                    for seed in range(4)
+                ),
+            ],
+            "ready_hashes": [
+                {
+                    "path": str(tg1a_shuffled_tail_runner),
+                    "sha256": (
+                        "43584188b151c0be3b138621b910dc362021d4899912e488f"
+                        "f22a89eb63e4694"
+                    ),
+                },
+                {
+                    "path": str(tg1a_shuffled_tail_yaml),
+                    "sha256": (
+                        "0a3c9dc8d2a308ea79e750cd068027eb4edaae2b3175819dc"
+                        "2b6e9a60464e9ec"
+                    ),
+                },
+            ],
+            "candidates": [
+                {
+                    "kind": "platform",
+                    "resource": "Robot-East-H20",
+                    "region": "cn-shanghai",
+                    "gpus": 4,
+                    "queue_timeout_seconds": 180,
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 1,
+                    "runtime_revision": "temporal_grounding_tg1a_shuffled_tail_v1",
+                    "yaml": str(tg1a_shuffled_tail_yaml.relative_to(REPO)),
+                    "task_name": "temporal-grounding-tg1a-shuffled-tail-east4g",
+                }
+            ],
+        }
+    )
+
     tg1b_runner = (
         REPO
         / "train_scripts/kai/eval/run_temporal_grounding_tg1b_retry500_formal.sh"

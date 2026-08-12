@@ -1,0 +1,61 @@
+TaskName: "temporal-grounding-tg1a-shuffled-tail-east4g"
+Description: "Attach one worker per seed to the frozen TG1A shuffled retry500 tail"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.17xlarge"
+
+ActiveDeadlineSeconds: 43200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: HF_HUB_OFFLINE
+    Value: "1"
+  - Name: TRANSFORMERS_OFFLINE
+    Value: "1"
+  - Name: TOKENIZERS_PARALLELISM
+    Value: "false"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  LOG_DIR="$REPO/logs/temporal_grounding/entrypoint"
+  mkdir -p "$LOG_DIR"
+  LOG_FILE="$LOG_DIR/tg1a_shuffled_tail_$(date -u +%Y%m%d_%H%M%S).log"
+  exec > >(tee -a "$LOG_FILE") 2>&1
+  echo "TG1A_SHUFFLED_TAIL_START host=$(hostname)"
+  git config --global --add safe.directory "$REPO"
+  git config --global --add safe.directory "$REPO/lmvla/lawam"
+  test -f "$REPO/logs/resource_markers/robotwin_renderer_east.ok"
+  test "$(git -C "$REPO/lmvla/lawam" rev-parse HEAD)" = 7ca170c9b98e15026ecd9004d91f0ad9c73ba5f7
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  export STAR_VLA_PYTHON=/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python
+  test -x "$STAR_VLA_PYTHON"
+  "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh" -c \
+    'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
+  REPO_ROOT="$REPO" \
+    bash "$REPO/train_scripts/kai/eval/attach_temporal_grounding_tg1a_shuffled_tail.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"
