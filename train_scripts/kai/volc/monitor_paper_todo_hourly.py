@@ -192,7 +192,15 @@ def analysis_artifact_metrics(
 
 def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
     if value is None:
-        return {"status": "missing", "execution_state": None, "job_id": None}
+        return {
+            "status": "missing",
+            "execution_state": None,
+            "job_id": None,
+            "runtime_progress": None,
+            "artifact_progress": None,
+            "progress_changed_at": None,
+            "progress_stale_seconds": None,
+        }
     attempts = value.get("attempts") or []
     attempt = attempts[-1] if attempts else {}
     return {
@@ -201,6 +209,11 @@ def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
         "job_id": attempt.get("job_id"),
         "completed_at": value.get("completed_at"),
         "failure": value.get("last_failure") or attempt.get("failure"),
+        "runtime_progress": value.get("runtime_progress"),
+        "artifact_progress": value.get("artifact_progress"),
+        "progress_changed_at": value.get("runtime_progress_changed_at")
+        or value.get("artifact_progress_changed_at"),
+        "progress_stale_seconds": value.get("artifact_stale_seconds"),
     }
 
 
@@ -420,6 +433,29 @@ def render_markdown(record: dict[str, Any]) -> str:
             )
     else:
         lines.append("No active TG2R heartbeat was reported.")
+    active_evaluations = {
+        task_id: row
+        for task_id, row in record["tasks"].items()
+        if row["status"] == "running"
+        and (row.get("runtime_progress") or row.get("artifact_progress"))
+    }
+    lines.extend(["", "## Active Evaluations", ""])
+    if active_evaluations:
+        lines.extend(
+            [
+                "| Task | Execution | Runtime progress | Artifacts | Stale (s) |",
+                "|---|---|---|---|---:|",
+            ]
+        )
+        for task_id, row in sorted(active_evaluations.items()):
+            lines.append(
+                f"| `{task_id}` | {row.get('execution_state') or '-'} | "
+                f"{row.get('runtime_progress') or '-'} | "
+                f"{row.get('artifact_progress') or '-'} | "
+                f"{row.get('progress_stale_seconds', '-')} |"
+            )
+    else:
+        lines.append("No active evaluation progress was reported.")
     lines.extend(
         [
             "",

@@ -219,6 +219,41 @@ def test_collect_reports_task_transition(tmp_path: Path) -> None:
     ]
 
 
+def test_collect_and_markdown_include_active_evaluation_progress(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path, status="pending")
+    payload = json.loads(state.read_text())
+    task_id = "temporal_grounding_tg1a_persistence_eval"
+    payload["tasks"][task_id] = {
+        "status": "running",
+        "attempts": [{"last_state": "Running", "job_id": "t-test"}],
+        "runtime_progress": "episodes=1152/1200",
+        "runtime_progress_changed_at": "2026-08-10T13:59:50Z",
+        "artifact_progress": "completion artifacts east=20/24, north=0/24",
+        "artifact_stale_seconds": 0,
+    }
+    state.write_text(json.dumps(payload), encoding="utf-8")
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    row = record["tasks"][task_id]
+    assert row["runtime_progress"] == "episodes=1152/1200"
+    assert row["artifact_progress"] == (
+        "completion artifacts east=20/24, north=0/24"
+    )
+    assert row["progress_changed_at"] == "2026-08-10T13:59:50Z"
+    assert row["progress_stale_seconds"] == 0
+    markdown = monitor.render_markdown(record)
+    assert "## Active Evaluations" in markdown
+    assert "episodes=1152/1200" in markdown
+    assert "completion artifacts east=20/24, north=0/24" in markdown
+
+
 def test_heartbeat_prefers_running_location_and_filters_inactive_tasks() -> None:
     active_id = "temporal_grounding_tg2r_raw_milestone_seed1000_train"
     inactive_id = "temporal_grounding_tg2r_fixed_endpoint_seed1000_train"
