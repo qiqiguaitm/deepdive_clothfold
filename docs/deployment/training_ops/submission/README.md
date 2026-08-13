@@ -148,10 +148,11 @@ launcher **之前**，还会保存同一推荐逻辑的审计记录。记录写�
 python train_scripts/kai/volc/monitor_paper_todo_hourly.py --interval-seconds 3600
 ```
 
-监控固定核对当前冻结的 33 项 TG1A/TG2R 任务，每小时写入
+监控固定核对当前冻结的 79 项 TG4 claim-bearing 执行节点，每小时写入
 `logs/paper_todo_hourly_monitor.jsonl`，并原子更新
 `logs/paper_todo_hourly_monitor_latest.{json,md}`。调度器快照超过 5 分钟未更新时记录
-`degraded` 告警；只有 33 项全部为 `completed` 时监控才自行退出。
+`degraded` 告警；只有 79 项全部为 `completed`、TG4 分析产物通过一致性校验且 TODO
+完成状态已同步时，监控才自行退出。
 
 当前资源边界：北京 `Robot-North-H20` 严格限制主身份最多 25 GPU；上海
 `Robot-East-H20` 为 8 H20，`robot-task` 为 32 A100。**截至 2026-08-04，暂停向
