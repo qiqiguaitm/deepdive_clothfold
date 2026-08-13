@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 09:34 UTC
+Updated: 2026-08-13 09:37 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -194,8 +194,10 @@ are excluded from within-architecture causal contrasts.
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; the repaired bundle verifier and all 224 related
-  scheduler/TG4 tests pass. The independent hourly audit now freezes all 79
+  frozen hash dependencies; all 238 scheduler, watcher, training-integrity,
+  evaluation, analysis, and finalizer tests pass. Fresh live verification of
+  both frozen TG4 source and evaluation manifests also passed at 09:37 UTC.
+  The independent hourly audit now freezes all 79
   claim-bearing execution gates, including the North staging task and all 18
   normal-result materializers, so it cannot declare completion at a platform
   eval terminal before the artifacts are verified locally. A pre-integrity
