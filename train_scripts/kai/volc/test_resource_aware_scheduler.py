@@ -6782,7 +6782,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 165
+    assert len(tasks) == 167
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6912,9 +6912,16 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         recovery_id = (
             f"temporal_grounding_tg4_{arm}_seed{seed}_east_terminal_recovery"
         )
+        ready_id = (
+            f"temporal_grounding_tg4_{arm}_seed{seed}_east_terminal_checkpoint_ready"
+        )
+        ready = tasks[ready_id]
+        assert ready["candidates"][0]["gpus"] == 0
+        assert ready["candidates"][0]["resource"] == "local"
         recovery = tasks[recovery_id]
-        assert recovery["candidates"][0]["gpus"] == 0
-        assert recovery["candidates"][0]["resource"] == "local"
+        assert recovery["requires_completed_tasks"] == [ready_id]
+        assert recovery["candidates"][0]["gpus"] == 1
+        assert recovery["candidates"][0]["resource"] == "Robot-East-H20"
         task = tasks[f"temporal_grounding_tg4_{arm}_seed{seed}_train"]
         assert task["validated_terminal_recovery_marker"].endswith(
             f"{recovery_id}.json"

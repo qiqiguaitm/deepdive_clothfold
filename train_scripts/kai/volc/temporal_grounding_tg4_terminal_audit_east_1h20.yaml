@@ -1,0 +1,45 @@
+TaskName: "temporal-grounding-tg4-terminal-audit-east1g"
+Description: "Strict terminal audit for a completed legacy TG4 East run"
+Tags: []
+
+ImageUrl: "visincept-cn-shanghai.cr.volces.com/grasp/h2r:1.0"
+ResourceQueueName: "Robot-East-H20"
+Framework: "PyTorch"
+Preemptible: false
+
+TaskRoleSpecs:
+  - RoleName: "worker"
+    RoleReplicas: 1
+    Flavor: "ml.pni3ln.5xlarge"
+
+ActiveDeadlineSeconds: 7200
+EnableTensorBoard: false
+
+Storages:
+  - Type: "Vepfs"
+    VepfsId: "vepfs-cnsh075262e1f815"
+    MountPath: "/vePFS"
+    SubPath: ""
+
+CacheType: "Cloudfs"
+
+Envs:
+  - Name: PYTHONUNBUFFERED
+    Value: "1"
+  - Name: TG4_ARM
+    Value: "parameter_matched_null"
+  - Name: TG4_TRAIN_SEED
+    Value: "1101"
+  - Name: TG4_RECOVERY_OUTPUT
+    Value: "/vePFS/tim/workspace/deepdive_kai0/logs/resource_markers/temporal_grounding_tg4_terminal_audit.json"
+
+Entrypoint: |
+  set -euo pipefail
+  REPO=/vePFS/tim/workspace/deepdive_kai0
+  exec bash "$REPO/train_scripts/kai/run_temporal_grounding_tg4_east_terminal_audit.sh"
+
+RetryOptions:
+  EnableRetry: false
+  MaxRetryTimes: 0
+
+AccessType: "Public"

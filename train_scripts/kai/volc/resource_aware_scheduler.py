@@ -9918,6 +9918,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_east_terminal_recovery_runner = (
         REPO / "train_scripts/kai/recover_temporal_grounding_tg4_east_terminal.sh"
     )
+    tg4_east_terminal_audit_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg4_east_terminal_audit.sh"
+    )
+    tg4_east_terminal_audit_yaml = (
+        REPO
+        / "train_scripts/kai/volc/temporal_grounding_tg4_terminal_audit_east_1h20.yaml"
+    )
     tg4_east_terminal_recovery_cells = {
         ("parameter_matched_null", 1101),
         ("parameter_matched_null", 1102),
@@ -9929,30 +9936,25 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         )
         recovery_id = f"{recovery_run_id}_east_terminal_recovery"
         recovery_marker = REPO / "logs/resource_markers" / f"{recovery_id}.json"
+        ready_id = f"{recovery_run_id}_east_terminal_checkpoint_ready"
+        ready_marker = REPO / "logs/resource_markers" / f"{ready_id}.ok"
         tg4_east_terminal_markers[(recovery_arm, recovery_seed)] = recovery_marker
-        recovery_task = {
-            "id": recovery_id,
+        ready_task = {
+            "id": ready_id,
             "priority": 0,
             "description": (
-                "Audit a TG4 East cell launched through the mutable legacy runner "
-                f"after its final checkpoint appears: {recovery_arm} seed {recovery_seed}"
+                "Wait without GPUs for complete legacy TG4 East terminal artifacts: "
+                f"{recovery_arm} seed {recovery_seed}"
             ),
             "rearm_after_ready_file": str(tg4_east_terminal_recovery_runner),
-            "completion_glob": str(recovery_marker),
+            "completion_glob": str(ready_marker),
             "completion_min_count": 1,
-            "ready_files": [
-                str(tg4_terminal_recovery_verifier),
-                str(tg4_east_terminal_recovery_runner),
-            ],
+            "ready_files": [str(tg4_east_terminal_recovery_runner)],
             "ready_hashes": [
                 {
-                    "path": str(tg4_terminal_recovery_verifier),
-                    "sha256": "12b91f2675ef115e729774bda51151f33b3e361135c680e207a013de0adf0397",
-                },
-                {
                     "path": str(tg4_east_terminal_recovery_runner),
-                    "sha256": "f7578e2fb0be76421ff2164ddc8dcc5d05bffa67a570d4e25aef9dc67a8598fb",
-                },
+                    "sha256": "a2cceb765ab370a42a3017910e0963dd24f22b29a1d4229fd7eb5b3c6e2eabd2",
+                }
             ],
             "candidates": [
                 {
@@ -9963,7 +9965,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "max_failures": 2,
                     "status_dir": str(
                         REPO
-                        / "logs/temporal_grounding/tg4/east_terminal_recovery"
+                        / "logs/temporal_grounding/tg4/east_terminal_ready"
                         / recovery_run_id
                     ),
                     "command": shlex.join(
@@ -9971,11 +9973,70 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "env",
                             f"TG4_ARM={recovery_arm}",
                             f"TG4_TRAIN_SEED={recovery_seed}",
-                            f"TG4_RECOVERY_OUTPUT={recovery_marker}",
+                            f"TG4_READY_OUTPUT={ready_marker}",
                             "bash",
                             str(tg4_east_terminal_recovery_runner),
                         ]
                     ),
+                }
+            ],
+        }
+        if ready_id not in existing:
+            queue["tasks"].append(ready_task)
+            existing.add(ready_id)
+        else:
+            existing_tasks[ready_id].update(ready_task)
+        recovery_task = {
+            "id": recovery_id,
+            "priority": 0,
+            "description": (
+                "Run the strict legacy TG4 terminal audit with East root access: "
+                f"{recovery_arm} seed {recovery_seed}"
+            ),
+            "requires_completed_tasks": [ready_id],
+            "rearm_after_ready_file": str(tg4_east_terminal_audit_runner),
+            "completion_glob": str(recovery_marker),
+            "completion_min_count": 1,
+            "ready_files": [
+                str(tg4_terminal_recovery_verifier),
+                str(tg4_east_terminal_audit_runner),
+                str(tg4_east_terminal_audit_yaml),
+            ],
+            "ready_hashes": [
+                {
+                    "path": str(tg4_terminal_recovery_verifier),
+                    "sha256": "12b91f2675ef115e729774bda51151f33b3e361135c680e207a013de0adf0397",
+                },
+                {
+                    "path": str(tg4_east_terminal_audit_runner),
+                    "sha256": "7b76c4d794eb5322e1ead889d2ac1f89cd626b5a5fd4a169f3b06c3018f39355",
+                },
+                {
+                    "path": str(tg4_east_terminal_audit_yaml),
+                    "sha256": "84dab95c233c4a235d5cf9219118caff75e248c27bfcbc6e7b32fc34a13285d9",
+                },
+            ],
+            "candidates": [
+                {
+                    "kind": "platform",
+                    "resource": "Robot-East-H20",
+                    "region": "cn-shanghai",
+                    "gpus": 1,
+                    "queue_timeout_seconds": 300,
+                    "deploy_timeout_seconds": 900,
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 2,
+                    "runtime_revision": "temporal_grounding_tg4_terminal_audit_v1",
+                    "yaml": str(tg4_east_terminal_audit_yaml.relative_to(REPO)),
+                    "task_name": (
+                        "temporal-grounding-tg4-terminal-audit-"
+                        f"{recovery_arm.replace('_', '-')}-s{recovery_seed}-east1g"
+                    ),
+                    "env": {
+                        "TG4_ARM": recovery_arm,
+                        "TG4_TRAIN_SEED": str(recovery_seed),
+                        "TG4_RECOVERY_OUTPUT": str(recovery_marker),
+                    },
                 }
             ],
         }

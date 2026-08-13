@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 07:34 UTC
+Updated: 2026-08-13 07:54 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -80,8 +80,12 @@ are excluded from within-architecture causal contrasts.
   materialized locally.
   No general Failed-terminal exemption was introduced. Per-cell background
   watchers now cover the remaining old-runner North jobs, including `full`
-  seed 1102, and the two old-runner East `parameter_matched_null` jobs. They
-  cannot admit a task until its own complete audit marker exists. The
+  seed 1102. For the two old-runner East `parameter_matched_null` jobs, a
+  zero-GPU watcher waits for the exact terminal log and complete checkpoint,
+  then a one-GPU East audit reads the root-owned sidecars, applies the same
+  strict verifier, and exposes them read-only to the joint local integrity
+  gate. Neither path can admit a task until its own complete audit marker
+  exists. The
   platform-reported `clean_base` seed-1102 failure is therefore already closed:
   its exact step-20,000 recovery audit completed at 02:56 UTC and its verified
   checkpoint was materialized locally at 04:23 UTC; it must not be resubmitted.
