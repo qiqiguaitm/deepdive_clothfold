@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 08:09 UTC
+Updated: 2026-08-13 08:15 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -139,7 +139,13 @@ are excluded from within-architecture causal contrasts.
   `LAWAM_AUXILIARY_OFF` route makes `conditioning_only` auxiliary-free, while
   `LAWAM_FUTURE_OFF` makes `parameter_matched_null` future/auxiliary-null.
   The manifest's effective `auxiliary_loss=false` semantics are unchanged; no
-  training input or comparison definition changed.
+  training input or comparison definition changed. Live loss decomposition
+  independently confirms the routing: all active `conditioning_only` and
+  `parameter_matched_null` cells report zero perceptual/distillation loss,
+  while the active `full` cell reports nonzero values for both. Recent loss
+  windows for all eight active cells are finite, with no NaN, Inf, OOM,
+  CUDA/NCCL error, traceback, or dataloader-worker failure in their current
+  logs.
 - [ ] **TG4-E1 [IMPLEMENTED; BLOCKED by I1]** Twenty-one scheduler tasks are
   registered under the independently frozen evaluation manifest: normal for
   all 18 arm/seed cells and within-task shuffled content for all three `full`
