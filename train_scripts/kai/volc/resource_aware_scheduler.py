@@ -10582,6 +10582,96 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         existing_tasks[tg4_eval_local_preflight_id].update(
             tg4_eval_local_preflight_task
         )
+    tg4_shuffle_preflight_runner = (
+        REPO
+        / "train_scripts/kai/eval/"
+        "run_temporal_grounding_tg4_shuffle_preflight.sh"
+    )
+    tg4_shuffle_preflight_id = "temporal_grounding_tg4_shuffle_preflight"
+    tg4_shuffle_preflight_marker = (
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg4_shuffle_preflight.ok"
+    )
+    tg4_shuffle_preflight_paths = {
+        *tg4_eval_gf1_preflight_paths,
+        str(tg4_shuffle_manifest),
+    }
+    tg4_shuffle_preflight_task = {
+        "id": tg4_shuffle_preflight_id,
+        "priority": -2,
+        "description": (
+            "Non-claim-bearing local capture-then-shuffle preflight of the "
+            "frozen TG4 full-arm evaluator"
+        ),
+        "requires_completed_tasks": [tg4_eval_local_preflight_id],
+        "rearm_after_ready_file": str(tg4_shuffle_preflight_runner),
+        "completion_glob": str(tg4_shuffle_preflight_marker),
+        "completion_min_count": 1,
+        "completion_requires_successful_terminal_state": True,
+        "ready_files": [
+            str(tg4_shuffle_preflight_runner),
+            str(tg4_eval_manifest),
+            str(tg4_eval_verifier),
+            str(tg4_scene_manifest),
+            str(tg4_shuffle_manifest),
+            str(tg4_symlink_healer),
+            str(tg4_renderer_env),
+            str(tg4_renderer_wrapper),
+            str(tg4_eval_local_preflight_marker),
+        ],
+        "ready_globs": [
+            str(
+                REPO
+                / "lmvla/lawam/results/Checkpoints/robotwin"
+                / "*+temporal_grounding_tg4_full_seed1100"
+                / "final_model/pytorch_model.pt"
+            )
+        ],
+        "ready_hashes": [
+            *(
+                item
+                for item in tg4_eval_hashes
+                if item["path"] in tg4_shuffle_preflight_paths
+            ),
+            {
+                "path": str(tg4_shuffle_preflight_runner),
+                "sha256": "278f149bca96b37f55a3b0fd0bf570a20360b29111bcdb8c76865a324b5afa2a",
+            },
+        ],
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 1,
+                "gpu_indices": [0],
+                "retry_cooldown_seconds": 900,
+                "max_failures": 1,
+                "runtime_revision": (
+                    "temporal_grounding_tg4_shuffle_preflight_v1"
+                ),
+                "status_dir": str(
+                    REPO / "logs/resource_scheduler_local/"
+                    "tg4_shuffle_preflight_status"
+                ),
+                "command": shlex.join(
+                    [
+                        "env",
+                        "CUDA_VISIBLE_DEVICES=0",
+                        f"REPO_ROOT={REPO}",
+                        "bash",
+                        str(tg4_shuffle_preflight_runner),
+                    ]
+                ),
+            }
+        ],
+    }
+    if tg4_shuffle_preflight_id not in existing:
+        queue["tasks"].append(tg4_shuffle_preflight_task)
+        existing.add(tg4_shuffle_preflight_id)
+    else:
+        existing_tasks[tg4_shuffle_preflight_id].update(
+            tg4_shuffle_preflight_task
+        )
     tg4_eval_prefetch_runner = (
         REPO
         / "train_scripts/kai/prefetch_temporal_grounding_tg4_eval_checkpoint_to_north.sh"

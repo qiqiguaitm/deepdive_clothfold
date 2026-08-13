@@ -6920,7 +6920,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 173
+    assert len(tasks) == 174
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6989,6 +6989,13 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         "command"
     ]
     assert "eval_local_preflight" in local_eval_preflight["completion_glob"]
+    shuffle_preflight = tasks["temporal_grounding_tg4_shuffle_preflight"]
+    assert shuffle_preflight["requires_completed_tasks"] == [
+        "temporal_grounding_tg4_eval_local_preflight"
+    ]
+    assert shuffle_preflight["candidates"][0]["resource"] == "local"
+    assert shuffle_preflight["candidates"][0]["gpu_indices"] == [0]
+    assert "shuffle_preflight" in shuffle_preflight["completion_glob"]
     migration_cells = {
         task_id
         for task_id, task in tg4.items()
