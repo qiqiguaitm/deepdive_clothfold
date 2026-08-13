@@ -305,7 +305,12 @@ are excluded from within-architecture causal contrasts.
   18 normal panels can start within two 15-second dispatch polls: six on North
   primary, two on North backup, two on East, and one on the local two-GPU host.
   The remaining seven form later waves; the replay did not create a stage
-  marker or bypass the integrity dependency.
+  marker or bypass the integrity dependency. Each platform panel has a 36-hour
+  active deadline and the runner introduces no shorter internal timeout. The
+  comparable completed 1,200-episode TG1A fixed-scene panels span 6.8--15.9
+  hours from launch to final summary, leaving about 20.1 hours of margin even
+  against the slowest observed panel; the local candidate has no platform
+  deadline.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,
