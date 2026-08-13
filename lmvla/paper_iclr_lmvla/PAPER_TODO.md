@@ -77,7 +77,9 @@ are excluded from within-architecture causal contrasts.
   North-side audits verified their final models, optimizer states, exact step
   20,000, frozen configs, initialization identities, and rank orders before
   admitting them. All six `clean_base` and `auxiliary_only` artifacts are now
-  materialized locally.
+  materialized locally. The two East-produced `auxiliary_only` artifacts
+  satisfy materialization directly through the shared local checkpoint path;
+  unlike North-produced artifacts, they do not require a North transfer marker.
   No general Failed-terminal exemption was introduced. Per-cell background
   watchers now cover the remaining old-runner North jobs, including `full`
   seed 1102. For the two old-runner East `parameter_matched_null` jobs, a
@@ -105,7 +107,7 @@ are excluded from within-architecture causal contrasts.
   `future_off` seeds 1100/1101) were startup refusals caused by stale partial
   roots from failed gf1 attempts. Those exact roots were moved to a dated
   quarantine without touching active runs, and the four cells were rearmed;
-  they were rearmed. Three additional stale North roots from the original DDP
+  three additional stale North roots from the original DDP
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
