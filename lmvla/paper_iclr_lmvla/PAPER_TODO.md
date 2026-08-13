@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 09:37 UTC
+Updated: 2026-08-13 12:30 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -61,7 +61,7 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 12:00 UTC canonical
+- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 12:30 UTC canonical
   snapshot, eight unfinished training cells are Running and two are Queueing on
   North; every cell is completed, running, or submitted, with no undispatched
   training cell. All three `auxiliary_only`
@@ -111,15 +111,22 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
-  12.5k/10.5k/10.3k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  13.4k/11.4k/11.2k. `full` seeds 1100 and 1101 reached exact step 20,000;
   their per-cell recovery watchers verified the frozen configuration,
   initialization, rank orders, final model, optimizer state, and exact
   post-training shell error before admitting them, and both artifacts are now
   materialized locally. `future_off` seeds 1100/1101 are healthy near
-  16.5k/16.3k, parameter-matched-null seeds 1101/1102 near 17.3k/17.4k, and
-  `full` seed 1102 near 14.4k. A fresh exact-token health scan of all eight
+  17.4k/17.2k, parameter-matched-null seeds 1101/1102 near 18.1k/18.2k, and
+  `full` seed 1102 near 15.2k. A fresh exact-token health scan of all eight
   active logs found no NaN/Inf, OOM, CUDA, NCCL, dataloader, or traceback
-  failure; observed throughput remains stable at 1.93--2.26 seconds per step.
+  failure; observed throughput remains stable at 1.94--2.30 seconds per step.
+  A direct 100/500/1,000-step remote-log audit confirms that the earlier
+  one-window `conditioning_only` seed-1101 ETA spike was sampling jitter: its
+  1,000-step rate is 2.007 seconds per step, consistent with the other two
+  conditioning cells. No restart or protocol change is warranted. The two
+  East parameter-matched-null cells have about 1.1 hours remaining; the two
+  North future-off cells about 1.4--1.5 hours, `full` seed 1102 about 3.0 hours,
+  and the three conditioning cells about 3.8--5.1 hours.
   The temporary gf1 processes for `future_off`
   seed 1102 and parameter-matched-null seed 1100 were independently confirmed
   dead after reaching about 12.2k and 11.6k. Because the frozen recipe writes
@@ -173,7 +180,12 @@ are excluded from within-architecture causal contrasts.
   least five free GPUs before taking four, so at most one queued training cell
   can migrate when the two active legacy East cells terminate. This preserves
   capacity for their one-GPU strict recovery audits instead of delaying
-  checkpoint admission behind another full training wave. At this snapshot,
+  checkpoint admission behind another full training wave. A no-launch replay
+  against the live attempts and generated candidate policy confirms the exact
+  transition: when East releases all eight GPUs, only `future_off` seed 1102 is
+  selected for four-GPU migration, while parameter-matched-null seed 1100 stays
+  in its North queue sink and four East GPUs remain available for both strict
+  one-GPU audits. The replay changed no task or platform state. At this snapshot,
   East is 8/8, North primary is 20 active plus 4 queued under its 25-GPU
   limit, North backup is 4 active plus 4 queued under its 8-GPU limit, and
   gf1 is 8/8 under the unrelated workload. Thus every safely admissible
