@@ -22,6 +22,7 @@ MARKER_ROOT="${TG4_MARKER_ROOT:-$REPO/logs/resource_markers}"
 LOG_DIR="${TG4_LOG_DIR:-$REPO/logs/temporal_grounding/tg4/eval}"
 CONTROL_PYTHON="${TG4_CONTROL_PYTHON:-$REPO/kai0/.venv/bin/python}"
 RESUME_HELPER="$REPO/lmvla/lmwm/scripts/prepare_temporal_grounding_tg4_eval_resume.py"
+STRICT_RESULT_VERIFIER="$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_eval_results.py"
 RESULT_ROOT="$RESULT_BASE/${RUN_ID}_${CONDITION}"
 FEATURE_ROOT="$FEATURE_BASE/${RUN_ID}"
 CAPTURE_MARKER="$MARKER_ROOT/${RUN_ID}_normal_capture_complete.json"
@@ -71,6 +72,7 @@ test -f "$SCENES"
 test -f "$SHUFFLE"
 test -f "$EVAL_MANIFEST"
 test -f "$RESUME_HELPER"
+test -f "$STRICT_RESULT_VERIFIER"
 "$CONTROL_PYTHON" \
   "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_evaluation.py" \
   --repo "$REPO" --manifest "$EVAL_MANIFEST"
@@ -194,6 +196,10 @@ for ((batch_start=0; batch_start<4; batch_start+=GPU_COUNT)); do
   done
 done
 
+if [[ "$status" == 0 ]] && ! "$CONTROL_PYTHON" "$STRICT_RESULT_VERIFIER" \
+    --manifest "$SCENES" --root "$RESULT_ROOT"; then
+  status=1
+fi
 if [[ "$status" == 0 && "$ARM" == full && "$CONDITION" == normal ]]; then
   "$CONTROL_PYTHON" \
     "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_feature_capture.py" \

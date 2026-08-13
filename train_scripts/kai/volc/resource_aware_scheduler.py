@@ -10386,6 +10386,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_eval_verifier = (
         REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_evaluation.py"
     )
+    tg4_fixed_seed_verifier = (
+        REPO / "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py"
+    )
+    tg4_strict_result_verifier = (
+        REPO
+        / "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_eval_results.py"
+    )
     tg4_eval_runner = (
         REPO / "train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh"
     )
@@ -10429,9 +10436,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO / "train_scripts/kai/eval/robotwin_python_wrapper_north.sh"
     )
     tg4_eval_hashes = [
-        {"path": str(tg4_eval_manifest), "sha256": "fa18d1c433dcd46f3c1c272230b83b0af58338cfffb2fba8011492ace29010c8"},
+        {"path": str(tg4_eval_manifest), "sha256": "acc8444921262593795a2934965e4f1172f0a6016d70356fed10a3c3be3d0b5c"},
         {"path": str(tg4_eval_verifier), "sha256": "75b3a7ee1ffb1b2fa703b199cc12ac24a8e5b9ca0908a692cf5a0cbafad464ee"},
-        {"path": str(tg4_eval_runner), "sha256": "e2af00f27f5a60034f82a1c5b2af624b3706eb4fd56fe262faa2b8c74707603d"},
+        {"path": str(tg4_fixed_seed_verifier), "sha256": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861"},
+        {"path": str(tg4_strict_result_verifier), "sha256": "0cae49b2237f2e2a838846ee3969b75c1f1d2de222e6d599047dbe65114b95ec"},
+        {"path": str(tg4_eval_runner), "sha256": "da60641c9986ba3ed66a7e99adb99d3f2ea87d0f35acacd89327ccad1d920ebc"},
         {"path": str(tg4_eval_yaml), "sha256": "e777196f9925ee7cb8423d3e1c6d45e51d2b7ea7a8cc95e108b60b00fb76ae26"},
         {"path": str(tg4_eval_north_yaml), "sha256": "6ffcb0623ce7adf989427250b5d68e4af7e9e501b09742a676b63e812867b6dc"},
         {"path": str(tg4_eval_north_stage_runner), "sha256": "acca5a8da58dc1640615b8cc61b2c14830e120f0feaac136dd214c30d5b34f46"},
@@ -10848,6 +10857,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     str(tg4_integrity_marker),
                     str(tg4_eval_manifest),
                     str(tg4_eval_verifier),
+                    str(tg4_fixed_seed_verifier),
+                    str(tg4_strict_result_verifier),
                     str(tg4_eval_runner),
                     str(tg4_eval_yaml),
                     str(tg4_scene_manifest),

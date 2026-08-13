@@ -236,10 +236,18 @@ are excluded from within-architecture causal contrasts.
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; all 249 scheduler, watcher, resume,
-  training-integrity,
-  evaluation, analysis, and finalizer tests pass. Fresh live verification of
-  both frozen TG4 source and evaluation manifests also passed at 09:37 UTC.
+  frozen hash dependencies. A final pre-evaluation audit at 10:53 UTC also
+  closed the result-schema boundary: the TG4-specific frozen verifier now
+  rejects a wrong or missing evaluation seed, inconsistent `n_episodes`,
+  malformed scene seeds, and non-boolean success values before a panel can
+  complete. The older generic fixed-seed verifier remains byte-identical so
+  previously frozen P2 evidence is not rewritten. The formal runner invokes
+  the strict verifier directly, and North staging copies and hash-checks both
+  verifiers. A focused 242-test scheduler, watcher, resume, bundle,
+  training-integrity, evaluation, analysis, and finalizer suite passes,
+  including compatibility against an existing complete 24-cell result tree.
+  Fresh live verification of both frozen TG4 source and evaluation manifests
+  also passed at 10:53 UTC.
   The independent hourly audit now freezes all 79
   claim-bearing execution gates, including the North staging task and all 18
   normal-result materializers, so it cannot declare completion at a platform

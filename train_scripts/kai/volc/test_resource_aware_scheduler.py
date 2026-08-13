@@ -7374,6 +7374,30 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             )
             for item in task["ready_hashes"]
         )
+        assert any(
+            item["path"].endswith(
+                "lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py"
+            )
+            and item["sha256"] == scheduler.sha256_file(Path(item["path"]))
+            for item in task["ready_hashes"]
+        )
+        assert any(
+            path.endswith("lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py")
+            for path in task["ready_files"]
+        )
+        assert any(
+            item["path"].endswith(
+                "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_eval_results.py"
+            )
+            and item["sha256"] == scheduler.sha256_file(Path(item["path"]))
+            for item in task["ready_hashes"]
+        )
+        assert any(
+            path.endswith(
+                "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_eval_results.py"
+            )
+            for path in task["ready_files"]
+        )
         gf1 = [candidate for candidate in task["candidates"] if candidate["resource"] == "gf1"]
         assert [candidate["gpu_indices"] for candidate in gf1] == [
             [0, 1, 2, 3],
