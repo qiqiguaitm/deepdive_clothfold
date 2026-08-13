@@ -48,7 +48,7 @@ Entrypoint: |
   echo "TG4_START arm=$TG4_ARM seed=$TG4_TRAIN_SEED resource=North"
   test -f "$REPO/logs/resource_markers/temporal_grounding_tg4_north_stage.ok"
   bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
-  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg4_train.sh"
+  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg4_immutable.sh"
 
 RetryOptions:
   EnableRetry: false

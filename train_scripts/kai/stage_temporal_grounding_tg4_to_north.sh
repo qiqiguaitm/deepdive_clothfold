@@ -13,6 +13,7 @@ REMOTE_MARKER=$STAGE/logs/resource_markers/$MARKER_NAME
 MAIN_FILES=(
   lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_source_decomposition_v1.json
   lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py
+  train_scripts/kai/run_temporal_grounding_tg4_immutable.sh
   train_scripts/kai/run_temporal_grounding_tg4_train.sh
 )
 for relative in "${MAIN_FILES[@]}"; do
@@ -26,7 +27,7 @@ git -C "$REPO/lmvla/lawam" archive HEAD | tar -C "$tmp/lmvla/lawam" -xf -
 tar -C "$REPO" -cf - "${MAIN_FILES[@]}" | tar -C "$tmp" -xf -
 
 tar -C "$tmp" -cf - . | ssh -p "$PORT" -o BatchMode=yes "$HOST" \
-  "set -euo pipefail; incoming=\$(mktemp -d '$STAGE/.tg4-stage.XXXXXX'); tar -C \"\$incoming\" -xf -; cp -a \"\$incoming\"/. '$STAGE'/; rm -rf \"\$incoming\"; chmod 0755 '$STAGE/train_scripts/kai/run_temporal_grounding_tg4_train.sh' '$STAGE/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py'"
+  "set -euo pipefail; incoming=\$(mktemp -d '$STAGE/.tg4-stage.XXXXXX'); tar -C \"\$incoming\" -xf -; cp -a \"\$incoming\"/. '$STAGE'/; rm -rf \"\$incoming\"; chmod 0755 '$STAGE/train_scripts/kai/run_temporal_grounding_tg4_immutable.sh' '$STAGE/train_scripts/kai/run_temporal_grounding_tg4_train.sh' '$STAGE/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py'"
 
 ssh -p "$PORT" -o BatchMode=yes "$HOST" bash -s -- "$STAGE" "$REMOTE_MARKER" <<'REMOTE'
 set -euo pipefail

@@ -50,7 +50,7 @@ Entrypoint: |
   git config --global --add safe.directory "$REPO/lmvla/lawam"
   test "$(git -C "$REPO/lmvla/lawam" rev-parse HEAD)" = 4bcf17f67b71d700885e2e279700d373dc5ecbfd
   bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
-  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg4_train.sh"
+  REPO_ROOT="$REPO" bash "$REPO/train_scripts/kai/run_temporal_grounding_tg4_immutable.sh"
 
 RetryOptions:
   EnableRetry: false

@@ -6481,6 +6481,37 @@ def test_terminal_task_accepts_completion_file_after_clean_platform_exit(
     assert "stopped_after_completion_artifact" not in attempt
 
 
+def test_failed_terminal_accepts_artifact_only_with_task_scoped_audit_marker(
+    tmp_path: Path,
+) -> None:
+    marker = tmp_path / "validated-recovery.json"
+    marker.write_text(
+        json.dumps(
+            {
+                "complete": True,
+                "accepted_task_ids": ["tg4_auxiliary_seed1100_train"],
+            }
+        )
+    )
+    task = {
+        "id": "tg4_auxiliary_seed1100_train",
+        "completion_requires_successful_terminal_state": True,
+        "validated_terminal_recovery_marker": str(marker),
+    }
+    state = {
+        "status": "pending",
+        "attempts": [{"last_state": "Failed"}],
+    }
+
+    assert scheduler.completion_artifacts_are_admissible(task, state) is True
+
+    task["id"] = "tg4_unrelated_train"
+    assert scheduler.completion_artifacts_are_admissible(task, state) is False
+
+    marker.write_text("not-json")
+    assert scheduler.completion_artifacts_are_admissible(task, state) is False
+
+
 def test_successful_task_waits_for_delayed_completion_file_visibility(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -6751,7 +6782,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 134
+    assert len(tasks) == 136
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6837,17 +6868,35 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             for candidate in gf1
         )
     for task in tg4.values():
-        expected_stage = (
-            "temporal_grounding_tg4_conditioning_ddp_repair_north_stage"
-            if "conditioning_only" in task["id"]
-            else "temporal_grounding_tg4_north_stage"
-        )
+        expected_stage = "temporal_grounding_tg4_immutable_runner_north_stage"
         assert task["requires_completed_tasks"] == [expected_stage]
     repair_stage = tasks[
         "temporal_grounding_tg4_conditioning_ddp_repair_north_stage"
     ]
     assert repair_stage["candidates"][0]["gpus"] == 0
     assert "TG4_STAGE_MARKER_NAME=" in repair_stage["candidates"][0]["command"]
+    immutable_stage = tasks[
+        "temporal_grounding_tg4_immutable_runner_north_stage"
+    ]
+    assert immutable_stage["candidates"][0]["gpus"] == 0
+    assert "TG4_STAGE_MARKER_NAME=" in immutable_stage["candidates"][0]["command"]
+    terminal_recovery = tasks["temporal_grounding_tg4_terminal_recovery"]
+    assert terminal_recovery["candidates"][0]["gpus"] == 0
+    for seed in (1100, 1101):
+        task = tasks[f"temporal_grounding_tg4_auxiliary_only_seed{seed}_train"]
+        assert task["validated_terminal_recovery_marker"].endswith(
+            "temporal_grounding_tg4_validated_terminal_recovery_v1.json"
+        )
+    for arm, seed in (
+        ("conditioning_only", 1101),
+        ("conditioning_only", 1102),
+        ("future_off", 1100),
+        ("future_off", 1101),
+    ):
+        task = tasks[f"temporal_grounding_tg4_{arm}_seed{seed}_train"]
+        assert task["rearm_after_ready_file"].endswith(
+            "temporal_grounding_tg4_partial_cleanup_20260813.json"
+        )
     assert all(
         candidate["runtime_revision"]
         == "temporal_grounding_tg4_v1"

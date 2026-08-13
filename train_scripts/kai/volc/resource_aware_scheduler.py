@@ -9604,6 +9604,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         manifests / "temporal_grounding_tg4_source_decomposition_v1.json"
     )
     tg4_runner = REPO / "train_scripts/kai/run_temporal_grounding_tg4_train.sh"
+    tg4_immutable_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg4_immutable.sh"
+    )
     tg4_verifier = (
         REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py"
     )
@@ -9636,8 +9639,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(tg4_manifest), "sha256": "8df27357f1650b47eedd4eeb4c9b82e2ea82a49ad02c0afff58fc98d926d1b52"},
         {"path": str(tg4_runner), "sha256": "9be485193d15d081b9eb19621b3bdd1ce4e9a5f7a681dc5d86ea2b050687695e"},
         {"path": str(tg4_verifier), "sha256": "9c4d339a52742ef68d6e47f6ddb21cd7d696baa8a7b3a469e930e2ff44f0f084"},
-        {"path": str(tg4_east_yaml), "sha256": "d31681cabe8bfc67858970a342461782d40f975c25ea70aed428519f7d09c318"},
-        {"path": str(tg4_north_yaml), "sha256": "cb4ae7408df406b95fd1bc5aa63fedb87d6e8b6a5214c19fc243dcf16fdbc64c"},
+        {"path": str(tg4_immutable_runner), "sha256": "846e1f3282f729370eceda67c25f32beb0f8496ec9637f3868ee52fc84915718"},
+        {"path": str(tg4_east_yaml), "sha256": "82943534cd1a45c5f929cfd1853e7aa504e9457f075a5ef7de55cbaf989e36e6"},
+        {"path": str(tg4_north_yaml), "sha256": "bdada3f4fcf9958dd8c77822e7ccac2f7b0d38aebb43fc5754a1df1e2309e4f9"},
     ]
     tg4_stage_task = {
         "id": tg4_stage_id,
@@ -9649,12 +9653,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "ready_files": [
             str(tg4_manifest),
             str(tg4_runner),
+            str(tg4_immutable_runner),
             str(tg4_verifier),
             str(tg4_stage_script),
         ],
         "ready_hashes": [
-            *tg4_ready_hashes[:3],
-            {"path": str(tg4_stage_script), "sha256": "0d75e14fbaf35981418a2ac6cad12383ffee0cdf9dfd3281b34e05986a06360c"},
+            *tg4_ready_hashes[:4],
+            {"path": str(tg4_stage_script), "sha256": "47b0bfd03168f863ff5c2d719f5df100d9b5f4aef3873a3c379d7bff40f45221"},
         ],
         "candidates": [
             {
@@ -9686,12 +9691,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "ready_files": [
             str(tg4_manifest),
             str(tg4_runner),
+            str(tg4_immutable_runner),
             str(tg4_verifier),
             str(tg4_stage_script),
         ],
         "ready_hashes": [
-            *tg4_ready_hashes[:3],
-            {"path": str(tg4_stage_script), "sha256": "0d75e14fbaf35981418a2ac6cad12383ffee0cdf9dfd3281b34e05986a06360c"},
+            *tg4_ready_hashes[:4],
+            {"path": str(tg4_stage_script), "sha256": "47b0bfd03168f863ff5c2d719f5df100d9b5f4aef3873a3c379d7bff40f45221"},
         ],
         "candidates": [
             {
@@ -9720,6 +9726,128 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     else:
         existing_tasks[tg4_ddp_repair_stage_id].update(tg4_ddp_repair_stage_task)
 
+    tg4_immutable_stage_id = "temporal_grounding_tg4_immutable_runner_north_stage"
+    tg4_immutable_marker_name = (
+        "temporal_grounding_tg4_immutable_runner_north_stage.ok"
+    )
+    tg4_immutable_marker = REPO / "logs/resource_markers" / tg4_immutable_marker_name
+    tg4_immutable_marker_remote = (
+        Path(north_stage) / "logs/resource_markers" / tg4_immutable_marker_name
+    )
+    tg4_immutable_stage_task = {
+        "id": tg4_immutable_stage_id,
+        "priority": 0,
+        "description": "Stage the immutable TG4 runtime launcher on North",
+        "rearm_after_ready_file": str(tg4_stage_script),
+        "completion_glob": str(tg4_immutable_marker),
+        "completion_min_count": 1,
+        "ready_files": [
+            str(tg4_manifest),
+            str(tg4_runner),
+            str(tg4_immutable_runner),
+            str(tg4_verifier),
+            str(tg4_stage_script),
+        ],
+        "ready_hashes": [
+            *tg4_ready_hashes[:4],
+            {
+                "path": str(tg4_stage_script),
+                "sha256": "47b0bfd03168f863ff5c2d719f5df100d9b5f4aef3873a3c379d7bff40f45221",
+            },
+        ],
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 30,
+                "max_failures": 3,
+                "status_dir": str(
+                    REPO / "logs/temporal_grounding/tg4/immutable_runner_north_stage"
+                ),
+                "command": shlex.join(
+                    [
+                        "env",
+                        f"TG4_STAGE_MARKER_NAME={tg4_immutable_marker_name}",
+                        "bash",
+                        str(tg4_stage_script),
+                    ]
+                ),
+            }
+        ],
+    }
+    if tg4_immutable_stage_id not in existing:
+        queue["tasks"].append(tg4_immutable_stage_task)
+        existing.add(tg4_immutable_stage_id)
+    else:
+        existing_tasks[tg4_immutable_stage_id].update(tg4_immutable_stage_task)
+
+    tg4_terminal_recovery_verifier = (
+        REPO
+        / "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_terminal_recovery.py"
+    )
+    tg4_terminal_recovery_marker = (
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg4_validated_terminal_recovery_v1.json"
+    )
+    tg4_terminal_recovery_id = "temporal_grounding_tg4_terminal_recovery"
+    tg4_terminal_recovery_task = {
+        "id": tg4_terminal_recovery_id,
+        "priority": 0,
+        "description": (
+            "Strictly audit the two TG4 auxiliary runs whose platform shells "
+            "failed only after step-20000 persistence"
+        ),
+        "rearm_after_ready_file": str(tg4_terminal_recovery_verifier),
+        "completion_glob": str(tg4_terminal_recovery_marker),
+        "completion_min_count": 1,
+        "ready_files": [str(tg4_terminal_recovery_verifier)],
+        "ready_hashes": [
+            {
+                "path": str(tg4_terminal_recovery_verifier),
+                "sha256": "d6bb3c45ab017fee04f50686b861553b2f7af5b56ce99ac4ac535891924da0da",
+            }
+        ],
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 30,
+                "max_failures": 2,
+                "status_dir": str(
+                    REPO / "logs/temporal_grounding/tg4/terminal_recovery"
+                ),
+                "command": shlex.join(
+                    [
+                        sys.executable,
+                        str(tg4_terminal_recovery_verifier),
+                        "--repo",
+                        str(REPO),
+                        "--output",
+                        str(tg4_terminal_recovery_marker),
+                    ]
+                ),
+            }
+        ],
+    }
+    if tg4_terminal_recovery_id not in existing:
+        queue["tasks"].append(tg4_terminal_recovery_task)
+        existing.add(tg4_terminal_recovery_id)
+    else:
+        existing_tasks[tg4_terminal_recovery_id].update(tg4_terminal_recovery_task)
+
+    tg4_partial_cleanup_marker = (
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg4_partial_cleanup_20260813.json"
+    )
+    tg4_partial_cleanup_cells = {
+        ("conditioning_only", 1101),
+        ("conditioning_only", 1102),
+        ("future_off", 1100),
+        ("future_off", 1101),
+    }
+
     for arm in (
         "clean_base",
         "future_off",
@@ -9732,14 +9860,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             task_id = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
             run_id = f"temporal_grounding_tg4_{arm}_seed{seed}"
             conditioning_ddp_repair = arm == "conditioning_only"
-            stage_dependency = (
-                tg4_ddp_repair_stage_id if conditioning_ddp_repair else tg4_stage_id
-            )
-            stage_marker_remote = (
-                tg4_ddp_repair_marker_remote
-                if conditioning_ddp_repair
-                else tg4_stage_marker_remote
-            )
+            stage_dependency = tg4_immutable_stage_id
+            stage_marker_remote = tg4_immutable_marker_remote
             gf1_runtime_revision = (
                 "temporal_grounding_tg4_conditioning_ddp_gf1_v4"
                 if conditioning_ddp_repair
@@ -9774,6 +9896,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "ready_files": [
                     str(tg4_manifest),
                     str(tg4_runner),
+                    str(tg4_immutable_runner),
                     str(tg4_verifier),
                     str(tg4_east_yaml),
                     str(tg4_north_yaml),
@@ -9783,6 +9906,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     f"{north_stage}/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_source_decomposition_v1.json",
                     f"{north_stage}/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_bundle.py",
                     f"{north_stage}/train_scripts/kai/run_temporal_grounding_tg4_train.sh",
+                    f"{north_stage}/train_scripts/kai/run_temporal_grounding_tg4_immutable.sh",
                 ],
                 "ready_hashes": tg4_ready_hashes,
                 "candidates": [
@@ -9811,7 +9935,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 f"TG4_ARM={arm}",
                                 f"TG4_TRAIN_SEED={seed}",
                                 "bash",
-                                str(tg4_runner),
+                                str(tg4_immutable_runner),
                             ]
                         ),
                     },
@@ -9840,7 +9964,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 f"TG4_ARM={arm}",
                                 f"TG4_TRAIN_SEED={seed}",
                                 "bash",
-                                str(tg4_runner),
+                                str(tg4_immutable_runner),
                             ]
                         ),
                     },
@@ -9874,6 +9998,12 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     },
                 ],
             }
+            if arm == "auxiliary_only" and seed in {1100, 1101}:
+                task["validated_terminal_recovery_marker"] = str(
+                    tg4_terminal_recovery_marker
+                )
+            if (arm, seed) in tg4_partial_cleanup_cells:
+                task["rearm_after_ready_file"] = str(tg4_partial_cleanup_marker)
             if task_id not in existing:
                 queue["tasks"].append(task)
                 existing.add(task_id)
@@ -13346,7 +13476,18 @@ def completion_artifacts_are_admissible(
     if not task.get("completion_requires_successful_terminal_state"):
         return True
     attempts = task_state.get("attempts", [])
-    return bool(attempts) and attempts[-1].get("last_state") in SUCCESSFUL_TERMINAL_STATES
+    if bool(attempts) and attempts[-1].get("last_state") in SUCCESSFUL_TERMINAL_STATES:
+        return True
+    marker = task.get("validated_terminal_recovery_marker")
+    if not marker:
+        return False
+    try:
+        payload = json.loads(Path(marker).read_text())
+    except (OSError, ValueError, TypeError):
+        return False
+    return bool(payload.get("complete")) and task["id"] in payload.get(
+        "accepted_task_ids", []
+    )
 
 
 def refresh_causal_reports() -> None:
