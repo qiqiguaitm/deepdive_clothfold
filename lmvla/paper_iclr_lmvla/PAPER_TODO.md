@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 06:27 UTC
+Updated: 2026-08-13 06:49 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -113,8 +113,10 @@ are excluded from within-architecture causal contrasts.
 - [ ] **TG4-E1 [IMPLEMENTED; BLOCKED by I1]** Twenty-one scheduler tasks are
   registered under the independently frozen evaluation manifest: normal for
   all 18 arm/seed cells and within-task shuffled content for all three `full`
-  checkpoints. Each task requires exactly 24 fixed-scene summaries and can use
-  local 2-GPU, East 4-GPU, or either of two disjoint gf1 4-GPU slices. The gf1
+  checkpoints. Each task requires exactly 24 fixed-scene summaries. Normal
+  panels can use local 2-GPU, East 4-GPU, North 4-GPU, or either of two
+  disjoint gf1 4-GPU slices; shuffled panels remain on shared-storage resources
+  so the captured condition cannot cross an unverified storage boundary. The gf1
   slices carry explicit `CUDA_VISIBLE_DEVICES` mappings and separate port
   namespaces so two evaluations can execute concurrently after training frees
   that host. `full` shuffled additionally depends on
@@ -123,10 +125,16 @@ are excluded from within-architecture causal contrasts.
   that the local and East launchers referenced untracked `lmwm` renderer paths;
   both now point to the existing, previously exercised `lmwam` helpers. This
   path-only repair changed no checkpoint, task, scene, seed, episode, or
-  intervention definition. The symlink healer and two renderer helpers are now
-  explicit frozen hash and readiness dependencies, the repaired bundle
-  verifier passes, and a local symlink-heal plus `SapienRenderer` construction
-  completed successfully.
+  intervention definition. Before any evaluation started, the frozen runtime
+  bundle was further extended with a hash-gated North staging task. It reuses
+  exact North-native checkpoints by verified hard link, uploads only missing
+  final models, and atomically materializes every North result; for `full`, it
+  also re-verifies and materializes the complete feature capture before the
+  matching shuffled panel can start. Analysis now depends on those materialized
+  normal panels rather than platform terminal state alone. The symlink healer,
+  renderer helpers, North wrapper, staging script, and materializer are explicit
+  frozen hash dependencies; the repaired bundle verifier and all 211 related
+  scheduler/TG4 tests pass.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,

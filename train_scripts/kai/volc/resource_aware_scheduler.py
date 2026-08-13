@@ -10239,6 +10239,26 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_eval_yaml = (
         REPO / "train_scripts/kai/volc/temporal_grounding_tg4_eval_east_4h20.yaml"
     )
+    tg4_eval_north_yaml = (
+        REPO / "train_scripts/kai/volc/temporal_grounding_tg4_eval_north_4h20.yaml"
+    )
+    tg4_eval_north_stage_runner = (
+        REPO / "train_scripts/kai/stage_temporal_grounding_tg4_eval_to_north.sh"
+    )
+    tg4_eval_north_materializer = (
+        REPO / "train_scripts/kai/sync_temporal_grounding_tg4_eval_from_north.sh"
+    )
+    tg4_eval_north_stage = (
+        Path(NORTH_REPO) / ".staging/temporal_grounding_tg4_eval_v1/repo"
+    )
+    tg4_eval_north_stage_id = "temporal_grounding_tg4_eval_north_stage"
+    tg4_eval_north_stage_marker = (
+        REPO / "logs/resource_markers/temporal_grounding_tg4_eval_north_stage.ok"
+    )
+    tg4_eval_north_stage_marker_remote = (
+        tg4_eval_north_stage
+        / "logs/resource_markers/temporal_grounding_tg4_eval_north_stage.ok"
+    )
     tg4_scene_manifest = (
         REPO / "lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"
     )
@@ -10248,18 +10268,70 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_symlink_healer = REPO / "lmvla/lmwam/env/heal_lawam_symlinks.sh"
     tg4_renderer_env = REPO / "lmvla/lmwam/env/prepare_robotwin_renderer.sh"
     tg4_renderer_wrapper = REPO / "lmvla/lmwam/scripts/robotwin_python_wrapper.sh"
+    tg4_north_renderer_wrapper = (
+        REPO / "train_scripts/kai/eval/robotwin_python_wrapper_north.sh"
+    )
     tg4_eval_hashes = [
-        {"path": str(tg4_eval_manifest), "sha256": "d8fd081ad048730ea50a00b11db30f67d407f79d84a781fd47245d19aa446446"},
+        {"path": str(tg4_eval_manifest), "sha256": "e3ecf403dbc70bf371468cff1562fa0ff0e2e2e7c480c866258cd8651d828851"},
         {"path": str(tg4_eval_verifier), "sha256": "75b3a7ee1ffb1b2fa703b199cc12ac24a8e5b9ca0908a692cf5a0cbafad464ee"},
-        {"path": str(tg4_eval_runner), "sha256": "cc90d5743565f6918012170f71a4d9f3c4eeba8607a24c614b84009c4c3a82cc"},
+        {"path": str(tg4_eval_runner), "sha256": "00f9d82c897c26b779462d8a048e5d764ada167b56b345b958e14d28e7c33033"},
         {"path": str(tg4_eval_yaml), "sha256": "e777196f9925ee7cb8423d3e1c6d45e51d2b7ea7a8cc95e108b60b00fb76ae26"},
+        {"path": str(tg4_eval_north_yaml), "sha256": "6ffcb0623ce7adf989427250b5d68e4af7e9e501b09742a676b63e812867b6dc"},
+        {"path": str(tg4_eval_north_stage_runner), "sha256": "c0ff65bf9f93f0134b5f067944e57d9d80a37cc596c92d9427aed8e3dcabe3c7"},
+        {"path": str(tg4_eval_north_materializer), "sha256": "5f2e78ca7ef8ee0ee5dc6f0e8f4deeca6d8e9e06686e5864172cac7f167b83bd"},
+        {"path": str(tg4_north_renderer_wrapper), "sha256": "a3c2a83152f8cb5cd121e9d1b9181a96af0238a797baad4219f9cb5b14618f83"},
         {"path": str(tg4_scene_manifest), "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17"},
         {"path": str(tg4_shuffle_manifest), "sha256": "0843341173b71d5009337e6eecd0eee89f28f034c698ce44840e1b08529804f7"},
         {"path": str(tg4_symlink_healer), "sha256": "46fbac6fc8f908b04f1150e7e4860922a2df46cbfb7f78d7dff85022c37d6c5d"},
         {"path": str(tg4_renderer_env), "sha256": "3c94cbd4d8a88a66a821d7129cbf4641cbd1fa2fca7d264bb894aeef12d1a69f"},
         {"path": str(tg4_renderer_wrapper), "sha256": "4aed2bf9e3971b1a69b4c42349afb9608b1e5043ff965d823777417f217b5a9d"},
     ]
+    tg4_eval_north_stage_task = {
+        "id": tg4_eval_north_stage_id,
+        "priority": 0,
+        "description": (
+            "Stage the frozen TG4 evaluator and exact final checkpoints on North"
+        ),
+        "requires_completed_tasks": [tg4_integrity_id],
+        "rearm_after_ready_file": str(tg4_eval_manifest),
+        "completion_glob": str(tg4_eval_north_stage_marker),
+        "completion_min_count": 1,
+        "ready_files": [
+            str(tg4_integrity_marker),
+            str(REPO / "logs/temporal_grounding/tg4/training_integrity.json"),
+            str(tg4_eval_manifest),
+            str(tg4_eval_north_stage_runner),
+            str(tg4_eval_north_materializer),
+            str(tg4_eval_north_yaml),
+        ],
+        "ready_hashes": tg4_eval_hashes,
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 300,
+                "max_failures": 2,
+                "status_dir": str(
+                    REPO / "logs/temporal_grounding/tg4/eval_north_stage"
+                ),
+                "command": shlex.join(
+                    ["bash", str(tg4_eval_north_stage_runner)]
+                ),
+            }
+        ],
+    }
+    if tg4_eval_north_stage_id not in existing:
+        queue["tasks"].append(tg4_eval_north_stage_task)
+        existing.add(tg4_eval_north_stage_id)
+    else:
+        existing_tasks[tg4_eval_north_stage_id].update(
+            tg4_eval_north_stage_task
+        )
+
     tg4_eval_ids = []
+    tg4_analysis_inputs = []
+    tg4_normal_materialize_ids: dict[int, str] = {}
     for arm in (
         "clean_base",
         "future_off",
@@ -10281,6 +10353,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     / "lmvla/lawam/results/eval_runs/robotwin"
                     / f"{run_id}_{condition}"
                 )
+                remote_result_root = (
+                    tg4_eval_north_stage
+                    / "lmvla/lawam_local/results/eval_runs/robotwin"
+                    / f"{run_id}_{condition}"
+                )
                 dependencies = [tg4_integrity_id]
                 ready_files = [
                     str(tg4_integrity_marker),
@@ -10295,9 +10372,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     str(tg4_renderer_wrapper),
                 ]
                 if condition == "shuffled":
-                    dependencies.append(
-                        f"temporal_grounding_tg4_full_seed{seed}_normal_eval"
-                    )
+                    dependencies.append(tg4_normal_materialize_ids[seed])
                     ready_files.append(
                         str(
                             REPO
@@ -10406,13 +10481,153 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 "TG4_CONDITION": condition,
                             },
                         },
+                        *(
+                            [
+                                {
+                                    "kind": "platform",
+                                    "resource": "Robot-North-H20",
+                                    "region": "cn-beijing",
+                                    "gpus": 4,
+                                    "queue_timeout_seconds": 300,
+                                    "deploy_timeout_seconds": 900,
+                                    "retry_cooldown_seconds": 900,
+                                    "max_failures": 1,
+                                    "runtime_revision": (
+                                        "temporal_grounding_tg4_eval_north_v1"
+                                    ),
+                                    "yaml": str(
+                                        tg4_eval_north_yaml.relative_to(REPO)
+                                    ),
+                                    "task_name": (
+                                        "temporal-grounding-tg4-"
+                                        f"{arm.replace('_', '-')}-s{seed}-"
+                                        "normal-eval-north4g"
+                                    ),
+                                    "ready_files": [
+                                        str(tg4_eval_north_stage_marker)
+                                    ],
+                                    "ready_files_remote": [
+                                        str(tg4_eval_north_stage_marker_remote),
+                                    ],
+                                    "ready_globs_remote": [
+                                        str(
+                                            tg4_eval_north_stage
+                                            / "lmvla/lawam_local/results/"
+                                            "Checkpoints/robotwin"
+                                            / f"*+{run_id}"
+                                            / "final_model/pytorch_model.pt"
+                                        )
+                                    ],
+                                    "env": {
+                                        "TG4_ARM": arm,
+                                        "TG4_TRAIN_SEED": str(seed),
+                                        "TG4_CONDITION": condition,
+                                    },
+                                }
+                            ]
+                            if condition == "normal"
+                            else []
+                        ),
                     ],
                 }
+                if condition == "normal":
+                    remote_marker = (
+                        tg4_eval_north_stage
+                        / "logs/resource_markers"
+                        / f"{run_id}_normal_eval.ok"
+                    )
+                    task["completion_locations"] = [
+                        {
+                            "label": "shared",
+                            "glob": str(
+                                result_root / "seed*/**/tasks/*/summary.json"
+                            ),
+                            "remote": False,
+                        },
+                        {
+                            "label": "north",
+                            "glob": str(
+                                remote_result_root
+                                / "seed*/**/tasks/*/summary.json"
+                            ),
+                            "remote": True,
+                        },
+                    ]
+                    task["progress_globs_remote"] = [
+                        {
+                            "label": "cells",
+                            "glob": str(
+                                remote_result_root
+                                / "seed*/**/tasks/*/summary.json"
+                            ),
+                            "expected": 24,
+                        }
+                    ]
                 if task_id not in existing:
                     queue["tasks"].append(task)
                     existing.add(task_id)
                 else:
                     existing_tasks[task_id].update(task)
+
+                if condition == "normal":
+                    materialize_id = f"{task_id}_materialize_north"
+                    tg4_normal_materialize_ids[seed] = materialize_id
+                    tg4_analysis_inputs.append(materialize_id)
+                    materialized_marker = (
+                        REPO
+                        / "logs/resource_markers"
+                        / f"{run_id}_normal_eval_materialized.ok"
+                    )
+                    materialize_task = {
+                        "id": materialize_id,
+                        "priority": 0,
+                        "description": (
+                            "Verify and materialize North TG4 evaluation "
+                            f"arm={arm} seed={seed}"
+                        ),
+                        "materialize_north_result_for": task_id,
+                        "rearm_after_ready_file": str(tg4_eval_manifest),
+                        "completion_glob": str(materialized_marker),
+                        "completion_min_count": 1,
+                        "ready_files": [
+                            str(tg4_eval_manifest),
+                            str(tg4_eval_north_materializer),
+                        ],
+                        "ready_files_remote": [str(remote_marker)],
+                        "ready_hashes": tg4_eval_hashes,
+                        "candidates": [
+                            {
+                                "kind": "local",
+                                "resource": "local",
+                                "gpus": 0,
+                                "retry_cooldown_seconds": 300,
+                                "max_failures": 3,
+                                "status_dir": str(
+                                    REPO
+                                    / "logs/temporal_grounding/tg4/"
+                                    "eval_materialize_north"
+                                    / f"{arm}_seed{seed}"
+                                ),
+                                "command": shlex.join(
+                                    [
+                                        "env",
+                                        f"TG4_ARM={arm}",
+                                        f"TG4_TRAIN_SEED={seed}",
+                                        "TG4_CONDITION=normal",
+                                        "bash",
+                                        str(tg4_eval_north_materializer),
+                                    ]
+                                ),
+                            }
+                        ],
+                    }
+                    if materialize_id not in existing:
+                        queue["tasks"].append(materialize_task)
+                        existing.add(materialize_id)
+                    else:
+                        existing_tasks[materialize_id].update(materialize_task)
+                else:
+                    tg4_analysis_inputs.append(task_id)
 
     tg4_analysis_id = "temporal_grounding_tg4_analysis"
     tg4_analyzer = REPO / "lmvla/lmwm/scripts/analyze_temporal_grounding_tg4.py"
@@ -10429,7 +10644,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "id": tg4_analysis_id,
         "priority": 0,
         "description": "Run the frozen TG4 seven-contrast hierarchical analysis",
-        "requires_completed_tasks": tg4_eval_ids,
+        "requires_completed_tasks": tg4_analysis_inputs,
         "rearm_after_ready_file": str(tg4_eval_manifest),
         "completion_glob": str(tg4_analysis_marker),
         "completion_min_count": 1,

@@ -15,10 +15,15 @@ SHUFFLE="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_shuffle_
 INTEGRITY="$REPO/logs/resource_markers/temporal_grounding_tg4_training_integrity.ok"
 EVAL_MANIFEST="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_evaluation_v1.json"
 RUN_ID="temporal_grounding_tg4_${ARM}_seed${TRAIN_SEED}"
-RESULT_ROOT="$LAWAM/results/eval_runs/robotwin/${RUN_ID}_${CONDITION}"
-FEATURE_ROOT="$REPO/logs/temporal_grounding/tg4/features/${RUN_ID}"
-CAPTURE_MARKER="$REPO/logs/resource_markers/${RUN_ID}_normal_capture_complete.json"
-LOG_DIR="$REPO/logs/temporal_grounding/tg4/eval"
+CHECKPOINT_ROOT="${TG4_CHECKPOINT_ROOT:-$LAWAM/results/Checkpoints/robotwin}"
+RESULT_BASE="${TG4_RESULT_BASE:-$LAWAM/results/eval_runs/robotwin}"
+FEATURE_BASE="${TG4_FEATURE_BASE:-$REPO/logs/temporal_grounding/tg4/features}"
+MARKER_ROOT="${TG4_MARKER_ROOT:-$REPO/logs/resource_markers}"
+LOG_DIR="${TG4_LOG_DIR:-$REPO/logs/temporal_grounding/tg4/eval}"
+CONTROL_PYTHON="${TG4_CONTROL_PYTHON:-$REPO/kai0/.venv/bin/python}"
+RESULT_ROOT="$RESULT_BASE/${RUN_ID}_${CONDITION}"
+FEATURE_ROOT="$FEATURE_BASE/${RUN_ID}"
+CAPTURE_MARKER="$MARKER_ROOT/${RUN_ID}_normal_capture_complete.json"
 STAMP="$(date -u +%Y%m%d_%H%M%S)"
 
 case "$ARM" in
@@ -64,10 +69,10 @@ test -f "$INTEGRITY"
 test -f "$SCENES"
 test -f "$SHUFFLE"
 test -f "$EVAL_MANIFEST"
-"$REPO/kai0/.venv/bin/python" \
+"$CONTROL_PYTHON" \
   "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_evaluation.py" \
   --repo "$REPO" --manifest "$EVAL_MANIFEST"
-mapfile -t RUN_DIRS < <(find "$LAWAM/results/Checkpoints/robotwin" -maxdepth 1 \
+mapfile -t RUN_DIRS < <(find "$CHECKPOINT_ROOT" -maxdepth 1 \
   -type d -name "*+${RUN_ID}" -print | sort)
 [[ ${#RUN_DIRS[@]} -eq 1 ]] || {
   echo "expected exactly one checkpoint run for $RUN_ID, found ${#RUN_DIRS[@]}" >&2
@@ -158,7 +163,7 @@ for ((batch_start=0; batch_start<4; batch_start+=GPU_COUNT)); do
 done
 
 if [[ "$status" == 0 && "$ARM" == full && "$CONDITION" == normal ]]; then
-  "$REPO/kai0/.venv/bin/python" \
+  "$CONTROL_PYTHON" \
     "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_feature_capture.py" \
     --feature-root "$FEATURE_ROOT" \
     --scene-manifest "$SCENES" \

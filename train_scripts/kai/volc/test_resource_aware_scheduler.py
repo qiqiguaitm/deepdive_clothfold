@@ -6782,7 +6782,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 143
+    assert len(tasks) == 162
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6982,15 +6982,26 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         for task_id in temporal_grounding_evals
     )
     assert len(tg4_evals) == 21
+    normal_tg4 = {
+        task_id: task
+        for task_id, task in tg4_evals.items()
+        if "_normal_eval" in task_id
+    }
+    assert len(normal_tg4) == 18
     assert all(
         {candidate["resource"] for candidate in task["candidates"]}
-        == {"gf1", "local", "Robot-East-H20"}
-        for task in tg4_evals.values()
+        == {"gf1", "local", "Robot-East-H20", "Robot-North-H20"}
+        for task in normal_tg4.values()
     )
     assert all(
         {candidate["resource"]: candidate["gpus"] for candidate in task["candidates"]}
-        == {"gf1": 4, "local": 2, "Robot-East-H20": 4}
-        for task in tg4_evals.values()
+        == {
+            "gf1": 4,
+            "local": 2,
+            "Robot-East-H20": 4,
+            "Robot-North-H20": 4,
+        }
+        for task in normal_tg4.values()
     )
     assert all(task["allow_temporary_gf1"] for task in tg4_evals.values())
     assert all(task["prefer_max_gpus_when_immediate"] for task in tg4_evals.values())
@@ -7008,6 +7019,27 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "0",
             "1000",
         ]
+    for task in normal_tg4.values():
+        north = next(
+            candidate
+            for candidate in task["candidates"]
+            if candidate["resource"] == "Robot-North-H20"
+        )
+        assert north["gpus"] == 4
+        assert north["runtime_revision"] == "temporal_grounding_tg4_eval_north_v1"
+        assert north["yaml"].endswith(
+            "temporal_grounding_tg4_eval_north_4h20.yaml"
+        )
+        assert north["ready_files_remote"][0].endswith(
+            "temporal_grounding_tg4_eval_north_stage.ok"
+        )
+        assert north["ready_globs_remote"][0].endswith(
+            "final_model/pytorch_model.pt"
+        )
+        assert {location["label"] for location in task["completion_locations"]} == {
+            "shared",
+            "north",
+        }
     assert all(task["completion_min_count"] == 24 for task in tg4_evals.values())
     assert all(
         any(
@@ -7044,15 +7076,46 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         f"temporal_grounding_tg4_full_seed{seed}_shuffled_eval"
         for seed in (1100, 1101, 1102)
     }
+    assert all(
+        {candidate["resource"] for candidate in task["candidates"]}
+        == {"gf1", "local", "Robot-East-H20"}
+        for task in shuffled_tg4.values()
+    )
+    north_stage = tasks["temporal_grounding_tg4_eval_north_stage"]
+    assert north_stage["requires_completed_tasks"] == [
+        "temporal_grounding_tg4_training_integrity"
+    ]
+    assert north_stage["candidates"][0]["gpus"] == 0
+    assert "stage_temporal_grounding_tg4_eval_to_north.sh" in north_stage[
+        "candidates"
+    ][0]["command"]
     for seed in (1100, 1101, 1102):
         task = shuffled_tg4[
             f"temporal_grounding_tg4_full_seed{seed}_shuffled_eval"
         ]
-        assert f"temporal_grounding_tg4_full_seed{seed}_normal_eval" in task[
-            "requires_completed_tasks"
-        ]
+        normal_id = f"temporal_grounding_tg4_full_seed{seed}_normal_eval"
+        materialize_id = f"{normal_id}_materialize_north"
+        assert materialize_id in task["requires_completed_tasks"]
+    normal_materializers = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if task_id.startswith("temporal_grounding_tg4_")
+        and task_id.endswith("_normal_eval_materialize_north")
+    }
+    assert len(normal_materializers) == 18
+    for task_id, task in normal_materializers.items():
+        parent_id = task_id.removesuffix("_materialize_north")
+        assert task["materialize_north_result_for"] == parent_id
+        assert task["candidates"][0]["gpus"] == 0
+        assert "sync_temporal_grounding_tg4_eval_from_north.sh" in task[
+            "candidates"
+        ][0]["command"]
+        assert task["ready_files_remote"][0].endswith("_normal_eval.ok")
     tg4_analysis = tasks["temporal_grounding_tg4_analysis"]
-    assert set(tg4_analysis["requires_completed_tasks"]) == set(tg4_evals)
+    assert set(tg4_analysis["requires_completed_tasks"]) == {
+        *normal_materializers,
+        *shuffled_tg4,
+    }
     assert tg4_analysis["candidates"][0]["resource"] == "local"
     assert tg4_analysis["candidates"][0]["gpus"] == 0
 
