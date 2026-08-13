@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 12:30 UTC
+Updated: 2026-08-13 13:02 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -298,10 +298,14 @@ are excluded from within-architecture causal contrasts.
   The independent hourly audit now freezes all 79
   claim-bearing execution gates, including the North staging task and all 18
   normal-result materializers, so it cannot declare completion at a platform
-  eval terminal before the artifacts are verified locally. Its 12:00 UTC poll
-  consumed the current TODO SHA256 and a 19-second-old scheduler snapshot with
-  no errors, found all 79 nodes registered, and scheduled the next poll for
-  13:00 UTC. A pre-integrity
+  eval terminal before the artifacts are verified locally. Its 13:00 UTC poll
+  consumed the exact then-current TODO SHA256
+  (`321e41ad53d0c48db151cc691d004ae55238cb9aa4e3838c34971a254686f5c1`)
+  and a 12-second-old scheduler snapshot with no errors, found all 79 nodes
+  registered, and scheduled the next poll for 14:00 UTC. The independent
+  minute watchdog simultaneously reported the scheduler and hourly-monitor
+  tmux sessions alive, confirming that the prior missing-hourly-trigger issue
+  remains closed. A pre-integrity
   transfer check completed the first accepted East model prefetch at 09:01 UTC,
   including TOS upload/download, remote SHA256 verification, atomic commit, and
   temporary cleanup. The second accepted model then acquired the same lock and
