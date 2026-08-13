@@ -61,7 +61,7 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 08:25 UTC canonical
+- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 09:03 UTC canonical
   snapshot, eight unfinished training cells are Running and two are Queueing on
   North; every cell is completed, running, or submitted, with no undispatched
   training cell. All three `auxiliary_only`
@@ -109,13 +109,13 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
-  6.1k/4.1k/3.9k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  7.2k/5.2k/5.1k. `full` seeds 1100 and 1101 reached exact step 20,000;
   their per-cell recovery watchers verified the frozen configuration,
   initialization, rank orders, final model, optimizer state, and exact
   post-training shell error before admitting them, and both artifacts are now
   materialized locally. `future_off` seeds 1100/1101 are healthy near
-  10.0k/9.8k, parameter-matched-null seeds 1101/1102 near 11.1k/11.2k, and
-  `full` seed 1102 near 8.8k. A fresh exact-token health scan of all eight
+  11.2k/11.0k, parameter-matched-null seeds 1101/1102 near 12.3k/12.3k, and
+  `full` seed 1102 near 9.8k. A fresh exact-token health scan of all eight
   active logs found no NaN/Inf, OOM, CUDA, NCCL, dataloader, or traceback
   failure; observed throughput remains stable at 1.93--2.26 seconds per step.
   The temporary gf1 processes for `future_off`
@@ -191,7 +191,11 @@ are excluded from within-architecture causal contrasts.
   claim-bearing execution gates, including the North staging task and all 18
   normal-result materializers, so it cannot declare completion at a platform
   eval terminal before the artifacts are verified locally. A pre-integrity
-  resource audit confirms that all 21 panels remain unattempted, the frozen
+  transfer check completed the first accepted East model prefetch at 09:01 UTC,
+  including TOS upload/download, remote SHA256 verification, atomic commit, and
+  temporary cleanup; the second accepted model then acquired the same lock and
+  began automatically. The corresponding resource audit confirms that all 21
+  panels remain unattempted, the frozen
   evaluation bundle still passes its hash verifier, and North has the staged
   Python 3.12 runtime, 332-GB RoboTwin dataset tree, required weights, and
   sufficient space for the four expected East-native checkpoint uploads.
