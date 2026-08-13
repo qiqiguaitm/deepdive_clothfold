@@ -25,9 +25,9 @@ fi
   --lock "$LOCK"
 
 test "$(git -C "$REPO" branch --show-current)" = main
-if ! git -C "$REPO" diff --quiet -- "$TODO" "$SUMMARY"; then
+if ! git -C "$REPO" diff --quiet -- "$TODO" "$SUMMARY" "$REPORT"; then
   git -C "$REPO" commit --only -m "Finalize TG4 source decomposition" -- \
-    "$TODO" "$SUMMARY"
+    "$TODO" "$SUMMARY" "$REPORT"
 fi
 git -C "$REPO" push origin main
 head_commit=$(git -C "$REPO" rev-parse HEAD)

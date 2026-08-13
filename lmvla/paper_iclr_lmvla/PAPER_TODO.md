@@ -169,9 +169,10 @@ are excluded from within-architecture causal contrasts.
   follow-up work, and emits hashes for the report, decision marker, summary, and
   resulting TODO. The hourly monitor includes this finalizer as its 79th frozen
   completion node, removing the previous manual TODO-sync gap. Its publication
-  wrapper commits only the TODO and tracked TG4 summary with `git commit
-  --only`, preserves unrelated staged and working-tree changes, pushes `main`,
-  verifies `HEAD == origin/main`, and only then exposes the completion marker.
+  wrapper commits only the TODO, canonical JSON, and tracked TG4 summary with
+  `git commit --only`, preserves unrelated staged and working-tree changes,
+  pushes `main`, verifies `HEAD == origin/main`, and only then exposes the
+  completion marker.
 
 ### TG4 claim gates
 

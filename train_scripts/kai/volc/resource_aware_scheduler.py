@@ -10711,7 +10711,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             },
             {
                 "path": str(tg4_todo_finalizer_runner),
-                "sha256": "8a71356d31ccedc8d22ac809b0d176c8e7af87ebf1e006048e4fa2dd6c2ed97d",
+                "sha256": "f70fd8a3ac7016cf50c1743efedd79ad9ad9059664289bc8fd9d32cfa201cbef",
             },
         ],
         "candidates": [
