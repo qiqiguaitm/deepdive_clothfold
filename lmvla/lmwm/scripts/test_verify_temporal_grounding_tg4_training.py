@@ -105,6 +105,8 @@ def test_accepts_complete_matched_matrix(tmp_path: Path) -> None:
 def test_conditioning_only_enables_unused_parameter_discovery() -> None:
     expected = verifier.expected_arm_config("conditioning_only")
     assert expected[("trainer", "ddp_find_unused_parameters")] is True
+    assert expected[("framework", "action_model", "enable_loss_distill")] is True
+    assert verifier.EXPECTED_ROUTE["conditioning_only"] == (False, True, False)
     assert verifier.expected_arm_config("full")[
         ("trainer", "ddp_find_unused_parameters")
     ] is False

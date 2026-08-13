@@ -92,6 +92,7 @@ def verify_run(repo: Path, arm: str, seed: int, resource: str) -> dict[str, Any]
         "future_prediction": arm != "clean_base",
         "auxiliary_loss": arm in {
             "auxiliary_only",
+            "conditioning_only",
             "parameter_matched_null",
             "full",
         },
