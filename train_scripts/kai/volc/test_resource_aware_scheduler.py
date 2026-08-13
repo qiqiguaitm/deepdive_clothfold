@@ -1812,6 +1812,144 @@ def test_queueing_attempt_can_be_requeued_from_resource(monkeypatch) -> None:
     assert attempt["stopped_by_credential_profile"] == "primary"
 
 
+def test_planned_immediate_migration_requeues_queue_sink(monkeypatch) -> None:
+    task = {"id": "north-to-east", "candidates": []}
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "job_id": "t-north-queued",
+        "started_at": "2026-08-10T00:00:00Z",
+        "last_state": "Queueing",
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Queueing", "message": "waiting"},
+    )
+    stopped = []
+    monkeypatch.setattr(
+        scheduler,
+        "stop_platform_job",
+        lambda region, job_id, profile: stopped.append((region, job_id, profile))
+        or "primary",
+    )
+    monkeypatch.setattr(scheduler, "log", lambda _message: None)
+
+    scheduler.check_managed_task(task, state, "Robot-East-H20")
+
+    assert stopped == [("cn-beijing", "t-north-queued", "primary")]
+    assert state["status"] == "pending"
+    assert attempt["requeued_to_immediate_resource"] == "Robot-East-H20"
+    assert state["waiting_reason"] == (
+        "requeued for immediate Robot-East-H20 capacity"
+    )
+
+
+def test_planned_immediate_migration_keeps_queue_sink_when_stop_fails(
+    monkeypatch,
+) -> None:
+    task = {"id": "north-to-east", "candidates": []}
+    attempt = {
+        "kind": "platform",
+        "resource": "Robot-North-H20",
+        "region": "cn-beijing",
+        "credential_profile": "primary",
+        "job_id": "t-north-queued",
+        "started_at": scheduler.utc_now(),
+        "last_state": "Queueing",
+        "persistent_north_queue_sink": True,
+    }
+    state = {"status": "running", "attempts": [attempt]}
+    monkeypatch.setattr(
+        scheduler,
+        "get_job",
+        lambda *_args: {"state": "Queueing", "message": "waiting"},
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "stop_platform_job",
+        lambda *_args: (_ for _ in ()).throw(RuntimeError("stop denied")),
+    )
+
+    scheduler.check_managed_task(task, state, "Robot-East-H20")
+
+    assert state["status"] == "running"
+    assert "requeued_to_immediate_resource" not in attempt
+    assert attempt["requeue_stop_error"] == "RuntimeError: stop denied"
+
+
+def test_queued_migration_plan_does_not_overbook_immediate_capacity(
+    monkeypatch,
+) -> None:
+    candidate = {
+        "kind": "platform",
+        "resource": "Robot-East-H20",
+        "gpus": 4,
+    }
+    tasks = [
+        {
+            "id": f"task-{index}",
+            "priority": 0,
+            "requeue_queued_when_immediate_resources": ["Robot-East-H20"],
+            "candidates": [candidate],
+        }
+        for index in range(2)
+    ]
+    state = {
+        "tasks": {
+            task["id"]: {
+                "status": "running",
+                "attempts": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-North-H20",
+                        "last_state": "Queueing",
+                    }
+                ],
+            }
+            for task in tasks
+        }
+    }
+    snapshot = {
+        "resources": {
+            "Robot-East-H20": {
+                "available": True,
+                "capacity": 4,
+                "active_gpus_all_users": 0,
+                "queueing_all_users": [],
+            }
+        }
+    }
+    monkeypatch.setattr(
+        scheduler,
+        "ordered_dispatch_candidates",
+        lambda task, _snapshot: task["candidates"],
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "robot_task_fragmentation_blocked",
+        lambda *_args: False,
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "candidate_exhausted",
+        lambda *_args: False,
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "candidate_in_cooldown",
+        lambda *_args: False,
+    )
+
+    planned = scheduler.plan_queued_immediate_migrations(tasks, state, snapshot)
+
+    assert planned == {"task-0": "Robot-East-H20"}
+    assert snapshot["resources"]["Robot-East-H20"]["active_gpus_all_users"] == 0
+
+
 def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(
     monkeypatch,
 ) -> None:
@@ -6828,6 +6966,20 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         for task in tg4.values()
     )
     assert all(task["allow_temporary_gf1"] for task in tg4.values())
+    migration_cells = {
+        task_id
+        for task_id, task in tg4.items()
+        if task.get("requeue_queued_when_immediate_resources")
+    }
+    assert migration_cells == {
+        "temporal_grounding_tg4_future_off_seed1102_train",
+        "temporal_grounding_tg4_parameter_matched_null_seed1100_train",
+    }
+    assert all(
+        tg4[task_id]["requeue_queued_when_immediate_resources"]
+        == ["gf1", "Robot-East-H20"]
+        for task_id in migration_cells
+    )
     for task in tg4.values():
         gf1 = [
             candidate

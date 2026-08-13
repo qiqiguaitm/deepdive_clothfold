@@ -179,6 +179,9 @@ python train_scripts/kai/volc/monitor_paper_todo_hourly.py --interval-seconds 36
 
 North queue-sink attempt 只预留对应身份的 queued GPU，不增加 active GPU
 计数；进入 `Queueing` 后不受上海机会型任务使用的短 queue timeout 影响。任务真正
+进入运行态前，只有显式 opt-in 的任务允许逃离 queue sink：调度器必须先在实时快照
+副本上为更高优先级候选预留足够的即时卡，再使用原提交身份停止 North 排队任务。
+容量不足、候选已失败耗尽或 stop 失败时均保留原任务，不会产生重复提交。
 进入 `Running` 后，平台实时快照接管 GPU 占用统计。上海 `robot-task`/East 仍保持
 机会型策略，排队超时后撤回并在容量变化或 cooldown 后重试。
 

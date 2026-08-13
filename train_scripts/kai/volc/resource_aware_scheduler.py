@@ -2,15 +2,16 @@
 """Resource-aware dispatcher for the remaining RoboTwin experiment queue.
 
 The dispatcher keeps work local until a target has real capacity. It monitors
-the Volc queues and the two-GPU development host, enforces the 20-GPU Beijing
-primary-account limit and the physical 32-GPU robot-task capacity, and records an atomic
-state/snapshot under ``logs/``. The retired gf1 host remains in provenance but
-is excluded from probing and dispatch.
+the Volc queues and the two-GPU development host, enforces the configured
+Beijing identity limits and the physical 32-GPU robot-task capacity, and records
+an atomic state/snapshot under ``logs/``. Temporary gf1 dispatch remains
+operator-gated and task-allowlisted.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import configparser
 import fcntl
 import glob
@@ -10226,6 +10227,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 )
             if (arm, seed) in tg4_partial_cleanup_cells:
                 task["rearm_after_ready_file"] = str(tg4_partial_cleanup_marker)
+            if (arm, seed) in {
+                ("future_off", 1102),
+                ("parameter_matched_null", 1100),
+            }:
+                task["requeue_queued_when_immediate_resources"] = [
+                    "gf1",
+                    "Robot-East-H20",
+                ]
             if task_id not in existing:
                 queue["tasks"].append(task)
                 existing.add(task_id)
@@ -15603,7 +15612,11 @@ def launch_local(candidate: dict[str, Any]) -> str:
     return str(process.pid)
 
 
-def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None:
+def check_managed_task(
+    task: dict[str, Any],
+    task_state: dict[str, Any],
+    queued_migration_target: str | None = None,
+) -> None:
     if task_state.get("status") != "running":
         if task_state.get("artifacts_complete") and completion_artifacts_are_admissible(
             task, task_state
@@ -15656,6 +15669,7 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
         requeue_queued = info["state"] == "Queueing" and (
             credential_profile in requeue_profiles
             or attempt.get("resource") in requeue_resources
+            or queued_migration_target is not None
         )
         if requeue_queued:
             try:
@@ -15665,10 +15679,16 @@ def check_managed_task(task: dict[str, Any], task_state: dict[str, Any]) -> None
                 attempt["stopped_by_credential_profile"] = stop_profile
                 attempt["requeued_from_credential_profile"] = credential_profile
                 attempt["requeued_from_resource"] = attempt.get("resource")
+                if queued_migration_target is not None:
+                    attempt["requeued_to_immediate_resource"] = (
+                        queued_migration_target
+                    )
                 attempt["finished_at"] = checked_at
                 task_state["status"] = "pending"
                 task_state["waiting_reason"] = (
-                    f"requeued from {credential_profile} credential profile"
+                    f"requeued for immediate {queued_migration_target} capacity"
+                    if queued_migration_target is not None
+                    else f"requeued from {credential_profile} credential profile"
                 )
                 task_state["artifacts_complete"] = False
                 log(
@@ -17206,6 +17226,58 @@ def reattach_superseded_attempts_for_current_runtime(
             break
 
 
+def plan_queued_immediate_migrations(
+    tasks: list[dict[str, Any]],
+    state: dict[str, Any],
+    snapshot: dict[str, Any],
+) -> dict[str, str]:
+    """Plan capacity-safe escapes from North queue sinks to ready resources."""
+    projected = copy.deepcopy(snapshot)
+    planned: dict[str, str] = {}
+    for task in tasks:
+        allowed = set(task.get("requeue_queued_when_immediate_resources", []))
+        task_state = state["tasks"][task["id"]]
+        attempts = task_state.get("attempts", [])
+        if not allowed or task_state.get("status") != "running" or not attempts:
+            continue
+        attempt = attempts[-1]
+        if (
+            attempt.get("kind") != "platform"
+            or attempt.get("last_state") != "Queueing"
+            or attempt.get("resource") != "Robot-North-H20"
+        ):
+            continue
+        for candidate in ordered_dispatch_candidates(task, projected):
+            if (
+                candidate.get("resource") not in allowed
+                or candidate.get("resource") == attempt.get("resource")
+                or robot_task_fragmentation_blocked(candidate, state, projected)
+            ):
+                continue
+            if candidate.get("kind") == "platform":
+                credential_profile = candidate_credential_profile(
+                    candidate, projected
+                )
+                if credential_profile is None:
+                    continue
+            else:
+                credential_profile = "primary"
+                if not candidate_available(candidate, projected):
+                    continue
+            if candidate_exhausted(
+                task_state, candidate, task["id"], credential_profile
+            ) or candidate_in_cooldown(
+                task_state, candidate, projected, credential_profile
+            ):
+                continue
+            planned[task["id"]] = candidate["resource"]
+            reserve_dispatched_candidate(
+                projected, candidate, credential_profile
+            )
+            break
+    return planned
+
+
 def dispatch(
     queue: dict[str, Any], state: dict[str, Any], snapshot: dict[str, Any]
 ) -> None:
@@ -17290,6 +17362,10 @@ def dispatch(
         task_state.pop("waiting_reason", None)
         log(f"completed helper {task['id']} because {satisfied_by} is complete")
 
+    queued_migration_targets = plan_queued_immediate_migrations(
+        tasks, state, snapshot
+    )
+
     # Always monitor every active attempt before launching more work. Returning
     # immediately after one dispatch used to starve later running tasks whenever
     # an earlier task was launchable, delaying queue-timeout reclamation.
@@ -17298,7 +17374,11 @@ def dispatch(
             continue
         task_state = state["tasks"][task["id"]]
         if task_state.get("status") == "running":
-            check_managed_task(task, task_state)
+            migration_target = queued_migration_targets.get(task["id"])
+            if migration_target is None:
+                check_managed_task(task, task_state)
+            else:
+                check_managed_task(task, task_state, migration_target)
 
     for task in tasks:
         if not task.get("enabled", True):
