@@ -61,7 +61,7 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 09:03 UTC canonical
+- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 10:30 UTC canonical
   snapshot, eight unfinished training cells are Running and two are Queueing on
   North; every cell is completed, running, or submitted, with no undispatched
   training cell. All three `auxiliary_only`
@@ -109,13 +109,13 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
-  7.2k/5.2k/5.1k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  9.8k/7.8k/7.6k. `full` seeds 1100 and 1101 reached exact step 20,000;
   their per-cell recovery watchers verified the frozen configuration,
   initialization, rank orders, final model, optimizer state, and exact
   post-training shell error before admitting them, and both artifacts are now
   materialized locally. `future_off` seeds 1100/1101 are healthy near
-  11.2k/11.0k, parameter-matched-null seeds 1101/1102 near 12.3k/12.3k, and
-  `full` seed 1102 near 9.8k. A fresh exact-token health scan of all eight
+  13.8k/13.6k, parameter-matched-null seeds 1101/1102 near 14.7k/14.8k, and
+  `full` seed 1102 near 12.0k. A fresh exact-token health scan of all eight
   active logs found no NaN/Inf, OOM, CUDA, NCCL, dataloader, or traceback
   failure; observed throughput remains stable at 1.93--2.26 seconds per step.
   The temporary gf1 processes for `future_off`
@@ -143,7 +143,12 @@ are excluded from within-architecture causal contrasts.
   least five free GPUs before taking four, so at most one queued training cell
   can migrate when the two active legacy East cells terminate. This preserves
   capacity for their one-GPU strict recovery audits instead of delaying
-  checkpoint admission behind another full training wave.
+  checkpoint admission behind another full training wave. At this snapshot,
+  East is 8/8, North primary is 20 active plus 4 queued under its 25-GPU
+  limit, North backup is 4 active plus 4 queued under its 8-GPU limit, and
+  gf1 is occupied by an external eight-GPU workload. Thus every admissible
+  four-GPU training slot is used or queued; the idle local two-GPU host cannot
+  execute a frozen four-GPU training cell and formal evaluation remains gated.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
   the joint verifier are implemented. Reject the complete matrix before
   evaluation unless all final checkpoints, optimizer states, initialization
