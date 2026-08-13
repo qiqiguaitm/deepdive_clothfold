@@ -53,7 +53,25 @@ def one(paths: list[Path], label: str) -> Path:
     return paths[0]
 
 
-def verify_run(repo: Path, arm: str, seed: int, resource: str) -> dict[str, Any]:
+def parse_ready_marker(path: Path) -> dict[str, str]:
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    fields: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        key, separator, value = line.partition("=")
+        if not separator or not key or key in fields:
+            raise ValueError(f"Malformed terminal-ready marker: {path}")
+        fields[key] = value
+    return fields
+
+
+def verify_run(
+    repo: Path,
+    arm: str,
+    seed: int,
+    resource: str,
+    terminal_ready_marker: Path | None = None,
+) -> dict[str, Any]:
     if (arm, seed) not in ALLOWED_CELLS:
         raise ValueError(f"TG4 terminal recovery is not allowlisted for {arm}:{seed}")
     run_id = f"temporal_grounding_tg4_{arm}_seed{seed}"
@@ -195,15 +213,28 @@ def verify_run(repo: Path, arm: str, seed: int, resource: str) -> dict[str, Any]
         f"entrypoint log {run_id}",
     )
     log_text = log.read_text(errors="replace")
-    required_log_evidence = (
-        f"{run_id}: 100%",
-        "and that's all",
-        EXPECTED_ERROR,
-    )
+    required_log_evidence = (f"{run_id}: 100%", "and that's all")
     missing = [text for text in required_log_evidence if text not in log_text]
     if missing:
         raise ValueError(f"Missing terminal log evidence for {run_id}: {missing}")
-    if log_text.count(EXPECTED_ERROR) != 1:
+    error_count = log_text.count(EXPECTED_ERROR)
+    if error_count == 1:
+        terminal_reason = "runner mutated only after successful training child exit"
+    elif error_count == 0 and resource == "east" and terminal_ready_marker is not None:
+        marker = parse_ready_marker(terminal_ready_marker)
+        expected_marker = {
+            "run_id": run_id,
+            "entrypoint_log": str(log),
+            "terminal_mode": "clean_platform_completion",
+        }
+        if any(marker.get(key) != value for key, value in expected_marker.items()):
+            raise ValueError(
+                f"Terminal-ready marker mismatch for {run_id}: {marker}"
+            )
+        if not marker.get("ready") or not marker.get("platform_job_id"):
+            raise ValueError(f"Incomplete platform completion marker for {run_id}")
+        terminal_reason = "clean successful East platform terminal state"
+    else:
         raise ValueError(f"Unexpected post-training error count for {run_id}")
 
     return {
@@ -215,14 +246,22 @@ def verify_run(repo: Path, arm: str, seed: int, resource: str) -> dict[str, Any]
         "optimizer_state_bytes": paths["optimizer"].stat().st_size,
         "trainer_steps": 20000,
         "data_order_sha256_by_rank": order_hashes,
-        "recovered_terminal_reason": "runner mutated only after successful training child exit",
+        "recovered_terminal_reason": terminal_reason,
     }
 
 
 def verify(
-    repo: Path, cells: list[tuple[str, int]], resource: str
+    repo: Path,
+    cells: list[tuple[str, int]],
+    resource: str,
+    terminal_ready_marker: Path | None = None,
 ) -> dict[str, Any]:
-    runs = [verify_run(repo, arm, seed, resource) for arm, seed in cells]
+    if terminal_ready_marker is not None and len(cells) != 1:
+        raise ValueError("A terminal-ready marker can audit exactly one cell")
+    runs = [
+        verify_run(repo, arm, seed, resource, terminal_ready_marker)
+        for arm, seed in cells
+    ]
     return {
         "schema_version": 1,
         "protocol": "temporal_grounding_tg4_validated_terminal_recovery_v1",
@@ -242,6 +281,7 @@ def main() -> None:
         help="Allowlisted ARM:SEED cell; defaults to the two East auxiliary recoveries",
     )
     parser.add_argument("--resource", choices=("east", "north"), default="east")
+    parser.add_argument("--terminal-ready-marker", type=Path)
     args = parser.parse_args()
     cells = list(DEFAULT_CELLS)
     if args.cell:
@@ -251,7 +291,12 @@ def main() -> None:
             if not separator:
                 raise ValueError(f"Invalid --cell value: {value}")
             cells.append((arm, int(seed)))
-    result = verify(args.repo.resolve(), cells, args.resource)
+    ready_marker = (
+        args.terminal_ready_marker.resolve()
+        if args.terminal_ready_marker is not None
+        else None
+    )
+    result = verify(args.repo.resolve(), cells, args.resource, ready_marker)
     atomic_json(args.output.resolve(), result)
     print(json.dumps(result, indent=2, sort_keys=True))
 

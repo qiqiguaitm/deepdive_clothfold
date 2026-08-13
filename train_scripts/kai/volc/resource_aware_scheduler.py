@@ -9823,7 +9823,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "ready_hashes": [
             {
                 "path": str(tg4_terminal_recovery_verifier),
-                "sha256": "cf7a410448c040c1e2d5b4ac0c354431a85f20409cdbf08c77aa71bef5b915fa",
+                "sha256": "0fa6eaf755af20d35706be5bc3de7f5d3cc5a04903be8136eba40e344e81aee3",
             }
         ],
         "candidates": [
@@ -9896,7 +9896,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "ready_hashes": [
                 {
                     "path": str(tg4_terminal_recovery_verifier),
-                    "sha256": "cf7a410448c040c1e2d5b4ac0c354431a85f20409cdbf08c77aa71bef5b915fa",
+                    "sha256": "0fa6eaf755af20d35706be5bc3de7f5d3cc5a04903be8136eba40e344e81aee3",
                 },
                 {
                     "path": str(tg4_north_terminal_recovery_runner),
@@ -9972,7 +9972,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "ready_hashes": [
                 {
                     "path": str(tg4_east_terminal_recovery_runner),
-                    "sha256": "1564a8023d5714240a185d2500066efae0b8197743560f1e9e2fee90889452f8",
+                    "sha256": "293a49df05e25cb1dc5c6e5eacdea83ce428b28784b00aa1dcfd961a182ddf38",
                 }
             ],
             "candidates": [
@@ -10026,11 +10026,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "ready_hashes": [
                 {
                     "path": str(tg4_terminal_recovery_verifier),
-                    "sha256": "cf7a410448c040c1e2d5b4ac0c354431a85f20409cdbf08c77aa71bef5b915fa",
+                    "sha256": "0fa6eaf755af20d35706be5bc3de7f5d3cc5a04903be8136eba40e344e81aee3",
                 },
                 {
                     "path": str(tg4_east_terminal_audit_runner),
-                    "sha256": "6de9bb674b51ed69e567c71e714775e88877ac3844b3fe46cb4bef2065b9e0d3",
+                    "sha256": "308ca0a1d92feb099b4ff5d6bb8291e40b31cf3037011b9bb6e3c72f9934e889",
                 },
                 {
                     "path": str(tg4_east_terminal_audit_yaml),
