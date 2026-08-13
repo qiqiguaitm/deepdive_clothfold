@@ -61,7 +61,7 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 06:55 UTC canonical
+- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 07:47 UTC canonical
   snapshot, eight unfinished training cells are Running and two are Queueing on
   North; every cell is completed, running, or submitted, with no undispatched
   training cell. All three `auxiliary_only`
@@ -80,8 +80,11 @@ are excluded from within-architecture causal contrasts.
   materialized locally.
   No general Failed-terminal exemption was introduced. Per-cell background
   watchers now cover the remaining old-runner North jobs, including `full`
-  seed 1102, and cannot admit a task until its own complete audit marker
-  exists.
+  seed 1102, and the two old-runner East `parameter_matched_null` jobs. They
+  cannot admit a task until its own complete audit marker exists. The
+  platform-reported `clean_base` seed-1102 failure is therefore already closed:
+  its exact step-20,000 recovery audit completed at 02:56 UTC and its verified
+  checkpoint was materialized locally at 04:23 UTC; it must not be resubmitted.
 
   The four immediate East failures (`conditioning_only` seeds 1101/1102 and
   `future_off` seeds 1100/1101) were startup refusals caused by stale partial
@@ -91,13 +94,13 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
-  3.9k/1.9k/1.7k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  4.9k/3.0k/2.8k. `full` seeds 1100 and 1101 reached exact step 20,000;
   their per-cell recovery watchers verified the frozen configuration,
   initialization, rank orders, final model, optimizer state, and exact
   post-training shell error before admitting them, and both artifacts are now
   materialized locally. `future_off` seeds 1100/1101 are healthy near
-  7.7k/7.6k, parameter-matched-null seeds 1101/1102 near 9.0k/9.1k, and
-  `full` seed 1102 near 6.8k. The temporary gf1 processes for `future_off`
+  8.8k/8.7k, parameter-matched-null seeds 1101/1102 near 10.1k/10.1k, and
+  `full` seed 1102 near 7.8k. The temporary gf1 processes for `future_off`
   seed 1102 and parameter-matched-null seed 1100 were independently confirmed
   dead after reaching about 12.2k and 11.6k. Because the frozen recipe writes
   no admissible intermediate checkpoint, neither partial run can be resumed or

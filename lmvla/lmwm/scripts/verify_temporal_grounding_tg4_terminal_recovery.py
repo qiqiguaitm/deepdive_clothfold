@@ -18,11 +18,15 @@ ALLOWED_CELLS = {
     ("auxiliary_only", 1102),
     ("full", 1100),
     ("full", 1101),
+    ("full", 1102),
+    ("parameter_matched_null", 1101),
+    ("parameter_matched_null", 1102),
 }
 EXPECTED_ROUTE = {
     "clean_base": (False, False, False),
     "auxiliary_only": (False, False, True),
     "full": (False, False, False),
+    "parameter_matched_null": (True, False, False),
 }
 EXPECTED_ERROR = "line 118: el.future_action_window_size=49: command not found"
 

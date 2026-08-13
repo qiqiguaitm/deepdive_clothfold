@@ -9806,7 +9806,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "ready_hashes": [
             {
                 "path": str(tg4_terminal_recovery_verifier),
-                "sha256": "5620b845225edcb80ee7256357b17a2540e9ef2e420a53acc8ff827fee5eebb9",
+                "sha256": "12b91f2675ef115e729774bda51151f33b3e361135c680e207a013de0adf0397",
             }
         ],
         "candidates": [
@@ -9877,7 +9877,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "ready_hashes": [
                 {
                     "path": str(tg4_terminal_recovery_verifier),
-                    "sha256": "5620b845225edcb80ee7256357b17a2540e9ef2e420a53acc8ff827fee5eebb9",
+                    "sha256": "12b91f2675ef115e729774bda51151f33b3e361135c680e207a013de0adf0397",
                 },
                 {
                     "path": str(tg4_north_terminal_recovery_runner),
@@ -9904,6 +9904,76 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             f"TG4_RECOVERY_OUTPUT={recovery_marker}",
                             "bash",
                             str(tg4_north_terminal_recovery_runner),
+                        ]
+                    ),
+                }
+            ],
+        }
+        if recovery_id not in existing:
+            queue["tasks"].append(recovery_task)
+            existing.add(recovery_id)
+        else:
+            existing_tasks[recovery_id].update(recovery_task)
+
+    tg4_east_terminal_recovery_runner = (
+        REPO / "train_scripts/kai/recover_temporal_grounding_tg4_east_terminal.sh"
+    )
+    tg4_east_terminal_recovery_cells = {
+        ("parameter_matched_null", 1101),
+        ("parameter_matched_null", 1102),
+    }
+    tg4_east_terminal_markers: dict[tuple[str, int], Path] = {}
+    for recovery_arm, recovery_seed in sorted(tg4_east_terminal_recovery_cells):
+        recovery_run_id = (
+            f"temporal_grounding_tg4_{recovery_arm}_seed{recovery_seed}"
+        )
+        recovery_id = f"{recovery_run_id}_east_terminal_recovery"
+        recovery_marker = REPO / "logs/resource_markers" / f"{recovery_id}.json"
+        tg4_east_terminal_markers[(recovery_arm, recovery_seed)] = recovery_marker
+        recovery_task = {
+            "id": recovery_id,
+            "priority": 0,
+            "description": (
+                "Audit a TG4 East cell launched through the mutable legacy runner "
+                f"after its final checkpoint appears: {recovery_arm} seed {recovery_seed}"
+            ),
+            "rearm_after_ready_file": str(tg4_east_terminal_recovery_runner),
+            "completion_glob": str(recovery_marker),
+            "completion_min_count": 1,
+            "ready_files": [
+                str(tg4_terminal_recovery_verifier),
+                str(tg4_east_terminal_recovery_runner),
+            ],
+            "ready_hashes": [
+                {
+                    "path": str(tg4_terminal_recovery_verifier),
+                    "sha256": "12b91f2675ef115e729774bda51151f33b3e361135c680e207a013de0adf0397",
+                },
+                {
+                    "path": str(tg4_east_terminal_recovery_runner),
+                    "sha256": "f7578e2fb0be76421ff2164ddc8dcc5d05bffa67a570d4e25aef9dc67a8598fb",
+                },
+            ],
+            "candidates": [
+                {
+                    "kind": "local",
+                    "resource": "local",
+                    "gpus": 0,
+                    "retry_cooldown_seconds": 60,
+                    "max_failures": 2,
+                    "status_dir": str(
+                        REPO
+                        / "logs/temporal_grounding/tg4/east_terminal_recovery"
+                        / recovery_run_id
+                    ),
+                    "command": shlex.join(
+                        [
+                            "env",
+                            f"TG4_ARM={recovery_arm}",
+                            f"TG4_TRAIN_SEED={recovery_seed}",
+                            f"TG4_RECOVERY_OUTPUT={recovery_marker}",
+                            "bash",
+                            str(tg4_east_terminal_recovery_runner),
                         ]
                     ),
                 }
@@ -10084,6 +10154,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             if (arm, seed) in tg4_north_terminal_recovery_cells:
                 task["validated_terminal_recovery_marker"] = str(
                     tg4_north_terminal_markers[(arm, seed)]
+                )
+            if (arm, seed) in tg4_east_terminal_recovery_cells:
+                task["validated_terminal_recovery_marker"] = str(
+                    tg4_east_terminal_markers[(arm, seed)]
                 )
             if (arm, seed) in tg4_partial_cleanup_cells:
                 task["rearm_after_ready_file"] = str(tg4_partial_cleanup_marker)

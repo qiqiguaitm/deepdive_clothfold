@@ -6782,7 +6782,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 163
+    assert len(tasks) == 165
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6901,6 +6901,20 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         )
         recovery = tasks[recovery_id]
         assert recovery["candidates"][0]["gpus"] == 0
+        task = tasks[f"temporal_grounding_tg4_{arm}_seed{seed}_train"]
+        assert task["validated_terminal_recovery_marker"].endswith(
+            f"{recovery_id}.json"
+        )
+    for arm, seed in (
+        ("parameter_matched_null", 1101),
+        ("parameter_matched_null", 1102),
+    ):
+        recovery_id = (
+            f"temporal_grounding_tg4_{arm}_seed{seed}_east_terminal_recovery"
+        )
+        recovery = tasks[recovery_id]
+        assert recovery["candidates"][0]["gpus"] == 0
+        assert recovery["candidates"][0]["resource"] == "local"
         task = tasks[f"temporal_grounding_tg4_{arm}_seed{seed}_train"]
         assert task["validated_terminal_recovery_marker"].endswith(
             f"{recovery_id}.json"
