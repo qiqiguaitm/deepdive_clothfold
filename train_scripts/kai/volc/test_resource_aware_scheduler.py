@@ -7124,7 +7124,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     ]
     assert tg4_finalizer["candidates"][0]["resource"] == "local"
     assert tg4_finalizer["candidates"][0]["gpus"] == 0
-    assert "finalize_temporal_grounding_tg4_todo.py" in tg4_finalizer[
+    assert "run_temporal_grounding_tg4_todo_finalize.sh" in tg4_finalizer[
         "candidates"
     ][0]["command"]
 

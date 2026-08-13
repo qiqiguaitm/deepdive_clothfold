@@ -10681,6 +10681,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_todo_finalizer = (
         REPO / "lmvla/lmwm/scripts/finalize_temporal_grounding_tg4_todo.py"
     )
+    tg4_todo_finalizer_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg4_todo_finalize.sh"
+    )
     tg4_todo = REPO / "lmvla/paper_iclr_lmvla/PAPER_TODO.md"
     tg4_summary = REPO / "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg4.md"
     tg4_todo_finalizer_marker = (
@@ -10696,6 +10699,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "completion_min_count": 1,
         "ready_files": [
             str(tg4_todo_finalizer),
+            str(tg4_todo_finalizer_runner),
             str(tg4_analysis_output),
             str(tg4_analysis_marker),
             str(tg4_todo),
@@ -10704,7 +10708,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             {
                 "path": str(tg4_todo_finalizer),
                 "sha256": "16854bb3c4d178983a56b2ede46e728faf9410679d8351de4191d543367c17f5",
-            }
+            },
+            {
+                "path": str(tg4_todo_finalizer_runner),
+                "sha256": "8a71356d31ccedc8d22ac809b0d176c8e7af87ebf1e006048e4fa2dd6c2ed97d",
+            },
         ],
         "candidates": [
             {
@@ -10712,26 +10720,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "resource": "local",
                 "gpus": 0,
                 "retry_cooldown_seconds": 300,
-                "max_failures": 1,
+                "max_failures": 3,
                 "status_dir": str(REPO / "logs/temporal_grounding/tg4/todo_finalize"),
-                "command": shlex.join(
-                    [
-                        str(REPO / "kai0/.venv/bin/python"),
-                        str(tg4_todo_finalizer),
-                        "--report",
-                        str(tg4_analysis_output),
-                        "--analysis-marker",
-                        str(tg4_analysis_marker),
-                        "--todo",
-                        str(tg4_todo),
-                        "--summary",
-                        str(tg4_summary),
-                        "--completion-marker",
-                        str(tg4_todo_finalizer_marker),
-                        "--lock",
-                        str(REPO / "logs/locks/temporal_grounding_tg4_todo_finalize.lock"),
-                    ]
-                ),
+                "command": shlex.join(["bash", str(tg4_todo_finalizer_runner)]),
             }
         ],
         "result_path": str(tg4_summary),
