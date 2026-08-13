@@ -310,7 +310,11 @@ are excluded from within-architecture causal contrasts.
   comparable completed 1,200-episode TG1A fixed-scene panels span 6.8--15.9
   hours from launch to final summary, leaving about 20.1 hours of margin even
   against the slowest observed panel; the local candidate has no platform
-  deadline.
+  deadline. A read-only check through the exact frozen North staging endpoint
+  reports 7.183 TB free with the current TG4 eval stage using 14.35 GB; the
+  shared East filesystem has about 5.7 TB free. The complete TG1A feature tree
+  is 9.53 GB, so three comparable `full` captures project to about 28.6 GB and
+  do not create a storage-capacity blocker on either execution path.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,
