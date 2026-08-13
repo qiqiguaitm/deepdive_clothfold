@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 07:27 UTC
+Updated: 2026-08-13 07:34 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -162,7 +162,13 @@ are excluded from within-architecture causal contrasts.
   change. The hourly completion audit now rejects a partial or inconsistent
   terminal analysis unless `complete=true`, the ordered Holm family and exact
   seven-comparison set are present, every `accepted` value is boolean, and all
-  seven marker verdicts agree with the JSON report.
+  seven marker verdicts agree with the JSON report. A scheduler-owned zero-GPU
+  finalizer now depends on that accepted analysis artifact. It atomically
+  writes a seven-row Markdown result table, changes only the four TG4 execution
+  gates to complete, records accepted and rejected contrasts without launching
+  follow-up work, and emits hashes for the report, decision marker, summary, and
+  resulting TODO. The hourly monitor includes this finalizer as its 79th frozen
+  completion node, removing the previous manual TODO-sync gap.
 
 ### TG4 claim gates
 

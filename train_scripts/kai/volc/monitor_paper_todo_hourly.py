@@ -111,6 +111,7 @@ def expected_task_ids() -> tuple[str, ...]:
             "temporal_grounding_tg4_training_integrity",
             "temporal_grounding_tg4_eval_north_stage",
             "temporal_grounding_tg4_analysis",
+            "temporal_grounding_tg4_todo_finalize",
         )
     )
     return tuple(tasks)

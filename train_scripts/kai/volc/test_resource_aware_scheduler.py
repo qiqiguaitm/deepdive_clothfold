@@ -6782,7 +6782,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 162
+    assert len(tasks) == 163
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -7118,6 +7118,15 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     }
     assert tg4_analysis["candidates"][0]["resource"] == "local"
     assert tg4_analysis["candidates"][0]["gpus"] == 0
+    tg4_finalizer = tasks["temporal_grounding_tg4_todo_finalize"]
+    assert tg4_finalizer["requires_completed_tasks"] == [
+        "temporal_grounding_tg4_analysis"
+    ]
+    assert tg4_finalizer["candidates"][0]["resource"] == "local"
+    assert tg4_finalizer["candidates"][0]["gpus"] == 0
+    assert "finalize_temporal_grounding_tg4_todo.py" in tg4_finalizer[
+        "candidates"
+    ][0]["command"]
 
     capture_marker = str(
         scheduler.REPO

@@ -10677,6 +10677,71 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     else:
         existing_tasks[tg4_analysis_id].update(tg4_analysis_task)
 
+    tg4_todo_finalizer_id = "temporal_grounding_tg4_todo_finalize"
+    tg4_todo_finalizer = (
+        REPO / "lmvla/lmwm/scripts/finalize_temporal_grounding_tg4_todo.py"
+    )
+    tg4_todo = REPO / "lmvla/paper_iclr_lmvla/PAPER_TODO.md"
+    tg4_summary = REPO / "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg4.md"
+    tg4_todo_finalizer_marker = (
+        REPO / "logs/resource_markers/temporal_grounding_tg4_todo_finalize.ok"
+    )
+    tg4_todo_finalizer_task = {
+        "id": tg4_todo_finalizer_id,
+        "priority": 0,
+        "description": "Validate TG4 decisions and atomically close the paper TODO gates",
+        "requires_completed_tasks": [tg4_analysis_id],
+        "rearm_after_ready_file": str(tg4_todo_finalizer),
+        "completion_glob": str(tg4_todo_finalizer_marker),
+        "completion_min_count": 1,
+        "ready_files": [
+            str(tg4_todo_finalizer),
+            str(tg4_analysis_output),
+            str(tg4_analysis_marker),
+            str(tg4_todo),
+        ],
+        "ready_hashes": [
+            {
+                "path": str(tg4_todo_finalizer),
+                "sha256": "16854bb3c4d178983a56b2ede46e728faf9410679d8351de4191d543367c17f5",
+            }
+        ],
+        "candidates": [
+            {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 300,
+                "max_failures": 1,
+                "status_dir": str(REPO / "logs/temporal_grounding/tg4/todo_finalize"),
+                "command": shlex.join(
+                    [
+                        str(REPO / "kai0/.venv/bin/python"),
+                        str(tg4_todo_finalizer),
+                        "--report",
+                        str(tg4_analysis_output),
+                        "--analysis-marker",
+                        str(tg4_analysis_marker),
+                        "--todo",
+                        str(tg4_todo),
+                        "--summary",
+                        str(tg4_summary),
+                        "--completion-marker",
+                        str(tg4_todo_finalizer_marker),
+                        "--lock",
+                        str(REPO / "logs/locks/temporal_grounding_tg4_todo_finalize.lock"),
+                    ]
+                ),
+            }
+        ],
+        "result_path": str(tg4_summary),
+    }
+    if tg4_todo_finalizer_id not in existing:
+        queue["tasks"].append(tg4_todo_finalizer_task)
+        existing.add(tg4_todo_finalizer_id)
+    else:
+        existing_tasks[tg4_todo_finalizer_id].update(tg4_todo_finalizer_task)
+
     materialize_ids = []
     sync_script = REPO / "train_scripts/kai/sync_temporal_grounding_tg2_checkpoint_from_north.sh"
     sync_tree_script = REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"

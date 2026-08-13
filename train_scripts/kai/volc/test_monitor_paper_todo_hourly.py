@@ -95,7 +95,7 @@ def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Pa
 
 
 def test_frozen_completion_set_has_all_tg4_cells() -> None:
-    assert len(monitor.EXPECTED_TASK_IDS) == 78
+    assert len(monitor.EXPECTED_TASK_IDS) == 79
     assert "temporal_grounding_tg4_clean_base_seed1100_train" in monitor.EXPECTED_TASK_IDS
     assert (
         "temporal_grounding_tg4_parameter_matched_null_seed1102_normal_eval"
@@ -109,6 +109,7 @@ def test_frozen_completion_set_has_all_tg4_cells() -> None:
     assert "temporal_grounding_tg4_training_integrity" in monitor.EXPECTED_TASK_IDS
     assert "temporal_grounding_tg4_eval_north_stage" in monitor.EXPECTED_TASK_IDS
     assert "temporal_grounding_tg4_analysis" in monitor.EXPECTED_TASK_IDS
+    assert "temporal_grounding_tg4_todo_finalize" in monitor.EXPECTED_TASK_IDS
 
 
 def test_next_interval_boundary_aligns_hourly_poll_to_top_of_hour() -> None:
@@ -133,7 +134,7 @@ def test_collect_marks_exact_completed_set_complete(tmp_path: Path) -> None:
     )
     assert record["complete"] is True
     assert record["monitor_status"] == "complete"
-    assert record["task_summary"]["status_counts"] == {"completed": 78}
+    assert record["task_summary"]["status_counts"] == {"completed": 79}
     assert record["todo"]["unchecked_current_override"] == 1
     assert record["todo"]["unchecked_total"] == 2
     assert record["todo"]["completion_synced"] is True
@@ -393,7 +394,7 @@ def test_auxiliary_progress_is_reported_but_does_not_block_completion(
     )
 
     assert record["complete"] is True
-    assert record["task_summary"]["expected"] == 78
+    assert record["task_summary"]["expected"] == 79
     assert record["auxiliary_tasks"][helper_id]["runtime_progress"] == (
         "tail_episodes=37/200"
     )
