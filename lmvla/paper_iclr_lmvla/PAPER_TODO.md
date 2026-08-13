@@ -54,7 +54,8 @@ orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
 - [ ] **TG4-T01--T18 [ACTIVE; 6/18 COMPLETE]** At the 05:18 UTC canonical
-  snapshot, all twelve unfinished cells are Running; every cell is completed
+  snapshot, ten cells are executing and two are platform-Queueing; every cell
+  is completed
   or submitted, with no undispatched training cell. All three `auxiliary_only`
   seeds completed all 20,000
   steps and persisted 7.17-GB final models plus 9.13-GB optimizer states. Their
@@ -80,8 +81,8 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity: seed 1100 is training at about
-  1.94 s/step, and seeds 1101/1102 have acquired physical cards and started.
-  The two
+  1.94 s/step, while seeds 1101/1102 remain platform-Queueing for physical
+  cards. The two
   `future_off` retries are healthy near steps 3.8k/3.7k, and every future TG4
   launch executes an immutable snapshot of the frozen runner. Do not inspect
   partial outcomes to alter the protocol.
