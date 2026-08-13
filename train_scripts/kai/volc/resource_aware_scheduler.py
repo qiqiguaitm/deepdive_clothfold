@@ -10244,15 +10244,17 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_shuffle_manifest = (
         manifests / "temporal_grounding_tg1a_shuffle_v1.json"
     )
+    tg4_symlink_healer = REPO / "lmvla/lmwam/env/heal_lawam_symlinks.sh"
     tg4_renderer_env = REPO / "lmvla/lmwam/env/prepare_robotwin_renderer.sh"
     tg4_renderer_wrapper = REPO / "lmvla/lmwam/scripts/robotwin_python_wrapper.sh"
     tg4_eval_hashes = [
-        {"path": str(tg4_eval_manifest), "sha256": "acb96bd9e950d6487e0787be2a365867c9bee498755f6f2f658fda82dd548489"},
+        {"path": str(tg4_eval_manifest), "sha256": "1d12e3dcd8b9539953a5dbbeec201f2f5203facadcb10c99c530203c47b2ef1d"},
         {"path": str(tg4_eval_verifier), "sha256": "75b3a7ee1ffb1b2fa703b199cc12ac24a8e5b9ca0908a692cf5a0cbafad464ee"},
         {"path": str(tg4_eval_runner), "sha256": "38a140499f3797e4a4cff1c3a48925efa65fb3be738df242a74630d08bd12349"},
-        {"path": str(tg4_eval_yaml), "sha256": "615863f7a41861e5557be7865f8af5ffa07bb41b51b8a1ade2d81b8b2ea921f4"},
+        {"path": str(tg4_eval_yaml), "sha256": "e777196f9925ee7cb8423d3e1c6d45e51d2b7ea7a8cc95e108b60b00fb76ae26"},
         {"path": str(tg4_scene_manifest), "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17"},
         {"path": str(tg4_shuffle_manifest), "sha256": "0843341173b71d5009337e6eecd0eee89f28f034c698ce44840e1b08529804f7"},
+        {"path": str(tg4_symlink_healer), "sha256": "46fbac6fc8f908b04f1150e7e4860922a2df46cbfb7f78d7dff85022c37d6c5d"},
         {"path": str(tg4_renderer_env), "sha256": "3c94cbd4d8a88a66a821d7129cbf4641cbd1fa2fca7d264bb894aeef12d1a69f"},
         {"path": str(tg4_renderer_wrapper), "sha256": "4aed2bf9e3971b1a69b4c42349afb9608b1e5043ff965d823777417f217b5a9d"},
     ]
@@ -10287,6 +10289,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     str(tg4_eval_yaml),
                     str(tg4_scene_manifest),
                     str(tg4_shuffle_manifest),
+                    str(tg4_symlink_healer),
                     str(tg4_renderer_env),
                     str(tg4_renderer_wrapper),
                 ]
@@ -10302,7 +10305,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         )
                     )
                 local_body = (
-                    f"source {shlex.quote(str(REPO / 'lmvla/lmwam/env/prepare_robotwin_renderer.sh'))}; "
+                    f"bash {shlex.quote(str(tg4_symlink_healer))}; "
+                    f"source {shlex.quote(str(tg4_renderer_env))}; "
                     "export STAR_VLA_PYTHON=/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python; "
                     f"env LOCAL_GPU_COUNT=2 REPO_ROOT={shlex.quote(str(REPO))} "
                     f"TG4_ARM={arm} TG4_TRAIN_SEED={seed} TG4_CONDITION={condition} "

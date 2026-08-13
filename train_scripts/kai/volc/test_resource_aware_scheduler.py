@@ -6994,6 +6994,10 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert all(task["completion_min_count"] == 24 for task in tg4_evals.values())
     assert all(
         any(
+            path.endswith("lmvla/lmwam/env/heal_lawam_symlinks.sh")
+            for path in task["ready_files"]
+        )
+        and any(
             path.endswith("lmvla/lmwam/env/prepare_robotwin_renderer.sh")
             for path in task["ready_files"]
         )
@@ -7001,6 +7005,8 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             path.endswith("lmvla/lmwam/scripts/robotwin_python_wrapper.sh")
             for path in task["ready_files"]
         )
+        and "lmvla/lmwam/env/heal_lawam_symlinks.sh"
+        in task["candidates"][0]["command"]
         and "lmvla/lmwam/env/prepare_robotwin_renderer.sh"
         in task["candidates"][0]["command"]
         and "lmvla/lmwm/env/prepare_robotwin_renderer.sh"

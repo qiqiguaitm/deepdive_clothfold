@@ -107,9 +107,10 @@ are excluded from within-architecture causal contrasts.
   that the local and East launchers referenced untracked `lmwm` renderer paths;
   both now point to the existing, previously exercised `lmwam` helpers. This
   path-only repair changed no checkpoint, task, scene, seed, episode, or
-  intervention definition. The two renderer helpers are now explicit frozen
-  hash and readiness dependencies, the repaired bundle verifier passes, and a
-  local `SapienRenderer` construction completed successfully.
+  intervention definition. The symlink healer and two renderer helpers are now
+  explicit frozen hash and readiness dependencies, the repaired bundle
+  verifier passes, and a local symlink-heal plus `SapienRenderer` construction
+  completed successfully.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,

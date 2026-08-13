@@ -51,7 +51,7 @@ Entrypoint: |
   git config --global --add safe.directory "$REPO/lmvla/lawam"
   test -f "$REPO/logs/resource_markers/robotwin_renderer_east.ok"
   test -f "$REPO/logs/resource_markers/temporal_grounding_tg4_training_integrity.ok"
-  bash "$REPO/lmvla/lmwm/env/heal_lawam_symlinks.sh"
+  bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
   source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
   "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh" -c \
     'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
