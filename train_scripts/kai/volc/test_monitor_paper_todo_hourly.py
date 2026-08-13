@@ -20,8 +20,30 @@ def write_analysis_artifacts(tmp_path: Path) -> None:
         marker = tmp_path / spec["marker"]
         report.parent.mkdir(parents=True, exist_ok=True)
         marker.parent.mkdir(parents=True, exist_ok=True)
-        report.write_text(json.dumps({"protocol": spec["protocol"]}), encoding="utf-8")
-        marker.write_text("validated=true\n", encoding="utf-8")
+        verdicts = {
+            name: {"accepted": index % 2 == 0}
+            for index, name in enumerate(monitor.TG4_COMPARISONS)
+        }
+        report.write_text(
+            json.dumps(
+                {
+                    "protocol": spec["protocol"],
+                    "complete": True,
+                    "holm_family": list(monitor.TG4_COMPARISONS),
+                    "comparisons": verdicts,
+                }
+            ),
+            encoding="utf-8",
+        )
+        marker.write_text(
+            "validated=true\n"
+            f"protocol={spec['protocol']}\n"
+            + "".join(
+                f"{name}={str(row['accepted']).lower()}\n"
+                for name, row in verdicts.items()
+            ),
+            encoding="utf-8",
+        )
 
 
 def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Path, Path]:
@@ -192,6 +214,53 @@ def test_collect_rejects_invalid_final_analysis_artifact(tmp_path: Path) -> None
     assert record["complete"] is False
     assert record["monitor_status"] == "degraded"
     assert record["final_analyses"]["analyses"]["tg4"]["status"] == "invalid"
+
+
+def test_collect_rejects_incomplete_final_analysis_artifact(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    report = tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg4"]["report"]
+    payload = json.loads(report.read_text())
+    payload["comparisons"].pop("content_use")
+    report.write_text(json.dumps(payload), encoding="utf-8")
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    analysis = record["final_analyses"]["analyses"]["tg4"]
+    assert record["complete"] is False
+    assert record["monitor_status"] == "degraded"
+    assert analysis["status"] == "invalid"
+    assert "exactly seven comparisons" in analysis["error"]
+
+
+def test_collect_rejects_marker_verdict_mismatch(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    marker = tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg4"]["marker"]
+    marker.write_text(
+        marker.read_text(encoding="utf-8").replace(
+            "pretraining=true", "pretraining=false"
+        ),
+        encoding="utf-8",
+    )
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    analysis = record["final_analyses"]["analyses"]["tg4"]
+    assert record["complete"] is False
+    assert record["monitor_status"] == "degraded"
+    assert analysis["status"] == "invalid"
+    assert "marker verdict" in analysis["error"]
 
 
 def test_collect_does_not_treat_missing_or_disabled_task_as_complete(tmp_path: Path) -> None:

@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 07:21 UTC
+Updated: 2026-08-13 07:27 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -159,7 +159,10 @@ are excluded from within-architecture causal contrasts.
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,
   Holm correction, and per-training-seed/task tolerance gate. It writes the
   canonical result and immutable decision marker before manuscript claims can
-  change.
+  change. The hourly completion audit now rejects a partial or inconsistent
+  terminal analysis unless `complete=true`, the ordered Holm family and exact
+  seven-comparison set are present, every `accepted` value is boolean, and all
+  seven marker verdicts agree with the JSON report.
 
 ### TG4 claim gates
 

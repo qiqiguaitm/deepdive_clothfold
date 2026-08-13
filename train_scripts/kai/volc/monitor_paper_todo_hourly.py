@@ -40,6 +40,15 @@ ANALYSIS_ARTIFACT_SPECS = {
         "protocol": "temporal_grounding_tg4_source_decomposition_analysis_v1",
     },
 }
+TG4_COMPARISONS = (
+    "pretraining",
+    "auxiliary_shaping",
+    "conditioning_without_auxiliary",
+    "full_total",
+    "full_vs_historical_off",
+    "route_interaction",
+    "content_use",
+)
 
 STOP_REQUESTED = False
 
@@ -197,8 +206,30 @@ def analysis_artifact_metrics(
                     raise ValueError(
                         f"protocol {observed_protocol!r} != {spec['protocol']!r}"
                     )
+                if report.get("complete") is not True:
+                    raise ValueError("report does not contain complete=true")
+                if report.get("holm_family") != list(TG4_COMPARISONS):
+                    raise ValueError("report has an incomplete or reordered Holm family")
+                comparisons = report.get("comparisons")
+                if not isinstance(comparisons, dict) or set(comparisons) != set(
+                    TG4_COMPARISONS
+                ):
+                    raise ValueError("report does not contain exactly seven comparisons")
                 if "validated=true" not in marker_lines:
                     raise ValueError("marker does not contain validated=true")
+                if f"protocol={spec['protocol']}" not in marker_lines:
+                    raise ValueError("marker protocol does not match report protocol")
+                for comparison in TG4_COMPARISONS:
+                    accepted = comparisons[comparison].get("accepted")
+                    if not isinstance(accepted, bool):
+                        raise ValueError(
+                            f"comparison {comparison} has non-boolean accepted verdict"
+                        )
+                    expected_marker = f"{comparison}={str(accepted).lower()}"
+                    if expected_marker not in marker_lines:
+                        raise ValueError(
+                            f"marker verdict does not match comparison {comparison}"
+                        )
                 if task_status == "completed":
                     row.update(status="validated", validated=True)
             except Exception as exc:
