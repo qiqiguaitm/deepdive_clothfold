@@ -9949,11 +9949,13 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         ("parameter_matched_null", 1102),
     }
     tg4_east_terminal_markers: dict[tuple[str, int], Path] = {}
+    tg4_east_terminal_recovery_ids: list[str] = []
     for recovery_arm, recovery_seed in sorted(tg4_east_terminal_recovery_cells):
         recovery_run_id = (
             f"temporal_grounding_tg4_{recovery_arm}_seed{recovery_seed}"
         )
         recovery_id = f"{recovery_run_id}_east_terminal_recovery"
+        tg4_east_terminal_recovery_ids.append(recovery_id)
         recovery_marker = REPO / "logs/resource_markers" / f"{recovery_id}.json"
         ready_id = f"{recovery_run_id}_east_terminal_checkpoint_ready"
         ready_marker = REPO / "logs/resource_markers" / f"{ready_id}.ok"
@@ -10370,7 +10372,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "id": tg4_integrity_id,
         "priority": 0,
         "description": "Reject or admit the frozen TG4 18-cell matrix before rollout",
-        "requires_completed_tasks": tg4_materialize_ids,
+        "requires_completed_tasks": (
+            tg4_materialize_ids + tg4_east_terminal_recovery_ids
+        ),
         "rearm_after_ready_file": str(tg4_integrity_verifier),
         "completion_glob": str(tg4_integrity_marker),
         "completion_min_count": 1,

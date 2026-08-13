@@ -7319,6 +7319,9 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             "full",
         )
         for seed in (1100, 1101, 1102)
+    } | {
+        "temporal_grounding_tg4_parameter_matched_null_seed1101_east_terminal_recovery",
+        "temporal_grounding_tg4_parameter_matched_null_seed1102_east_terminal_recovery",
     }
     assert [candidate["resource"] for candidate in tg4_integrity["candidates"]] == [
         "local",
