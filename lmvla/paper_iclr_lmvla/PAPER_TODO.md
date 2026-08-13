@@ -139,7 +139,11 @@ are excluded from within-architecture causal contrasts.
   exhausted the one-attempt safety bound; East remained 8/8. They can migrate
   only if an admissible higher-priority slice becomes immediately runnable, and
   a failed stop leaves the North attempt tracked. Do not inspect partial
-  outcomes to alter the protocol.
+  outcomes to alter the protocol. The East migration candidates now require at
+  least five free GPUs before taking four, so at most one queued training cell
+  can migrate when the two active legacy East cells terminate. This preserves
+  capacity for their one-GPU strict recovery audits instead of delaying
+  checkpoint admission behind another full training wave.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
   the joint verifier are implemented. Reject the complete matrix before
   evaluation unless all final checkpoints, optimizer states, initialization
@@ -215,7 +219,7 @@ are excluded from within-architecture causal contrasts.
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; all 242 scheduler, watcher, resume,
+  frozen hash dependencies; all 243 scheduler, watcher, resume,
   training-integrity,
   evaluation, analysis, and finalizer tests pass. Fresh live verification of
   both frozen TG4 source and evaluation manifests also passed at 09:37 UTC.

@@ -10235,6 +10235,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "gf1",
                     "Robot-East-H20",
                 ]
+                for candidate in task["candidates"]:
+                    if candidate["resource"] == "Robot-East-H20":
+                        # Leave room for the one-GPU terminal audits that make
+                        # completed legacy East checkpoints admissible.
+                        candidate["min_dispatch_free"] = 5
             if task_id not in existing:
                 queue["tasks"].append(task)
                 existing.add(task_id)
@@ -16917,10 +16922,12 @@ def candidate_available(
         )
     if resource == "Robot-East-H20":
         state = resources["Robot-East-H20"]
+        min_dispatch_free = int(candidate.get("min_dispatch_free", gpus))
         return (
             state.get("available", True)
             and not state["queueing_all_users"]
-            and state["capacity"] - state["active_gpus_all_users"] >= gpus
+            and state["capacity"] - state["active_gpus_all_users"]
+            >= max(gpus, min_dispatch_free)
         )
     if resource == "Robot-North-H20":
         state = resources["beijing"]

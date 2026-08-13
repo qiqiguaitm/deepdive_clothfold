@@ -1950,6 +1950,69 @@ def test_queued_migration_plan_does_not_overbook_immediate_capacity(
     assert snapshot["resources"]["Robot-East-H20"]["active_gpus_all_users"] == 0
 
 
+def test_queued_migration_reserves_east_terminal_audit_capacity(
+    monkeypatch,
+) -> None:
+    tasks = [
+        {
+            "id": f"task-{index}",
+            "priority": 0,
+            "requeue_queued_when_immediate_resources": ["Robot-East-H20"],
+            "candidates": [
+                {
+                    "kind": "platform",
+                    "resource": "Robot-East-H20",
+                    "gpus": 4,
+                    "min_dispatch_free": 5,
+                }
+            ],
+        }
+        for index in range(2)
+    ]
+    state = {
+        "tasks": {
+            task["id"]: {
+                "status": "running",
+                "attempts": [
+                    {
+                        "kind": "platform",
+                        "resource": "Robot-North-H20",
+                        "last_state": "Queueing",
+                    }
+                ],
+            }
+            for task in tasks
+        }
+    }
+    snapshot = {
+        "resources": {
+            "Robot-East-H20": {
+                "available": True,
+                "capacity": 8,
+                "active_gpus_all_users": 0,
+                "queueing_all_users": [],
+            }
+        }
+    }
+    monkeypatch.setattr(
+        scheduler,
+        "ordered_dispatch_candidates",
+        lambda task, _snapshot: task["candidates"],
+    )
+    monkeypatch.setattr(
+        scheduler,
+        "robot_task_fragmentation_blocked",
+        lambda *_args: False,
+    )
+    monkeypatch.setattr(scheduler, "candidate_exhausted", lambda *_args: False)
+    monkeypatch.setattr(scheduler, "candidate_in_cooldown", lambda *_args: False)
+
+    planned = scheduler.plan_queued_immediate_migrations(tasks, state, snapshot)
+
+    assert planned == {"task-0": "Robot-East-H20"}
+    assert snapshot["resources"]["Robot-East-H20"]["active_gpus_all_users"] == 0
+
+
 def test_stale_deploying_job_is_reclaimed_without_exhausting_candidate(
     monkeypatch,
 ) -> None:
@@ -7008,6 +7071,15 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert all(
         tg4[task_id]["requeue_queued_when_immediate_resources"]
         == ["gf1", "Robot-East-H20"]
+        for task_id in migration_cells
+    )
+    assert all(
+        next(
+            candidate
+            for candidate in tg4[task_id]["candidates"]
+            if candidate["resource"] == "Robot-East-H20"
+        )["min_dispatch_free"]
+        == 5
         for task_id in migration_cells
     )
     for task in tg4.values():
