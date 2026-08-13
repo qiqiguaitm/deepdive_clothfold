@@ -193,8 +193,9 @@ are excluded from within-architecture causal contrasts.
   eval terminal before the artifacts are verified locally. A pre-integrity
   transfer check completed the first accepted East model prefetch at 09:01 UTC,
   including TOS upload/download, remote SHA256 verification, atomic commit, and
-  temporary cleanup; the second accepted model then acquired the same lock and
-  began automatically. The corresponding resource audit confirms that all 21
+  temporary cleanup. The second accepted model then acquired the same lock and
+  completed the identical chain at 09:15 UTC; both scheduler artifact checks
+  are complete. The corresponding resource audit confirms that all 21
   panels remain unattempted, the frozen
   evaluation bundle still passes its hash verifier, and North has the staged
   Python 3.12 runtime, 332-GB RoboTwin dataset tree, required weights, and
