@@ -5,6 +5,9 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from .deployment.control_policy import ControlPolicyConfig
+from .deployment.controller import OperationMode
+
 
 class CameraHealth(BaseModel):
     """Per-camera liveness for the preview tiles (mirrors data_manager)."""
@@ -47,10 +50,15 @@ class DaggerStatus(BaseModel):
     # Per-arm freedrive switch (latched on /master_button_left,right)
     button_left: bool = False
     button_right: bool = False
+    master_available_left: bool = False
+    master_available_right: bool = False
     # /policy/execute latest known value
     policy_execute: Optional[bool] = None
     # Latest pedal event monotonic timestamp (for "recently fired" UI)
     last_pedal_ts: Optional[float] = None
+    speed_factor: float = 1.0
+    ros_alive: bool = False
+    policy_node_ready: bool = False
     # Episode counts on disk under <KAI0_DATA_ROOT>/<task>/{inference,dagger}/<date-v2>/
     inference_episodes: int = 0
     dagger_episodes: int = 0
@@ -59,6 +67,9 @@ class DaggerStatus(BaseModel):
     task: Optional[str] = None
     # Live camera preview health, keyed by tile name (top_head/hand_left/hand_right)
     cameras: dict[str, CameraHealth] = {}
+    control_policy: Optional[ControlPolicyConfig] = None
+    operation_mode: OperationMode = OperationMode.OBSERVE
+    preflight: Optional[dict] = None
 
 
 class CkptEntry(BaseModel):
@@ -95,6 +106,9 @@ class StartSessionReq(BaseModel):
     variant: Optional[str] = Field(
         None, description="v0|v1|auto inference path; None → auto-detect from ckpt path"
     )
+    control_policy: Optional[ControlPolicyConfig] = Field(
+        None, description="Resolved RTC/blend/EMA/timing configuration"
+    )
 
 
 class ExecuteReq(BaseModel):
@@ -103,3 +117,7 @@ class ExecuteReq(BaseModel):
 
 class TakeoverReq(BaseModel):
     enable: bool  # True = enter dagger, False = handback
+
+
+class OperationModeReq(BaseModel):
+    mode: OperationMode

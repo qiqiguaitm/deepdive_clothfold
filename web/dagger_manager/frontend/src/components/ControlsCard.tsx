@@ -70,7 +70,7 @@ export default function ControlsCard({ s }: Props) {
       <div className="row-buttons">
         <button className="primary" disabled={!canStart || busy}
                 onClick={() => call(() => api.recordStart())}
-                title={!inDagger ? "需进入 HUMAN_RECORD (拨开两个柔性开关)" :
+                title={!inDagger ? "需让所有可用主臂进入示教模式" :
                        recording ? "已在录制中" : "开始录制 dagger episode"}>
           ● 开始
         </button>

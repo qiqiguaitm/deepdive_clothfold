@@ -80,6 +80,8 @@ class DaggerRosBridge:
         self._recording: Optional[bool] = None
         self._button_left: bool = False
         self._button_right: bool = False
+        self._master_available_left: bool = False
+        self._master_available_right: bool = False
         self._policy_execute: Optional[bool] = None
         self._last_pedal_ts: Optional[float] = None
         # 油门: policy_inference_node latched 广播的当前生效速度倍率 (1.0=默认;
@@ -129,6 +131,10 @@ class DaggerRosBridge:
                                        lambda m: self._on_button("L", m), latched)
         self._node.create_subscription(Bool, "/master_button_right",
                                        lambda m: self._on_button("R", m), latched)
+        self._node.create_subscription(Bool, "/dagger/master_available_left",
+                                       lambda m: self._on_master_available("L", m), latched)
+        self._node.create_subscription(Bool, "/dagger/master_available_right",
+                                       lambda m: self._on_master_available("R", m), latched)
         self._node.create_subscription(Bool, "/policy/execute", self._on_execute, 5)
         self._node.create_subscription(Empty, "/dagger/pedal_toggled", self._on_pedal, 5)
         self._node.create_subscription(Float32, "/policy/speed_factor", self._on_speed_factor, latched)
@@ -202,6 +208,13 @@ class DaggerRosBridge:
                 self._button_left = pressed
             else:
                 self._button_right = pressed
+
+    def _on_master_available(self, side: str, msg) -> None:
+        with self._lock:
+            if side == "L":
+                self._master_available_left = bool(msg.data)
+            else:
+                self._master_available_right = bool(msg.data)
 
     def _on_execute(self, msg) -> None:
         with self._lock:
@@ -299,6 +312,15 @@ class DaggerRosBridge:
     # ── snapshot for status_hub / REST ──
     def snapshot(self) -> dict:
         cams = self.get_camera_health()
+        policy_node_ready = False
+        if self._node is not None:
+            try:
+                policy_node_ready = any(
+                    name == "policy_inference"
+                    for name, _namespace in self._node.get_node_names_and_namespaces()
+                )
+            except Exception:
+                pass
         with self._lock:
             return {
                 "ros_alive": _ROS_OK and self._running,
@@ -307,10 +329,13 @@ class DaggerRosBridge:
                 "recording": self._recording,
                 "button_left": self._button_left,
                 "button_right": self._button_right,
+                "master_available_left": self._master_available_left,
+                "master_available_right": self._master_available_right,
                 "policy_execute": self._policy_execute,
                 "last_pedal_ts": self._last_pedal_ts,
                 "speed_factor": round(self._speed_factor, 3),
                 "cameras": cams,
+                "policy_node_ready": policy_node_ready,
             }
 
     # ── driver actions (publish) ──

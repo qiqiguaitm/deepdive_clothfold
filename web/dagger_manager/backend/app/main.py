@@ -34,10 +34,18 @@ from .models import (
     StartSessionReq,
     StartStackReq,
     TakeoverReq,
+    OperationModeReq,
 )
 from .ros_bridge import bridge
 from .stack import list_checkpoints, session, stack, system_start_async, system_stop
 from .status_hub import hub
+from .deployment.control_policy import (
+    ControlPolicyPatch,
+    build_update_plan,
+    preset_config,
+)
+from .deployment.ros_gateway import gateway as policy_gateway
+from .deployment.controller import controller
 
 
 @asynccontextmanager
@@ -103,7 +111,8 @@ def session_start(req: StartSessionReq) -> dict:
     data…' if cameras/arms aren't publishing."""
     try:
         return session.start(ckpt=req.ckpt, gpu_id=req.gpu_id,
-                             prompt=req.prompt, variant=req.variant)
+                             prompt=req.prompt, variant=req.variant,
+                             control_policy=req.control_policy)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
     except RuntimeError as e:
@@ -127,10 +136,52 @@ def system_start_ep(req: StartSessionReq) -> dict:
     threading.Thread(
         target=system_start_async,
         kwargs={"ckpt": req.ckpt, "gpu_id": req.gpu_id, "prompt": req.prompt,
-                "variant": req.variant},
+                "variant": req.variant, "control_policy": req.control_policy},
         daemon=True,
     ).start()
     return {"queued": True, "ckpt": req.ckpt}
+
+
+@app.get("/api/deployment/control/presets")
+def control_presets(variant: str = "v0") -> dict:
+    """Validated operator-facing presets; values are domain config, not ROS names."""
+    return {
+        name: preset_config(name, variant).model_dump()
+        for name in ("safe_observe", "production_default", "raw_ablation")
+    }
+
+
+@app.post("/api/deployment/control/plan")
+def control_plan(req: ControlPolicyPatch) -> dict:
+    current_raw = session.status().get("control_policy")
+    current = (req.config if current_raw is None
+               else type(req.config).model_validate(current_raw))
+    return build_update_plan(current, req.config)
+
+
+@app.patch("/api/deployment/control")
+def control_apply(req: ControlPolicyPatch) -> dict:
+    """Apply true hot changes. Safe-idle/restart changes return a plan instead
+    of performing a surprising stop or model reload behind the operator's back.
+    """
+    sess = session.status()
+    if not sess.get("running") or not sess.get("control_policy"):
+        raise HTTPException(409, "policy session is not running")
+    current = type(req.config).model_validate(sess["control_policy"])
+    plan = build_update_plan(current, req.config)
+    if req.dry_run:
+        return plan
+    if plan["requires_restart"]:
+        raise HTTPException(409, {"reason": "policy restart required", "plan": plan})
+    if plan["requires_safe_idle"]:
+        raise HTTPException(409, {"reason": "execute=false + buffer flush required", "plan": plan})
+    try:
+        result = policy_gateway.apply_hot(current, req.config)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
+    # Store only after every ROS update was acknowledged.
+    session.set_control_policy(req.config)
+    return result
 
 
 @app.post("/api/dagger/system/stop")
@@ -192,10 +243,23 @@ def record_discard() -> dict:
 
 @app.post("/api/dagger/execute")
 def execute(req: ExecuteReq) -> dict:
-    ok = bridge.publish_execute(req.enable)
-    if not ok:
-        raise HTTPException(503, "ROS bridge not alive")
-    return {"ok": True, "enable": req.enable}
+    try:
+        return controller.execute(req.enable, bridge, session)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc))
+
+
+@app.post("/api/deployment/mode")
+def deployment_mode(req: OperationModeReq) -> dict:
+    try:
+        return controller.set_mode(req.mode, bridge, session)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc))
+
+
+@app.post("/api/deployment/preflight")
+def deployment_preflight() -> dict:
+    return controller.preflight(bridge, session)
 
 
 # ── Live preview (same as start_data_collect.sh's 3-cam + joints UI) ──

@@ -192,12 +192,18 @@ if [[ "$SIM" != "true" ]]; then
     echo ""
     echo "--- Step 3: CAN activation ---"
 
-    # autonomy 只驱动 2 从臂 (autonomy_launch.py: arm_reader_node mode=1 @
-    # can_left_slave / can_right_slave). 主臂 (teleop 用) 缺失不影响部署测试,
-    # 故用 --slave-only 只激活从臂; activate_can_v2 对缺失 dongle 只告警不失败.
+    # Normal autonomy only drives the two slaves. DAgger additionally activates
+    # whichever per-side masters were discovered by start_dagger_collect.sh.
     if [[ -x "$CAN_ACTIVATE" ]]; then
-        info "running: $CAN_ACTIVATE --slave-only ${KAI0_ROBOT_ID:+--robot $KAI0_ROBOT_ID}"
-        bash "$CAN_ACTIVATE" --slave-only
+        CAN_ARGS=(--slave-only)
+        if [[ "$DAGGER" == "true" ]] && {
+             [[ "${KAI0_ENABLE_MASTER_LEFT:-0}" == "1" ]] ||
+             [[ "${KAI0_ENABLE_MASTER_RIGHT:-0}" == "1" ]]; }; then
+            CAN_ARGS=()
+        fi
+        info "running: $CAN_ACTIVATE ${CAN_ARGS[*]} ${KAI0_ROBOT_ID:+--robot $KAI0_ROBOT_ID}"
+        bash "$CAN_ACTIVATE" "${CAN_ARGS[@]}"
+        sleep 3  # wait for arm CAN broadcasts before SDK startup
     else
         fail "CAN activation script not found or not executable: $CAN_ACTIVATE"
     fi
@@ -205,7 +211,7 @@ if [[ "$SIM" != "true" ]]; then
     CAN_UP=0
     IFACES="can_left_slave can_right_slave"   # autonomy 实际使用的从臂接口
     for iface in $IFACES; do
-        if ip link show "$iface" &>/dev/null; then
+        if ip -br link show "$iface" 2>/dev/null | grep -q "LOWER_UP"; then
             CAN_UP=$((CAN_UP + 1))
             ok "$iface up"
         fi
@@ -214,7 +220,7 @@ if [[ "$SIM" != "true" ]]; then
     if [ "$CAN_UP" -ge 2 ]; then
         ok "$CAN_UP/2 从臂 CAN 就绪"
     else
-        warn "只有 $CAN_UP/2 从臂 CAN 就绪 (autonomy 需 can_left_slave + can_right_slave); 缺臂只告警, 继续"
+        fail "只有 $CAN_UP/2 从臂 CAN 就绪；拒绝启动双臂真机执行，请检查臂电源、急停和 CAN 线"
     fi
 else
     info "skip CAN activation (--sim: 不驱动真机)"

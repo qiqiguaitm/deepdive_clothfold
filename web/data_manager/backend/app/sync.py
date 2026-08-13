@@ -242,7 +242,8 @@ def _episode_rel_paths(episode_id: int, chunk: int | None = None) -> list[str]:
         paths.append(f"videos/{cdir}/observation.depth.{cam}/{eid}.zarr/")
     # Publish metadata last so an index never advertises an episode whose payload
     # has not yet reached the destination.
-    paths += ["meta/episodes.jsonl", "meta/info.json", "meta/tasks.jsonl"]
+    paths += ["meta/episodes.jsonl", "meta/episodes_stitched.jsonl",
+              "meta/info.json", "meta/tasks.jsonl", "meta/deployments/"]
     return paths
 
 

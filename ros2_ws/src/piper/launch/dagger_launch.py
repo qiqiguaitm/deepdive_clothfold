@@ -124,6 +124,12 @@ def generate_launch_description():
         'enable_master', default_value='true',
         description="Launch the 2× master_servo (teleop/takeover). false = 油门-only "
                     "autonomous collection (no master arms, no human takeover).")
+    enable_master_left_arg = DeclareLaunchArgument(
+        'enable_master_left', default_value=LaunchConfiguration('enable_master'),
+        description='Launch/monitor the left master; missing side is valid.')
+    enable_master_right_arg = DeclareLaunchArgument(
+        'enable_master_right', default_value=LaunchConfiguration('enable_master'),
+        description='Launch/monitor the right master; missing side is valid.')
 
     # ── Compose autonomy_launch.py: same policy + slave + cameras (no rerun) ──
     # Three key overrides:
@@ -209,6 +215,8 @@ def generate_launch_description():
             'checkpoint_dir': LaunchConfiguration('checkpoint_dir'),
             'operator':       'dagger',
             'record_inference': LaunchConfiguration('record_inference'),
+            'master_left_available': LaunchConfiguration('enable_master_left'),
+            'master_right_available': LaunchConfiguration('enable_master_right'),
         }],
     )
 
@@ -228,9 +236,12 @@ def generate_launch_description():
     # CAMERAS=4 需要它, 否则 recorder 的 mid_head 帧全黑 → finalize trim-validate 判黑 abort。
     # (teleop 的 launch_3cam.py 已起它; dagger 路径之前漏了, 这里补上。)
     _uvc_mid = os.path.join(_PROJECT_ROOT, 'start_scripts', 'kai', 'uvc_camera_node.py')
+    _mid_device = os.environ.get('KAI0_CAMERA_MID_HEAD_DEVICE', '/dev/cam_mid_head')
+    _mid_enabled = (os.environ.get('KAI0_ENABLE_MID_HEAD', '0') == '1'
+                    and os.path.exists(_mid_device))
     mid_head_node = ExecuteProcess(
         cmd=['python3', _uvc_mid, '--ros-args',
-             '-p', 'device:=/dev/cam_mid_head',
+             '-p', f'device:={_mid_device}',
              '-p', 'ns:=/camera_m',
              '-p', 'width:=640', '-p', 'height:=480', '-p', 'fps:=30'],
         output='screen',
@@ -238,14 +249,18 @@ def generate_launch_description():
 
     # Stagger so master_servo doesn't init before CAN/cameras are stable.
     # Gated on enable_master → 油门-only 模式整条不启动 (IfCondition 包住 TimerAction).
-    _master_on = IfCondition(LaunchConfiguration('enable_master'))
-    master_left_delayed  = TimerAction(period=8.0,  actions=[master_left],  condition=_master_on)
-    master_right_delayed = TimerAction(period=8.5,  actions=[master_right], condition=_master_on)
+    master_left_delayed = TimerAction(
+        period=8.0, actions=[master_left],
+        condition=IfCondition(LaunchConfiguration('enable_master_left')))
+    master_right_delayed = TimerAction(
+        period=8.5, actions=[master_right],
+        condition=IfCondition(LaunchConfiguration('enable_master_right')))
     dagger_delayed       = TimerAction(period=25.0, actions=[dagger_node])
     # Pedal can come up immediately — it doesn't need CAN/cameras/policy.
     pedal_delayed        = TimerAction(period=2.0,  actions=[pedal_node])
     # mid_head UVC 相机: 独立 /dev 设备, 不依赖 CAN, 早点起 (给 recorder 25s 前就绪)。
-    mid_head_delayed     = TimerAction(period=3.0,  actions=[mid_head_node])
+    mid_head_actions = [mid_head_node] if _mid_enabled else []
+    mid_head_delayed = TimerAction(period=3.0, actions=mid_head_actions)
 
     # Set PYTHONPATH at dagger scope BEFORE the dagger nodes so they (esp.
     # dagger_recorder → dataset_writer → av) can import from kai0/.venv. The
@@ -259,6 +274,7 @@ def generate_launch_description():
         set_py,
         record_task_arg, record_prompt_arg, record_subset_arg, record_inference_arg,
         enable_head_depth_arg, enable_master_arg,
+        enable_master_left_arg, enable_master_right_arg,
         camera_cpu_prefix_arg, recorder_cpu_prefix_arg, servo_cpu_prefix_arg,
         autonomy,  # includes mode_arg/gpu_arg/config_arg/ckpt_arg/etc. transitively
         master_left_delayed,

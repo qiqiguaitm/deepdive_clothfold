@@ -18,6 +18,8 @@ export default function App() {
   const [tasks, setTasks] = useState<{ task: string; has_data: boolean }[]>([]);
   const [episodes, setEpisodes] = useState<EpisodeEntry[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
+  const [view, setView] = useState<"live" | "setup" | "data">("live");
+  const [stopBusy, setStopBusy] = useState(false);
 
   // Episode data lives here so EpisodesCard (counts) + HistoryCard (list)
   // share one source — single fetch per task, refreshed when a recording
@@ -57,13 +59,23 @@ export default function App() {
 
   const state = snap?.state ?? "—";
   const stateCls = state === "—" ? "state-unknown" : `state-${state}`;
+  const mode = (snap?.operation_mode ?? "observe").toUpperCase();
+  const stopExecution = async () => {
+    setStopBusy(true);
+    try { await api.execute(false); } catch (e) { console.error(e); }
+    finally { setStopBusy(false); }
+  };
 
   return (
     <div className="app">
       {/* ── top bar: at-a-glance status chips ── */}
-      <div className="card top-bar">
-        <h1>DAgger Manager</h1>
-        <span className={`state-badge ${stateCls}`} style={{ fontSize: 12 }}>{state}</span>
+      <header className="top-bar">
+        <div className="brand-block">
+          <div className="brand-mark">K0</div>
+          <div><h1>KAI0 Operator Console</h1><p>Deployment · DAgger · Replay</p></div>
+        </div>
+        <span className={`mode-badge mode-${mode.toLowerCase()}`}>{mode}</span>
+        <span className={`state-badge ${stateCls}`}>{state}</span>
         {snap?.recording && (
           <span className="chip rec"><span className="rec-dot" />REC</span>
         )}
@@ -87,42 +99,65 @@ export default function App() {
         })()}
         <span className="spacer" />
         <div className="conn">ws: {conn}</div>
-      </div>
+        <button className="estop" disabled={stopBusy || !snap?.policy_execute}
+                onClick={stopExecution}>■ STOP EXECUTION</button>
+      </header>
 
-      {/* ── cameras: full width (within the 1440 cap) so the live preview
-             is large — the operator's primary view ── */}
-      <CameraGrid cameras={snap?.cameras ?? {}} />
+      <nav className="workspace-tabs" aria-label="Workspace">
+        <button className={view === "live" ? "active" : ""} onClick={() => setView("live")}>
+          <span>01</span> Live Control
+        </button>
+        <button className={view === "setup" ? "active" : ""} onClick={() => setView("setup")}>
+          <span>02</span> Model Setup
+          {!snap?.session_running && <i />}
+        </button>
+        <button className={view === "data" ? "active" : ""} onClick={() => setView("data")}>
+          <span>03</span> Data &amp; Replay
+        </button>
+      </nav>
 
-      {/* ── control strip: 3 columns of stacked cards. Column flow keeps
-             each column tightly packed (no blank gaps between cards). ── */}
-      <div className="ctrl-region">
-        <div className="ctrl-col ctrl-col-wide">
-          <SystemCard s={snap} />
+      {view === "live" && <main className="workspace live-workspace">
+        <div className="workspace-heading">
+          <div><span>REAL-TIME OPERATIONS</span><h2>Live Control</h2></div>
+          <p>Verify camera feeds and preflight before enabling robot execution.</p>
         </div>
-        <div className="ctrl-col">
+        <CameraGrid cameras={snap?.cameras ?? {}} />
+        <div className="live-control-grid">
           <StateCard s={snap} />
           <ControlsCard s={snap} />
-        </div>
-        <div className="ctrl-col">
           <ArmsPanel />
           <EpisodesCard s={snap} task={task} tasks={tasks}
                         episodes={episodes} onTask={setTask} />
         </div>
-      </div>
+      </main>}
 
-      {/* ── history + replay region ── */}
-      <div className="section-label">History &amp; Replay</div>
-      <div className="hr-region">
-        <div className="hr-history">
-          <HistoryCard task={task} episodes={episodes}
-                       selected={selectedEp} onSelect={setSelectedEp}
-                       onReload={reloadEpisodes} />
+      {view === "setup" && <main className="workspace setup-workspace">
+        <div className="workspace-heading">
+          <div><span>POLICY CONFIGURATION</span><h2>Model Setup</h2></div>
+          <p>Choose a checkpoint and configure the resolved RTC / EMA control policy.</p>
         </div>
-        <div className="hr-replay">
-          <ReplayCard s={snap} ep={selectedEp} task={task}
-                      onDeleted={() => { setSelectedEp(null); reloadEpisodes(); }} />
+        <SystemCard s={snap} />
+      </main>}
+
+      {view === "data" && <main className="workspace data-workspace">
+        <div className="workspace-heading">
+          <div><span>DATASET REVIEW</span><h2>Data &amp; Replay</h2></div>
+          <p>Inspect inference, intervention and stitched rollout episodes.</p>
         </div>
-      </div>
+        <EpisodesCard s={snap} task={task} tasks={tasks}
+                      episodes={episodes} onTask={setTask} />
+        <div className="hr-region">
+          <div className="hr-history">
+            <HistoryCard task={task} episodes={episodes}
+                         selected={selectedEp} onSelect={setSelectedEp}
+                         onReload={reloadEpisodes} />
+          </div>
+          <div className="hr-replay">
+            <ReplayCard s={snap} ep={selectedEp} task={task}
+                        onDeleted={() => { setSelectedEp(null); reloadEpisodes(); }} />
+          </div>
+        </div>
+      </main>}
     </div>
   );
 }

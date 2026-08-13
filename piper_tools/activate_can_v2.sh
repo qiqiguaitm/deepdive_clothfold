@@ -51,7 +51,7 @@ if [[ $(id -u) -eq 0 ]]; then SUDO=""; else SUDO="sudo"; sudo -v; fi
 
 [[ -f "$YAML" ]] || { echo "[FAIL] missing $YAML — run setup_can_v2.sh first"; exit 1; }
 
-# ── 解析 YAML (单层 'key: value' / "key: 'value'") ─────────────────────────
+# ── 解析 YAML (单层 key: value，value 可为无引号/单引号/双引号) ───────────────────
 declare -A WANT_SERIAL
 while IFS= read -r line; do
     line="${line%%#*}"
@@ -59,7 +59,7 @@ while IFS= read -r line; do
     key="${line%%:*}"
     val="${line#*:}"
     key="${key// }"
-    val="$(echo "$val" | sed -E "s/^[[:space:]]*'?//; s/'?[[:space:]]*$//")"
+    val="$(echo "$val" | sed -E "s/^[[:space:]]*['\"]?//; s/['\"]?[[:space:]]*$//")"
     [[ "$key" =~ ^can_(left|right)_(slave|mas)$ ]] \
         && [[ -n "$val" ]] && WANT_SERIAL["$key"]="$val"
 done < "$YAML"

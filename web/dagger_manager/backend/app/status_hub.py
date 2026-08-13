@@ -15,6 +15,7 @@ from fastapi import WebSocket
 
 from .ros_bridge import bridge
 from .stack import count_episodes, session, stack
+from .deployment.controller import controller
 
 
 class StatusHub:
@@ -54,7 +55,7 @@ class StatusHub:
             except Exception:
                 pass
             self._last_episode_check = now
-        return {
+        result = {
             "ts": time.time(),
             "stack_running": st["running"],
             "stack_pid": st["pid"],
@@ -68,16 +69,22 @@ class StatusHub:
             "recording": ros.get("recording"),
             "button_left": ros.get("button_left", False),
             "button_right": ros.get("button_right", False),
+            "master_available_left": ros.get("master_available_left", False),
+            "master_available_right": ros.get("master_available_right", False),
             "policy_execute": ros.get("policy_execute"),
             "last_pedal_ts": ros.get("last_pedal_ts"),
             "speed_factor": ros.get("speed_factor", 1.0),
             "ros_alive": ros.get("ros_alive", False),
+            "policy_node_ready": ros.get("policy_node_ready", False),
             "inference_episodes": self._cached_episodes.get("inference", 0),
             "dagger_episodes": self._cached_episodes.get("dagger", 0),
             "ckpt": sess.get("ckpt") or st.get("ckpt"),
             "task": task,
             "cameras": ros.get("cameras", {}),
+            "control_policy": sess.get("control_policy"),
         }
+        result.update(controller.snapshot())
+        return result
 
     def start(self) -> None:
         if self._task is None:
