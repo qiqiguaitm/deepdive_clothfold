@@ -7115,8 +7115,8 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         ("parameter_matched_null", 1100),
     ):
         watch = scheduler.GF1_TRAIN_WATCH_TASKS[f"tg4_{arm}_seed{seed}"]
-        assert watch["status_path"].endswith("_queue_recovery_v2/status")
-        assert watch["log_path"].endswith("_queue_recovery_v2/launcher.log")
+        assert watch["status_path"].endswith("_queue_recovery_v3/status")
+        assert watch["log_path"].endswith("_queue_recovery_v3/launcher.log")
     assert all(
         next(
             candidate
@@ -7150,7 +7150,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         if "conditioning_only" in task["id"]:
             expected_gf1_revision = "temporal_grounding_tg4_conditioning_ddp_gf1_v4"
         elif task["id"] in migration_cells:
-            expected_gf1_revision = "temporal_grounding_tg4_gf1_v5_queue_recovery"
+            expected_gf1_revision = "temporal_grounding_tg4_gf1_v6_queue_recovery"
         else:
             expected_gf1_revision = "temporal_grounding_tg4_gf1_v3"
         assert all(
@@ -7159,7 +7159,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         )
         if task["id"] in migration_cells:
             assert all(
-                candidate["status_dir"].endswith("_queue_recovery_v2")
+                candidate["status_dir"].endswith("_queue_recovery_v3")
                 for candidate in gf1
             )
         assert all(
