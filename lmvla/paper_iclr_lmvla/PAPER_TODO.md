@@ -61,8 +61,8 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 10:30 UTC canonical
-  snapshot, eight unfinished training cells are Running and two are Queueing on
+- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 11:02 UTC canonical
+  snapshot, nine unfinished training cells are Running and one is Queueing on
   North; every cell is completed, running, or submitted, with no undispatched
   training cell. All three `auxiliary_only`
   seeds completed all 20,000
@@ -134,20 +134,25 @@ are excluded from within-architecture causal contrasts.
   capacity-reserved escape to an immediately free East/gf1 candidate: the
   scheduler first plans against a copied live snapshot, respects per-resource
   failure exhaustion, and stops the queued job with its original identity
-  before redispatch. At 09:32 UTC gf1 was physically free, but both cells
-  correctly remained on North because their prior interrupted gf1 long runs
-  exhausted the one-attempt safety bound; East remained 8/8. They can migrate
-  only if an admissible higher-priority slice becomes immediately runnable, and
-  a failed stop leaves the North attempt tracked. Do not inspect partial
+  before redispatch. When gf1 became physically free again at 10:54 UTC, both
+  old partial roots were already quarantined and the formal output paths were
+  empty. A new recovery revision reopened exactly these two exhausted gf1
+  candidates. The primary-identity `future_off` seed-1102 North queue copy was
+  stopped before a clean gf1 dispatch; model loading and step zero passed at
+  1.96 seconds/step. The backup-identity `parameter_matched_null` seed-1100
+  queue copy could not be stopped by the available identities (`AccessDenied`),
+  so no duplicate gf1 run was launched and the North attempt remains tracked.
+  Do not inspect partial
   outcomes to alter the protocol. The East migration candidates now require at
   least five free GPUs before taking four, so at most one queued training cell
   can migrate when the two active legacy East cells terminate. This preserves
   capacity for their one-GPU strict recovery audits instead of delaying
   checkpoint admission behind another full training wave. At this snapshot,
-  East is 8/8, North primary is 20 active plus 4 queued under its 25-GPU
+  East is 8/8, North primary is 20 active with no queue under its 25-GPU
   limit, North backup is 4 active plus 4 queued under its 8-GPU limit, and
-  gf1 is occupied by an external eight-GPU workload. Thus every admissible
-  four-GPU training slot is used or queued; the idle local two-GPU host cannot
+  gf1 is 4/8. Thus every safely admissible four-GPU training slot is used or
+  queued; the other four gf1 GPUs remain idle only to avoid a duplicate, while
+  the idle local two-GPU host cannot
   execute a frozen four-GPU training cell and formal evaluation remains gated.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
   the joint verifier are implemented. Reject the complete matrix before
