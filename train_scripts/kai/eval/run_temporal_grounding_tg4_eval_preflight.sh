@@ -12,19 +12,16 @@ readonly EVAL_MANIFEST="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_groundin
   echo "TG4_PREFLIGHT_LABEL must contain only lowercase letters, digits, or underscores" >&2
   exit 2
 }
-readonly ROOT="$REPO/logs/resource_scheduler_local/tg4_eval_preflight_${PREFLIGHT_LABEL}"
+readonly ATTEMPT_ID="$(date -u +%Y%m%dT%H%M%SZ)_$$"
+readonly ROOT="$REPO/logs/resource_scheduler_local/tg4_eval_preflight_${PREFLIGHT_LABEL}/attempt_${ATTEMPT_ID}"
 readonly RESULT_ROOT="$ROOT/result"
 readonly FEATURE_ROOT="$ROOT/features"
+readonly PREFLIGHT_SCENES="$ROOT/preflight_scene_seeds.json"
 readonly MARKER="$REPO/logs/resource_markers/temporal_grounding_tg4_eval_${PREFLIGHT_LABEL}_preflight.ok"
 readonly LOG="$ROOT/eval.log"
 readonly CONTROL_PYTHON="${TG4_CONTROL_PYTHON:-$REPO/kai0/.venv/bin/python}"
 
 test ! -e "$MARKER" || exit 0
-test ! -e "$RESULT_ROOT" || {
-  echo "refusing to mix TG4 evaluator preflight with existing result root: $RESULT_ROOT" >&2
-  exit 3
-}
-
 bash "$REPO/lmvla/lmwam/env/heal_lawam_symlinks.sh"
 source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
 "$CONTROL_PYTHON" \
@@ -41,6 +38,20 @@ readonly CKPT="${run_dirs[0]}/final_model/pytorch_model.pt"
 test -f "$CKPT"
 test -f "$SCENES"
 mkdir -p "$RESULT_ROOT/seed0" "$FEATURE_ROOT"
+"$CONTROL_PYTHON" - "$SCENES" "$PREFLIGHT_SCENES" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+source, destination = map(Path, sys.argv[1:])
+manifest = json.loads(source.read_text())
+seed = manifest["eval_seeds"]["0"]["beat_block_hammer"][0]
+preflight = {
+    "episodes_per_cell": 1,
+    "eval_seeds": {"0": {"beat_block_hammer": [seed]}},
+}
+destination.write_text(json.dumps(preflight, indent=2, sort_keys=True) + "\n")
+PY
 
 export STAR_VLA_PYTHON="${STAR_VLA_PYTHON:-/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python}"
 export ROBOTWIN_PATH="${ROBOTWIN_PATH:-/vePFS/HuanQian/RoboTwin}"
@@ -55,7 +66,7 @@ export ROBOTWIN_INSTRUCTION_TYPE=unseen
 export ROBOTWIN_REPLAN_STEPS=36
 export ROBOTWIN_SKIP_GET_OBS_WITHIN_REPLAN=1
 export ROBOTWIN_ACTION_ENSEMBLE=0
-export ROBOTWIN_EPISODE_SEED_MANIFEST="$SCENES"
+export ROBOTWIN_EPISODE_SEED_MANIFEST="$PREFLIGHT_SCENES"
 export ROBOTWIN_FIXED_SEED_MAX_ATTEMPTS=500
 export ROBOTWIN_TASK_SCOPED_SERVER=1
 export LAWAM_FUTURE_INTERVENTION=normal

@@ -10492,7 +10492,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             ),
             {
                 "path": str(tg4_eval_preflight_runner),
-                "sha256": "661753d2c8c65290c198e7903d63768ac3f1d10891961c1fe6d301a7c65c4445",
+                "sha256": "6e7d9902762ea4e2f2e4afbf56e6656228b2c251aa9660bd5fefb3c0f77eba8c",
             },
         ],
         "candidates": [
