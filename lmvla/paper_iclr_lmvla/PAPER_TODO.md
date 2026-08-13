@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 07:54 UTC
+Updated: 2026-08-13 08:04 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -85,7 +85,10 @@ are excluded from within-architecture causal contrasts.
   then a one-GPU East audit reads the root-owned sidecars, applies the same
   strict verifier, and exposes them read-only to the joint local integrity
   gate. Neither path can admit a task until its own complete audit marker
-  exists. The
+  exists. A submission dry-run resolves the audit YAML to the intended
+  `Robot-East-H20`, `cn-shanghai-e`, one-H20 shape and shared East mount; this
+  root-access requirement intentionally overrides the generic local-first
+  one-GPU preference. The
   platform-reported `clean_base` seed-1102 failure is therefore already closed:
   its exact step-20,000 recovery audit completed at 02:56 UTC and its verified
   checkpoint was materialized locally at 04:23 UTC; it must not be resubmitted.
