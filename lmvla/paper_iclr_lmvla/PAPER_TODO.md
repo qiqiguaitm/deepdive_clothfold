@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 06:56 UTC
+Updated: 2026-08-13 07:12 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -91,13 +91,13 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
-  3.3k/1.3k/1.2k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  3.9k/1.9k/1.7k. `full` seeds 1100 and 1101 reached exact step 20,000;
   their per-cell recovery watchers verified the frozen configuration,
   initialization, rank orders, final model, optimizer state, and exact
   post-training shell error before admitting them, and both artifacts are now
-  being materialized. `future_off` seeds 1100/1101 are healthy near
-  7.2k/7.1k, parameter-matched-null seeds 1101/1102 near 8.5k/8.6k, and
-  `full` seed 1102 near 6.4k. The temporary gf1 processes for `future_off`
+  materialized locally. `future_off` seeds 1100/1101 are healthy near
+  7.7k/7.6k, parameter-matched-null seeds 1101/1102 near 9.0k/9.1k, and
+  `full` seed 1102 near 6.8k. The temporary gf1 processes for `future_off`
   seed 1102 and parameter-matched-null seed 1100 were independently confirmed
   dead after reaching about 12.2k and 11.6k. Because the frozen recipe writes
   no admissible intermediate checkpoint, neither partial run can be resumed or
@@ -141,7 +141,10 @@ are excluded from within-architecture causal contrasts.
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
   frozen hash dependencies; the repaired bundle verifier and all 211 related
-  scheduler/TG4 tests pass.
+  scheduler/TG4 tests pass. The independent hourly audit now freezes all 78
+  claim-bearing execution gates, including the North staging task and all 18
+  normal-result materializers, so it cannot declare completion at a platform
+  eval terminal before the artifacts are verified locally.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,

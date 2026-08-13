@@ -91,13 +91,18 @@ def expected_task_ids() -> tuple[str, ...]:
         for seed in (1100, 1101, 1102):
             parent = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
             tasks.extend((parent, f"{parent}_materialize_north"))
-            tasks.append(f"temporal_grounding_tg4_{arm}_seed{seed}_normal_eval")
+            normal_eval = f"temporal_grounding_tg4_{arm}_seed{seed}_normal_eval"
+            tasks.extend((normal_eval, f"{normal_eval}_materialize_north"))
             if arm == "full":
                 tasks.append(
                     f"temporal_grounding_tg4_{arm}_seed{seed}_shuffled_eval"
                 )
     tasks.extend(
-        ("temporal_grounding_tg4_training_integrity", "temporal_grounding_tg4_analysis")
+        (
+            "temporal_grounding_tg4_training_integrity",
+            "temporal_grounding_tg4_eval_north_stage",
+            "temporal_grounding_tg4_analysis",
+        )
     )
     return tuple(tasks)
 
