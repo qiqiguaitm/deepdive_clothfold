@@ -6922,6 +6922,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         assert recovery["requires_completed_tasks"] == [ready_id]
         assert recovery["candidates"][0]["gpus"] == 1
         assert recovery["candidates"][0]["resource"] == "Robot-East-H20"
+        assert recovery["completion_requires_successful_terminal_state"] is True
         task = tasks[f"temporal_grounding_tg4_{arm}_seed{seed}_train"]
         assert task["validated_terminal_recovery_marker"].endswith(
             f"{recovery_id}.json"

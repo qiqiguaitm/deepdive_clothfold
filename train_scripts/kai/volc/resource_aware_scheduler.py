@@ -9870,6 +9870,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "rearm_after_ready_file": str(tg4_north_terminal_recovery_runner),
             "completion_glob": str(recovery_marker),
             "completion_min_count": 1,
+            "completion_requires_successful_terminal_state": True,
+            "successful_terminal_artifact_grace_seconds": 300,
             "ready_files": [
                 str(tg4_terminal_recovery_verifier),
                 str(tg4_north_terminal_recovery_runner),
@@ -9997,6 +9999,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "rearm_after_ready_file": str(tg4_east_terminal_audit_runner),
             "completion_glob": str(recovery_marker),
             "completion_min_count": 1,
+            "completion_requires_successful_terminal_state": True,
+            "successful_terminal_artifact_grace_seconds": 300,
             "ready_files": [
                 str(tg4_terminal_recovery_verifier),
                 str(tg4_east_terminal_audit_runner),
@@ -10009,7 +10013,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 },
                 {
                     "path": str(tg4_east_terminal_audit_runner),
-                    "sha256": "7b76c4d794eb5322e1ead889d2ac1f89cd626b5a5fd4a169f3b06c3018f39355",
+                    "sha256": "6de9bb674b51ed69e567c71e714775e88877ac3844b3fe46cb4bef2065b9e0d3",
                 },
                 {
                     "path": str(tg4_east_terminal_audit_yaml),
