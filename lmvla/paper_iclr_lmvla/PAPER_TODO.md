@@ -175,13 +175,19 @@ are excluded from within-architecture causal contrasts.
   intervention definition. Before any evaluation started, the frozen runtime
   bundle was further extended with a hash-gated North staging task. It reuses
   exact North-native checkpoints by verified hard link, uploads only missing
-  final models, and atomically materializes every North result; for `full`, it
+  final models, and atomically materializes every North result. Four
+  East-native cells also have zero-GPU asynchronous prefetch tasks: each waits
+  for its strict training acceptance, verifies the exact accepted SHA256 and
+  byte count, and shares a transfer lock with formal staging. The formal stage
+  independently rechecks any prefetched model against the final 18-cell
+  integrity manifest and can upload it itself if prefetch fails, so this
+  optimization cannot weaken or block the gate. For `full`, staging
   also re-verifies and materializes the complete feature capture before the
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; the repaired bundle verifier and all 211 related
-  scheduler/TG4 tests pass. The independent hourly audit now freezes all 78
+  frozen hash dependencies; the repaired bundle verifier and all 221 related
+  scheduler/TG4 tests pass. The independent hourly audit now freezes all 79
   claim-bearing execution gates, including the North staging task and all 18
   normal-result materializers, so it cannot declare completion at a platform
   eval terminal before the artifacts are verified locally. A pre-integrity

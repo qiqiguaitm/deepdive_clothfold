@@ -6782,7 +6782,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 167
+    assert len(tasks) == 171
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -7010,6 +7010,36 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         "Robot-East-H20",
     ]
     assert [candidate["gpus"] for candidate in tg4_integrity["candidates"]] == [0, 1]
+    prefetches = {
+        task_id: task
+        for task_id, task in tasks.items()
+        if task_id.startswith("temporal_grounding_tg4_")
+        and task_id.endswith("_eval_north_prefetch")
+    }
+    assert set(prefetches) == {
+        f"temporal_grounding_tg4_{arm}_seed{seed}_eval_north_prefetch"
+        for arm, seed in (
+            ("auxiliary_only", 1100),
+            ("auxiliary_only", 1101),
+            ("parameter_matched_null", 1101),
+            ("parameter_matched_null", 1102),
+        )
+    }
+    for task_id, task in prefetches.items():
+        run_id = task_id.removesuffix("_eval_north_prefetch")
+        assert task["requires_completed_tasks"] == [
+            f"{run_id}_train",
+            f"{run_id}_train_materialize_north",
+        ]
+        assert task["candidates"][0]["resource"] == "local"
+        assert task["candidates"][0]["gpus"] == 0
+        assert "prefetch_temporal_grounding_tg4_eval_checkpoint_to_north.sh" in (
+            task["candidates"][0]["command"]
+        )
+        assert all(
+            scheduler.sha256_file(Path(item["path"])) == item["sha256"]
+            for item in task["ready_hashes"]
+        )
     assert len(temporal_grounding_evals) == 47
     assert all(
         scheduler.TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task_id)

@@ -10411,12 +10411,12 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO / "train_scripts/kai/eval/robotwin_python_wrapper_north.sh"
     )
     tg4_eval_hashes = [
-        {"path": str(tg4_eval_manifest), "sha256": "e3ecf403dbc70bf371468cff1562fa0ff0e2e2e7c480c866258cd8651d828851"},
+        {"path": str(tg4_eval_manifest), "sha256": "8592cfc03665f392440af61a828a413727f99f808cbb0264b146fe17e1677b82"},
         {"path": str(tg4_eval_verifier), "sha256": "75b3a7ee1ffb1b2fa703b199cc12ac24a8e5b9ca0908a692cf5a0cbafad464ee"},
         {"path": str(tg4_eval_runner), "sha256": "00f9d82c897c26b779462d8a048e5d764ada167b56b345b958e14d28e7c33033"},
         {"path": str(tg4_eval_yaml), "sha256": "e777196f9925ee7cb8423d3e1c6d45e51d2b7ea7a8cc95e108b60b00fb76ae26"},
         {"path": str(tg4_eval_north_yaml), "sha256": "6ffcb0623ce7adf989427250b5d68e4af7e9e501b09742a676b63e812867b6dc"},
-        {"path": str(tg4_eval_north_stage_runner), "sha256": "c0ff65bf9f93f0134b5f067944e57d9d80a37cc596c92d9427aed8e3dcabe3c7"},
+        {"path": str(tg4_eval_north_stage_runner), "sha256": "acca5a8da58dc1640615b8cc61b2c14830e120f0feaac136dd214c30d5b34f46"},
         {"path": str(tg4_eval_north_materializer), "sha256": "5f2e78ca7ef8ee0ee5dc6f0e8f4deeca6d8e9e06686e5864172cac7f167b83bd"},
         {"path": str(tg4_north_renderer_wrapper), "sha256": "a3c2a83152f8cb5cd121e9d1b9181a96af0238a797baad4219f9cb5b14618f83"},
         {"path": str(tg4_scene_manifest), "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17"},
@@ -10425,6 +10425,95 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(tg4_renderer_env), "sha256": "3c94cbd4d8a88a66a821d7129cbf4641cbd1fa2fca7d264bb894aeef12d1a69f"},
         {"path": str(tg4_renderer_wrapper), "sha256": "4aed2bf9e3971b1a69b4c42349afb9608b1e5043ff965d823777417f217b5a9d"},
     ]
+    tg4_eval_prefetch_runner = (
+        REPO
+        / "train_scripts/kai/prefetch_temporal_grounding_tg4_eval_checkpoint_to_north.sh"
+    )
+    tg4_eval_prefetch_sync = (
+        REPO / "train_scripts/kai/sync_tree_to_north_verified_tos.sh"
+    )
+    tg4_eval_prefetch_cells = {
+        ("auxiliary_only", 1100): tg4_terminal_recovery_marker,
+        ("auxiliary_only", 1101): tg4_terminal_recovery_marker,
+        ("parameter_matched_null", 1101): tg4_east_terminal_markers[
+            ("parameter_matched_null", 1101)
+        ],
+        ("parameter_matched_null", 1102): tg4_east_terminal_markers[
+            ("parameter_matched_null", 1102)
+        ],
+    }
+    for prefetch_cell, acceptance_marker in tg4_eval_prefetch_cells.items():
+        prefetch_arm, prefetch_seed = prefetch_cell
+        prefetch_run_id = (
+            f"temporal_grounding_tg4_{prefetch_arm}_seed{prefetch_seed}"
+        )
+        prefetch_train_id = f"{prefetch_run_id}_train"
+        prefetch_materialize_id = f"{prefetch_train_id}_materialize_north"
+        prefetch_id = f"{prefetch_run_id}_eval_north_prefetch"
+        prefetch_marker = (
+            REPO / "logs/resource_markers" / f"{prefetch_id}.ok"
+        )
+        prefetch_task = {
+            "id": prefetch_id,
+            "priority": 0,
+            "description": (
+                "Prefetch one strictly accepted East TG4 checkpoint for North "
+                f"evaluation: {prefetch_arm} seed {prefetch_seed}"
+            ),
+            "requires_completed_tasks": [
+                prefetch_train_id,
+                prefetch_materialize_id,
+            ],
+            "rearm_after_ready_file": str(tg4_eval_prefetch_runner),
+            "completion_glob": str(prefetch_marker),
+            "completion_min_count": 1,
+            "ready_files": [
+                str(acceptance_marker),
+                str(tg4_eval_prefetch_runner),
+                str(tg4_eval_prefetch_sync),
+            ],
+            "ready_hashes": [
+                {
+                    "path": str(tg4_eval_prefetch_runner),
+                    "sha256": "f9f1061a5a73accf600f2b5267543be33f022171802d5e652dbdad7abca0c31d",
+                },
+                {
+                    "path": str(tg4_eval_prefetch_sync),
+                    "sha256": "1e251edb0ef0bb7af7bb9fd3a791765dfc51599d2b2d17d19595ce501a32267f",
+                },
+            ],
+            "candidates": [
+                {
+                    "kind": "local",
+                    "resource": "local",
+                    "gpus": 0,
+                    "retry_cooldown_seconds": 300,
+                    "max_failures": 3,
+                    "status_dir": str(
+                        REPO
+                        / "logs/temporal_grounding/tg4/eval_north_prefetch"
+                        / f"{prefetch_arm}_seed{prefetch_seed}"
+                    ),
+                    "command": shlex.join(
+                        [
+                            "env",
+                            f"TG4_ARM={prefetch_arm}",
+                            f"TG4_TRAIN_SEED={prefetch_seed}",
+                            f"TG4_ACCEPTANCE_MARKER={acceptance_marker}",
+                            f"TG4_PREFETCH_OUTPUT={prefetch_marker}",
+                            "bash",
+                            str(tg4_eval_prefetch_runner),
+                        ]
+                    ),
+                }
+            ],
+        }
+        if prefetch_id not in existing:
+            queue["tasks"].append(prefetch_task)
+            existing.add(prefetch_id)
+        else:
+            existing_tasks[prefetch_id].update(prefetch_task)
+
     tg4_eval_north_stage_task = {
         "id": tg4_eval_north_stage_id,
         "priority": 0,
