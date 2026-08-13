@@ -160,6 +160,18 @@ are excluded from within-architecture causal contrasts.
   East 1-GPU only as a fallback, so platform deployment cannot delay the gate
   after the final materializer completes.
   Rank-order hashes must match across arms within seed and differ across seeds.
+  A non-gating 8-of-18 pre-integrity audit found that every currently accepted
+  and materialized cell has a complete final model and optimizer at exact step
+  20,000; all currently decidable parameter-tree, trainable-tree,
+  optimizer-tree, normalization, initialization, route, within-seed order,
+  across-seed order, and non-arm configuration checks pass. The report remains
+  explicitly `complete=false` and `claim_bearing=false` with ten missing run
+  IDs, so it cannot satisfy I1. This pre-audit also exposed a verifier-only
+  false mismatch: serialized `log_dir` necessarily contains each timestamped
+  run path. The final verifier now excludes `log_dir` alongside `run_id`,
+  `output_dir`, and `seed` while still rejecting drift in true non-arm fields;
+  positive varying-path and negative action-horizon regressions cover the
+  distinction. No training artifact or scientific comparison changed.
   A pre-completion audit also corrected a verifier-only distinction for the
   matched-parameter route ablations. Their frozen serialized configs
   deliberately retain `future_prediction=true` and
@@ -224,7 +236,7 @@ are excluded from within-architecture causal contrasts.
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; all 243 scheduler, watcher, resume,
+  frozen hash dependencies; all 244 scheduler, watcher, resume,
   training-integrity,
   evaluation, analysis, and finalizer tests pass. Fresh live verification of
   both frozen TG4 source and evaluation manifests also passed at 09:37 UTC.

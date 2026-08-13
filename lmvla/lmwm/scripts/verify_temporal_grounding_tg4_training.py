@@ -84,7 +84,7 @@ def nested(config: dict[str, Any], path: tuple[str, ...]) -> Any:
 
 def normalized_config(config: dict[str, Any]) -> dict[str, Any]:
     result = copy.deepcopy(config)
-    for key in ("seed", "run_id", "output_dir"):
+    for key in ("seed", "run_id", "output_dir", "log_dir"):
         result.pop(key, None)
     for path in ARM_CONFIG_PATHS:
         parent = result

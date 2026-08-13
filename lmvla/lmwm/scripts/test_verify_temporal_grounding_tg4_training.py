@@ -45,7 +45,12 @@ def make_repo(tmp_path: Path, *, collapse_seeds: bool = False) -> Path:
             (run / "final_model").mkdir(parents=True)
             state.mkdir(parents=True)
             config = copy.deepcopy(base_config)
-            config.update({"seed": seed, "run_id": run_id, "output_dir": str(run)})
+            config.update({
+                "seed": seed,
+                "run_id": run_id,
+                "output_dir": str(run),
+                "log_dir": str(run / "logs"),
+            })
             for path, value in verifier.expected_arm_config(arm).items():
                 parent = config
                 for key in path[:-1]:
@@ -138,4 +143,18 @@ def test_rejects_route_mismatch(tmp_path: Path) -> None:
     payload["route"]["lawam_conditioning_off"] = True
     path.write_text(json.dumps(payload))
     with pytest.raises(ValueError, match="route mismatch"):
+        verifier.verify(repo, min_checkpoint_bytes=1, min_optimizer_bytes=1)
+
+
+def test_rejects_true_non_arm_config_drift(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    path = (
+        repo
+        / "lmvla/lawam/results/Checkpoints/robotwin/"
+        "stamp+temporal_grounding_tg4_full_seed1100/config.json"
+    )
+    payload = json.loads(path.read_text())
+    payload["framework"]["action_model"]["action_horizon"] = 49
+    path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="non_arm_config_equal"):
         verifier.verify(repo, min_checkpoint_bytes=1, min_optimizer_bytes=1)
