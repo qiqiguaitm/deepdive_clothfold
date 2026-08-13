@@ -7110,6 +7110,13 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         == ["gf1", "Robot-East-H20"]
         for task_id in migration_cells
     )
+    for arm, seed in (
+        ("future_off", 1102),
+        ("parameter_matched_null", 1100),
+    ):
+        watch = scheduler.GF1_TRAIN_WATCH_TASKS[f"tg4_{arm}_seed{seed}"]
+        assert watch["status_path"].endswith("_queue_recovery/status")
+        assert watch["log_path"].endswith("_queue_recovery/launcher.log")
     assert all(
         next(
             candidate

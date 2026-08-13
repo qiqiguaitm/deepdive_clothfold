@@ -459,6 +459,22 @@ for arm in (
             ),
             "expected_steps": 20000,
         }
+for arm, seed in (
+    ("future_off", 1102),
+    ("parameter_matched_null", 1100),
+):
+    label = f"tg4_{arm}_seed{seed}"
+    recovery_root = (
+        REPO
+        / "logs/temporal_grounding/tg4/gf1"
+        / f"{label}_queue_recovery"
+    )
+    GF1_TRAIN_WATCH_TASKS[label].update(
+        {
+            "status_path": str(recovery_root / "status"),
+            "log_path": str(recovery_root / "launcher.log"),
+        }
+    )
 TRAIN_WATCH_MANAGED_TASK_IDS = {
     ("Beijing", "combo"): "combo_seed2028_train",
     ("Beijing", "nowm"): "nowm_seed2028_train",
