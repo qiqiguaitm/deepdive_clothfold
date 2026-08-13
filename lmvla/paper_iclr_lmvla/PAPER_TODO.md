@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 14:02 UTC
+Updated: 2026-08-13 14:45 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -134,7 +134,10 @@ are excluded from within-architecture causal contrasts.
   1,000-step rate is 2.007 seconds per step, consistent with the other two
   conditioning cells. No restart or protocol change is warranted. The two
   North future-off cells completed normally at 13:54/14:00 UTC and
-  entered the two seed-sharded materialization slots concurrently. `full` seed
+  entered the two seed-sharded materialization slots concurrently. Both
+  transfers completed at 14:37/14:43 UTC with remote/local SHA256 verification,
+  atomic destination moves, exact 7,174,540,906-byte final models, and exact
+  7,301,479,208-byte optimizer states. `full` seed
   1102 has about 1.6 hours remaining, and the three conditioning cells about
   2.1--3.5 hours. The clean East restart of `future_off` seed 1102 and the now-
   running North backup `parameter_matched_null` seed 1100 are the parallel
@@ -228,6 +231,11 @@ are excluded from within-architecture causal contrasts.
   `output_dir`, and `seed` while still rejecting drift in true non-arm fields;
   positive varying-path and negative action-horizon regressions cover the
   distinction. No training artifact or scientific comparison changed.
+  A fresh post-training-chain regression run passed all 34 focused tests across
+  the frozen source and evaluation bundles, training integrity, fixed scene
+  seeds, strict result schema, resume preparation, checkpoint prefetch, the
+  seven-contrast analyzer, and atomic TODO finalization. This is software
+  readiness evidence only; it does not replace the pending 18-of-18 I1 run.
   A pre-completion audit also corrected a verifier-only distinction for the
   matched-parameter route ablations. Their frozen serialized configs
   deliberately retain `future_prediction=true` and
