@@ -46,8 +46,30 @@ def write_analysis_artifacts(tmp_path: Path) -> None:
         )
 
 
+def write_finalization_artifacts(tmp_path: Path, todo: Path) -> None:
+    spec = monitor.FINALIZATION_ARTIFACT_SPEC
+    report = tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg4"]["report"]
+    analysis_marker = tmp_path / monitor.ANALYSIS_ARTIFACT_SPECS["tg4"]["marker"]
+    summary = tmp_path / spec["summary"]
+    marker = tmp_path / spec["marker"]
+    summary.parent.mkdir(parents=True, exist_ok=True)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    summary.write_text("# Frozen TG4 result\n", encoding="utf-8")
+    marker.write_text(
+        "validated=true\n"
+        f"protocol={spec['protocol']}\n"
+        f"report_sha256={monitor.sha256_file(report)}\n"
+        f"analysis_marker_sha256={monitor.sha256_file(analysis_marker)}\n"
+        f"summary_sha256={monitor.sha256_file(summary)}\n"
+        f"todo_sha256={monitor.sha256_file(todo)}\n"
+        f"git_commit={'a' * 40}\n",
+        encoding="utf-8",
+    )
+
+
 def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Path, Path]:
-    todo = tmp_path / "PAPER_TODO.md"
+    todo = tmp_path / "lmvla/paper_iclr_lmvla/PAPER_TODO.md"
+    todo.parent.mkdir(parents=True, exist_ok=True)
     todo.write_text(
         "# TODO\n"
         "- [ ] active\n"
@@ -91,6 +113,7 @@ def write_inputs(tmp_path: Path, *, status: str = "completed") -> tuple[Path, Pa
         encoding="utf-8",
     )
     write_analysis_artifacts(tmp_path)
+    write_finalization_artifacts(tmp_path, todo)
     return todo, snapshot, state
 
 
@@ -139,6 +162,62 @@ def test_collect_marks_exact_completed_set_complete(tmp_path: Path) -> None:
     assert record["todo"]["unchecked_total"] == 2
     assert record["todo"]["completion_synced"] is True
     assert record["final_analyses"]["complete"] is True
+    assert record["finalization"]["validated"] is True
+
+
+def test_collect_rejects_finalization_hash_mismatch(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    summary = tmp_path / monitor.FINALIZATION_ARTIFACT_SPEC["summary"]
+    summary.write_text("tampered\n", encoding="utf-8")
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    assert record["complete"] is False
+    assert record["monitor_status"] == "degraded"
+    assert record["finalization"]["status"] == "invalid"
+    assert "summary_sha256" in record["finalization"]["error"]
+
+
+def test_collect_requires_finalization_marker(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    (tmp_path / monitor.FINALIZATION_ARTIFACT_SPEC["marker"]).unlink()
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    assert record["complete"] is False
+    assert record["monitor_status"] == "active"
+    assert record["finalization"]["status"] == "partial"
+
+
+def test_collect_requires_completed_finalizer_task(tmp_path: Path) -> None:
+    todo, snapshot, state = write_inputs(tmp_path)
+    payload = json.loads(state.read_text())
+    payload["tasks"][monitor.FINALIZATION_ARTIFACT_SPEC["task_id"]]["status"] = "pending"
+    state.write_text(json.dumps(payload), encoding="utf-8")
+
+    record = monitor.collect(
+        todo_path=todo,
+        snapshot_path=snapshot,
+        state_path=state,
+        now=NOW,
+        repo_path=tmp_path,
+    )
+
+    assert record["complete"] is False
+    assert record["monitor_status"] == "active"
+    assert record["finalization"]["status"] == "task_incomplete"
 
 
 def test_collect_waits_for_todo_completion_sync(tmp_path: Path) -> None:
@@ -149,6 +228,7 @@ def test_collect_waits_for_todo_completion_sync(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    write_finalization_artifacts(tmp_path, todo)
 
     record = monitor.collect(
         todo_path=todo,

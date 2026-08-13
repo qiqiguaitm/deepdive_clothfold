@@ -40,6 +40,12 @@ ANALYSIS_ARTIFACT_SPECS = {
         "protocol": "temporal_grounding_tg4_source_decomposition_analysis_v1",
     },
 }
+FINALIZATION_ARTIFACT_SPEC = {
+    "task_id": "temporal_grounding_tg4_todo_finalize",
+    "marker": "logs/resource_markers/temporal_grounding_tg4_todo_finalize.ok",
+    "summary": "lmvla/paper_iclr_lmvla/RESULTS_temporal_grounding_tg4.md",
+    "protocol": "temporal_grounding_tg4_todo_finalization_v1",
+}
 TG4_COMPARISONS = (
     "pretraining",
     "auxiliary_shaping",
@@ -240,6 +246,91 @@ def analysis_artifact_metrics(
         "complete": all(row["validated"] for row in analyses.values()),
         "analyses": analyses,
     }
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(4 * 1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def finalization_artifact_metrics(
+    repo_path: Path,
+    todo_path: Path,
+    state_tasks: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    spec = FINALIZATION_ARTIFACT_SPEC
+    report_path = repo_path / ANALYSIS_ARTIFACT_SPECS["tg4"]["report"]
+    analysis_marker = repo_path / ANALYSIS_ARTIFACT_SPECS["tg4"]["marker"]
+    summary_path = repo_path / spec["summary"]
+    marker_path = repo_path / spec["marker"]
+    paths = {
+        "report": report_path,
+        "analysis_marker": analysis_marker,
+        "summary": summary_path,
+        "todo": todo_path,
+        "marker": marker_path,
+    }
+    present = {name: path.is_file() for name, path in paths.items()}
+    task = task_record(state_tasks.get(spec["task_id"]))
+    row: dict[str, Any] = {
+        "task_id": spec["task_id"],
+        "task": task,
+        "paths": {name: str(path) for name, path in paths.items()},
+        "present": present,
+        "status": "missing" if not any(present.values()) else "partial",
+        "validated": False,
+        "error": None,
+    }
+    if task["status"] == "missing":
+        row["status"] = "unregistered"
+    elif task["status"] != "completed":
+        row["status"] = "task_incomplete"
+    if all(present.values()):
+        try:
+            fields: dict[str, str] = {}
+            for line in marker_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                key, separator, value = line.partition("=")
+                if not separator or key in fields:
+                    raise ValueError("finalization marker is malformed or duplicated")
+                fields[key] = value
+            required = {
+                "validated",
+                "protocol",
+                "report_sha256",
+                "analysis_marker_sha256",
+                "summary_sha256",
+                "todo_sha256",
+                "git_commit",
+            }
+            if set(fields) != required:
+                raise ValueError("finalization marker fields are incomplete or unexpected")
+            if fields["validated"] != "true" or fields["protocol"] != spec["protocol"]:
+                raise ValueError("finalization marker protocol is not validated")
+            expected_hashes = {
+                "report_sha256": sha256_file(report_path),
+                "analysis_marker_sha256": sha256_file(analysis_marker),
+                "summary_sha256": sha256_file(summary_path),
+                "todo_sha256": sha256_file(todo_path),
+            }
+            mismatches = {
+                key: {"expected": expected, "actual": fields.get(key)}
+                for key, expected in expected_hashes.items()
+                if fields.get(key) != expected
+            }
+            if mismatches:
+                raise ValueError(f"finalization marker hash mismatch: {mismatches}")
+            if re.fullmatch(r"[0-9a-f]{40}", fields["git_commit"]) is None:
+                raise ValueError("finalization marker git_commit is not a full SHA1")
+            if task["status"] == "completed":
+                row.update(status="validated", validated=True, git_commit=fields["git_commit"])
+        except Exception as exc:
+            row.update(status="invalid", error=f"{type(exc).__name__}: {exc}")
+    return row
 
 
 def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
@@ -443,6 +534,11 @@ def collect(
     for name, row in analyses["analyses"].items():
         if row["status"] == "invalid":
             errors.append(f"{name} analysis artifact: {row['error']}")
+    finalization = finalization_artifact_metrics(
+        repo_path, todo_path, state_tasks
+    )
+    if finalization["status"] == "invalid":
+        errors.append(f"TG4 finalization artifact: {finalization['error']}")
     def task_is_terminal(task_id: str, row: dict[str, Any]) -> bool:
         return row["status"] == "completed"
 
@@ -454,6 +550,7 @@ def collect(
         and not missing
         and not incomplete
         and analyses["complete"]
+        and finalization["validated"]
         and todo.get("completion_synced", False)
     )
     return {
@@ -481,6 +578,7 @@ def collect(
         "tasks": tasks,
         "auxiliary_tasks": auxiliary_tasks,
         "final_analyses": analyses,
+        "finalization": finalization,
         "heartbeats": heartbeat_metrics(snapshot, tasks),
         "transitions": transitions(previous, {**tasks, **auxiliary_tasks}),
     }
@@ -565,6 +663,17 @@ def render_markdown(record: dict[str, Any]) -> str:
             f"`{row['present']['report']}` | "
             f"`{row['present']['marker']}` |"
         )
+    finalization = record["finalization"]
+    lines.extend(
+        [
+            "",
+            "## Final Publication",
+            "",
+            f"Status: `{finalization['status']}`; task: "
+            f"`{finalization['task']['status']}`; commit: "
+            f"`{finalization.get('git_commit', '-')}`",
+        ]
+    )
     lines.extend(["", "## Transitions", ""])
     if record["transitions"]:
         for change in record["transitions"]:

@@ -236,7 +236,7 @@ are excluded from within-architecture causal contrasts.
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; all 246 scheduler, watcher, resume,
+  frozen hash dependencies; all 249 scheduler, watcher, resume,
   training-integrity,
   evaluation, analysis, and finalizer tests pass. Fresh live verification of
   both frozen TG4 source and evaluation manifests also passed at 09:37 UTC.
@@ -276,7 +276,12 @@ are excluded from within-architecture causal contrasts.
   wrapper commits only the TODO, canonical JSON, and tracked TG4 summary with
   `git commit --only`, preserves unrelated staged and working-tree changes,
   pushes `main`, verifies `HEAD == origin/main`, and only then exposes the
-  completion marker.
+  completion marker. The independent hourly monitor now also requires the
+  finalizer task to be complete, parses an exact marker schema, independently
+  recomputes the report, analysis-marker, summary, and TODO SHA256 values, and
+  requires a full 40-character publication commit. Missing markers, incomplete
+  tasks, unexpected fields, and post-finalization file mutation cannot be
+  reported as overall TODO completion.
 
 ### TG4 claim gates
 
