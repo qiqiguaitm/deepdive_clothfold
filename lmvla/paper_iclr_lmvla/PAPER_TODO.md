@@ -298,7 +298,14 @@ are excluded from within-architecture causal contrasts.
   panels remain unattempted, the frozen
   evaluation bundle still passes its hash verifier, and North has the staged
   Python 3.12 runtime, 332-GB RoboTwin dataset tree, required weights, and
-  sufficient space for the four expected East-native checkpoint uploads.
+  sufficient space for the four expected East-native checkpoint uploads. A
+  no-launch capacity replay using the scheduler's actual candidate ordering,
+  reservation logic, 25-GPU primary limit, 8-GPU backup limit, and current gf1
+  disablement confirms that, after I1 and the gated North stage complete, 11 of
+  18 normal panels can start within two 15-second dispatch polls: six on North
+  primary, two on North backup, two on East, and one on the local two-GPU host.
+  The remaining seven form later waves; the replay did not create a stage
+  marker or bypass the integrity dependency.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,
