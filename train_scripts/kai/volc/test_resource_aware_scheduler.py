@@ -6983,14 +6983,30 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert len(tg4_evals) == 21
     assert all(
         {candidate["resource"] for candidate in task["candidates"]}
-        == {"local", "Robot-East-H20"}
+        == {"gf1", "local", "Robot-East-H20"}
         for task in tg4_evals.values()
     )
     assert all(
         {candidate["resource"]: candidate["gpus"] for candidate in task["candidates"]}
-        == {"local": 2, "Robot-East-H20": 4}
+        == {"gf1": 4, "local": 2, "Robot-East-H20": 4}
         for task in tg4_evals.values()
     )
+    assert all(task["allow_temporary_gf1"] for task in tg4_evals.values())
+    assert all(task["prefer_max_gpus_when_immediate"] for task in tg4_evals.values())
+    for task in tg4_evals.values():
+        gf1 = [candidate for candidate in task["candidates"] if candidate["resource"] == "gf1"]
+        assert [candidate["gpu_indices"] for candidate in gf1] == [
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+        ]
+        assert [scheduler.candidate_env_value(candidate, "TG4_VISIBLE_GPUS") for candidate in gf1] == [
+            "0,1,2,3",
+            "4,5,6,7",
+        ]
+        assert [scheduler.candidate_env_value(candidate, "TG4_PORT_OFFSET") for candidate in gf1] == [
+            "0",
+            "1000",
+        ]
     assert all(task["completion_min_count"] == 24 for task in tg4_evals.values())
     assert all(
         any(

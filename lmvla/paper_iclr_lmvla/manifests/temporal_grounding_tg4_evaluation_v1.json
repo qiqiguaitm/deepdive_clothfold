@@ -3,8 +3,8 @@
   "protocol": "temporal_grounding_tg4_evaluation_v1",
   "frozen": true,
   "frozen_at_utc": "2026-08-12T22:35:00Z",
-  "runtime_bundle_repaired_at_utc": "2026-08-13T05:32:00Z",
-  "runtime_bundle_repair": "Path-only correction from untracked lmvla/lmwm runtime helpers to the existing tracked lmvla/lmwam helpers; evaluation protocol unchanged and no TG4 evaluation had started",
+  "runtime_bundle_repaired_at_utc": "2026-08-13T05:46:00Z",
+  "runtime_bundle_repair": "Pre-evaluation path correction to tracked lmvla/lmwam helpers plus explicit GPU mapping and port isolation for two gf1 four-GPU slices; evaluation protocol unchanged and no TG4 evaluation had started",
   "prerequisite": "temporal_grounding_tg4_training_integrity_v1 accepted for evaluation",
   "panels": {
     "normal": {
@@ -74,7 +74,7 @@
     "lmvla/lmwam/env/heal_lawam_symlinks.sh": "46fbac6fc8f908b04f1150e7e4860922a2df46cbfb7f78d7dff85022c37d6c5d",
     "lmvla/lmwam/env/prepare_robotwin_renderer.sh": "3c94cbd4d8a88a66a821d7129cbf4641cbd1fa2fca7d264bb894aeef12d1a69f",
     "lmvla/lmwam/scripts/robotwin_python_wrapper.sh": "4aed2bf9e3971b1a69b4c42349afb9608b1e5043ff965d823777417f217b5a9d",
-    "train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh": "38a140499f3797e4a4cff1c3a48925efa65fb3be738df242a74630d08bd12349",
+    "train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh": "cc90d5743565f6918012170f71a4d9f3c4eeba8607a24c614b84009c4c3a82cc",
     "train_scripts/kai/volc/temporal_grounding_tg4_eval_east_4h20.yaml": "e777196f9925ee7cb8423d3e1c6d45e51d2b7ea7a8cc95e108b60b00fb76ae26",
     "lmvla/lmwm/scripts/analyze_temporal_grounding_tg4.py": "ca887ae25e67e4c229fb629344d55deafff7d6987bcda2e2ddf72a13242a777d",
     "train_scripts/kai/run_temporal_grounding_tg4_analysis.sh": "7d57e543436b6e3c51780aa8902582f3f6844f178d4ef184a52c7dce7771a699"

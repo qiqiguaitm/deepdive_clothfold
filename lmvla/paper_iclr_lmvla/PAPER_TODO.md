@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 05:35 UTC
+Updated: 2026-08-13 05:46 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -101,7 +101,10 @@ are excluded from within-architecture causal contrasts.
   registered under the independently frozen evaluation manifest: normal for
   all 18 arm/seed cells and within-task shuffled content for all three `full`
   checkpoints. Each task requires exactly 24 fixed-scene summaries and can use
-  local 2-GPU or East 4-GPU execution. `full` shuffled additionally depends on
+  local 2-GPU, East 4-GPU, or either of two disjoint gf1 4-GPU slices. The gf1
+  slices carry explicit `CUDA_VISIBLE_DEVICES` mappings and separate port
+  namespaces so two evaluations can execute concurrently after training frees
+  that host. `full` shuffled additionally depends on
   the matching normal capture. Partial rollouts cannot change the panel or
   support a claim. Before any TG4 evaluation started, a runtime preflight found
   that the local and East launchers referenced untracked `lmwm` renderer paths;

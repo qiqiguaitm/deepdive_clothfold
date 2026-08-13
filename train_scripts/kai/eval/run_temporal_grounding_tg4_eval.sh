@@ -8,6 +8,8 @@ ARM="${TG4_ARM:?TG4_ARM is required}"
 TRAIN_SEED="${TG4_TRAIN_SEED:?TG4_TRAIN_SEED is required}"
 CONDITION="${TG4_CONDITION:?TG4_CONDITION is required}"
 GPU_COUNT="${LOCAL_GPU_COUNT:-4}"
+VISIBLE_GPUS="${TG4_VISIBLE_GPUS:-}"
+PORT_OFFSET="${TG4_PORT_OFFSET:-0}"
 SCENES="$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"
 SHUFFLE="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg1a_shuffle_v1.json"
 INTEGRITY="$REPO/logs/resource_markers/temporal_grounding_tg4_training_integrity.ok"
@@ -41,6 +43,22 @@ esac
   echo "LOCAL_GPU_COUNT must be in [1,4]" >&2
   exit 2
 }
+[[ "$PORT_OFFSET" =~ ^[0-9]+$ ]] || {
+  echo "TG4_PORT_OFFSET must be a non-negative integer" >&2
+  exit 2
+}
+gpu_devices=()
+if [[ -n "$VISIBLE_GPUS" ]]; then
+  IFS=, read -r -a gpu_devices <<<"$VISIBLE_GPUS"
+  (( ${#gpu_devices[@]} >= GPU_COUNT )) || {
+    echo "TG4_VISIBLE_GPUS provides fewer devices than LOCAL_GPU_COUNT" >&2
+    exit 2
+  }
+else
+  for ((gpu_index=0; gpu_index<GPU_COUNT; gpu_index++)); do
+    gpu_devices+=("$gpu_index")
+  done
+fi
 
 test -f "$INTEGRITY"
 test -f "$SCENES"
@@ -121,10 +139,10 @@ for ((batch_start=0; batch_start<4; batch_start+=GPU_COUNT)); do
   for ((offset=0; offset<GPU_COUNT && batch_start+offset<4; offset++)); do
     eval_seed=$((batch_start + offset))
     (
-      export CUDA_VISIBLE_DEVICES="$offset"
+      export CUDA_VISIBLE_DEVICES="${gpu_devices[$offset]}"
       export GPU_IDS="$offset"
       export SEED="$eval_seed"
-      export PORT_BASE=$((14000 + eval_seed * 100))
+      export PORT_BASE=$((14000 + PORT_OFFSET + eval_seed * 100))
       export ROBOTWIN_CKPT_ALIAS="tg4_${ARM}_s${TRAIN_SEED}"
       export ROBOTWIN_EVAL_ROOT="$RESULT_ROOT/seed${eval_seed}"
       mkdir -p "$ROBOTWIN_EVAL_ROOT"

@@ -10248,9 +10248,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_renderer_env = REPO / "lmvla/lmwam/env/prepare_robotwin_renderer.sh"
     tg4_renderer_wrapper = REPO / "lmvla/lmwam/scripts/robotwin_python_wrapper.sh"
     tg4_eval_hashes = [
-        {"path": str(tg4_eval_manifest), "sha256": "1d12e3dcd8b9539953a5dbbeec201f2f5203facadcb10c99c530203c47b2ef1d"},
+        {"path": str(tg4_eval_manifest), "sha256": "d8fd081ad048730ea50a00b11db30f67d407f79d84a781fd47245d19aa446446"},
         {"path": str(tg4_eval_verifier), "sha256": "75b3a7ee1ffb1b2fa703b199cc12ac24a8e5b9ca0908a692cf5a0cbafad464ee"},
-        {"path": str(tg4_eval_runner), "sha256": "38a140499f3797e4a4cff1c3a48925efa65fb3be738df242a74630d08bd12349"},
+        {"path": str(tg4_eval_runner), "sha256": "cc90d5743565f6918012170f71a4d9f3c4eeba8607a24c614b84009c4c3a82cc"},
         {"path": str(tg4_eval_yaml), "sha256": "e777196f9925ee7cb8423d3e1c6d45e51d2b7ea7a8cc95e108b60b00fb76ae26"},
         {"path": str(tg4_scene_manifest), "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17"},
         {"path": str(tg4_shuffle_manifest), "sha256": "0843341173b71d5009337e6eecd0eee89f28f034c698ce44840e1b08529804f7"},
@@ -10312,6 +10312,22 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     f"TG4_ARM={arm} TG4_TRAIN_SEED={seed} TG4_CONDITION={condition} "
                     f"bash {shlex.quote(str(tg4_eval_runner))}"
                 )
+                gf1_bodies = []
+                for gpu_indices, port_offset in (
+                    ([0, 1, 2, 3], 0),
+                    ([4, 5, 6, 7], 1000),
+                ):
+                    visible_gpus = ",".join(str(index) for index in gpu_indices)
+                    body = (
+                        f"bash {shlex.quote(str(tg4_symlink_healer))}; "
+                        f"source {shlex.quote(str(tg4_renderer_env))}; "
+                        "export STAR_VLA_PYTHON=/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python; "
+                        f"env LOCAL_GPU_COUNT=4 TG4_VISIBLE_GPUS={visible_gpus} "
+                        f"TG4_PORT_OFFSET={port_offset} REPO_ROOT={shlex.quote(str(REPO))} "
+                        f"TG4_ARM={arm} TG4_TRAIN_SEED={seed} TG4_CONDITION={condition} "
+                        f"bash {shlex.quote(str(tg4_eval_runner))}"
+                    )
+                    gf1_bodies.append((gpu_indices, port_offset, body))
                 task = {
                     "id": task_id,
                     "priority": 0,
@@ -10319,6 +10335,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         f"TG4 fixed-scene evaluation arm={arm} seed={seed} "
                         f"condition={condition}"
                     ),
+                    "allow_temporary_gf1": True,
+                    "prefer_max_gpus_when_immediate": True,
                     "requires_completed_tasks": dependencies,
                     "rearm_after_ready_file": str(tg4_eval_manifest),
                     "completion_glob": str(
@@ -10329,6 +10347,30 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "ready_files": ready_files,
                     "ready_hashes": tg4_eval_hashes,
                     "candidates": [
+                        *(
+                            {
+                                "kind": "ssh",
+                                "resource": "gf1",
+                                "gpus": 4,
+                                "gpu_indices": gpu_indices,
+                                "retry_cooldown_seconds": 900,
+                                "max_failures": 1,
+                                "runtime_revision": "temporal_grounding_tg4_eval_gf1_v1",
+                                "env": {
+                                    "TG4_VISIBLE_GPUS": ",".join(
+                                        str(index) for index in gpu_indices
+                                    ),
+                                    "TG4_PORT_OFFSET": str(port_offset),
+                                },
+                                "status_dir": str(
+                                    REPO
+                                    / "logs/temporal_grounding/tg4/eval_gf1"
+                                    / f"{arm}_seed{seed}_{condition}_port{port_offset}"
+                                ),
+                                "command": shlex.join(["bash", "-lc", body]),
+                            }
+                            for gpu_indices, port_offset, body in gf1_bodies
+                        ),
                         {
                             "kind": "local",
                             "resource": "local",
