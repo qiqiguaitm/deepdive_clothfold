@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 07:16 UTC
+Updated: 2026-08-13 07:21 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -149,7 +149,11 @@ are excluded from within-architecture causal contrasts.
   scheduler/TG4 tests pass. The independent hourly audit now freezes all 78
   claim-bearing execution gates, including the North staging task and all 18
   normal-result materializers, so it cannot declare completion at a platform
-  eval terminal before the artifacts are verified locally.
+  eval terminal before the artifacts are verified locally. A pre-integrity
+  resource audit confirms that all 21 panels remain unattempted, the frozen
+  evaluation bundle still passes its hash verifier, and North has the staged
+  Python 3.12 runtime, 332-GB RoboTwin dataset tree, required weights, and
+  sufficient space for the four expected East-native checkpoint uploads.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,
