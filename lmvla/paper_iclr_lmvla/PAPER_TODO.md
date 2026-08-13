@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 08:19 UTC
+Updated: 2026-08-13 09:34 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -129,9 +129,17 @@ are excluded from within-architecture causal contrasts.
   `logs/resource_scheduler_local/tg4_failed_partial_quarantine_20260813T071500Z`;
   the active checkpoint root now has zero stale matches for either run ID, so
   the eventual North materializers and 18-cell uniqueness check cannot consume
-  those partials. Every future TG4
-  launch executes an immutable snapshot of the frozen runner. Do not inspect
-  partial outcomes to alter the protocol.
+  those partials. Every future TG4 launch executes an immutable snapshot of the
+  frozen runner. The two North queue-sink retries now carry an opt-in,
+  capacity-reserved escape to an immediately free East/gf1 candidate: the
+  scheduler first plans against a copied live snapshot, respects per-resource
+  failure exhaustion, and stops the queued job with its original identity
+  before redispatch. At 09:32 UTC gf1 was physically free, but both cells
+  correctly remained on North because their prior interrupted gf1 long runs
+  exhausted the one-attempt safety bound; East remained 8/8. They can migrate
+  only if an admissible higher-priority slice becomes immediately runnable, and
+  a failed stop leaves the North attempt tracked. Do not inspect partial
+  outcomes to alter the protocol.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
   the joint verifier are implemented. Reject the complete matrix before
   evaluation unless all final checkpoints, optimizer states, initialization
