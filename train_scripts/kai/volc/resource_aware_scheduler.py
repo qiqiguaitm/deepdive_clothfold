@@ -467,7 +467,7 @@ for arm, seed in (
     recovery_root = (
         REPO
         / "logs/temporal_grounding/tg4/gf1"
-        / f"{label}_queue_recovery"
+        / f"{label}_queue_recovery_v2"
     )
     GF1_TRAIN_WATCH_TASKS[label].update(
         {
@@ -10101,12 +10101,12 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "temporal_grounding_tg4_conditioning_ddp_gf1_v4"
                 if conditioning_ddp_repair
                 else (
-                    "temporal_grounding_tg4_gf1_v4_queue_recovery"
+                    "temporal_grounding_tg4_gf1_v5_queue_recovery"
                     if gf1_queue_recovery
                     else "temporal_grounding_tg4_gf1_v3"
                 )
             )
-            gf1_status_suffix = "_queue_recovery" if gf1_queue_recovery else ""
+            gf1_status_suffix = "_queue_recovery_v2" if gf1_queue_recovery else ""
             task = {
                 "id": task_id,
                 "priority": 0,
