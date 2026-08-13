@@ -53,23 +53,28 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 0/18 COMPLETE]** At the 22:44 UTC canonical
-  snapshot, ten training tasks are scheduler-active: eight platform jobs are
-  Running and two are Queueing. The Running cells are all three
-  `auxiliary_only`, all three `clean_base`, and `full` seeds 1100 and 1101;
-  `full` seed 1102 and repaired `conditioning_only` seed 1100 are Queueing.
-  All eight remaining cells are waiting for eligible resources. A step-0 DDP
-  bookkeeping failure in
-  `conditioning_only` required `find_unused_parameters=true` because its frozen
-  auxiliary-off route retains trainable auxiliary parameters outside the loss
-  graph. The manifest records this implementation-only repair, its North
-  restaging has passed, and its verifier preserves the arm-specific config.
-  The conditioning seed-1100 Queueing attempt was reattached after its shared
-  North runner matched the repaired runtime revision, so it will load the
-  fixed runner when scheduled. All earlier failed gf1 attempts remain excluded
-  and cannot contribute artifacts; their partial roots were moved to a dated
-  quarantine. No training cell has a complete final artifact yet. Do not
-  inspect partial training to alter the protocol.
+- [ ] **TG4-T01--T18 [ACTIVE; 2/18 COMPLETE]** At the 02:32 UTC canonical
+  snapshot, ten cells are Running, two are Queueing, and four are waiting for
+  eligible resources. `auxiliary_only` seeds 1100 and 1101 completed all 20,000
+  steps and persisted 7.17-GB final models plus 9.13-GB optimizer states. Their
+  platform shells were reported Failed only after the training child returned,
+  because the shared runner changed line offsets while the long-lived shell was
+  blocked in training. A task-scoped recovery verifier checked the frozen
+  config, initialization route, four-rank data order, final step, model and
+  optimizer sizes and hashes, and exact post-training error before admitting
+  these two artifacts. No general Failed-terminal exemption was introduced.
+
+  The four immediate East failures (`conditioning_only` seeds 1101/1102 and
+  `future_off` seeds 1100/1101) were startup refusals caused by stale partial
+  roots from failed gf1 attempts. Those exact roots were moved to a dated
+  quarantine without touching active runs, and the four cells were rearmed;
+  they are now waiting for cards. All future TG4 launches execute an immutable
+  snapshot of the frozen runner, including the newly staged North runtime.
+  Current healthy heartbeats include North `clean_base` at 19.2k--19.5k,
+  North `auxiliary_only` seed 1102 at 16.7k, North `full` seeds 1100/1101 at
+  14.2k--14.4k, East parameter-matched-null seeds 1101/1102 at about 1.0k,
+  and gf1 `future_off` seed 1102 / parameter-matched-null seed 1100 at about
+  4.9k / 4.7k. Do not inspect partial outcomes to alter the protocol.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
   the joint verifier are implemented. Reject the complete matrix before
   evaluation unless all final checkpoints, optimizer states, initialization
