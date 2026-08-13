@@ -85,7 +85,11 @@ are excluded from within-architecture causal contrasts.
   then a one-GPU East audit reads the root-owned sidecars, applies the same
   strict verifier, and exposes them read-only to the joint local integrity
   gate. Neither path can admit a task until its own complete audit marker
-  exists. A submission dry-run resolves the audit YAML to the intended
+  exists. The East readiness watcher also carries an explicit terminal-evidence
+  latch: timeout with a checkpoint and log but without every exact completion
+  token is rejected and cannot publish a marker; positive and negative shell
+  regressions cover this boundary. A submission dry-run resolves the audit YAML
+  to the intended
   `Robot-East-H20`, `cn-shanghai-e`, one-H20 shape and shared East mount; this
   root-access requirement intentionally overrides the generic local-first
   one-GPU preference. An end-to-end replay on a completed East legacy cell

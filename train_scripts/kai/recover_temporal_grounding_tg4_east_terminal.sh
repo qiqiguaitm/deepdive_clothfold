@@ -15,7 +15,9 @@ EXPECTED_ERROR="line 118: el.future_action_window_size=49: command not found"
 
 deadline=$((SECONDS + TIMEOUT_SECONDS))
 count=0
-while (( SECONDS < deadline )); do
+logs=()
+terminal_ready=0
+while :; do
   count=$(find "$CHECKPOINT_ROOT" \
     -path "*+$RUN_ID/final_model/pytorch_model.pt" -type f | wc -l)
   mapfile -t logs < <(find "$LOG_ROOT" -maxdepth 1 -type f \
@@ -24,12 +26,16 @@ while (( SECONDS < deadline )); do
       && grep -Fq "$RUN_ID: 100%" "${logs[0]}" \
       && grep -Fq "and that's all" "${logs[0]}" \
       && grep -Fq "$EXPECTED_ERROR" "${logs[0]}"; then
+    terminal_ready=1
+    break
+  fi
+  if (( SECONDS >= deadline )); then
     break
   fi
   sleep "$POLL_SECONDS"
 done
-if [[ $count != 1 || ${#logs[@]} != 1 ]]; then
-  echo "timed out waiting for one complete terminal artifact set for $RUN_ID" >&2
+if (( terminal_ready != 1 )); then
+  echo "timed out waiting for exact complete terminal evidence for $RUN_ID" >&2
   exit 1
 fi
 

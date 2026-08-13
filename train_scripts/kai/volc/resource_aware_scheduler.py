@@ -9955,7 +9955,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "ready_hashes": [
                 {
                     "path": str(tg4_east_terminal_recovery_runner),
-                    "sha256": "a2cceb765ab370a42a3017910e0963dd24f22b29a1d4229fd7eb5b3c6e2eabd2",
+                    "sha256": "1564a8023d5714240a185d2500066efae0b8197743560f1e9e2fee90889452f8",
                 }
             ],
             "candidates": [

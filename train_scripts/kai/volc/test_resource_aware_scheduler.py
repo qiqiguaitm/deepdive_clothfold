@@ -6918,6 +6918,18 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         ready = tasks[ready_id]
         assert ready["candidates"][0]["gpus"] == 0
         assert ready["candidates"][0]["resource"] == "local"
+        assert ready["ready_hashes"] == [
+            {
+                "path": str(
+                    scheduler.REPO
+                    / "train_scripts/kai/recover_temporal_grounding_tg4_east_terminal.sh"
+                ),
+                "sha256": scheduler.sha256_file(
+                    scheduler.REPO
+                    / "train_scripts/kai/recover_temporal_grounding_tg4_east_terminal.sh"
+                ),
+            }
+        ]
         recovery = tasks[recovery_id]
         assert recovery["requires_completed_tasks"] == [ready_id]
         assert recovery["candidates"][0]["gpus"] == 1
