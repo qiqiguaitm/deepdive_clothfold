@@ -186,7 +186,14 @@ are excluded from within-architecture causal contrasts.
   completed the fixed `beat_block_hammer` scene, the policy served three model
   queries for three simulator observations, and future-feature capture was
   nonempty. Its result root and marker are disjoint from all 21 formal panels,
-  and it cannot satisfy any claim-bearing monitor gate. Before any evaluation
+  and it cannot satisfy any claim-bearing monitor gate. A second isolated
+  preflight passed at 10:10 UTC for the full shuffled-content route: normal
+  mode first captured both frozen target and no-self source scenes, then
+  shuffled mode consumed the source-scene feature selected by the frozen
+  mapping and completed the target scene with three model queries and three
+  simulator observations. Missing, self-matched, or shape-incompatible source
+  features remain hard failures. This preflight is also non-claim-bearing and
+  cannot satisfy a formal panel or monitor gate. Before any evaluation
   started, the frozen runtime
   bundle was further extended with a hash-gated North staging task. It reuses
   exact North-native checkpoints by verified hard link, uploads only missing
