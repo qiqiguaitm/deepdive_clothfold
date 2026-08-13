@@ -210,6 +210,7 @@ def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
         return {
             "status": "missing",
             "execution_state": None,
+            "resource": None,
             "job_id": None,
             "runtime_progress": None,
             "artifact_progress": None,
@@ -230,6 +231,7 @@ def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
     return {
         "status": value.get("status", "unknown"),
         "execution_state": execution_state,
+        "resource": attempt.get("resource"),
         "job_id": attempt.get("job_id"),
         "completed_at": value.get("completed_at"),
         "failure": value.get("last_failure") or attempt.get("failure"),
@@ -276,7 +278,9 @@ def heartbeat_metrics(
     prefix = "temporal_grounding_"
     suffix = "_train"
     active_names = {
-        task_id[len(prefix) : -len(suffix)]
+        task_id[len(prefix) : -len(suffix)]: {
+            "Robot-North-H20": "beijing",
+        }.get(row.get("resource"), row.get("resource"))
         for task_id, row in tasks.items()
         if task_id.startswith(f"{prefix}tg4_")
         and task_id.endswith(suffix)
@@ -294,6 +298,9 @@ def heartbeat_metrics(
     for resource, values in snapshot.get("resources", {}).items():
         for name, heartbeat in values.get("watched_tasks", {}).items():
             if name not in active_names:
+                continue
+            active_resource = active_names[name]
+            if active_resource is not None and resource != active_resource:
                 continue
             candidate = {"resource": resource, **heartbeat}
             candidate["status"] = str(candidate.get("status") or "").partition(" ")[0]
