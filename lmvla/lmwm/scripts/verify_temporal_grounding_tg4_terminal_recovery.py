@@ -9,8 +9,21 @@ from pathlib import Path
 from typing import Any
 
 
-ARM = "auxiliary_only"
-SEEDS = (1100, 1101)
+DEFAULT_CELLS = (("auxiliary_only", 1100), ("auxiliary_only", 1101))
+ALLOWED_CELLS = {
+    *DEFAULT_CELLS,
+    ("clean_base", 1100),
+    ("clean_base", 1101),
+    ("clean_base", 1102),
+    ("auxiliary_only", 1102),
+    ("full", 1100),
+    ("full", 1101),
+}
+EXPECTED_ROUTE = {
+    "clean_base": (False, False, False),
+    "auxiliary_only": (False, False, True),
+    "full": (False, False, False),
+}
 EXPECTED_ERROR = "line 118: el.future_action_window_size=49: command not found"
 
 
@@ -36,8 +49,10 @@ def one(paths: list[Path], label: str) -> Path:
     return paths[0]
 
 
-def verify_run(repo: Path, seed: int) -> dict[str, Any]:
-    run_id = f"temporal_grounding_tg4_{ARM}_seed{seed}"
+def verify_run(repo: Path, arm: str, seed: int, resource: str) -> dict[str, Any]:
+    if (arm, seed) not in ALLOWED_CELLS:
+        raise ValueError(f"TG4 terminal recovery is not allowlisted for {arm}:{seed}")
+    run_id = f"temporal_grounding_tg4_{arm}_seed{seed}"
     task_id = f"{run_id}_train"
     checkpoint_root = repo / "lmvla/lawam/results/Checkpoints/robotwin"
     run = one(sorted(checkpoint_root.glob(f"*+{run_id}")), f"run {run_id}")
@@ -70,9 +85,15 @@ def verify_run(repo: Path, seed: int) -> dict[str, Any]:
         "grad_accum": 2,
         "steps": 20000,
         "save_interval": 20000,
-        "future_prediction": True,
-        "auxiliary_loss": True,
-        "ddp_find_unused_parameters": False,
+        "future_prediction": arm != "clean_base",
+        "auxiliary_loss": arm in {"auxiliary_only", "full"},
+        "ddp_find_unused_parameters": arm == "clean_base",
+        "pretrained_checkpoint": (
+            None
+            if arm == "clean_base"
+            else "results/Checkpoints/pretrain/lawam_pretrain/final_model/pytorch_model.pt"
+        ),
+        "load_pretrained_policy_flow": arm != "clean_base",
     }
     action = config["framework"]["action_model"]
     data = config["datasets"]["vla_data"]
@@ -90,6 +111,8 @@ def verify_run(repo: Path, seed: int) -> dict[str, Any]:
         "future_prediction": action["future_prediction"],
         "auxiliary_loss": action["enable_loss_distill"],
         "ddp_find_unused_parameters": trainer["ddp_find_unused_parameters"],
+        "pretrained_checkpoint": trainer["pretrained_checkpoint"],
+        "load_pretrained_policy_flow": trainer["load_pretrained_policy_flow"],
     }
     if observed != expected:
         raise ValueError(f"Frozen TG4 config mismatch for {run_id}: {observed}")
@@ -110,20 +133,21 @@ def verify_run(repo: Path, seed: int) -> dict[str, Any]:
     expected_identity = {
         "schema_version": 1,
         "protocol": "lawam_matched_initialization_v1",
-        "arm": ARM,
+        "arm": arm,
         "training_seed": seed,
         "optimizer_state_entries_before_training": 0,
     }
     if identity != expected_identity:
         raise ValueError(f"Initialization identity mismatch for {run_id}: {identity}")
     route = initialization["route"]
-    if (
-        route.get("lawam_future_off") is not False
-        or route.get("lawam_auxiliary_off") is not False
-        or route.get("lawam_conditioning_off") is not True
-        or route.get("milestone_target")
-        or route.get("dual_route")
-    ):
+    observed_route = (
+        route.get("lawam_future_off"),
+        route.get("lawam_auxiliary_off"),
+        route.get("lawam_conditioning_off"),
+    )
+    if observed_route != EXPECTED_ROUTE[arm] or route.get(
+        "milestone_target"
+    ) or route.get("dual_route"):
         raise ValueError(f"Route mismatch for {run_id}: {route}")
 
     order_dir = repo / "logs/temporal_grounding/tg4/data_order" / run_id
@@ -142,7 +166,7 @@ def verify_run(repo: Path, seed: int) -> dict[str, Any]:
             "samples": record.get("samples"),
         }
         expected_order = {
-            "arm": ARM,
+            "arm": arm,
             "training_seed": seed,
             "rank": rank,
             "world_size": 4,
@@ -156,7 +180,7 @@ def verify_run(repo: Path, seed: int) -> dict[str, Any]:
     log = one(
         sorted(
             (repo / "logs/temporal_grounding/tg4/entrypoint").glob(
-                f"{ARM}_s{seed}_east_*.log"
+                f"{arm}_s{seed}_{resource}_*.log"
             )
         ),
         f"entrypoint log {run_id}",
@@ -186,8 +210,10 @@ def verify_run(repo: Path, seed: int) -> dict[str, Any]:
     }
 
 
-def verify(repo: Path) -> dict[str, Any]:
-    runs = [verify_run(repo, seed) for seed in SEEDS]
+def verify(
+    repo: Path, cells: list[tuple[str, int]], resource: str
+) -> dict[str, Any]:
+    runs = [verify_run(repo, arm, seed, resource) for arm, seed in cells]
     return {
         "schema_version": 1,
         "protocol": "temporal_grounding_tg4_validated_terminal_recovery_v1",
@@ -201,8 +227,22 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--cell",
+        action="append",
+        help="Allowlisted ARM:SEED cell; defaults to the two East auxiliary recoveries",
+    )
+    parser.add_argument("--resource", choices=("east", "north"), default="east")
     args = parser.parse_args()
-    result = verify(args.repo.resolve())
+    cells = list(DEFAULT_CELLS)
+    if args.cell:
+        cells = []
+        for value in args.cell:
+            arm, separator, seed = value.rpartition(":")
+            if not separator:
+                raise ValueError(f"Invalid --cell value: {value}")
+            cells.append((arm, int(seed)))
+    result = verify(args.repo.resolve(), cells, args.resource)
     atomic_json(args.output.resolve(), result)
     print(json.dumps(result, indent=2, sort_keys=True))
 
