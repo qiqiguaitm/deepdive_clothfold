@@ -153,10 +153,15 @@ are excluded from within-architecture causal contrasts.
   renamed in place to a distinct hidden quarantine. No preflight will run on
   gf1 concurrently with training. The evaluator now passes host-visible device
   indices directly to its model servers, and this mapping is frozen and tested
-  before any formal panel. A `v6` recovery revision and exact third status
-  directory are ready, but at 11:23 UTC an unrelated WorldArena workload took
-  all eight gf1 GPUs. The scheduler therefore submitted a fresh primary-North
-  queue copy (`t-20260813192511-gntmw`) instead of oversubscribing gf1. The
+  before any formal panel. After the external fleet briefly drained, a `v6`
+  recovery started on physical GPUs 0--3 while the repaired preflight used only
+  GPU 7. Both processes disappeared within 40 seconds without script terminal
+  records, no training output root was created, and the external fleet then
+  refilled all eight GPUs. This independently confirms that gf1 is currently an
+  externally reclaimed rather than stable long-job resource. Its temporary
+  submission marker is disabled. The scheduler therefore submitted a fresh
+  primary-North queue copy (`t-20260813193650-njfhb`) as the persistent sink.
+  The
   backup-identity
   `parameter_matched_null` seed-1100
   queue copy could not be stopped by the available identities (`AccessDenied`),
@@ -238,7 +243,12 @@ are excluded from within-architecture causal contrasts.
   simulator observations. Missing, self-matched, or shape-incompatible source
   features remain hard failures. This preflight is also non-claim-bearing and
   cannot satisfy a formal panel or monitor gate. Before any formal evaluation
-  started, the execution bundle was also made strictly resumable without
+  started, a gf1-only preflight also exposed and repaired a physical-device
+  routing bug: inner model servers now receive the host-visible GPU index
+  directly instead of resetting every slice to physical GPU 0. Its repaired
+  retry was externally reclaimed before completion, so gf1 remains disabled;
+  this optional preflight does not gate the already-passed local route or any
+  formal panel. The execution bundle was also made strictly resumable without
   changing the frozen panel: an existing run is accepted only when checkpoint,
   arm, training seed, condition, evaluation seed, six-task order, and 50-episode
   metadata match exactly; the established evaluator then schedules only
@@ -266,7 +276,7 @@ are excluded from within-architecture causal contrasts.
   complete. The older generic fixed-seed verifier remains byte-identical so
   previously frozen P2 evidence is not rewritten. The formal runner invokes
   the strict verifier directly, and North staging copies and hash-checks both
-  verifiers. A focused 242-test scheduler, watcher, resume, bundle,
+  verifiers. A focused 239-test scheduler, watcher, resume, bundle,
   training-integrity, evaluation, analysis, and finalizer suite passes,
   including compatibility against an existing complete 24-cell result tree.
   Fresh live verification of both frozen TG4 source and evaluation manifests
