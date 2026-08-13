@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 07:12 UTC
+Updated: 2026-08-13 07:16 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -103,7 +103,12 @@ are excluded from within-architecture causal contrasts.
   no admissible intermediate checkpoint, neither partial run can be resumed or
   counted; both exact cells were resubmitted to North and are Queueing under the
   primary and backup GPU limits. Their gf1 candidates remain exhausted so the
-  lost long runs cannot repeat. Every future TG4
+  lost long runs cannot repeat. Their two 8.5-MB local non-checkpoint roots and
+  one truncated transfer temporary were moved intact to
+  `logs/resource_scheduler_local/tg4_failed_partial_quarantine_20260813T071500Z`;
+  the active checkpoint root now has zero stale matches for either run ID, so
+  the eventual North materializers and 18-cell uniqueness check cannot consume
+  those partials. Every future TG4
   launch executes an immutable snapshot of the frozen runner. Do not inspect
   partial outcomes to alter the protocol.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
