@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 13:02 UTC
+Updated: 2026-08-13 13:47 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -61,9 +61,9 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 12:30 UTC canonical
-  snapshot, eight unfinished training cells are Running and two are Queueing on
-  North; every cell is completed, running, or submitted, with no undispatched
+- [ ] **TG4-T01--T18 [ACTIVE; 10/18 COMPLETE]** At the 13:47 UTC canonical
+  snapshot, seven unfinished training cells are Running and one is Queueing;
+  every cell is completed, running, or submitted, with no undispatched
   training cell. All three `auxiliary_only`
   seeds completed all 20,000
   steps and persisted 7.17-GB final models plus 9.13-GB optimizer states. Their
@@ -86,8 +86,16 @@ are excluded from within-architecture causal contrasts.
   zero-GPU watcher waits for the exact terminal log and complete checkpoint,
   then a one-GPU East audit reads the root-owned sidecars, applies the same
   strict verifier, and exposes them read-only to the joint local integrity
-  gate. Neither path can admit a task until its own complete audit marker
-  exists. The East readiness watcher also carries an explicit terminal-evidence
+  gate. Both seeds 1101/1102 reached exact step 20,000 and ended with a clean
+  platform `Completed` state. The scheduler therefore legally completed their
+  training tasks from successful platform state plus complete artifacts, while
+  the two mandatory East audits independently verified the 7.17-GB models,
+  9.13-GB optimizer states, exact logs, initialization routes, and four-rank
+  orders before publishing `complete=true`. I1 now explicitly depends on both
+  strict audit tasks in addition to all 18 materializers, so a platform-success
+  path cannot bypass sidecar verification. A Failed-terminal recovery path
+  still cannot admit a task until its own complete audit marker exists. The
+  East readiness watcher also carries an explicit terminal-evidence
   latch: timeout with a checkpoint and log but without every exact completion
   token is rejected and cannot publish a marker; positive and negative shell
   regressions cover this boundary. A submission dry-run resolves the audit YAML
@@ -111,22 +119,24 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
-  13.4k/11.4k/11.2k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  15.7k/13.7k/13.5k. `full` seeds 1100 and 1101 reached exact step 20,000;
   their per-cell recovery watchers verified the frozen configuration,
   initialization, rank orders, final model, optimizer state, and exact
   post-training shell error before admitting them, and both artifacts are now
   materialized locally. `future_off` seeds 1100/1101 are healthy near
-  17.4k/17.2k, parameter-matched-null seeds 1101/1102 near 18.1k/18.2k, and
-  `full` seed 1102 near 15.2k. A fresh exact-token health scan of all eight
-  active logs found no NaN/Inf, OOM, CUDA, NCCL, dataloader, or traceback
+  19.8k/19.6k, and `full` seed 1102 near 17.2k. The migrated `future_off`
+  seed-1102 retry is running cleanly on East near step 0.3k. A fresh exact-token
+  health scan of all seven active logs found no NaN/Inf, OOM, CUDA, NCCL,
+  dataloader, or traceback
   failure; observed throughput remains stable at 1.94--2.30 seconds per step.
   A direct 100/500/1,000-step remote-log audit confirms that the earlier
   one-window `conditioning_only` seed-1101 ETA spike was sampling jitter: its
   1,000-step rate is 2.007 seconds per step, consistent with the other two
   conditioning cells. No restart or protocol change is warranted. The two
-  East parameter-matched-null cells have about 1.1 hours remaining; the two
-  North future-off cells about 1.4--1.5 hours, `full` seed 1102 about 3.0 hours,
-  and the three conditioning cells about 3.8--5.1 hours.
+  North future-off cells have about 0.1--0.2 hours remaining, `full` seed 1102
+  about 1.8 hours, and the three conditioning cells about 2.3--3.5 hours. The
+  clean East restart of `future_off` seed 1102 is the training critical path at
+  about 10.8 hours; parameter-matched-null seed 1100 remains queued on North.
   The temporary gf1 processes for `future_off`
   seed 1102 and parameter-matched-null seed 1100 were independently confirmed
   dead after reaching about 12.2k and 11.6k. Because the frozen recipe writes
@@ -182,12 +192,12 @@ are excluded from within-architecture causal contrasts.
   capacity for their one-GPU strict recovery audits instead of delaying
   checkpoint admission behind another full training wave. A no-launch replay
   against the live attempts and generated candidate policy confirms the exact
-  transition: when East releases all eight GPUs, only `future_off` seed 1102 is
-  selected for four-GPU migration, while parameter-matched-null seed 1100 stays
-  in its North queue sink and four East GPUs remain available for both strict
-  one-GPU audits. The replay changed no task or platform state. At this snapshot,
-  East is 8/8, North primary is 20 active plus 4 queued under its 25-GPU
-  limit, North backup is 4 active plus 4 queued under its 8-GPU limit, and
+  transition: when East released all eight GPUs, only `future_off` seed 1102 was
+  selected for four-GPU migration, while parameter-matched-null seed 1100 stayed
+  in its North queue sink and four East GPUs remained available for both strict
+  one-GPU audits. The replay changed no unrelated task or platform state. At this
+  snapshot, East is 4/8, North primary is 20 active with no owned queue under its
+  25-GPU limit, North backup is 4 active plus 4 queued under its 8-GPU limit, and
   gf1 is 8/8 under the unrelated workload. Thus every safely admissible
   four-GPU training slot is used or queued, while the idle local two-GPU host cannot
   execute a frozen four-GPU training cell and formal evaluation remains gated.
