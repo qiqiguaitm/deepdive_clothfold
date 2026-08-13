@@ -10434,6 +10434,99 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(tg4_renderer_env), "sha256": "3c94cbd4d8a88a66a821d7129cbf4641cbd1fa2fca7d264bb894aeef12d1a69f"},
         {"path": str(tg4_renderer_wrapper), "sha256": "4aed2bf9e3971b1a69b4c42349afb9608b1e5043ff965d823777417f217b5a9d"},
     ]
+    tg4_eval_gf1_preflight_runner = (
+        REPO
+        / "train_scripts/kai/eval/run_temporal_grounding_tg4_gf1_preflight.sh"
+    )
+    tg4_eval_gf1_preflight_id = "temporal_grounding_tg4_eval_gf1_preflight"
+    tg4_eval_gf1_preflight_marker = (
+        REPO
+        / "logs/resource_markers/temporal_grounding_tg4_eval_gf1_preflight.ok"
+    )
+    tg4_eval_gf1_preflight_paths = {
+        str(tg4_eval_manifest),
+        str(tg4_eval_verifier),
+        str(tg4_scene_manifest),
+        str(tg4_symlink_healer),
+        str(tg4_renderer_env),
+        str(tg4_renderer_wrapper),
+    }
+    tg4_eval_gf1_preflight_task = {
+        "id": tg4_eval_gf1_preflight_id,
+        "priority": -1,
+        "description": (
+            "Non-claim-bearing one-episode gf1 preflight of the frozen TG4 "
+            "full-arm evaluator"
+        ),
+        "allow_temporary_gf1": True,
+        "requires_completed_tasks": [
+            "temporal_grounding_tg4_full_seed1100_train_materialize_north"
+        ],
+        "rearm_after_ready_file": str(tg4_eval_gf1_preflight_runner),
+        "completion_glob": str(tg4_eval_gf1_preflight_marker),
+        "completion_min_count": 1,
+        "completion_requires_successful_terminal_state": True,
+        "ready_files": [
+            str(tg4_eval_gf1_preflight_runner),
+            str(tg4_eval_manifest),
+            str(tg4_eval_verifier),
+            str(tg4_scene_manifest),
+            str(tg4_symlink_healer),
+            str(tg4_renderer_env),
+            str(tg4_renderer_wrapper),
+            str(tg4_north_terminal_markers[("full", 1100)]),
+        ],
+        "ready_globs": [
+            str(
+                REPO
+                / "lmvla/lawam/results/Checkpoints/robotwin"
+                / "*+temporal_grounding_tg4_full_seed1100"
+                / "final_model/pytorch_model.pt"
+            )
+        ],
+        "ready_hashes": [
+            *(
+                item
+                for item in tg4_eval_hashes
+                if item["path"] in tg4_eval_gf1_preflight_paths
+            ),
+            {
+                "path": str(tg4_eval_gf1_preflight_runner),
+                "sha256": "6902a1bdd08a4d134df90f17016b7309e63b370cae193996c77e73a5a1c38918",
+            },
+        ],
+        "candidates": [
+            {
+                "kind": "ssh",
+                "resource": "gf1",
+                "gpus": 1,
+                "gpu_indices": [0],
+                "retry_cooldown_seconds": 900,
+                "max_failures": 1,
+                "runtime_revision": "temporal_grounding_tg4_eval_gf1_preflight_v1",
+                "status_dir": str(
+                    REPO
+                    / "logs/temporal_grounding/tg4/eval_preflight_gf1_status"
+                ),
+                "command": shlex.join(
+                    [
+                        "env",
+                        "CUDA_VISIBLE_DEVICES=0",
+                        f"REPO_ROOT={REPO}",
+                        "bash",
+                        str(tg4_eval_gf1_preflight_runner),
+                    ]
+                ),
+            }
+        ],
+    }
+    if tg4_eval_gf1_preflight_id not in existing:
+        queue["tasks"].append(tg4_eval_gf1_preflight_task)
+        existing.add(tg4_eval_gf1_preflight_id)
+    else:
+        existing_tasks[tg4_eval_gf1_preflight_id].update(
+            tg4_eval_gf1_preflight_task
+        )
     tg4_eval_prefetch_runner = (
         REPO
         / "train_scripts/kai/prefetch_temporal_grounding_tg4_eval_checkpoint_to_north.sh"

@@ -6920,7 +6920,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 171
+    assert len(tasks) == 172
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6966,6 +6966,19 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         for task in tg4.values()
     )
     assert all(task["allow_temporary_gf1"] for task in tg4.values())
+    eval_preflight = tasks["temporal_grounding_tg4_eval_gf1_preflight"]
+    assert eval_preflight["priority"] == -1
+    assert eval_preflight["requires_completed_tasks"] == [
+        "temporal_grounding_tg4_full_seed1100_train_materialize_north"
+    ]
+    assert eval_preflight["completion_requires_successful_terminal_state"] is True
+    assert eval_preflight["candidates"][0]["resource"] == "gf1"
+    assert eval_preflight["candidates"][0]["gpus"] == 1
+    assert eval_preflight["candidates"][0]["gpu_indices"] == [0]
+    assert "eval_gf1_preflight" in eval_preflight["completion_glob"]
+    assert "run_temporal_grounding_tg4_gf1_preflight.sh" in eval_preflight[
+        "candidates"
+    ][0]["command"]
     migration_cells = {
         task_id
         for task_id, task in tg4.items()
