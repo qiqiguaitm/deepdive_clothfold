@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 06:20 UTC
+Updated: 2026-08-13 06:27 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -78,8 +78,9 @@ are excluded from within-architecture causal contrasts.
   admitting them. All six `clean_base` and `auxiliary_only` artifacts are now
   materialized locally.
   No general Failed-terminal exemption was introduced. Per-cell background
-  watchers now cover the remaining old-runner North jobs and cannot admit a
-  task until its own complete audit marker exists.
+  watchers now cover the remaining old-runner North jobs, including `full`
+  seed 1102, and cannot admit a task until its own complete audit marker
+  exists.
 
   The four immediate East failures (`conditioning_only` seeds 1101/1102 and
   `future_off` seeds 1100/1101) were startup refusals caused by stale partial

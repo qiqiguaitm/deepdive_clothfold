@@ -9848,6 +9848,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         ("auxiliary_only", 1102),
         ("full", 1100),
         ("full", 1101),
+        ("full", 1102),
     }
     tg4_north_terminal_markers: dict[tuple[str, int], Path] = {}
     for recovery_arm, recovery_seed in sorted(tg4_north_terminal_recovery_cells):

@@ -6782,7 +6782,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     scheduler.add_temporal_grounding_tasks(queue)
 
     tasks = {task["id"]: task for task in queue["tasks"]}
-    assert len(tasks) == 142
+    assert len(tasks) == 143
     tg1a = {
         task_id: task
         for task_id, task in tasks.items()
@@ -6894,6 +6894,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         ("auxiliary_only", 1102),
         ("full", 1100),
         ("full", 1101),
+        ("full", 1102),
     ):
         recovery_id = (
             f"temporal_grounding_tg4_{arm}_seed{seed}_north_terminal_recovery"
