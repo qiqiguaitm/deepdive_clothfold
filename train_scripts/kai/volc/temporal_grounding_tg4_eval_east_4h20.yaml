@@ -52,8 +52,8 @@ Entrypoint: |
   test -f "$REPO/logs/resource_markers/robotwin_renderer_east.ok"
   test -f "$REPO/logs/resource_markers/temporal_grounding_tg4_training_integrity.ok"
   bash "$REPO/lmvla/lmwm/env/heal_lawam_symlinks.sh"
-  source "$REPO/lmvla/lmwm/env/prepare_robotwin_renderer.sh"
-  "$REPO/lmvla/lmwm/scripts/robotwin_python_wrapper.sh" -c \
+  source "$REPO/lmvla/lmwam/env/prepare_robotwin_renderer.sh"
+  "$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh" -c \
     'import sapien.core as sapien; sapien.SapienRenderer(); print("SAPIEN_RENDER_OK")'
   export STAR_VLA_PYTHON=/vePFS/tim/workspace/miniconda3_gf0/envs/lawam/bin/python
   test -x "$STAR_VLA_PYTHON"

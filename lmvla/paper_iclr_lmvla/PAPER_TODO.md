@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 05:24 UTC
+Updated: 2026-08-13 05:35 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -103,7 +103,13 @@ are excluded from within-architecture causal contrasts.
   checkpoints. Each task requires exactly 24 fixed-scene summaries and can use
   local 2-GPU or East 4-GPU execution. `full` shuffled additionally depends on
   the matching normal capture. Partial rollouts cannot change the panel or
-  support a claim.
+  support a claim. Before any TG4 evaluation started, a runtime preflight found
+  that the local and East launchers referenced untracked `lmwm` renderer paths;
+  both now point to the existing, previously exercised `lmwam` helpers. This
+  path-only repair changed no checkpoint, task, scene, seed, episode, or
+  intervention definition. The two renderer helpers are now explicit frozen
+  hash and readiness dependencies, the repaired bundle verifier passes, and a
+  local `SapienRenderer` construction completed successfully.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,

@@ -77,7 +77,7 @@ fi
 
 export STAR_VLA_PYTHON="${STAR_VLA_PYTHON:-$REPO/kai0/.venv/bin/python}"
 export ROBOTWIN_PATH="${ROBOTWIN_PATH:-/vePFS/HuanQian/RoboTwin}"
-export ROBOTWIN_PYTHON="${ROBOTWIN_PYTHON:-$REPO/lmvla/lmwm/scripts/robotwin_python_wrapper.sh}"
+export ROBOTWIN_PYTHON="${ROBOTWIN_PYTHON:-$REPO/lmvla/lmwam/scripts/robotwin_python_wrapper.sh}"
 export ROBOTWIN_TASKS="beat_block_hammer blocks_ranking_size blocks_ranking_rgb handover_block stack_blocks_two stack_blocks_three"
 export TASK_CONFIG=demo_clean
 export ROBOTWIN_TEST_NUM=50
