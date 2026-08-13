@@ -10075,13 +10075,22 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             task_id = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
             run_id = f"temporal_grounding_tg4_{arm}_seed{seed}"
             conditioning_ddp_repair = arm == "conditioning_only"
+            gf1_queue_recovery = (arm, seed) in {
+                ("future_off", 1102),
+                ("parameter_matched_null", 1100),
+            }
             stage_dependency = tg4_immutable_stage_id
             stage_marker_remote = tg4_immutable_marker_remote
             gf1_runtime_revision = (
                 "temporal_grounding_tg4_conditioning_ddp_gf1_v4"
                 if conditioning_ddp_repair
-                else "temporal_grounding_tg4_gf1_v3"
+                else (
+                    "temporal_grounding_tg4_gf1_v4_queue_recovery"
+                    if gf1_queue_recovery
+                    else "temporal_grounding_tg4_gf1_v3"
+                )
             )
+            gf1_status_suffix = "_queue_recovery" if gf1_queue_recovery else ""
             task = {
                 "id": task_id,
                 "priority": 0,
@@ -10134,7 +10143,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "max_failures": 1,
                         "runtime_revision": gf1_runtime_revision,
                         "status_dir": str(
-                            REPO / "logs/temporal_grounding/tg4/gf1" / f"tg4_{arm}_seed{seed}"
+                            REPO
+                            / "logs/temporal_grounding/tg4/gf1"
+                            / f"tg4_{arm}_seed{seed}{gf1_status_suffix}"
                         ),
                         "command": shlex.join(
                             [
@@ -10163,7 +10174,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                         "max_failures": 1,
                         "runtime_revision": gf1_runtime_revision,
                         "status_dir": str(
-                            REPO / "logs/temporal_grounding/tg4/gf1" / f"tg4_{arm}_seed{seed}"
+                            REPO
+                            / "logs/temporal_grounding/tg4/gf1"
+                            / f"tg4_{arm}_seed{seed}{gf1_status_suffix}"
                         ),
                         "command": shlex.join(
                             [
