@@ -6950,6 +6950,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             materialize = tasks[materialize_id]
             assert materialize["materialize_north_result_for"] == task_id
             assert materialize["candidates"][0]["gpus"] == 0
+            assert materialize["rearm_after_ready_file"].endswith(
+                "run_temporal_grounding_tg4_materialize.sh"
+            )
+            assert "run_temporal_grounding_tg4_materialize.sh" in materialize[
+                "candidates"
+            ][0]["command"]
     tg4_integrity = tasks["temporal_grounding_tg4_training_integrity"]
     assert set(tg4_integrity["requires_completed_tasks"]) == {
         f"temporal_grounding_tg4_{arm}_seed{seed}_train_materialize_north"

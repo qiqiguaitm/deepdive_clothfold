@@ -10095,6 +10095,9 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_sync_script = (
         REPO / "train_scripts/kai/sync_temporal_grounding_tg4_checkpoint_from_north.sh"
     )
+    tg4_materialize_runner = (
+        REPO / "train_scripts/kai/run_temporal_grounding_tg4_materialize.sh"
+    )
     tg4_sync_tree_script = REPO / "train_scripts/kai/sync_tree_from_north_verified.sh"
     tg4_integrity_verifier = (
         REPO / "lmvla/lmwm/scripts/verify_temporal_grounding_tg4_training.py"
@@ -10107,6 +10110,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         / "train_scripts/kai/volc/temporal_grounding_tg4_integrity_east_1h20.yaml"
     )
     tg4_posttraining_hashes = [
+        {"path": str(tg4_materialize_runner), "sha256": "9df912c7fad3d5c9fa62999afcc0c8d1a12636b0de2c08890524b0ac2afe5153"},
         {"path": str(tg4_sync_script), "sha256": "fb86cc347c2cc7bd20b3a866fca2a51afb0f95459ceeceee1c626ba99124f5ff"},
         {"path": str(tg4_sync_tree_script), "sha256": "21642dc25f6e9180107ceb49f3768132b337f8c9a5df255c131617e7447855c4"},
         {"path": str(tg4_integrity_verifier), "sha256": "d93358dbe6bab113baa17fcd69373ec7e07841d6919a7948158f5871eb8e7b8e"},
@@ -10131,10 +10135,15 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "priority": 0,
                 "description": f"Materialize North TG4 arm={arm} seed={seed} artifacts",
                 "materialize_north_result_for": parent_id,
+                "rearm_after_ready_file": str(tg4_materialize_runner),
                 "completion_glob": str(marker),
                 "completion_min_count": 1,
-                "ready_files": [str(tg4_sync_script), str(tg4_sync_tree_script)],
-                "ready_hashes": tg4_posttraining_hashes[:2],
+                "ready_files": [
+                    str(tg4_materialize_runner),
+                    str(tg4_sync_script),
+                    str(tg4_sync_tree_script),
+                ],
+                "ready_hashes": tg4_posttraining_hashes[:3],
                 "candidates": [
                     {
                         "kind": "local",
@@ -10153,7 +10162,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 f"TG4_ARM={arm}",
                                 f"TG4_TRAIN_SEED={seed}",
                                 "bash",
-                                str(tg4_sync_script),
+                                str(tg4_materialize_runner),
                             ]
                         ),
                     }
@@ -10182,7 +10191,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             str(tg4_integrity_runner),
             str(tg4_integrity_yaml),
         ],
-        "ready_hashes": tg4_posttraining_hashes[2:],
+        "ready_hashes": tg4_posttraining_hashes[3:],
         "candidates": [
             {
                 "kind": "platform",
