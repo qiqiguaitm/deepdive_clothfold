@@ -180,7 +180,14 @@ are excluded from within-architecture causal contrasts.
   that the local and East launchers referenced untracked `lmwm` renderer paths;
   both now point to the existing, previously exercised `lmwam` helpers. This
   path-only repair changed no checkpoint, task, scene, seed, episode, or
-  intervention definition. Before any evaluation started, the frozen runtime
+  intervention definition. A non-claim-bearing local end-to-end preflight then
+  passed at 09:57 UTC using an isolated one-episode subset of the frozen scene
+  manifest: the accepted `full` seed-1100 checkpoint loaded onto GPU, RoboTwin
+  completed the fixed `beat_block_hammer` scene, the policy served three model
+  queries for three simulator observations, and future-feature capture was
+  nonempty. Its result root and marker are disjoint from all 21 formal panels,
+  and it cannot satisfy any claim-bearing monitor gate. Before any evaluation
+  started, the frozen runtime
   bundle was further extended with a hash-gated North staging task. It reuses
   exact North-native checkpoints by verified hard link, uploads only missing
   final models, and atomically materializes every North result. Four
