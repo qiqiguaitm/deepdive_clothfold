@@ -12,7 +12,7 @@ readonly EVAL_MANIFEST="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_groundin
   echo "TG4_PREFLIGHT_LABEL must contain only lowercase letters, digits, or underscores" >&2
   exit 2
 }
-readonly ROOT="$REPO/logs/temporal_grounding/tg4/eval_preflight_${PREFLIGHT_LABEL}"
+readonly ROOT="$REPO/logs/resource_scheduler_local/tg4_eval_preflight_${PREFLIGHT_LABEL}"
 readonly RESULT_ROOT="$ROOT/result"
 readonly FEATURE_ROOT="$ROOT/features"
 readonly MARKER="$REPO/logs/resource_markers/temporal_grounding_tg4_eval_${PREFLIGHT_LABEL}_preflight.ok"
