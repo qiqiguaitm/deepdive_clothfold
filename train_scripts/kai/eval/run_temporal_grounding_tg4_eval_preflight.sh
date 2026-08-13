@@ -5,12 +5,17 @@ umask 0002
 readonly REPO="${REPO_ROOT:-/vePFS/tim/workspace/deepdive_kai0}"
 readonly LAWAM="$REPO/lmvla/lawam"
 readonly RUN_ID=temporal_grounding_tg4_full_seed1100
+readonly PREFLIGHT_LABEL="${TG4_PREFLIGHT_LABEL:-gf1}"
 readonly SCENES="$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"
 readonly EVAL_MANIFEST="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_evaluation_v1.json"
-readonly ROOT="$REPO/logs/temporal_grounding/tg4/eval_preflight_gf1"
+[[ "$PREFLIGHT_LABEL" =~ ^[a-z0-9_]+$ ]] || {
+  echo "TG4_PREFLIGHT_LABEL must contain only lowercase letters, digits, or underscores" >&2
+  exit 2
+}
+readonly ROOT="$REPO/logs/temporal_grounding/tg4/eval_preflight_${PREFLIGHT_LABEL}"
 readonly RESULT_ROOT="$ROOT/result"
 readonly FEATURE_ROOT="$ROOT/features"
-readonly MARKER="$REPO/logs/resource_markers/temporal_grounding_tg4_eval_gf1_preflight.ok"
+readonly MARKER="$REPO/logs/resource_markers/temporal_grounding_tg4_eval_${PREFLIGHT_LABEL}_preflight.ok"
 readonly LOG="$ROOT/eval.log"
 readonly CONTROL_PYTHON="${TG4_CONTROL_PYTHON:-$REPO/kai0/.venv/bin/python}"
 
@@ -60,7 +65,7 @@ export USE_BF16=1
 export GPU_IDS=0
 export SEED=0
 export PORT_BASE=28600
-export ROBOTWIN_CKPT_ALIAS=tg4_full_s1100_gf1_preflight
+export ROBOTWIN_CKPT_ALIAS="tg4_full_s1100_${PREFLIGHT_LABEL}_preflight"
 export ROBOTWIN_EVAL_ROOT="$RESULT_ROOT/seed0"
 unset LAWAM_FUTURE_OFF LAWAM_AUXILIARY_OFF LAWAM_CONDITIONING_OFF
 unset LAWAM_FUTURE_SHUFFLE_MANIFEST
@@ -72,7 +77,7 @@ unset LMWM_MS_GATE LMWM_MS_DETACH_BACKBONE LMWM_LOCAL_DETACH_BACKBONE
 
 cd "$LAWAM"
 bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
-  "$CKPT" "$TASK_CONFIG" tg4-full-s1100-gf1-preflight >"$LOG" 2>&1
+  "$CKPT" "$TASK_CONFIG" "tg4-full-s1100-${PREFLIGHT_LABEL}-preflight" >"$LOG" 2>&1
 
 mapfile -t summaries < <(find "$RESULT_ROOT" -type f -name summary.json -print | sort)
 [[ ${#summaries[@]} -eq 1 ]] || {
@@ -84,14 +89,15 @@ find "$FEATURE_ROOT" -type f -print -quit | grep -q . || {
   exit 15
 }
 
-"$CONTROL_PYTHON" - "$CKPT" "${summaries[0]}" "$MARKER" <<'PY'
+"$CONTROL_PYTHON" - "$CKPT" "${summaries[0]}" "$MARKER" "$PREFLIGHT_LABEL" <<'PY'
 import json
 import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-checkpoint, summary_path, marker_path = map(Path, sys.argv[1:])
+checkpoint, summary_path, marker_path = map(Path, sys.argv[1:4])
+preflight_label = sys.argv[4]
 summary = json.loads(summary_path.read_text())
 if summary.get("task_name") != "beat_block_hammer":
     raise SystemExit("unexpected preflight task")
@@ -105,6 +111,7 @@ payload = {
     "complete": True,
     "protocol": "temporal_grounding_tg4_gf1_eval_preflight_v1",
     "claim_bearing": False,
+    "resource_preflight": preflight_label,
     "checkpoint": str(checkpoint),
     "checkpoint_bytes": checkpoint.stat().st_size,
     "summary": str(summary_path),
@@ -120,4 +127,4 @@ temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 os.replace(temporary, marker_path)
 PY
 
-echo "TG4 gf1 evaluator preflight complete marker=$MARKER"
+echo "TG4 $PREFLIGHT_LABEL evaluator preflight complete marker=$MARKER"
