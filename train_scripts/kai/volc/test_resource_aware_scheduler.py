@@ -7172,6 +7172,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
                 candidate["status_dir"].endswith("_queue_recovery_v3")
                 for candidate in gf1
             )
+            assert all(candidate["min_dispatch_free"] == 8 for candidate in gf1)
         assert all(
             scheduler.candidate_env_value(candidate, "PYTHONPATH")
             == "/vePFS/tim/runtime/tg2_transformers_5_2_py312_padding_v3"

@@ -10265,6 +10265,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "Robot-East-H20",
                 ]
                 for candidate in task["candidates"]:
+                    if candidate["resource"] == "gf1":
+                        # gf1 is shared with an external fleet that may refill
+                        # partially free devices; migrate only after full drain.
+                        candidate["min_dispatch_free"] = 8
                     if candidate["resource"] == "Robot-East-H20":
                         # Leave room for the one-GPU terminal audits that make
                         # completed legacy East checkpoints admissible.
