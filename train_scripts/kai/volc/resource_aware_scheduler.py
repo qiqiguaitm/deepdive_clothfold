@@ -10396,6 +10396,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
     tg4_eval_north_materializer = (
         REPO / "train_scripts/kai/sync_temporal_grounding_tg4_eval_from_north.sh"
     )
+    tg4_eval_resume_helper = (
+        REPO
+        / "lmvla/lmwm/scripts/prepare_temporal_grounding_tg4_eval_resume.py"
+    )
     tg4_eval_north_stage = (
         Path(NORTH_REPO) / ".staging/temporal_grounding_tg4_eval_v1/repo"
     )
@@ -10420,13 +10424,14 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO / "train_scripts/kai/eval/robotwin_python_wrapper_north.sh"
     )
     tg4_eval_hashes = [
-        {"path": str(tg4_eval_manifest), "sha256": "8592cfc03665f392440af61a828a413727f99f808cbb0264b146fe17e1677b82"},
+        {"path": str(tg4_eval_manifest), "sha256": "fa18d1c433dcd46f3c1c272230b83b0af58338cfffb2fba8011492ace29010c8"},
         {"path": str(tg4_eval_verifier), "sha256": "75b3a7ee1ffb1b2fa703b199cc12ac24a8e5b9ca0908a692cf5a0cbafad464ee"},
-        {"path": str(tg4_eval_runner), "sha256": "00f9d82c897c26b779462d8a048e5d764ada167b56b345b958e14d28e7c33033"},
+        {"path": str(tg4_eval_runner), "sha256": "e2af00f27f5a60034f82a1c5b2af624b3706eb4fd56fe262faa2b8c74707603d"},
         {"path": str(tg4_eval_yaml), "sha256": "e777196f9925ee7cb8423d3e1c6d45e51d2b7ea7a8cc95e108b60b00fb76ae26"},
         {"path": str(tg4_eval_north_yaml), "sha256": "6ffcb0623ce7adf989427250b5d68e4af7e9e501b09742a676b63e812867b6dc"},
         {"path": str(tg4_eval_north_stage_runner), "sha256": "acca5a8da58dc1640615b8cc61b2c14830e120f0feaac136dd214c30d5b34f46"},
-        {"path": str(tg4_eval_north_materializer), "sha256": "5f2e78ca7ef8ee0ee5dc6f0e8f4deeca6d8e9e06686e5864172cac7f167b83bd"},
+        {"path": str(tg4_eval_north_materializer), "sha256": "c3aa07fddbd7c11075a9f42248f2e21f3136ba00586332a41deea1f708b9cd49"},
+        {"path": str(tg4_eval_resume_helper), "sha256": "5dc15f8eb0b24208155701ceabd5d5b8b9724fd72bc93eb698524399c57aa724"},
         {"path": str(tg4_north_renderer_wrapper), "sha256": "a3c2a83152f8cb5cd121e9d1b9181a96af0238a797baad4219f9cb5b14618f83"},
         {"path": str(tg4_scene_manifest), "sha256": "08ed8eb7fa7e166e470dff99071639fec6e33bbd55104fe51be749418b820d17"},
         {"path": str(tg4_shuffle_manifest), "sha256": "0843341173b71d5009337e6eecd0eee89f28f034c698ce44840e1b08529804f7"},
@@ -10905,7 +10910,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 "gpus": 4,
                                 "gpu_indices": gpu_indices,
                                 "retry_cooldown_seconds": 900,
-                                "max_failures": 1,
+                                "max_failures": 2,
                                 "runtime_revision": "temporal_grounding_tg4_eval_gf1_v1",
                                 "env": {
                                     "TG4_VISIBLE_GPUS": ",".join(
@@ -10927,7 +10932,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "resource": "local",
                             "gpus": 2,
                             "retry_cooldown_seconds": 900,
-                            "max_failures": 1,
+                            "max_failures": 2,
                             "status_dir": str(
                                 REPO
                                 / "logs/temporal_grounding/tg4/eval_local"
@@ -10943,7 +10948,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "queue_timeout_seconds": 300,
                             "deploy_timeout_seconds": 900,
                             "retry_cooldown_seconds": 900,
-                            "max_failures": 1,
+                            "max_failures": 2,
                             "runtime_revision": "temporal_grounding_tg4_eval_v1",
                             "yaml": str(tg4_eval_yaml.relative_to(REPO)),
                             "task_name": (
@@ -10966,7 +10971,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                     "queue_timeout_seconds": 300,
                                     "deploy_timeout_seconds": 900,
                                     "retry_cooldown_seconds": 900,
-                                    "max_failures": 1,
+                                    "max_failures": 2,
                                     "runtime_revision": (
                                         "temporal_grounding_tg4_eval_north_v1"
                                     ),

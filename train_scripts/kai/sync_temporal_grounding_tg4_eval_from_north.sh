@@ -22,9 +22,14 @@ REMOTE_ROOT=$STAGE/lmvla/lawam_local/results/eval_runs/robotwin/${RUN_ID}_normal
 LOCAL_ROOT=$REPO/lmvla/lawam/results/eval_runs/robotwin/${RUN_ID}_normal
 SCENES=$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json
 SYNC=$REPO/train_scripts/kai/sync_tree_from_north_verified.sh
+QUARANTINE="$REPO/logs/resource_scheduler_local/tg4_eval_cross_storage_quarantine/${RUN_ID}_normal_$(date -u +%Y%m%dT%H%M%SZ)_$$"
 
 ssh -p 16370 -o BatchMode=yes root@124.174.16.237 \
   "test -s $(printf %q "$REMOTE_MARKER") && test \"\$(find $(printf %q "$REMOTE_ROOT") -type f -name summary.json | wc -l)\" -eq 24"
+if [[ -e "$LOCAL_ROOT" ]]; then
+  mkdir -p "$QUARANTINE"
+  mv "$LOCAL_ROOT" "$QUARANTINE/result_root"
+fi
 env SRC="$REMOTE_ROOT" DST="$LOCAL_ROOT" bash "$SYNC"
 "$REPO/kai0/.venv/bin/python" \
   "$REPO/lmvla/lmwm/scripts/verify_robotwin_fixed_seed_eval.py" \
@@ -38,6 +43,14 @@ if [[ "$ARM" == full ]]; then
   LOCAL_CAPTURE=$REPO/logs/resource_markers/${RUN_ID}_normal_capture_complete.json
   ssh -p 16370 -o BatchMode=yes root@124.174.16.237 \
     "test -s $(printf %q "$REMOTE_CAPTURE") && test -d $(printf %q "$REMOTE_FEATURE")"
+  if [[ -e "$LOCAL_FEATURE" ]]; then
+    mkdir -p "$QUARANTINE"
+    mv "$LOCAL_FEATURE" "$QUARANTINE/feature_root"
+  fi
+  if [[ -e "$LOCAL_CAPTURE" ]]; then
+    mkdir -p "$QUARANTINE"
+    mv "$LOCAL_CAPTURE" "$QUARANTINE/capture_marker"
+  fi
   env SRC="$REMOTE_FEATURE" DST="$LOCAL_FEATURE" bash "$SYNC"
   incoming=$LOCAL_CAPTURE.incoming.$$
   ssh -p 16370 -o BatchMode=yes root@124.174.16.237 \

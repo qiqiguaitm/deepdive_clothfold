@@ -7258,6 +7258,13 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert all(task["allow_temporary_gf1"] for task in tg4_evals.values())
     assert all(task["prefer_max_gpus_when_immediate"] for task in tg4_evals.values())
     for task in tg4_evals.values():
+        assert all(candidate["max_failures"] == 2 for candidate in task["candidates"])
+        assert any(
+            item["path"].endswith(
+                "lmvla/lmwm/scripts/prepare_temporal_grounding_tg4_eval_resume.py"
+            )
+            for item in task["ready_hashes"]
+        )
         gf1 = [candidate for candidate in task["candidates"] if candidate["resource"] == "gf1"]
         assert [candidate["gpu_indices"] for candidate in gf1] == [
             [0, 1, 2, 3],
@@ -7362,6 +7369,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         assert "sync_temporal_grounding_tg4_eval_from_north.sh" in task[
             "candidates"
         ][0]["command"]
+        assert any(
+            item["path"].endswith(
+                "train_scripts/kai/sync_temporal_grounding_tg4_eval_from_north.sh"
+            )
+            for item in task["ready_hashes"]
+        )
         assert task["ready_files_remote"][0].endswith("_normal_eval.ok")
     tg4_analysis = tasks["temporal_grounding_tg4_analysis"]
     assert set(tg4_analysis["requires_completed_tasks"]) == {

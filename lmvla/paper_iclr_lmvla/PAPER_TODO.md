@@ -193,8 +193,15 @@ are excluded from within-architecture causal contrasts.
   mapping and completed the target scene with three model queries and three
   simulator observations. Missing, self-matched, or shape-incompatible source
   features remain hard failures. This preflight is also non-claim-bearing and
-  cannot satisfy a formal panel or monitor gate. Before any evaluation
-  started, the frozen runtime
+  cannot satisfy a formal panel or monitor gate. Before any formal evaluation
+  started, the execution bundle was also made strictly resumable without
+  changing the frozen panel: an existing run is accepted only when checkpoint,
+  arm, training seed, condition, evaluation seed, six-task order, and 50-episode
+  metadata match exactly; the established evaluator then schedules only
+  incomplete tasks. Every resource candidate permits one bounded retry. A
+  verified North result now quarantines any shared-storage partial before
+  atomic materialization instead of silently replacing it, and `full` normal
+  resumes reject summaries without their feature-capture tree. The frozen runtime
   bundle was further extended with a hash-gated North staging task. It reuses
   exact North-native checkpoints by verified hard link, uploads only missing
   final models, and atomically materializes every North result. Four
@@ -208,7 +215,8 @@ are excluded from within-architecture causal contrasts.
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; all 238 scheduler, watcher, training-integrity,
+  frozen hash dependencies; all 242 scheduler, watcher, resume,
+  training-integrity,
   evaluation, analysis, and finalizer tests pass. Fresh live verification of
   both frozen TG4 source and evaluation manifests also passed at 09:37 UTC.
   The independent hourly audit now freezes all 79

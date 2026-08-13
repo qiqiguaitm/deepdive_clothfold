@@ -21,6 +21,7 @@ FEATURE_BASE="${TG4_FEATURE_BASE:-$REPO/logs/temporal_grounding/tg4/features}"
 MARKER_ROOT="${TG4_MARKER_ROOT:-$REPO/logs/resource_markers}"
 LOG_DIR="${TG4_LOG_DIR:-$REPO/logs/temporal_grounding/tg4/eval}"
 CONTROL_PYTHON="${TG4_CONTROL_PYTHON:-$REPO/kai0/.venv/bin/python}"
+RESUME_HELPER="$REPO/lmvla/lmwm/scripts/prepare_temporal_grounding_tg4_eval_resume.py"
 RESULT_ROOT="$RESULT_BASE/${RUN_ID}_${CONDITION}"
 FEATURE_ROOT="$FEATURE_BASE/${RUN_ID}"
 CAPTURE_MARKER="$MARKER_ROOT/${RUN_ID}_normal_capture_complete.json"
@@ -69,6 +70,7 @@ test -f "$INTEGRITY"
 test -f "$SCENES"
 test -f "$SHUFFLE"
 test -f "$EVAL_MANIFEST"
+test -f "$RESUME_HELPER"
 "$CONTROL_PYTHON" \
   "$REPO/lmvla/lmwm/scripts/verify_temporal_grounding_tg4_evaluation.py" \
   --repo "$REPO" --manifest "$EVAL_MANIFEST"
@@ -81,13 +83,26 @@ mapfile -t RUN_DIRS < <(find "$CHECKPOINT_ROOT" -maxdepth 1 \
 }
 CKPT="${RUN_DIRS[0]}/final_model/pytorch_model.pt"
 test -f "$CKPT"
-if [[ -e "$RESULT_ROOT" ]]; then
-  echo "refusing to mix TG4 evaluation results with existing path: $RESULT_ROOT" >&2
+if [[ -e "$RESULT_ROOT" && ! -d "$RESULT_ROOT" ]]; then
+  echo "TG4 evaluation result root is not a directory: $RESULT_ROOT" >&2
   exit 3
 fi
-if [[ "$ARM" == full && "$CONDITION" == normal && -e "$FEATURE_ROOT" ]]; then
-  echo "refusing to overwrite TG4 feature capture: $FEATURE_ROOT" >&2
-  exit 3
+result_root_preexisting=0
+[[ ! -d "$RESULT_ROOT" ]] || result_root_preexisting=1
+if [[ "$ARM" == full && "$CONDITION" == normal ]]; then
+  if [[ -e "$FEATURE_ROOT" && ! -d "$FEATURE_ROOT" ]]; then
+    echo "TG4 feature capture root is not a directory: $FEATURE_ROOT" >&2
+    exit 3
+  fi
+  if [[ -d "$FEATURE_ROOT" && "$result_root_preexisting" == 0 ]]; then
+    echo "refusing orphaned TG4 feature capture without a result root: $FEATURE_ROOT" >&2
+    exit 3
+  fi
+  if [[ "$result_root_preexisting" == 1 && ! -d "$FEATURE_ROOT" ]] && \
+      find "$RESULT_ROOT" -type f -name summary.json -print -quit | grep -q .; then
+    echo "refusing TG4 full resume with summaries but no feature capture: $RESULT_ROOT" >&2
+    exit 3
+  fi
 fi
 if [[ "$CONDITION" == shuffled ]]; then
   test -f "$CAPTURE_MARKER"
@@ -151,8 +166,25 @@ for ((batch_start=0; batch_start<4; batch_start+=GPU_COUNT)); do
       export ROBOTWIN_CKPT_ALIAS="tg4_${ARM}_s${TRAIN_SEED}"
       export ROBOTWIN_EVAL_ROOT="$RESULT_ROOT/seed${eval_seed}"
       mkdir -p "$ROBOTWIN_EVAL_ROOT"
+      resume_run_dir="$(
+        "$CONTROL_PYTHON" "$RESUME_HELPER" \
+          --result-root "$RESULT_ROOT" \
+          --checkpoint "$CKPT" \
+          --arm "$ARM" \
+          --train-seed "$TRAIN_SEED" \
+          --condition "$CONDITION" \
+          --eval-seed "$eval_seed"
+      )"
+      eval_args=(
+        "$CKPT"
+        "$TASK_CONFIG"
+        "tg4-${ARM}-s${TRAIN_SEED}-${CONDITION}-e${eval_seed}"
+      )
+      if [[ -n "$resume_run_dir" ]]; then
+        eval_args+=("$resume_run_dir")
+      fi
       bash examples/Robotwin/eval_files/auto_eval_scripts/auto_eval_robotwin.sh \
-        "$CKPT" "$TASK_CONFIG" "tg4-${ARM}-s${TRAIN_SEED}-${CONDITION}-e${eval_seed}"
+        "${eval_args[@]}"
     ) >"$LOG_DIR/${ARM}_s${TRAIN_SEED}_${CONDITION}_e${eval_seed}_${STAMP}.log" 2>&1 &
     pids+=("$!")
     sleep 20
