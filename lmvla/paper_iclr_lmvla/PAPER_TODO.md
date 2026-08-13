@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 06:49 UTC
+Updated: 2026-08-13 06:56 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -61,9 +61,10 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 06:20 UTC canonical
-  snapshot, ten unfinished training cells are Running and none is Queueing.
-  Every cell is completed or running, with no undispatched training cell. All three `auxiliary_only`
+- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 06:55 UTC canonical
+  snapshot, eight unfinished training cells are Running and two are Queueing on
+  North; every cell is completed, running, or submitted, with no undispatched
+  training cell. All three `auxiliary_only`
   seeds completed all 20,000
   steps and persisted 7.17-GB final models plus 9.13-GB optimizer states. Their
   platform shells were reported Failed only after the training child returned,
@@ -90,13 +91,19 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
-  2.2k/0.2k/0.1k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  3.3k/1.3k/1.2k. `full` seeds 1100 and 1101 reached exact step 20,000;
   their per-cell recovery watchers verified the frozen configuration,
   initialization, rank orders, final model, optimizer state, and exact
   post-training shell error before admitting them, and both artifacts are now
-  being materialized. The three `future_off` cells are healthy near steps
-  6.1k/6.0k/11.7k, the three parameter-matched-null cells near
-  11.0k/7.5k/7.5k, and `full` seed 1102 near 5.4k. Every future TG4
+  being materialized. `future_off` seeds 1100/1101 are healthy near
+  7.2k/7.1k, parameter-matched-null seeds 1101/1102 near 8.5k/8.6k, and
+  `full` seed 1102 near 6.4k. The temporary gf1 processes for `future_off`
+  seed 1102 and parameter-matched-null seed 1100 were independently confirmed
+  dead after reaching about 12.2k and 11.6k. Because the frozen recipe writes
+  no admissible intermediate checkpoint, neither partial run can be resumed or
+  counted; both exact cells were resubmitted to North and are Queueing under the
+  primary and backup GPU limits. Their gf1 candidates remain exhausted so the
+  lost long runs cannot repeat. Every future TG4
   launch executes an immutable snapshot of the frozen runner. Do not inspect
   partial outcomes to alter the protocol.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
