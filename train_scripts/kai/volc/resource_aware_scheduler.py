@@ -10465,11 +10465,11 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         REPO / "train_scripts/kai/eval/robotwin_python_wrapper_north.sh"
     )
     tg4_eval_hashes = [
-        {"path": str(tg4_eval_manifest), "sha256": "acc8444921262593795a2934965e4f1172f0a6016d70356fed10a3c3be3d0b5c"},
+        {"path": str(tg4_eval_manifest), "sha256": "ae92db41eb7fcd55f4cd6674d81c5014b9624a4795773af52f7ee00dc4da30f1"},
         {"path": str(tg4_eval_verifier), "sha256": "75b3a7ee1ffb1b2fa703b199cc12ac24a8e5b9ca0908a692cf5a0cbafad464ee"},
         {"path": str(tg4_fixed_seed_verifier), "sha256": "57c5c7069a67ed7b9e579dee14cdb72f205a66af1b569d34c00ae49262a5e861"},
         {"path": str(tg4_strict_result_verifier), "sha256": "0cae49b2237f2e2a838846ee3969b75c1f1d2de222e6d599047dbe65114b95ec"},
-        {"path": str(tg4_eval_runner), "sha256": "da60641c9986ba3ed66a7e99adb99d3f2ea87d0f35acacd89327ccad1d920ebc"},
+        {"path": str(tg4_eval_runner), "sha256": "c8dea244d293f25774d36585073b3ab81f41c671292d4f157059749b1543ea9e"},
         {"path": str(tg4_eval_yaml), "sha256": "e777196f9925ee7cb8423d3e1c6d45e51d2b7ea7a8cc95e108b60b00fb76ae26"},
         {"path": str(tg4_eval_north_yaml), "sha256": "6ffcb0623ce7adf989427250b5d68e4af7e9e501b09742a676b63e812867b6dc"},
         {"path": str(tg4_eval_north_stage_runner), "sha256": "acca5a8da58dc1640615b8cc61b2c14830e120f0feaac136dd214c30d5b34f46"},
@@ -10540,7 +10540,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             ),
             {
                 "path": str(tg4_eval_preflight_runner),
-                "sha256": "6e7d9902762ea4e2f2e4afbf56e6656228b2c251aa9660bd5fefb3c0f77eba8c",
+                "sha256": "56598ccd9dbd1af2fdecc26112bc9d3d8e7c73b87c657c928fcd25805e7ee8e5",
             },
         ],
         "candidates": [
@@ -10548,10 +10548,10 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "kind": "ssh",
                 "resource": "gf1",
                 "gpus": 1,
-                "gpu_indices": [0],
+                "gpu_indices": [7],
                 "retry_cooldown_seconds": 900,
                 "max_failures": 1,
-                "runtime_revision": "temporal_grounding_tg4_eval_gf1_preflight_v1",
+                "runtime_revision": "temporal_grounding_tg4_eval_gf1_preflight_v2",
                 "status_dir": str(
                     REPO
                     / "logs/temporal_grounding/tg4/eval_preflight_gf1_status"
@@ -10559,7 +10559,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "command": shlex.join(
                     [
                         "env",
-                        "CUDA_VISIBLE_DEVICES=0",
+                        "TG4_VISIBLE_GPU=7",
                         "TG4_PREFLIGHT_LABEL=gf1",
                         f"REPO_ROOT={REPO}",
                         "bash",
@@ -10601,7 +10601,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "retry_cooldown_seconds": 900,
                     "max_failures": 1,
                     "runtime_revision": (
-                        "temporal_grounding_tg4_eval_local_preflight_v1"
+                        "temporal_grounding_tg4_eval_local_preflight_v2"
                     ),
                     "status_dir": str(
                         REPO
@@ -10611,7 +10611,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "command": shlex.join(
                         [
                             "env",
-                            "CUDA_VISIBLE_DEVICES=0",
+                            "TG4_VISIBLE_GPU=0",
                             "TG4_PREFLIGHT_LABEL=local",
                             f"REPO_ROOT={REPO}",
                             "bash",
@@ -10956,7 +10956,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                 "gpu_indices": gpu_indices,
                                 "retry_cooldown_seconds": 900,
                                 "max_failures": 2,
-                                "runtime_revision": "temporal_grounding_tg4_eval_gf1_v1",
+                                "runtime_revision": "temporal_grounding_tg4_eval_gf1_v2",
                                 "env": {
                                     "TG4_VISIBLE_GPUS": ",".join(
                                         str(index) for index in gpu_indices
@@ -10994,7 +10994,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                             "deploy_timeout_seconds": 900,
                             "retry_cooldown_seconds": 900,
                             "max_failures": 2,
-                            "runtime_revision": "temporal_grounding_tg4_eval_v1",
+                            "runtime_revision": "temporal_grounding_tg4_eval_v2",
                             "yaml": str(tg4_eval_yaml.relative_to(REPO)),
                             "task_name": (
                                 f"temporal-grounding-tg4-{arm.replace('_', '-')}-"
@@ -11018,7 +11018,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                                     "retry_cooldown_seconds": 900,
                                     "max_failures": 2,
                                     "runtime_revision": (
-                                        "temporal_grounding_tg4_eval_north_v1"
+                                        "temporal_grounding_tg4_eval_north_v2"
                                     ),
                                     "yaml": str(
                                         tg4_eval_north_yaml.relative_to(REPO)

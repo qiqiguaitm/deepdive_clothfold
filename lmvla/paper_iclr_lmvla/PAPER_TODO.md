@@ -142,9 +142,22 @@ are excluded from within-architecture causal contrasts.
   and step zero but received `SIGTERM` at step 201 when the scheduler tmux was
   restarted. Its output root contained no model or optimizer checkpoint and was
   renamed in place to a hidden dated quarantine. A second clean recovery was
-  launched at 11:12 UTC, passed step zero, and is healthy at 1.95 seconds/step;
-  its watcher targets the exact new status directory. The scheduler must not be
-  restarted while this SSH training child is active. The backup-identity
+  launched at 11:12 UTC and reached about step 279 at 1.95 seconds/step. During
+  the same window, a non-claim-bearing evaluator preflight intended for free
+  GPU 4 was found to remap its inner model server to physical GPU 0, and an
+  unrelated WorldArena fleet began taking all eight gf1 GPUs at 11:23 UTC. The
+  training DDP group then disappeared without an explicit terminal record. The
+  available timing cannot uniquely attribute the termination to either
+  concurrent event, so no narrower causal claim is made. The second root again
+  contained no model or optimizer checkpoint and was
+  renamed in place to a distinct hidden quarantine. No preflight will run on
+  gf1 concurrently with training. The evaluator now passes host-visible device
+  indices directly to its model servers, and this mapping is frozen and tested
+  before any formal panel. A `v6` recovery revision and exact third status
+  directory are ready, but at 11:23 UTC an unrelated WorldArena workload took
+  all eight gf1 GPUs. The scheduler therefore submitted a fresh primary-North
+  queue copy (`t-20260813192511-gntmw`) instead of oversubscribing gf1. The
+  backup-identity
   `parameter_matched_null` seed-1100
   queue copy could not be stopped by the available identities (`AccessDenied`),
   so no duplicate gf1 run was launched and the North attempt remains tracked.
@@ -154,11 +167,10 @@ are excluded from within-architecture causal contrasts.
   can migrate when the two active legacy East cells terminate. This preserves
   capacity for their one-GPU strict recovery audits instead of delaying
   checkpoint admission behind another full training wave. At this snapshot,
-  East is 8/8, North primary is 20 active with no queue under its 25-GPU
+  East is 8/8, North primary is 20 active plus 4 queued under its 25-GPU
   limit, North backup is 4 active plus 4 queued under its 8-GPU limit, and
-  gf1 is 4/8. Thus every safely admissible four-GPU training slot is used or
-  queued; the other four gf1 GPUs remain idle only to avoid a duplicate, while
-  the idle local two-GPU host cannot
+  gf1 is 8/8 under the unrelated workload. Thus every safely admissible
+  four-GPU training slot is used or queued, while the idle local two-GPU host cannot
   execute a frozen four-GPU training cell and formal evaluation remains gated.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
   the joint verifier are implemented. Reject the complete matrix before

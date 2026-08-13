@@ -161,8 +161,10 @@ for ((batch_start=0; batch_start<4; batch_start+=GPU_COUNT)); do
   for ((offset=0; offset<GPU_COUNT && batch_start+offset<4; offset++)); do
     eval_seed=$((batch_start + offset))
     (
-      export CUDA_VISIBLE_DEVICES="${gpu_devices[$offset]}"
-      export GPU_IDS="$offset"
+      # batched_eval_runner assigns CUDA_VISIBLE_DEVICES from GPU_IDS for each
+      # model server, so pass the host-visible physical index through directly.
+      unset CUDA_VISIBLE_DEVICES
+      export GPU_IDS="${gpu_devices[$offset]}"
       export SEED="$eval_seed"
       export PORT_BASE=$((14000 + PORT_OFFSET + eval_seed * 100))
       export ROBOTWIN_CKPT_ALIAS="tg4_${ARM}_s${TRAIN_SEED}"

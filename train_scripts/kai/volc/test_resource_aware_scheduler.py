@@ -7074,11 +7074,21 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     assert eval_preflight["completion_requires_successful_terminal_state"] is True
     assert eval_preflight["candidates"][0]["resource"] == "gf1"
     assert eval_preflight["candidates"][0]["gpus"] == 1
-    assert eval_preflight["candidates"][0]["gpu_indices"] == [0]
+    assert eval_preflight["candidates"][0]["gpu_indices"] == [7]
+    assert scheduler.candidate_env_value(
+        eval_preflight["candidates"][0], "TG4_VISIBLE_GPU"
+    ) == "7"
     assert "eval_gf1_preflight" in eval_preflight["completion_glob"]
     assert "run_temporal_grounding_tg4_eval_preflight.sh" in eval_preflight[
         "candidates"
     ][0]["command"]
+    eval_runner_text = (
+        scheduler.REPO / "train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh"
+    ).read_text()
+    assert "unset CUDA_VISIBLE_DEVICES" in eval_runner_text
+    assert 'export GPU_IDS="${gpu_devices[$offset]}"' in eval_runner_text
+    preflight_runner_text = Path(eval_preflight["rearm_after_ready_file"]).read_text()
+    assert 'export GPU_IDS="$VISIBLE_GPU"' in preflight_runner_text
     local_eval_preflight = tasks["temporal_grounding_tg4_eval_local_preflight"]
     assert local_eval_preflight["priority"] == -1
     assert "allow_temporary_gf1" not in local_eval_preflight
@@ -7431,7 +7441,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             if candidate["resource"] == "Robot-North-H20"
         )
         assert north["gpus"] == 4
-        assert north["runtime_revision"] == "temporal_grounding_tg4_eval_north_v1"
+        assert north["runtime_revision"] == "temporal_grounding_tg4_eval_north_v2"
         assert north["yaml"].endswith(
             "temporal_grounding_tg4_eval_north_4h20.yaml"
         )

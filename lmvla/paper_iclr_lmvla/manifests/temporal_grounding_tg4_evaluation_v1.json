@@ -74,7 +74,7 @@
     "lmvla/lmwam/env/heal_lawam_symlinks.sh": "46fbac6fc8f908b04f1150e7e4860922a2df46cbfb7f78d7dff85022c37d6c5d",
     "lmvla/lmwam/env/prepare_robotwin_renderer.sh": "3c94cbd4d8a88a66a821d7129cbf4641cbd1fa2fca7d264bb894aeef12d1a69f",
     "lmvla/lmwam/scripts/robotwin_python_wrapper.sh": "4aed2bf9e3971b1a69b4c42349afb9608b1e5043ff965d823777417f217b5a9d",
-    "train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh": "da60641c9986ba3ed66a7e99adb99d3f2ea87d0f35acacd89327ccad1d920ebc",
+    "train_scripts/kai/eval/run_temporal_grounding_tg4_eval.sh": "c8dea244d293f25774d36585073b3ab81f41c671292d4f157059749b1543ea9e",
     "lmvla/lmwm/scripts/prepare_temporal_grounding_tg4_eval_resume.py": "5dc15f8eb0b24208155701ceabd5d5b8b9724fd72bc93eb698524399c57aa724",
     "train_scripts/kai/eval/robotwin_python_wrapper_north.sh": "a3c2a83152f8cb5cd121e9d1b9181a96af0238a797baad4219f9cb5b14618f83",
     "train_scripts/kai/stage_temporal_grounding_tg4_eval_to_north.sh": "acca5a8da58dc1640615b8cc61b2c14830e120f0feaac136dd214c30d5b34f46",

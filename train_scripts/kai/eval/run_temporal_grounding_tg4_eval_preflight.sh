@@ -6,10 +6,15 @@ readonly REPO="${REPO_ROOT:-/vePFS/tim/workspace/deepdive_kai0}"
 readonly LAWAM="$REPO/lmvla/lawam"
 readonly RUN_ID=temporal_grounding_tg4_full_seed1100
 readonly PREFLIGHT_LABEL="${TG4_PREFLIGHT_LABEL:-gf1}"
+readonly VISIBLE_GPU="${TG4_VISIBLE_GPU:-0}"
 readonly SCENES="$REPO/lmvla/lmwm/data/robotwin_pi05_confirmatory_scene_seeds_v1.json"
 readonly EVAL_MANIFEST="$REPO/lmvla/paper_iclr_lmvla/manifests/temporal_grounding_tg4_evaluation_v1.json"
 [[ "$PREFLIGHT_LABEL" =~ ^[a-z0-9_]+$ ]] || {
   echo "TG4_PREFLIGHT_LABEL must contain only lowercase letters, digits, or underscores" >&2
+  exit 2
+}
+[[ "$VISIBLE_GPU" =~ ^[0-9]+$ ]] || {
+  echo "TG4_VISIBLE_GPU must be a non-negative integer" >&2
   exit 2
 }
 readonly ATTEMPT_ID="$(date -u +%Y%m%dT%H%M%SZ)_$$"
@@ -73,7 +78,8 @@ export LAWAM_FUTURE_INTERVENTION=normal
 export LAWAM_FUTURE_CAPTURE_ROOT="$FEATURE_ROOT"
 export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-9.0}"
 export USE_BF16=1
-export GPU_IDS=0
+unset CUDA_VISIBLE_DEVICES
+export GPU_IDS="$VISIBLE_GPU"
 export SEED=0
 export PORT_BASE=28600
 export ROBOTWIN_CKPT_ALIAS="tg4_full_s1100_${PREFLIGHT_LABEL}_preflight"
