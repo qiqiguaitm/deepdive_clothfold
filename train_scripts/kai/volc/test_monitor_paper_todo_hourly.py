@@ -426,6 +426,49 @@ def test_ssh_attempt_status_drives_canonical_heartbeat_selection() -> None:
     }
 
 
+def test_heartbeat_uses_latest_attempt_resource_after_migration() -> None:
+    task_id = "temporal_grounding_tg4_conditioning_only_seed1102_train"
+    tasks = {
+        task_id: monitor.task_record(
+            {
+                "status": "running",
+                "attempts": [
+                    {"resource": "gf1", "last_status": "RUNNING start=old"},
+                    {"resource": "Robot-North-H20", "last_state": "Running"},
+                ],
+            }
+        )
+    }
+    snapshot = {
+        "resources": {
+            "gf1": {
+                "watched_tasks": {
+                    "tg4_conditioning_only_seed1102": {
+                        "status": "RUNNING start=old",
+                        "step": 211,
+                    }
+                }
+            },
+            "beijing": {
+                "watched_tasks": {
+                    "tg4_conditioning_only_seed1102": {
+                        "status": "RUNNING",
+                        "step": 96,
+                    }
+                }
+            },
+        }
+    }
+
+    assert monitor.heartbeat_metrics(snapshot, tasks) == {
+        "tg4_conditioning_only_seed1102": {
+            "resource": "beijing",
+            "status": "RUNNING",
+            "step": 96,
+        }
+    }
+
+
 def test_once_writes_all_monitor_artifacts(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path, status="pending")
     jsonl = tmp_path / "monitor.jsonl"

@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 05:46 UTC
+Updated: 2026-08-13 06:20 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -22,6 +22,11 @@ The paper asks:
 > When does a predicted future representation provide a usable constraint for
 > fixed-horizon VLA action generation?
 
+Operationally, fixed-checkpoint `content use` means that replacing the
+condition changes paired outcomes, while `method utility` means that an
+independently matched training package improves success. Neither estimand
+implies the other, and a claim must name which one it addresses.
+
 The closed evidence establishes the following boundaries:
 
 - The released LaWAM route is endpoint-aligned. Historical raw milestones are
@@ -38,11 +43,14 @@ The closed evidence establishes the following boundaries:
   Holm-adjusted exact McNemar `p=6.75e-180`. All six task effects and all four
   evaluation-seed effects are positive. Null and persistence controls also pass.
 
-TG1A therefore shows that the particular predicted endpoint content can improve
-closed-loop control for this released checkpoint. It does not attribute the
-gain among LaWAM policy pretraining, downstream auxiliary shaping, and
-inference-time conditioning. TG4 is the only remaining claim-bearing experiment
-and performs that source decomposition under one fresh matched protocol.
+TG1A therefore shows that high performance at this released checkpoint depends
+strongly on its episode-matched predicted condition. The different-episode
+shuffle can also disrupt scene coherence or create an off-distribution
+condition, so TG1A does not by itself isolate endpoint semantics from every
+form of matched visual information. It also does not attribute the dependence
+among LaWAM policy pretraining, downstream auxiliary shaping, and inference-time
+conditioning. TG4 is the only remaining claim-bearing experiment and performs
+that source decomposition under one fresh matched protocol.
 
 ## 2. Active TG4 source decomposition
 
@@ -53,10 +61,9 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 6/18 COMPLETE]** At the 05:18 UTC canonical
-  snapshot, ten cells are executing and two are platform-Queueing; every cell
-  is completed
-  or submitted, with no undispatched training cell. All three `auxiliary_only`
+- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 06:20 UTC canonical
+  snapshot, ten unfinished training cells are Running and none is Queueing.
+  Every cell is completed or running, with no undispatched training cell. All three `auxiliary_only`
   seeds completed all 20,000
   steps and persisted 7.17-GB final models plus 9.13-GB optimizer states. Their
   platform shells were reported Failed only after the training child returned,
@@ -68,7 +75,8 @@ are excluded from within-architecture causal contrasts.
   seed 1102 then completed with the same post-training shell error; independent
   North-side audits verified their final models, optimizer states, exact step
   20,000, frozen configs, initialization identities, and rank orders before
-  admitting them.
+  admitting them. All six `clean_base` and `auxiliary_only` artifacts are now
+  materialized locally.
   No general Failed-terminal exemption was introduced. Per-cell background
   watchers now cover the remaining old-runner North jobs and cannot admit a
   task until its own complete audit marker exists.
@@ -80,10 +88,14 @@ are excluded from within-architecture causal contrasts.
   they were rearmed. Three additional stale North roots from the original DDP
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
-  in parallel on the primary North identity: seed 1100 is training at about
-  1.94 s/step, while seeds 1101/1102 remain platform-Queueing for physical
-  cards. The two
-  `future_off` retries are healthy near steps 3.8k/3.7k, and every future TG4
+  in parallel on the primary North identity and are now training near steps
+  2.2k/0.2k/0.1k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  their per-cell recovery watchers verified the frozen configuration,
+  initialization, rank orders, final model, optimizer state, and exact
+  post-training shell error before admitting them, and both artifacts are now
+  being materialized. The three `future_off` cells are healthy near steps
+  6.1k/6.0k/11.7k, the three parameter-matched-null cells near
+  11.0k/7.5k/7.5k, and `full` seed 1102 near 5.4k. Every future TG4
   launch executes an immutable snapshot of the frozen runner. Do not inspect
   partial outcomes to alter the protocol.
 - [ ] **TG4-I1 [BLOCKED by T01--T18]** Eighteen conditional materializers and
@@ -117,7 +129,7 @@ are excluded from within-architecture causal contrasts.
 - [ ] **TG4-A1 [IMPLEMENTED; BLOCKED by E1]** The scheduler-registered analyzer
   depends on all 21 evaluations and implements the seven frozen contrasts,
   training-seed/task/evaluation-seed/paired-episode hierarchical bootstrap,
-  Holm correction, and per-training-seed/task safety gate. It writes the
+  Holm correction, and per-training-seed/task tolerance gate. It writes the
   canonical result and immutable decision marker before manuscript claims can
   change.
 
@@ -145,9 +157,12 @@ public-system performance identifies a component's control contribution.
 ## 3. PredictiveActionAdapter core-method publication gates
 
 PredictiveActionAdapter remains an admissible architectural contribution: P0
-establishes action-conditioned latent prediction, exact inherited-parameter
-isolation, and zero-output initialization, and the completed efficiency audit
-establishes 0.50% additional parameters and low measured runtime overhead. To
+establishes that future-target predictions are detectably sensitive to expert
+actions, exact inherited-parameter isolation, and zero-output initialization;
+it does not establish semantically useful future dynamics because the measured
+cosine contrast is small and lacks persistence/current-grid baselines. The
+completed efficiency audit establishes 0.50% additional parameters and low
+measured runtime overhead. To
 present it instead as a primary *control-improving method*, all three gates
 below must pass. They are separate claims; passing one cannot substitute for
 another.
@@ -160,7 +175,7 @@ another.
   seed as the highest resampling unit. P3 completed this test at seeds
   1000--1002: effects were +13.42, -5.50, and -2.08 points; mean +1.94 points,
   95% CI [-5.78, +12.75]. The gate is not met.
-- [ ] **PA-S1 [UNMET; CLOSED UNDER THE CURRENT PLAN] Task safety.** A claim of
+- [ ] **PA-S1 [UNMET; CLOSED UNDER THE CURRENT PLAN] Task-level tolerance.** A claim of
   safe or broadly consistent improvement additionally requires no candidate-
   minus-A0 regression worse than five percentage points in any prespecified
   training-seed/task cell. P3 fails this gate: seed 1001 regresses by 13 points
@@ -178,13 +193,14 @@ another.
   substitutes for correct-content evidence.
 
 **Current claim boundary:** the manuscript may present PredictiveActionAdapter
-as a new, policy-preserving predictive-control interface and report its latent
-prediction and efficiency properties. It must not claim independently
-replicated utility, task-safe improvement, or causal use of the predicted
-content. P6 and P7 remain closed, and this section authorizes no new training or
-evaluation. Reopening any gate would require a new result-independent frozen
-protocol and explicit operator authorization; existing P3/P4 rollouts may not
-be selectively extended or reinterpreted.
+as a new, zero-initialized predictive-control interface that preserves the base
+function at initialization, and report its detectable action sensitivity and
+efficiency properties. It must not claim independently replicated utility,
+broad task-safe improvement, useful learned dynamics, or causal use of the
+predicted content. P6 and P7 remain closed, and this section authorizes no new
+training or evaluation. Reopening any gate would require a new
+result-independent frozen protocol and explicit operator authorization;
+existing P3/P4 rollouts may not be selectively extended or reinterpreted.
 
 ## 4. Stop and reporting rules
 
@@ -195,9 +211,11 @@ be selectively extended or reinterpreted.
   checkpoints into another protocol.
 - Partial rollouts, smoke tests, training losses, representation metrics,
   checkpoint existence, or unmatched seeds cannot pass a utility gate.
-- Representation prediction does not establish control utility. Cadence
-  sensitivity does not establish correct-content use. A public system score
-  does not identify its causal component.
+- The four evidence questions are claim-specific, not a mandatory linear
+  ladder: training-package utility and deployed content use need not imply one
+  another. Representation prediction does not establish control utility.
+  Cadence sensitivity does not establish correct-content use. A public system
+  score does not identify its causal component.
 - Do not tune target horizon, task groups, training seeds, checkpoint step,
   intervention mapping, retry recipe, arm set, or loss weight against outcomes.
 - Task_N remains outside this paper plan by operator instruction.
