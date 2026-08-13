@@ -6905,6 +6905,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             f"{recovery_id}.json"
         )
     for arm, seed in (
+        ("conditioning_only", 1100),
         ("conditioning_only", 1101),
         ("conditioning_only", 1102),
         ("future_off", 1100),

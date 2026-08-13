@@ -9918,6 +9918,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         / "logs/resource_markers/temporal_grounding_tg4_partial_cleanup_20260813.json"
     )
     tg4_partial_cleanup_cells = {
+        ("conditioning_only", 1100),
         ("conditioning_only", 1101),
         ("conditioning_only", 1102),
         ("future_off", 1100),
