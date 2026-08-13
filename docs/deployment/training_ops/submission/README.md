@@ -148,6 +148,17 @@ launcher **之前**，还会保存同一推荐逻辑的审计记录。记录写�
 python train_scripts/kai/volc/monitor_paper_todo_hourly.py --interval-seconds 3600
 ```
 
+长期运行时另启只负责 tmux 进程存活的 watchdog：
+
+```bash
+tmux new-session -d -s paper_todo_runtime_supervisor \
+  "cd /vePFS/tim/workspace/deepdive_kai0 && exec bash train_scripts/kai/volc/supervise_paper_todo_runtime.sh"
+```
+
+watchdog 不查询、提交或停止平台任务，也不重启仍存在的 session；它只在调度器或小时
+监控的 tmux session 消失时按冻结的 GPU 上限重新启动对应进程。小时审计写出
+`complete=true` 后 watchdog 自行退出。
+
 监控固定核对当前冻结的 79 项 TG4 claim-bearing 执行节点，每小时写入
 `logs/paper_todo_hourly_monitor.jsonl`，并原子更新
 `logs/paper_todo_hourly_monitor_latest.{json,md}`。调度器快照超过 5 分钟未更新时记录
