@@ -157,7 +157,9 @@ tmux new-session -d -s paper_todo_runtime_supervisor \
 
 watchdog 不查询、提交或停止平台任务，也不重启仍存在的 session；它只在调度器或小时
 监控的 tmux session 消失时按冻结的 GPU 上限重新启动对应进程。小时审计写出
-`complete=true` 后 watchdog 自行退出。
+`complete=true` 后 watchdog 自行退出。每轮检查会原子更新
+`logs/paper_todo_runtime_supervisor.status`，记录 PID、UTC 检查时间和两个 session 的
+存活状态。
 
 监控固定核对当前冻结的 79 项 TG4 claim-bearing 执行节点，每小时写入
 `logs/paper_todo_hourly_monitor.jsonl`，并原子更新
