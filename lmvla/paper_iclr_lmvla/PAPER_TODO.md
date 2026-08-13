@@ -236,7 +236,7 @@ are excluded from within-architecture causal contrasts.
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; all 244 scheduler, watcher, resume,
+  frozen hash dependencies; all 246 scheduler, watcher, resume,
   training-integrity,
   evaluation, analysis, and finalizer tests pass. Fresh live verification of
   both frozen TG4 source and evaluation manifests also passed at 09:37 UTC.
@@ -262,6 +262,11 @@ are excluded from within-architecture causal contrasts.
   terminal analysis unless `complete=true`, the ordered Holm family and exact
   seven-comparison set are present, every `accepted` value is boolean, and all
   seven marker verdicts agree with the JSON report. A scheduler-owned zero-GPU
+  analysis attempt is now admissible only after its local launcher reports
+  `FINISHED rc=0`; a marker left by a nonzero or interrupted process cannot
+  complete A1, and one bounded retry is available. Local and SSH terminal
+  handling regressions cover both successful and failed marker-bearing paths.
+  A scheduler-owned zero-GPU
   finalizer now depends on that accepted analysis artifact. It atomically
   writes a seven-row Markdown result table, changes only the four TG4 execution
   gates to complete, records accepted and rejected contrasts without launching

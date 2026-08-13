@@ -2745,6 +2745,43 @@ def test_dispatch_accepts_artifact_from_successful_required_attempt(
     assert recovered["artifacts_complete"] is True
 
 
+@pytest.mark.parametrize(
+    ("status", "expected_status"),
+    [("FINISHED rc=0", "completed"), ("FINISHED rc=1", "pending")],
+)
+def test_local_completion_requires_successful_terminal_status(
+    tmp_path: Path, status: str, expected_status: str
+) -> None:
+    marker = tmp_path / "analysis.ok"
+    marker.write_text("validated=true\n")
+    status_dir = tmp_path / "status"
+    status_dir.mkdir()
+    (status_dir / "status").write_text(status + "\n")
+    task = {
+        "id": "local-analysis",
+        "completion_glob": str(marker),
+        "completion_min_count": 1,
+        "completion_requires_successful_terminal_state": True,
+    }
+    state = {
+        "status": "running",
+        "attempts": [
+            {
+                "kind": "local",
+                "pid": 999999999,
+                "resource": "local",
+                "status_dir": str(status_dir),
+            }
+        ],
+    }
+
+    scheduler.check_managed_task(task, state)
+
+    assert state["status"] == expected_status
+    if status == "FINISHED rc=1":
+        assert state["attempts"][-1]["failure"] == status
+
+
 def test_robot_task_queue_reclaim_retries_after_cooldown_from_zero_usage() -> None:
     candidate = {
         "kind": "platform",
@@ -7455,6 +7492,8 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
     }
     assert tg4_analysis["candidates"][0]["resource"] == "local"
     assert tg4_analysis["candidates"][0]["gpus"] == 0
+    assert tg4_analysis["completion_requires_successful_terminal_state"] is True
+    assert tg4_analysis["candidates"][0]["max_failures"] == 2
     tg4_finalizer = tasks["temporal_grounding_tg4_todo_finalize"]
     assert tg4_finalizer["requires_completed_tasks"] == [
         "temporal_grounding_tg4_analysis"

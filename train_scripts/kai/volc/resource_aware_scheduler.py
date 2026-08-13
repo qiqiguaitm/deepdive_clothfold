@@ -11133,6 +11133,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "rearm_after_ready_file": str(tg4_eval_manifest),
         "completion_glob": str(tg4_analysis_marker),
         "completion_min_count": 1,
+        "completion_requires_successful_terminal_state": True,
         "ready_files": [
             str(tg4_eval_manifest),
             str(tg4_analyzer),
@@ -11149,7 +11150,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                 "resource": "local",
                 "gpus": 0,
                 "retry_cooldown_seconds": 300,
-                "max_failures": 1,
+                "max_failures": 2,
                 "status_dir": str(REPO / "logs/temporal_grounding/tg4/analysis"),
                 "command": shlex.join(["bash", str(tg4_analysis_runner)]),
             }
@@ -14387,8 +14388,13 @@ def completion_artifacts_are_admissible(
     if not task.get("completion_requires_successful_terminal_state"):
         return True
     attempts = task_state.get("attempts", [])
-    if bool(attempts) and attempts[-1].get("last_state") in SUCCESSFUL_TERMINAL_STATES:
-        return True
+    if attempts:
+        latest = attempts[-1]
+        if latest.get("last_state") in SUCCESSFUL_TERMINAL_STATES:
+            return True
+        status_match = re.search(r"FINISHED rc=(\d+)", latest.get("last_status", ""))
+        if status_match and int(status_match.group(1)) == 0:
+            return True
     marker = task.get("validated_terminal_recovery_marker")
     if not marker:
         return False
@@ -16109,7 +16115,7 @@ def check_managed_task(
             complete, evidence = completion_evidence(task)
             attempt["completion_evidence"] = evidence
             record_artifact_progress(task_state, complete, evidence)
-            if complete:
+            if complete and completion_artifacts_are_admissible(task, task_state):
                 mark_task_completed(task, task_state)
             else:
                 task_state["status"] = "pending"
@@ -16188,7 +16194,7 @@ def check_managed_task(
             complete, evidence = completion_evidence(task)
             attempt["completion_evidence"] = evidence
             record_artifact_progress(task_state, complete, evidence)
-            if complete:
+            if complete and completion_artifacts_are_admissible(task, task_state):
                 mark_task_completed(task, task_state)
             else:
                 task_state["status"] = "pending"
