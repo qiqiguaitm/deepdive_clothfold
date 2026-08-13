@@ -88,8 +88,10 @@ are excluded from within-architecture causal contrasts.
   the joint verifier are implemented. Reject the complete matrix before
   evaluation unless all final checkpoints, optimizer states, initialization
   trees, exact per-rank data orders, dataset statistics, and non-arm configs
-  pass. Rank-order hashes must match across arms within seed and differ across
-  seeds.
+  pass. North materialization now uses two bounded seed-sharded transfer slots
+  instead of one global serial lock; each run still uses an immutable sync
+  script, remote/local SHA256 verification, and an atomic destination move.
+  Rank-order hashes must match across arms within seed and differ across seeds.
 - [ ] **TG4-E1 [IMPLEMENTED; BLOCKED by I1]** Twenty-one scheduler tasks are
   registered under the independently frozen evaluation manifest: normal for
   all 18 arm/seed cells and within-task shuffled content for all three `full`
