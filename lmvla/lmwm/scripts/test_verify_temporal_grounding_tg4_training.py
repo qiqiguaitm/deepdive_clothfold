@@ -110,6 +110,13 @@ def test_conditioning_only_enables_unused_parameter_discovery() -> None:
     ] is False
 
 
+def test_parameter_matched_null_preserves_full_config_surface() -> None:
+    expected = verifier.expected_arm_config("parameter_matched_null")
+    assert expected[("framework", "action_model", "future_prediction")] is True
+    assert expected[("framework", "action_model", "enable_loss_distill")] is True
+    assert verifier.EXPECTED_ROUTE["parameter_matched_null"] == (True, False, False)
+
+
 def test_rejects_seed_order_collapse(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="dataset_order_distinct_across_seeds"):
         verifier.verify(

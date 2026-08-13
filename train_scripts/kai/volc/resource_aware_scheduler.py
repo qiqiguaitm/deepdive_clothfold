@@ -9806,7 +9806,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "ready_hashes": [
             {
                 "path": str(tg4_terminal_recovery_verifier),
-                "sha256": "12b91f2675ef115e729774bda51151f33b3e361135c680e207a013de0adf0397",
+                "sha256": "9780b8a7472841e12dfc0472461a71fdf66a17f699233f0e125a920c8e983cc4",
             }
         ],
         "candidates": [
@@ -9879,7 +9879,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "ready_hashes": [
                 {
                     "path": str(tg4_terminal_recovery_verifier),
-                    "sha256": "12b91f2675ef115e729774bda51151f33b3e361135c680e207a013de0adf0397",
+                    "sha256": "9780b8a7472841e12dfc0472461a71fdf66a17f699233f0e125a920c8e983cc4",
                 },
                 {
                     "path": str(tg4_north_terminal_recovery_runner),
@@ -10009,7 +10009,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
             "ready_hashes": [
                 {
                     "path": str(tg4_terminal_recovery_verifier),
-                    "sha256": "12b91f2675ef115e729774bda51151f33b3e361135c680e207a013de0adf0397",
+                    "sha256": "9780b8a7472841e12dfc0472461a71fdf66a17f699233f0e125a920c8e983cc4",
                 },
                 {
                     "path": str(tg4_east_terminal_audit_runner),
@@ -10254,7 +10254,7 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         {"path": str(tg4_materialize_runner), "sha256": "9df912c7fad3d5c9fa62999afcc0c8d1a12636b0de2c08890524b0ac2afe5153"},
         {"path": str(tg4_sync_script), "sha256": "fb86cc347c2cc7bd20b3a866fca2a51afb0f95459ceeceee1c626ba99124f5ff"},
         {"path": str(tg4_sync_tree_script), "sha256": "21642dc25f6e9180107ceb49f3768132b337f8c9a5df255c131617e7447855c4"},
-        {"path": str(tg4_integrity_verifier), "sha256": "d93358dbe6bab113baa17fcd69373ec7e07841d6919a7948158f5871eb8e7b8e"},
+        {"path": str(tg4_integrity_verifier), "sha256": "e31b99eda6f4b7a70c979583621e3e484cc1bba39a3e8bb99bf1d61c5c42b796"},
         {"path": str(tg4_integrity_runner), "sha256": "a5119df955b88fd6004667d7fdae07376f88f8d0e3a08fda15664afa87466522"},
         {"path": str(tg4_integrity_yaml), "sha256": "4c6f8831493083b57664e27bc6f3bf94a76d70b7abc228a7f19e963d5e5f59f3"},
     ]

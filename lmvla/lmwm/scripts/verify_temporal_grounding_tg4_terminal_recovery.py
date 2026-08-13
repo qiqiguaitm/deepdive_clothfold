@@ -90,7 +90,11 @@ def verify_run(repo: Path, arm: str, seed: int, resource: str) -> dict[str, Any]
         "steps": 20000,
         "save_interval": 20000,
         "future_prediction": arm != "clean_base",
-        "auxiliary_loss": arm in {"auxiliary_only", "full"},
+        "auxiliary_loss": arm in {
+            "auxiliary_only",
+            "parameter_matched_null",
+            "full",
+        },
         "ddp_find_unused_parameters": arm == "clean_base",
         "pretrained_checkpoint": (
             None

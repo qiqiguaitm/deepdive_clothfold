@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-13 08:04 UTC
+Updated: 2026-08-13 08:09 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -132,6 +132,13 @@ are excluded from within-architecture causal contrasts.
   East 1-GPU only as a fallback, so platform deployment cannot delay the gate
   after the final materializer completes.
   Rank-order hashes must match across arms within seed and differ across seeds.
+  A pre-completion audit also corrected a verifier-only distinction for
+  `parameter_matched_null`: its frozen serialized config deliberately retains
+  `future_prediction=true` and `enable_loss_distill=true` to preserve the full
+  parameter/config surface, while the independently audited
+  `LAWAM_FUTURE_OFF` route makes its effective future and auxiliary
+  contribution null. The manifest's effective `auxiliary_loss=false` semantic
+  is unchanged; no training input or comparison definition changed.
 - [ ] **TG4-E1 [IMPLEMENTED; BLOCKED by I1]** Twenty-one scheduler tasks are
   registered under the independently frozen evaluation manifest: normal for
   all 18 arm/seed cells and within-task shuffled content for all three `full`

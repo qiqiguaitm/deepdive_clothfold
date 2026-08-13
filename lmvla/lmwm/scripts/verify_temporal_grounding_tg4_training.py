@@ -96,7 +96,13 @@ def normalized_config(config: dict[str, Any]) -> dict[str, Any]:
 
 def expected_arm_config(arm: str) -> dict[tuple[str, ...], Any]:
     future_enabled = arm not in {"clean_base", "future_off"}
-    auxiliary_enabled = arm in {"auxiliary_only", "full"}
+    # parameter_matched_null preserves the full serialized config and parameter
+    # surface; LAWAM_FUTURE_OFF disables its effective future route at runtime.
+    auxiliary_enabled = arm in {
+        "auxiliary_only",
+        "parameter_matched_null",
+        "full",
+    }
     return {
         ("framework", "action_model", "future_prediction"): future_enabled,
         ("framework", "action_model", "enable_loss_distill"): auxiliary_enabled,
