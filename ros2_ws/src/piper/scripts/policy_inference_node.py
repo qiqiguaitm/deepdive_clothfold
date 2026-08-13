@@ -41,6 +41,10 @@ ROS2 Policy Inference Node — 将 pi0.5 推理直接集成为 ROS2 节点
 import json
 import os
 import sys
+import hashlib
+import pathlib
+import time as _time
+import uuid
 
 # ── 自动 re-exec: 确保在 kai0 venv 中运行 ────────────────────────
 # ros2 run 通过 shebang (#!/usr/bin/env python3) 启动, 可能命中 conda 的
@@ -982,6 +986,14 @@ class PolicyInferenceNode(Node):
         # from __init__, so runtime changes silently no-op.
         self.add_on_set_parameters_callback(self._on_set_parameters)
 
+        # Recorder provenance contract. Both autonomy_recorder and
+        # dagger_recorder snapshot this manifest when an episode opens.
+        self._deployment_run_id = str(uuid.uuid4())
+        self._deployment_manifest_path = pathlib.Path(
+            os.environ.get('KAI0_DEPLOYMENT_MANIFEST',
+                           '/tmp/kai0_active_deployment.json'))
+        self._write_deployment_manifest()
+
         self.get_logger().info('Policy inference node ready')
 
     # ── Parameter hot-reload ────────────────────────────────────────
@@ -1112,7 +1124,124 @@ class PolicyInferenceNode(Node):
                     self.get_logger().info(f'replay_mode → {new_rm}')
             except Exception as e:
                 return SetParametersResult(successful=False, reason=f'{p.name}: {e}')
+        # Record the effective runtime values after every acknowledged hot
+        # update. EpisodeWriter snapshots this at the next episode boundary.
+        if hasattr(self, '_deployment_manifest_path'):
+            self._write_deployment_manifest()
         return SetParametersResult(successful=True)
+
+    def _checkpoint_identity(self, ckpt_dir: str) -> dict:
+        """Cheap reproducible fingerprint without hashing multi-GB weights."""
+        if not ckpt_dir:
+            return {"path": "", "identity_sha256": None, "files": {}}
+        root = pathlib.Path(ckpt_dir).expanduser().resolve()
+        candidates = [root / 'train_config.json', root / '_CHECKPOINT_METADATA']
+        asset_id = ''
+        sidecar = None
+        try:
+            sidecar = json.loads((root / 'train_config.json').read_text())
+            asset_id = str(sidecar.get('override_asset_id') or '')
+        except Exception:
+            pass
+        if asset_id:
+            candidates.append(root / 'assets' / asset_id / 'norm_stats.json')
+        files = {}
+        digest = hashlib.sha256()
+        for path in candidates:
+            if not path.is_file():
+                continue
+            h = hashlib.sha256(path.read_bytes()).hexdigest()
+            rel = str(path.relative_to(root))
+            files[rel] = h
+            digest.update(rel.encode()); digest.update(h.encode())
+        return {"path": str(root), "name": root.name,
+                "identity_sha256": digest.hexdigest() if files else None,
+                "files": files,
+                "train_config": sidecar if isinstance(sidecar, dict) else None}
+
+    def _write_deployment_manifest(self) -> None:
+        """Atomically publish the actual model/control configuration in use."""
+        def param(name):
+            try:
+                return self.get_parameter(name).value
+            except Exception:
+                return None
+        ckpt = str(param('checkpoint_dir') or '')
+        revision = int(getattr(self, '_deployment_config_revision', -1)) + 1
+        self._deployment_config_revision = revision
+        manifest = {
+            "schema_version": 1,
+            "run_id": self._deployment_run_id,
+            "config_revision": revision,
+            "owner_pid": os.getpid(),
+            "created_at": getattr(self, '_deployment_created_at', _time.time()),
+            "updated_at": _time.time(),
+            "model": {
+                "backend": os.environ.get('KAI0_POLICY_BACKEND', 'openpi'),
+                "variant": ('v1' if param('mode') == 'websocket' else 'v0'),
+                "mode": param('mode'), "config_name": param('config_name'),
+                "checkpoint": self._checkpoint_identity(ckpt),
+                "host": param('host'), "port": param('port'),
+                "transport": param('transport'), "dataset_id": param('dataset_id'),
+            },
+            "task": {"prompt": self.prompt},
+            "control": {
+                "timing": {"inference_rate_hz": self.inference_rate,
+                           "publish_rate_hz": self.publish_rate,
+                           "speed_factor": self._speed_factor,
+                           "speed_factor_max": self._speed_factor_max},
+                "rtc": {"enabled": self._enable_rtc,
+                        "execute_horizon": self._rtc_execute_horizon,
+                        "max_guidance_weight": self._rtc_max_guidance_weight,
+                        "latency_steps": self.latency_k},
+                "chunk_blend": {"method": self.stream_buffer.smooth_method,
+                                "min_steps": self.min_smooth_steps,
+                                "max_steps": self.max_smooth_steps,
+                                "decay_alpha": self.decay_alpha},
+                "publish_filter": {"type": "ema",
+                                   "alpha": self._publish_smooth_alpha,
+                                   "exclude_gripper": True},
+                "observation_filter": {
+                    "state_lowpass_alpha": self._obs_state_lp_alpha},
+            },
+            "robot": {
+                "gripper_deploy_remap": os.environ.get(
+                    'KAI0_GRIPPER_DEPLOY_REMAP', '0') == '1',
+                "gripper_real_range": os.environ.get(
+                    'KAI0_GRIPPER_REAL_RANGE', '0.0,0.07'),
+                "execution_mode": param('execution_mode'),
+                "device_profile": os.environ.get(
+                    'KAI0_DEVICE_PROFILE_PATH') or os.environ.get('KAI0_DEVICE_PROFILE'),
+            },
+            "recording": {
+                "dataset_version": os.environ.get('KAI0_DATASET_VERSION'),
+                "dataset_chunk": ('chunk-001' if os.environ.get(
+                    'KAI0_DIRECT_CHUNK001', '0') == '1' else 'chunk-000'),
+                "front_trim": os.environ.get('KAI0_FRONT_TRIM', '0') == '1',
+                "tail_trim": os.environ.get('KAI0_TAIL_TRIM', '0') == '1',
+                "gripper_from_master": os.environ.get(
+                    'KAI0_GRIPPER_FROM_MASTER', '0') == '1',
+            },
+        }
+        self._deployment_created_at = manifest["created_at"]
+        path = self._deployment_manifest_path
+        tmp = path.with_name(f'.{path.name}.{os.getpid()}.tmp')
+        try:
+            tmp.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+            os.replace(tmp, path)
+        except Exception as exc:
+            self.get_logger().warn(f'deployment manifest write failed: {exc}')
+
+    def destroy_node(self):
+        path = getattr(self, '_deployment_manifest_path', None)
+        if path:
+            try:
+                current = json.loads(path.read_text())
+                if current.get('run_id') == getattr(self, '_deployment_run_id', None):
+                    path.unlink(missing_ok=True)
+            except Exception:
+                pass
+        return super().destroy_node()
 
     # ── Replay mode (P1) ────────────────────────────────────────────
 

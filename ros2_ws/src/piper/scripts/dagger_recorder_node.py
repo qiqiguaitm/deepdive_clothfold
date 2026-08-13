@@ -210,6 +210,8 @@ class DaggerRecorder(Node):
         self.declare_parameter("align_tol_rad", ALIGN_TOL_RAD)
         self.declare_parameter("align_timeout_s", ALIGN_TIMEOUT_S)
         self.declare_parameter("min_episode_sec", MIN_EPISODE_SEC)
+        self.declare_parameter("master_left_available", True)
+        self.declare_parameter("master_right_available", True)
         # Form C dual-dataset toggle. When false, the policy-rollout (inference/)
         # side is fully disabled: no inference episode is opened/written and no
         # <task>/inference/<vN>/<date-vN>/ dir is created — only dagger/ is recorded.
@@ -235,6 +237,14 @@ class DaggerRecorder(Node):
         self._record_inference: bool = str(
             self.get_parameter("record_inference").value
         ).strip().lower() in ("1", "true", "yes", "on")
+        self._master_available = {
+            "L": str(self.get_parameter("master_left_available").value).lower()
+                 in ("1", "true", "yes", "on"),
+            "R": str(self.get_parameter("master_right_available").value).lower()
+                 in ("1", "true", "yes", "on"),
+        }
+        self._teleop_sides = tuple(
+            side for side in ("L", "R") if self._master_available[side])
 
         self._lock = threading.Lock()
         self._state: State = State.POLICY_RUN
@@ -263,6 +273,22 @@ class DaggerRecorder(Node):
         self._inf_subset: str = "inference"
         self._inf_speed_max: float = 1.0
         self._inf_throttle_used: bool = False
+
+        # ── 直接采集 chunk-001 (KAI0_DIRECT_CHUNK001=1) ──
+        # 一个 rollout = 一个 episode: 单 writer 从策略开跑一直开到本次尝试结束,
+        # INF 段写 intervention=0 / 人接管段写 1, 空档 (ALIGNING / 未踩踏板 /
+        # RETURNING) 一帧不写。dagger_frame_class 在 finalize 由 intervention 列
+        # 回溯导出。产出与离线 stitch_dagger_episodes.py 完全同构, 但省掉离线
+        # 重编码那一遍, 且不再落 chunk-000 / inference 两份原始数据。
+        # 关掉 (=0) 则完全走旧 Form C 双数据集路径, 逐比特不变。
+        self._direct_c1 = os.environ.get("KAI0_DIRECT_CHUNK001", "0") == "1"
+        self._roll_writer: Optional[EpisodeWriter] = None
+        self._roll_started_at: float = 0.0
+        self._roll_frames = 0        # 送进 writer 的 tick 数 (含被段内 trim 掉的)
+        self._roll_iv_frames = 0     # 其中 intervention=1 的
+        self._roll_takeovers = 0     # 本 rollout 发生过几次人接管
+        self._roll_speed_max = 1.0
+        self._roll_throttle_used = False
 
         # ── Per-rollout boundary + inference↔dagger alignment ──
         # One "rollout" = one autonomous task attempt (cloth fold, pick-place,
@@ -304,6 +330,7 @@ class DaggerRecorder(Node):
         # spamming takeover attempts (one per 200 ms poll). See Phase D1
         # post-mortem in dagger_implementation_plan.md.
         self._prev_any_pressed = False
+        self._prev_all_available_pressed = False
 
         # Grace period: don't accept takeover until slave has moved from its
         # boot zero pose. Some freedrive switches default to ON at power-up,
@@ -401,6 +428,14 @@ class DaggerRecorder(Node):
         # from "actively writing a dagger episode".
         self.pub_recording = self.create_publisher(Bool, "/dagger/recording", latched)
         self.pub_recording.publish(Bool(data=self._recording))
+        self.pub_master_available_left = self.create_publisher(
+            Bool, "/dagger/master_available_left", latched)
+        self.pub_master_available_right = self.create_publisher(
+            Bool, "/dagger/master_available_right", latched)
+        self.pub_master_available_left.publish(
+            Bool(data=self._master_available["L"]))
+        self.pub_master_available_right.publish(
+            Bool(data=self._master_available["R"]))
         # Rollout pause flag (latched): True = between rollouts, waiting for the
         # operator to reset the scene and press "start next". Lets the web UI show
         # whether the next button press will END the current rollout or START a new one.
@@ -428,7 +463,8 @@ class DaggerRecorder(Node):
             f"dagger_recorder ready: task={self._task} subset={self._subset} "
             f"prompt={self._prompt!r} fps={FPS} "
             f"record_inference={'ON' if self._record_inference else 'OFF (dagger-only)'}\n"
-            f"  state={self._state.value} — waiting for /dagger/takeover"
+            f"  masters={list(self._teleop_sides) or ['none (rollout-only)']} "
+            f"state={self._state.value}"
         )
 
     def _publish_state(self) -> None:
@@ -445,6 +481,26 @@ class DaggerRecorder(Node):
             self.pub_recording.publish(Bool(data=self._recording))
         except Exception:
             pass
+
+    def _control_capability_meta(self) -> dict:
+        """Episode-level contract for reconstructing per-side supervision.
+
+        For every frame with intervention=1, available sides are human-driven;
+        unavailable sides are HOLD and must be masked out of expert loss.
+        """
+        left = self._master_available["L"]
+        right = self._master_available["R"]
+        return {
+            "available_masters": [s.lower() for s in self._teleop_sides],
+            "master_available_left": left,
+            "master_available_right": right,
+            "teleop_scope": "dual" if left and right else (
+                "left" if left else ("right" if right else "none")),
+            "uncontrolled_side_during_teleop": "hold",
+            "human_supervision_mask": [1] * 7 + [0] * 7 if left and not right else (
+                [0] * 7 + [1] * 7 if right and not left else (
+                    [1] * 14 if left and right else [0] * 14)),
+        }
 
     # ── sensor callbacks ──
     def _on_rgb(self, cam: str, msg: Image) -> None:
@@ -494,11 +550,10 @@ class DaggerRecorder(Node):
         publishes True every 200 ms — without edge detection that would spawn
         a takeover thread every tick.
 
-        Aggregated rule (Form C two-step gate):
-          POLICY_RUN  + ANY rising  → start takeover (open dagger episode in
-                                       ALIGNING → HUMAN_RECORD).
-          HUMAN_RECORD + ANY falling → start handback (finalize dagger,
-                                       resume policy, open new inference ep).
+        Capability-aware rule: all *available* masters must be in teach mode to
+        enter teleop, and all available masters must leave teach mode to hand
+        control back.  With one available master this naturally becomes a
+        single-switch workflow; with no masters button events are ignored.
 
         Grace period: takeover ignored until slave has moved off boot zero,
         protecting against boot-time switch-already-ON race.
@@ -509,11 +564,17 @@ class DaggerRecorder(Node):
                 self._button_left = pressed
             else:
                 self._button_right = pressed
-            any_pressed = self._button_left or self._button_right
+            levels = {"L": self._button_left, "R": self._button_right}
+            available_pressed = [levels[s] for s in self._teleop_sides]
+            any_pressed = any(available_pressed)
+            all_pressed = bool(available_pressed) and all(available_pressed)
+            all_off = bool(available_pressed) and not any_pressed
             prev_any = self._prev_any_pressed
-            rising = any_pressed and not prev_any
-            falling = (not any_pressed) and prev_any
+            prev_all = self._prev_all_available_pressed
+            all_rising = all_pressed and not prev_all
+            all_falling = all_off and prev_any
             self._prev_any_pressed = any_pressed
+            self._prev_all_available_pressed = all_pressed
             cur = self._state
             grace = self._slave_seen_nonzero
             # First all-OFF message arms the rising-edge detector.
@@ -521,10 +582,12 @@ class DaggerRecorder(Node):
                 self._seen_off_after_boot = True
             seen_off = self._seen_off_after_boot
 
-        if rising and cur == State.POLICY_RUN and self._rollout_paused:
+        if not self._teleop_sides:
+            return
+        if all_rising and cur in (State.POLICY_RUN, State.ALIGNING) and self._rollout_paused:
             self.get_logger().info(f"[button] {side} rising → IGNORED (rollout paused for cloth reset)")
             return
-        if rising and cur == State.POLICY_RUN:
+        if all_rising and cur in (State.POLICY_RUN, State.ALIGNING):
             if not seen_off:
                 self.get_logger().warn(
                     f"[button] {side} rising → IGNORED (freedrive switches were "
@@ -544,7 +607,24 @@ class DaggerRecorder(Node):
                 f"(L={self._button_left} R={self._button_right})"
             )
             threading.Thread(target=self._do_takeover, daemon=True).start()
-        elif falling and cur == State.HUMAN_RECORD:
+        elif any_pressed and cur == State.POLICY_RUN and not all_pressed:
+            # A master servo starts publishing as soon as its own switch enters
+            # teach mode. Halt policy immediately to avoid two publishers while
+            # waiting for the other available master.
+            self.get_logger().warn(
+                f"[button] waiting for all available masters "
+                f"(L={self._button_left} R={self._button_right}); policy halted")
+            self.pub_execute.publish(Bool(data=False))
+            with self._lock:
+                self._state = State.ALIGNING
+            self._publish_state()
+        elif all_falling and cur == State.ALIGNING:
+            self.get_logger().info("[button] alignment cancelled; resume policy")
+            self.pub_execute.publish(Bool(data=True))
+            with self._lock:
+                self._state = State.POLICY_RUN
+            self._publish_state()
+        elif all_falling and cur == State.HUMAN_RECORD:
             self.get_logger().info(
                 f"[button] {side} falling → handback "
                 f"(L={self._button_left} R={self._button_right})"
@@ -564,8 +644,25 @@ class DaggerRecorder(Node):
 
     def _on_takeover(self, msg: Bool) -> None:
         want = bool(msg.data)
+        if want and not self._teleop_sides:
+            self.get_logger().warn(
+                "/dagger/takeover=true ignored: no master arms are available")
+            return
         with self._lock:
             cur = self._state
+            levels = {"L": self._button_left, "R": self._button_right}
+            all_on = bool(self._teleop_sides) and all(
+                levels[s] for s in self._teleop_sides)
+            all_off = bool(self._teleop_sides) and not any(
+                levels[s] for s in self._teleop_sides)
+        if want and not all_on:
+            self.get_logger().warn(
+                "/dagger/takeover=true ignored: all available masters must be in teach mode")
+            return
+        if not want and cur == State.HUMAN_RECORD and not all_off:
+            self.get_logger().warn(
+                "/dagger/takeover=false ignored: all available masters must leave teach mode")
+            return
         if want and cur == State.POLICY_RUN:
             threading.Thread(target=self._do_takeover, daemon=True).start()
         elif (not want) and cur == State.HUMAN_RECORD:
@@ -632,6 +729,23 @@ class DaggerRecorder(Node):
         if recording:
             self.get_logger().info(f"[{src}] start ignored — already recording")
             return False
+        if self._direct_c1:
+            # 段边界而非新 episode: 切人接管 profile, 起手静止段一帧不留
+            # (离线 class 3 全裁)。writer 必须已经开着 —— rollout 起于 POLICY_RUN。
+            with self._lock:
+                ok = self._roll_writer is not None
+            if not ok:
+                self.get_logger().warn(
+                    f"[{src}] start ignored — 本 rollout 的 writer 还没开 "
+                    "(策略一帧都没录到?)")
+                return False
+            self.get_logger().info(f"[{src}] start human segment (起手静止全裁)")
+            self._roll_segment("human_seg_begin")
+            with self._lock:
+                self._recording = True
+            self._publish_recording()
+            return True
+
         self.get_logger().info(f"[{src}] open dagger episode (recording=True)")
         self._open_episode()
         with self._lock:
@@ -651,8 +765,12 @@ class DaggerRecorder(Node):
         if not recording:
             self.get_logger().info(f"[{src}] save ignored — not recording")
             return False
-        self.get_logger().info(f"[{src}] save dagger episode (finalize, recording=False)")
-        self._close_episode()
+        if self._direct_c1:
+            self.get_logger().info(f"[{src}] close human segment (尾部静止全裁, recording=False)")
+            self._roll_segment("human_seg_end")
+        else:
+            self.get_logger().info(f"[{src}] save dagger episode (finalize, recording=False)")
+            self._close_episode()
         with self._lock:
             self._recording = False
         self._publish_recording()
@@ -665,8 +783,11 @@ class DaggerRecorder(Node):
         if not recording:
             self.get_logger().info(f"[{src}] discard ignored — not recording")
             return False
-        self.get_logger().info(f"[{src}] discard dagger episode (abort, recording=False)")
-        self._discard_episode()
+        if self._direct_c1:
+            self._discard_rollout_episode(why=f"{src} discard")
+        else:
+            self.get_logger().info(f"[{src}] discard dagger episode (abort, recording=False)")
+            self._discard_episode()
         with self._lock:
             self._recording = False
         self._publish_recording()
@@ -712,7 +833,15 @@ class DaggerRecorder(Node):
         with self._lock:
             self._takeover_id += 1
             self._cur_takeover_id = self._takeover_id
-        self._close_inference_episode(terminal="intervention")
+            if self._direct_c1:
+                self._roll_takeovers += 1
+        if self._direct_c1:
+            # 连续单集: 不关 writer, 只冲掉待定缓冲且【不做尾裁】。这段静止尾巴是
+            # "模型卡死/回折" 的失败先兆 (preintv 负样本), 恰恰是最该留的帧。
+            # (滑行伪影不存在 — 上面已切 ALIGNING, _on_record_tick 从此静默。)
+            self._roll_segment("flush_keep")
+        else:
+            self._close_inference_episode(terminal="intervention")
 
         # 2) validate slave pose
         with self._lock:
@@ -738,10 +867,13 @@ class DaggerRecorder(Node):
         # JointCtrl) to "drag" state (motors free + encoder publishes).
 
         # 3) master_enable=False → DisableArm + start encoder publishing
-        self.get_logger().info("[TAKEOVER] 3/4 switch master to drag state (DisableArm)")
+        self.get_logger().info(
+            f"[TAKEOVER] 3/4 switch available masters {self._teleop_sides} to drag state")
         for _ in range(3):
-            self.pub_enable_left.publish(Bool(data=False))
-            self.pub_enable_right.publish(Bool(data=False))
+            if self._master_available["L"]:
+                self.pub_enable_left.publish(Bool(data=False))
+            if self._master_available["R"]:
+                self.pub_enable_right.publish(Bool(data=False))
             time.sleep(0.1)
         time.sleep(1.2)  # let DisableArm settle and encoder publisher start
 
@@ -769,13 +901,22 @@ class DaggerRecorder(Node):
         """
         with self._lock:
             self._state = State.RETURNING
+            was_recording = self._recording
             had_writer = self._writer is not None
             self._recording = False
         self._publish_state()
         self._publish_recording()
 
+        if self._direct_c1:
+            # 人接管段在此结束 → 尾部静止段全裁 (离线 class 4)。writer 不关。
+            if was_recording:
+                self.get_logger().info("[HANDBACK] 1/3 close human segment (尾部静止全裁)")
+                self._roll_segment("human_seg_end")
+            else:
+                self.get_logger().info(
+                    "[HANDBACK] 1/3 skip segment close (pedal never started a segment)")
         # Close writer only if pedal had opened one (idempotent if not).
-        if had_writer:
+        elif had_writer:
             self.get_logger().info("[HANDBACK] 1/3 finalize dagger episode")
             self._close_episode()
         else:
@@ -785,8 +926,10 @@ class DaggerRecorder(Node):
 
         self.get_logger().info("[HANDBACK] 2/3 master_enable=True (EnableArm + CAN_CTRL)")
         for _ in range(3):
-            self.pub_enable_left.publish(Bool(data=True))
-            self.pub_enable_right.publish(Bool(data=True))
+            if self._master_available["L"]:
+                self.pub_enable_left.publish(Bool(data=True))
+            if self._master_available["R"]:
+                self.pub_enable_right.publish(Bool(data=True))
             time.sleep(0.1)
         time.sleep(2.0)  # EnablePiper loop in arm_master_servo can take ~1s
 
@@ -800,7 +943,11 @@ class DaggerRecorder(Node):
         # _on_record_tick will lazy-confirm slave+rgb readiness before the
         # first write, so opening here is safe even if cameras momentarily
         # drop or slave is still settling after handback.
-        self._open_inference_episode()
+        # 直接采集模式下 writer 从未关闭 → 什么都不用做, 下一 tick 继续往同一集写
+        # intervention=0。也【不】重新武装 front-trim: 策略是在任务中途接着跑的,
+        # 起手低速属于真实行为, 不是遥操伪影 (离线 classify_segment 对 inf 段同样不裁)。
+        if not self._direct_c1:
+            self._open_inference_episode()
         self.get_logger().info(
             "[HANDBACK] DONE — policy running, master mirroring slave. "
             "Toggle on to record next."
@@ -869,7 +1016,8 @@ class DaggerRecorder(Node):
                 note=f"dagger correction ({wrote} frames @ {FPS} Hz)",
                 scene_tags=[],
                 extra={"intervention": 1, "rollout_id": self._rollout_id,
-                       "takeover_id": self._cur_takeover_id},
+                       "takeover_id": self._cur_takeover_id,
+                       **self._control_capability_meta()},
             )
             update_info_json(self._task, self._subset)
             self.get_logger().info(
@@ -983,7 +1131,8 @@ class DaggerRecorder(Node):
 
         # 油门加速标识: used_throttle=本段有没有踩过油门 (整段标记); speed_factor=本段峰值
         # 倍率 (踩过 >1, 没踩 =1.0)。下游据此区分加速/普通数据, 无需分目录。
-        extra = {**extra, "used_throttle": bool(self._inf_throttle_used),
+        extra = {**extra, **self._control_capability_meta(),
+                 "used_throttle": bool(self._inf_throttle_used),
                  "speed_factor": round(float(self._inf_speed_max), 3)}
         try:
             writer.finalize()
@@ -1002,6 +1151,128 @@ class DaggerRecorder(Node):
                 writer.abort()
             except Exception:
                 pass
+
+    # ── rollout episode lifecycle (直接采集 chunk-001) ──
+    def _open_rollout_episode(self) -> None:
+        """Open THE writer for this rollout. Stays open across takeover/handback —
+        the state machine only decides which intervention flag each tick carries and
+        which ticks are dropped entirely."""
+        try:
+            ep = next_episode_id(self._task, self._subset, chunk=1)
+            writer = EpisodeWriter(
+                task=self._task, subset=self._subset, ep=ep,
+                prompt=self._prompt, template_id="stitched_dagger",
+                operator=self._operator,
+                chunk=1, frame_class=True, record_depth=False,
+            )
+        except Exception as e:
+            self.get_logger().error(f"rollout writer init failed: {e}")
+            return
+        with self._lock:
+            self._roll_writer = writer
+            self._roll_started_at = time.time()
+            self._roll_frames = 0
+            self._roll_iv_frames = 0
+            self._roll_takeovers = 0
+            self._roll_speed_max = self._cur_speed_factor
+            self._roll_throttle_used = self._cur_speed_factor > 1.0 + 1e-3
+        self.get_logger().info(
+            f"  rollout ep={ep} (chunk-001) → {writer.root}")
+
+    def _roll_segment(self, op: str) -> None:
+        """Forward a segment-boundary op to the open rollout writer (no-op if none)."""
+        with self._lock:
+            writer = self._roll_writer
+        if writer is None:
+            return
+        try:
+            writer.segment_control(op)
+        except Exception as e:
+            self.get_logger().error(f"segment_control({op}) failed: {e}")
+
+    def _close_rollout_episode(self, terminal: str = "session_end") -> None:
+        """Finalize the rollout episode. terminal drives success exactly like the
+        old inference path: only an explicit rollout_next press means completed."""
+        with self._lock:
+            writer = self._roll_writer
+            started_at = self._roll_started_at
+            wrote = self._roll_frames
+            iv = self._roll_iv_frames
+            n_takeover = self._roll_takeovers
+            throttle = self._roll_throttle_used
+            speed_max = self._roll_speed_max
+            self._roll_writer = None
+        if writer is None:
+            return
+        duration = time.time() - started_at
+
+        min_frames = int(self._min_ep_sec * FPS)
+        if duration < self._min_ep_sec or wrote < min_frames:
+            self.get_logger().warn(
+                f"  rollout episode too short ({duration:.1f}s, {wrote} captured frames) — DROPPING")
+            try:
+                writer.abort()
+            except Exception as e:
+                self.get_logger().error(f"abort failed: {e}")
+            return
+
+        try:
+            writer.finalize()
+            kept = writer.frame_count
+            # 裁剪后长度闸门: 上面用的是【捕获帧数】wrote, 但段边界的物理裁剪
+            # (human_seg_begin/end 起手迟疑+静止尾, front/tail-trim) 可能把整段
+            # 削到 min 以下 —— kept 只有 finalize() 跑完才知道。捕获够、裁完不够的
+            # 退化段 (如全是遥操迟疑/卡死静止被裁光) 到此丢弃, 否则会像 ep044 那样
+            # 落一条 15 帧的垃圾 episode 进 meta。abort() 删掉刚写的 parquet+mp4。
+            if kept < min_frames:
+                self.get_logger().warn(
+                    f"  rollout episode too short AFTER trim ({kept} kept of {wrote} "
+                    f"captured, <{min_frames}) — DROPPING")
+                writer.abort()
+                return
+            write_episode_meta(
+                writer, duration,
+                success=(terminal == "completed"),
+                note=(f"rollout {terminal}: {kept} frames kept of {wrote} captured, "
+                      f"{n_takeover} takeover(s), {iv} human frames @ {FPS} Hz"),
+                scene_tags=[],
+                extra={"terminal": terminal, "rollout_id": self._rollout_id,
+                       "n_takeovers": n_takeover, "human_frames": iv,
+                       "used_throttle": bool(throttle),
+                       "speed_factor": round(float(speed_max), 3),
+                       **self._control_capability_meta()},
+                # chunk-001 的 meta 落 episodes_stitched.jsonl (与离线 stitch 同一份
+                # 契约, finalize_dagger_dataset.py 等下游按此读)。info.json 不动 —
+                # 它由 episodes.jsonl 聚合, 而 chunk-001 不写那份; 离线 stitch 同样
+                # 不碰 info.json, 训练集由 build_* 那步重建。
+                filename="episodes_stitched.jsonl",
+            )
+            self.get_logger().info(
+                f"  saved rollout ep={writer.ep} kept={kept}/{wrote} frames "
+                f"({n_takeover} takeovers) duration={duration:.1f}s → {writer.root}")
+        except Exception as e:
+            self.get_logger().error(f"rollout finalize failed ({e}); aborting episode")
+            try:
+                writer.abort()
+            except Exception:
+                pass
+
+    def _discard_rollout_episode(self, why: str) -> None:
+        """Abort the WHOLE rollout episode. In direct-chunk001 mode a human segment
+        cannot be discarded on its own — its frames are already interleaved into the
+        one continuous episode — so 'discard' means dropping the whole attempt."""
+        with self._lock:
+            writer = self._roll_writer
+            self._roll_writer = None
+        if writer is None:
+            return
+        try:
+            writer.abort()
+            self.get_logger().warn(
+                f"  DISCARDED whole rollout ep={writer.ep} ({why}) — chunk-001 是连续单集, "
+                "无法只丢一段人接管")
+        except Exception as e:
+            self.get_logger().error(f"rollout discard abort failed: {e}")
 
     def _on_rollout_next(self, _msg) -> None:
         """Single-button rollout boundary (toggle). Only meaningful in POLICY_RUN.
@@ -1029,8 +1300,11 @@ class DaggerRecorder(Node):
             self.get_logger().warn(f"[rollout_next] ignored — state={cur.value} (only POLICY_RUN)")
             return
         if not paused:
-            self.get_logger().info("[rollout_next] rollout complete → finalize inference (completed) + PAUSE for scene reset")
-            self._close_inference_episode(terminal="completed")
+            self.get_logger().info("[rollout_next] rollout complete → finalize episode (completed) + PAUSE for scene reset")
+            if self._direct_c1:
+                self._close_rollout_episode(terminal="completed")
+            else:
+                self._close_inference_episode(terminal="completed")
             self.pub_execute.publish(Bool(data=False))
             with self._lock:
                 self._rollout_paused = True
@@ -1078,9 +1352,11 @@ class DaggerRecorder(Node):
             # slave gripper until a master JointState arrives.
             action = list(state)
             if self._grip_from_master:
-                if self._got_master_left:
+                if self._got_master_left and (
+                        cur_state == State.POLICY_RUN or self._master_available["L"]):
                     action[6] = self._q_master_left[6]
-                if self._got_master_right:
+                if self._got_master_right and (
+                        cur_state == State.POLICY_RUN or self._master_available["R"]):
                     action[13] = self._q_master_right[6]
             frames = {cam: self._rgb[cam] for cam in CAMERAS}
             depth_frames = {cam: self._depth.get(cam) for cam in DEPTH_CAMERAS}
@@ -1090,6 +1366,11 @@ class DaggerRecorder(Node):
         # 防黑帧: 任一相机还没出图就跳过本 tick — EpisodeWriter 对 None 帧填纯黑,
         # 会让 finalize 的 trim-validate 判黑帧 abort 整段 (dagger/inference 都护到)。
         if any(frames[cam] is None for cam in CAMERAS):
+            return
+
+        if self._direct_c1:
+            self._tick_direct_chunk001(cur_state, recording, state, action,
+                                       frames, cur_speed, now)
             return
 
         # ── HUMAN_RECORD + recording branch: write to dagger ──
@@ -1180,13 +1461,92 @@ class DaggerRecorder(Node):
             self.get_logger().info(f"  inference recording {n} frames ({n / FPS:.1f}s)")
         return
 
+    def _tick_direct_chunk001(self, cur_state: "State", recording: bool,
+                              state: list, action: list, frames: dict,
+                              cur_speed: float, now: float) -> None:
+        """Single-writer capture for the whole rollout (KAI0_DIRECT_CHUNK001=1).
+
+        Routing — identical set of KEPT frames to what the offline stitch produces:
+          POLICY_RUN                → intervention=0
+          HUMAN_RECORD + recording  → intervention=1
+          ALIGNING / HUMAN_RECORD-not-recording / RETURNING / rollout paused
+                                    → 静默 (离线 stitch 里这些帧本来就不存在)
+        No depth: chunk-001 下游一帧不用 (dagger 采集里 depth 占 30G / RGB 只占 9.8G)。
+        """
+        writing_human = (cur_state == State.HUMAN_RECORD and recording)
+        if not writing_human and cur_state != State.POLICY_RUN:
+            return
+
+        with self._lock:
+            writer = self._roll_writer
+            paused = self._rollout_paused
+
+        if writer is None:
+            if writing_human:
+                # 不该发生 (rollout 必然起于 POLICY_RUN); 别静默吞掉人的纠错。
+                self.get_logger().error(
+                    "[direct-c1] HUMAN_RECORD 但本 rollout 无 writer — 该段接管丢失")
+                return
+            if paused:
+                return   # 两次 rollout_next 之间, 操作员在复位场景
+            # Lazy-open: 与旧路径同样的守卫 — 从臂离开 boot 零位 + 所有相机都出过图,
+            # 否则首帧会是黑帧 / 空 parquet, finalize 的 trim-validate 会 abort 整段。
+            with self._lock:
+                slave_ready = (any(abs(x) > 1e-4 for x in self._q_slave_left[:6]) and
+                               any(abs(x) > 1e-4 for x in self._q_slave_right[:6]))
+            if not slave_ready:
+                return
+            self._open_rollout_episode()
+            with self._lock:
+                writer = self._roll_writer
+            if writer is None:
+                return  # _open_rollout_episode logged the failure
+
+        if cur_speed > 1.0 + 1e-3 and not self._roll_throttle_used:
+            with self._lock:
+                self._roll_throttle_used = True
+            self.get_logger().info(
+                f"[SPEED] 本 rollout 用过油门 (speed={cur_speed:.2f}) → meta used_throttle=true")
+
+        try:
+            writer.write_tick(frames, state, action, now,
+                              intervention=1 if writing_human else 0)
+        except Exception as e:
+            self.get_logger().error(f"rollout write_tick failed (aborting): {e}")
+            with self._lock:
+                self._roll_writer = None
+            try:
+                writer.abort()
+            except Exception:
+                pass
+            return
+
+        with self._lock:
+            self._roll_frames += 1
+            n = self._roll_frames
+            if writing_human:
+                self._roll_iv_frames += 1
+            if cur_speed > self._roll_speed_max:
+                self._roll_speed_max = cur_speed
+        if n % (FPS * 10) == 0:
+            self.get_logger().info(
+                f"  rollout recording {n} frames ({n / FPS:.1f}s)")
+
     def finalize(self) -> None:
         """Best-effort cleanup on shutdown — close both writers if active."""
         with self._lock:
             cur = self._state
             dag_open = self._writer is not None
             inf_open = self._inference_writer is not None
-        if dag_open or cur == State.HUMAN_RECORD:
+            roll_open = self._roll_writer is not None
+            was_recording = self._recording
+        if roll_open:
+            # 关栈时正卡在人接管段 → 先按段尾裁一次再收集, 否则遥操静止尾会留在集末。
+            if was_recording:
+                self._roll_segment("human_seg_end")
+            self.get_logger().warn("shutdown during rollout recording — finalizing")
+            self._close_rollout_episode(terminal="session_end")
+        if not self._direct_c1 and (dag_open or cur == State.HUMAN_RECORD):
             self.get_logger().warn("shutdown during dagger recording — finalizing")
             self._close_episode()
         if inf_open:

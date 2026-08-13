@@ -78,11 +78,12 @@ TWO_CAN_MAPPINGS=(
 SLAVE_ONLY=false
 TWO_CAN=false
 FOUR_CAN=false
+TWO_CAN_EXPLICIT=false
 MACHINE="${VIS_ROBOT_ID:-${KAI0_ROBOT_ID:-${KAI0_MACHINE_ID:-}}}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --slave-only) SLAVE_ONLY=true; shift ;;
-        --two-can) TWO_CAN=true; shift ;;
+        --two-can) TWO_CAN=true; TWO_CAN_EXPLICIT=true; shift ;;
         --four-can) FOUR_CAN=true; shift ;;
         --machine|--robot) MACHINE="${2:-}"; shift 2 ;;
         -h|--help) sed -n '1,13p' "$0"; exit 0 ;;
@@ -120,9 +121,11 @@ fi
 # 若 config/dongle_serials.yml 已写入 4 条 (serial→角色), 默认委托 activate_can_v2.sh:
 # 按 dongle 序列号激活, 对 USB 物理口顺序/机器差异免疫。bus-info 静态表 (下方) 易因换
 # USB 口或换机器而失配 (例: visrobot01 的 1-x ≠ 本机 ipc01 的 3-2.2.x → 全 SKIP→DOWN)。
-# --two-can (visrobot02 左右共享 CAN) 不是 4-dongle 拓扑, 不委托, 仍走下方 bus-info。
+# 显式 --two-can (左右共享 CAN) 不是独立 dongle-role 拓扑, 不委托。仅仅因为
+# 当前检测到少于 4 个接口而自动猜成 TWO_CAN 时，不能覆盖 device profile 中已经
+# HITL 确认的 serial→role 映射（例如 1 master + 2 slave 的部分配对采集站）。
 DONGLE_YAML="${KAI0_DEVICE_PROFILE_PATH:-$PROJECT_ROOT/config/dongle_serials.yml}"
-if ! $TWO_CAN && [[ -f "$DONGLE_YAML" ]] \
+if ! $TWO_CAN_EXPLICIT && [[ -f "$DONGLE_YAML" ]] \
    && [[ "$(grep -cE '^[[:space:]]*can_[a-z_]+:' "$DONGLE_YAML")" -ge 1 ]] \
    && [[ -x "$SCRIPT_DIR/activate_can_v2.sh" ]]; then
     echo "[activate_can] 检测到序列号校准 ($DONGLE_YAML) → 委托 activate_can_v2.sh (USB 口免疫)"

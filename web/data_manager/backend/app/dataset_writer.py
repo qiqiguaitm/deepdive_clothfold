@@ -212,6 +212,30 @@ PREINTV_MARGIN = round(0.75 * FPS)   # =22 @30fps
 
 log = logging.getLogger(__name__)
 
+ACTIVE_DEPLOYMENT_MANIFEST = Path(
+    os.environ.get("KAI0_DEPLOYMENT_MANIFEST", "/tmp/kai0_active_deployment.json")
+)
+
+
+def load_active_deployment_manifest() -> dict | None:
+    """Return the live policy's immutable deployment identity/config.
+
+    The policy process owns this file. Checking owner_pid prevents a crashed
+    session's stale manifest from being attached to later teleop episodes.
+    EpisodeWriter snapshots it at episode open, so metadata remains available
+    even if the policy is stopped before the recorder finalizes the episode.
+    """
+    try:
+        data = json.loads(ACTIVE_DEPLOYMENT_MANIFEST.read_text(encoding="utf-8"))
+        owner = int(data.get("owner_pid", -1))
+        if owner <= 0:
+            return None
+        os.kill(owner, 0)
+        return data
+    except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError,
+            ProcessLookupError, PermissionError):
+        return None
+
 # One low-priority depth-finalizer for the whole backend.  New captures become
 # lossless FFV1/gray16le MKV.  Serializing jobs prevents post-save work
 # from competing with the live writer and recreating the old 10-20s drain stall.
@@ -386,6 +410,9 @@ class EpisodeWriter:
         self.prompt = prompt
         self.template_id = template_id
         self.operator = operator
+        # Bind provenance at episode start, not finalize. This is essential for
+        # DAgger: stopping/replacing the policy must not relabel an open rollout.
+        self.deployment = load_active_deployment_manifest()
         # chunk-000 = 单段 episode (teleop / autonomy / 旧 Form-C 分段采集)。
         # chunk-001 = 一个 rollout 内 INF+DAG 连录的拼接段 (直接采集模式, 见
         # dagger_recorder_node 的 KAI0_DIRECT_CHUNK001)。离线 stitch 产的也是 001,
@@ -1208,6 +1235,32 @@ def write_episode_meta(writer: EpisodeWriter, duration: float,
     }
     if extra:
         rec.update(extra)
+    if writer.deployment:
+        # A namespaced object keeps the LeRobot top-level metadata stable while
+        # preserving the complete resolved deployment configuration.
+        rec["deployment"] = writer.deployment
+        rec["deployment_run_id"] = writer.deployment.get("run_id")
+        current_deployment = load_active_deployment_manifest()
+        if (current_deployment
+                and current_deployment.get("run_id") == writer.deployment.get("run_id")
+                and current_deployment.get("config_revision")
+                    != writer.deployment.get("config_revision")):
+            rec["deployment_changed_during_episode"] = True
+            rec["deployment_end"] = current_deployment
+        # Persist once per dataset leaf as well. Episodes keep the embedded
+        # snapshot for portability; this indexed copy is convenient for audits.
+        run_id = str(writer.deployment.get("run_id") or "unknown")
+        if run_id != "unknown" and all(c.isalnum() or c in "-_" for c in run_id):
+            deployments_dir = meta_dir / "deployments"
+            deployments_dir.mkdir(parents=True, exist_ok=True)
+            deployment_path = deployments_dir / f"{run_id}.json"
+            persisted = current_deployment or writer.deployment
+            tmp = deployment_path.with_suffix(".json.tmp")
+            tmp.write_text(
+                json.dumps(persisted, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            os.replace(tmp, deployment_path)
     with (meta_dir / filename).open("a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 

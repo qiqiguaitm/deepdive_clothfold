@@ -77,6 +77,10 @@ def generate_launch_description():
         description='Head-trim steps of new chunk (JAX legacy 8, V1 overrides 6)')
     min_smooth_steps_arg = DeclareLaunchArgument('min_smooth_steps', default_value='8',
         description='Min blend window for chunk overlap smoothing (JAX 8, V1 8)')
+    max_smooth_steps_arg = DeclareLaunchArgument('max_smooth_steps', default_value='12',
+        description='Max chunk-overlap blend window; 0 means unlimited legacy behavior')
+    decay_alpha_arg = DeclareLaunchArgument('decay_alpha', default_value='0.25',
+        description='Legacy temporal-buffer exponential decay factor')
     speed_factor_arg = DeclareLaunchArgument('speed_factor', default_value='1.0',
         description='V2 油门: 全局速度倍率 (>1 超训练集速度; 1.0=原速). dagger inference 流提速用')
     speed_factor_max_arg = DeclareLaunchArgument('speed_factor_max', default_value='2.0',
@@ -85,11 +89,17 @@ def generate_launch_description():
         description='瞬时油门: 操作员踩住脚踏板时的目标倍率 (松开回 speed_factor)')
     rtc_execute_horizon_arg = DeclareLaunchArgument('rtc_execute_horizon', default_value='16',
         description='RTC guidance horizon (JAX legacy 16, V1 overrides 12)')
+    rtc_max_guidance_weight_arg = DeclareLaunchArgument(
+        'rtc_max_guidance_weight', default_value='0.5',
+        description='Upper bound for RTC guidance weight')
     publish_rate_arg = DeclareLaunchArgument('publish_rate', default_value='30',
         description='Hz of command publish loop = action playback rate (one pop/tick); '
                     'must match ckpt action resolution. kai0 30fps → 30 for both JAX and V1.')
     publish_smooth_alpha_arg = DeclareLaunchArgument('publish_smooth_alpha', default_value='0.5',
         description='Publish-time EMA factor (Layer 1.1E); shared across v0/v1')
+    obs_state_lowpass_alpha_arg = DeclareLaunchArgument(
+        'obs_state_lowpass_alpha', default_value='1.0',
+        description='Observation-state low-pass alpha; 1.0 disables filtering')
     rtc_smooth_method_arg = DeclareLaunchArgument('rtc_smooth_method', default_value='min_jerk',
         description='RTC chunk-overlap weight curve: min_jerk | linear')
     fast_obs_pipeline_arg = DeclareLaunchArgument('fast_obs_pipeline', default_value='false',
@@ -162,12 +172,16 @@ def generate_launch_description():
             'inference_rate': LaunchConfiguration('inference_rate'),
             'latency_k': LaunchConfiguration('latency_k'),
             'min_smooth_steps': LaunchConfiguration('min_smooth_steps'),
+            'max_smooth_steps': LaunchConfiguration('max_smooth_steps'),
+            'decay_alpha': LaunchConfiguration('decay_alpha'),
             'speed_factor': ParameterValue(LaunchConfiguration('speed_factor'), value_type=float),
             'speed_factor_max': ParameterValue(LaunchConfiguration('speed_factor_max'), value_type=float),
             'throttle_factor': ParameterValue(LaunchConfiguration('throttle_factor'), value_type=float),
             'rtc_execute_horizon': LaunchConfiguration('rtc_execute_horizon'),
+            'rtc_max_guidance_weight': LaunchConfiguration('rtc_max_guidance_weight'),
             'publish_rate': LaunchConfiguration('publish_rate'),
             'publish_smooth_alpha': LaunchConfiguration('publish_smooth_alpha'),
+            'obs_state_lowpass_alpha': LaunchConfiguration('obs_state_lowpass_alpha'),
             'rtc_smooth_method': LaunchConfiguration('rtc_smooth_method'),
             'fast_obs_pipeline': ParameterValue(LaunchConfiguration('fast_obs_pipeline'), value_type=bool),
             'pipelined_obs': ParameterValue(LaunchConfiguration('pipelined_obs'), value_type=bool),
@@ -188,8 +202,10 @@ def generate_launch_description():
         execute_mode_arg, enable_rtc_arg,
         host_arg, port_arg,
         inference_rate_arg, latency_k_arg, min_smooth_steps_arg,
+        max_smooth_steps_arg, decay_alpha_arg,
         speed_factor_arg, speed_factor_max_arg, throttle_factor_arg,
-        rtc_execute_horizon_arg, publish_rate_arg, publish_smooth_alpha_arg,
+        rtc_execute_horizon_arg, rtc_max_guidance_weight_arg,
+        publish_rate_arg, publish_smooth_alpha_arg, obs_state_lowpass_alpha_arg,
         rtc_smooth_method_arg, fast_obs_pipeline_arg, pipelined_obs_arg,
         transport_arg, policy_cpu_prefix_arg,
         policy_node,

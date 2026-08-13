@@ -178,7 +178,9 @@ if [[ "$VARIANT" == "v0" ]]; then
         "config_name:=$CONFIG_NAME"
         "gpu_id:=$GPU_ID"
         "mode:=ros2"
-        "execute_mode:=true"
+        # Safety invariant: loading a policy never moves the robot. The web/CLI
+        # control plane enables /policy/execute only after preflight + confirmation.
+        "execute_mode:=false"
     )
     [[ -n "$EFFECTIVE_PROMPT" ]] && LAUNCH_ARGS+=("prompt:=$EFFECTIVE_PROMPT")
     [[ -n "$POLICY_PREFIX" ]] && LAUNCH_ARGS+=("policy_cpu_prefix:=$POLICY_PREFIX")
@@ -304,8 +306,10 @@ LAUNCH_ARGS=(
     "host:=localhost"
     "port:=$SERVE_PORT"
     "gpu_id:=$GPU_ID"
-    "config_name:=pi05_flatten_fold_normal"
-    "execute_mode:=true"
+    "checkpoint_dir:=$CHECKPOINT_DIR"
+    "config_name:=$CONFIG_NAME"
+    # Safety invariant: policy sessions always enter observe-only first.
+    "execute_mode:=false"
     "inference_rate:=20.0"
     "latency_k:=6"
     "min_smooth_steps:=8"

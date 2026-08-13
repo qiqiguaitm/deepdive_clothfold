@@ -12,7 +12,10 @@ const TILES: { key: string; label: string }[] = [
 export default function CameraGrid({ cameras }: Props) {
   return (
     <div className="card cams-card">
-      <h2>相机预览</h2>
+      <div className="card-title-row">
+        <h2>相机预览</h2>
+        <span>Required inputs · 3 streams</span>
+      </div>
       <div className="cam-grid">
         {TILES.map((t) => {
           const h = cameras?.[t.key];

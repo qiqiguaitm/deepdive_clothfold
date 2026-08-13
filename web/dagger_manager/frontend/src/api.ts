@@ -1,4 +1,4 @@
-import type { CkptEntry, DaggerStatus, EpisodeEntry, JointState } from "./types";
+import type { CkptEntry, ControlPolicyConfig, ControlUpdatePlan, DaggerStatus, EpisodeEntry, JointState } from "./types";
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -22,9 +22,21 @@ export const api = {
   sessionStart: (body: { ckpt: string; gpu_id?: string; prompt?: string; variant?: string }) =>
     json("/api/dagger/session/start", { method: "POST", body: JSON.stringify(body) }),
   sessionStop: () => json("/api/dagger/session/stop", { method: "POST" }),
-  systemStart: (body: { ckpt: string; gpu_id?: string; prompt?: string; variant?: string }) =>
+  systemStart: (body: { ckpt: string; gpu_id?: string; prompt?: string; variant?: string;
+                       control_policy?: ControlPolicyConfig }) =>
     json("/api/dagger/system/start", { method: "POST", body: JSON.stringify(body) }),
   systemStop: () => json("/api/dagger/system/stop", { method: "POST" }),
+  controlPresets: (variant: string) =>
+    json<Record<string, ControlPolicyConfig>>(
+      `/api/deployment/control/presets?variant=${encodeURIComponent(variant)}`),
+  controlPlan: (config: ControlPolicyConfig) =>
+    json<ControlUpdatePlan>("/api/deployment/control/plan", {
+      method: "POST", body: JSON.stringify({ config, dry_run: true }),
+    }),
+  controlApply: (config: ControlPolicyConfig) =>
+    json<{ applied: string[]; plan: ControlUpdatePlan }>("/api/deployment/control", {
+      method: "PATCH", body: JSON.stringify({ config, dry_run: false }),
+    }),
   takeover: (enable: boolean) =>
     json("/api/dagger/takeover", { method: "POST", body: JSON.stringify({ enable }) }),
   recordToggle: () => json("/api/dagger/record/toggle", { method: "POST" }),
@@ -33,6 +45,10 @@ export const api = {
   recordDiscard: () => json("/api/dagger/record/discard", { method: "POST" }),
   execute: (enable: boolean) =>
     json("/api/dagger/execute", { method: "POST", body: JSON.stringify({ enable }) }),
+  deploymentMode: (mode: "observe" | "deploy" | "dagger") =>
+    json("/api/deployment/mode", { method: "POST", body: JSON.stringify({ mode }) }),
+  preflight: () => json<{ ok: boolean; checks: Record<string, boolean>; failures: string[] }>(
+    "/api/deployment/preflight", { method: "POST" }),
   rolloutNext: () => json("/api/dagger/rollout/next", { method: "POST" }),
   joints: () => json<JointState>("/api/joints"),
   tasks: () => json<{ task: string; has_data: boolean }[]>("/api/dagger/tasks"),

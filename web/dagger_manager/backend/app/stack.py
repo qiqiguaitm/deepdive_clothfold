@@ -18,6 +18,9 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from .deployment.control_policy import ControlPolicyConfig, preset_config
+from .deployment.ros_gateway import RosPolicyGateway
+
 # Resolve PROJECT_ROOT by walking up to the directory containing `kai0/`.
 _THIS = Path(__file__).resolve()
 PROJECT_ROOT: Optional[Path] = None
@@ -205,6 +208,7 @@ class SessionManager:
         self._log_path: Optional[Path] = None
         self._ckpt: Optional[str] = None
         self._started_at: Optional[float] = None
+        self._control_policy: Optional[ControlPolicyConfig] = None
 
     def is_running(self) -> bool:
         with self._lock:
@@ -219,11 +223,20 @@ class SessionManager:
                 "log": str(self._log_path) if self._log_path else None,
                 "ckpt": self._ckpt,
                 "started_at": self._started_at if running else None,
+                "control_policy": self._control_policy.model_dump() if self._control_policy else None,
             }
+
+    def set_control_policy(self, config: ControlPolicyConfig) -> None:
+        """Commit a ROS-acknowledged runtime configuration under the manager lock."""
+        with self._lock:
+            if self._proc is None or self._proc.poll() is not None:
+                raise RuntimeError("policy session is not running")
+            self._control_policy = config
 
     def start(self, ckpt: str, gpu_id: Optional[str] = None,
               prompt: Optional[str] = None,
-              variant: Optional[str] = None) -> dict:
+              variant: Optional[str] = None,
+              control_policy: Optional[ControlPolicyConfig] = None) -> dict:
         with self._lock:
             if self._proc is not None and self._proc.poll() is None:
                 raise RuntimeError(
@@ -241,6 +254,7 @@ class SessionManager:
             # the Triton pickle can't be located — the serve can't start
             # without it, and a 404 here is friendlier than a dead serve log.
             eff_variant = variant or variant_for(ckpt_p.parent.name, str(ckpt_p))
+            resolved_control = control_policy or preset_config("production_default", eff_variant)
             if eff_variant == "v1" and resolve_v1_pkl(ckpt_p) is None:
                 raise FileNotFoundError(
                     f"v1 ckpt {ckpt_p.name} has no v1_p200.pkl "
@@ -253,6 +267,10 @@ class SessionManager:
                 args += ["--gpu", str(gpu_id)]
             if prompt:
                 args += ["--prompt", prompt]
+            # The launcher forwards these domain-resolved ROS launch args to
+            # session_launch.py. Policy always starts observe-only; execution
+            # is enabled later through the safety-gated API.
+            args += RosPolicyGateway.launch_args(resolved_control)
             log_fh = open(log_path, "w")
             self._proc = subprocess.Popen(
                 args,
@@ -263,6 +281,7 @@ class SessionManager:
             self._log_path = log_path
             self._ckpt = str(ckpt_p)
             self._started_at = time.time()
+            self._control_policy = resolved_control
             return self._status_unlocked()
 
     def stop(self, timeout: float = 6.0) -> dict:
@@ -297,6 +316,7 @@ class SessionManager:
             self._proc = None
             self._ckpt = None
             self._started_at = None
+            self._control_policy = None
             return {"running": False, "pid": None,
                     "log": str(self._log_path) if self._log_path else None,
                     "ckpt": prev_ckpt, "started_at": None}
@@ -309,6 +329,7 @@ class SessionManager:
             "log": str(self._log_path) if self._log_path else None,
             "ckpt": self._ckpt,
             "started_at": self._started_at if running else None,
+            "control_policy": self._control_policy.model_dump() if self._control_policy else None,
         }
 
 
@@ -318,7 +339,8 @@ session = SessionManager()
 def system_start_async(ckpt: str, gpu_id: Optional[str] = None,
                        task: Optional[str] = None, prompt: Optional[str] = None,
                        variant: Optional[str] = None,
-                       readiness_timeout: float = 30.0) -> None:
+                       readiness_timeout: float = 30.0,
+                       control_policy: Optional[ControlPolicyConfig] = None) -> None:
     """Start only the session (policy_inference). Infra is now bundled with
     start_dagger_collect.sh — if the web is up, infra is up, so all we do
     here is load the model with the picked ckpt.
@@ -339,7 +361,8 @@ def system_start_async(ckpt: str, gpu_id: Optional[str] = None,
             time.sleep(0.5)
     if not session.is_running():
         try:
-            session.start(ckpt=ckpt, gpu_id=gpu_id, prompt=prompt, variant=variant)
+            session.start(ckpt=ckpt, gpu_id=gpu_id, prompt=prompt, variant=variant,
+                          control_policy=control_policy)
         except Exception as e:
             print(f"[system_start] session start failed: {e}")
 

@@ -81,6 +81,73 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# ── CAN capability gate ─────────────────────────────────────────────────────
+# Model rollout only needs the two slave arms. Human DAgger takeover additionally
+# needs both master arms; do not block a valid two-slave model test.
+# Resolve the same host-specific profile consumed by activate_can_v2.sh.  This
+# keeps DAgger capability discovery consistent across identical stations.
+DEVICE_PROFILE_SH="$PROJECT_ROOT/config/device_profile.sh"
+if [[ -f "$DEVICE_PROFILE_SH" ]]; then
+    # shellcheck source=/dev/null
+    source "$DEVICE_PROFILE_SH"
+    load_kai0_device_profile "$PROJECT_ROOT"
+fi
+CAN_ROLE_FILE="${KAI0_DEVICE_PROFILE_PATH:-$PROJECT_ROOT/config/dongle_serials.yml}"
+
+# mid_head is optional. Resolve one run-wide flag before ROS imports
+# dataset_writer.CAMERAS, otherwise a configured-but-missing UVC camera blocks
+# every recorder tick waiting for a frame that can never arrive.
+if [[ "${KAI0_MID_HEAD_TYPE:-uvc}" == "uvc" ]]; then
+    _mid_dev="${KAI0_CAMERA_MID_HEAD_DEVICE:-/dev/cam_mid_head}"
+    if [[ "${KAI0_ENABLE_MID_HEAD:-1}" == "1" && -e "$_mid_dev" ]]; then
+        export KAI0_ENABLE_MID_HEAD=1
+    else
+        export KAI0_ENABLE_MID_HEAD=0
+        echo "[WARN] mid_head UVC 缺失或未启用 ($_mid_dev)：继续使用 3 个必需相机" >&2
+    fi
+fi
+has_can_role() {
+    local role="$1"
+    [[ -f "$CAN_ROLE_FILE" ]] \
+        && grep -qE "^[[:space:]]*${role}:[[:space:]]*['\"]?[^[:space:]'\"]+" "$CAN_ROLE_FILE"
+}
+
+missing_slaves=()
+has_can_role can_left_slave  || missing_slaves+=("can_left_slave")
+has_can_role can_right_slave || missing_slaves+=("can_right_slave")
+if (( ${#missing_slaves[@]} > 0 )); then
+    echo "[FAIL] 模型真机测试必须有两个从臂；缺少 CAN 角色: ${missing_slaves[*]}" >&2
+    echo "       请检查 $CAN_ROLE_FILE 并重新执行 CAN 序列号校准。" >&2
+    exit 1
+fi
+
+has_can_role can_left_mas  && _master_left=1  || _master_left=0
+has_can_role can_right_mas && _master_right=1 || _master_right=0
+
+# Per-side overrides are useful for maintenance, but by default capability is
+# derived entirely from the device profile.  Legacy KAI0_ENABLE_MASTER=0 still
+# disables both sides; =1 means "use every physically configured side".
+if [[ "${KAI0_ENABLE_MASTER:-1}" == "0" ]]; then
+    _master_left=0
+    _master_right=0
+fi
+export KAI0_ENABLE_MASTER_LEFT="${KAI0_ENABLE_MASTER_LEFT:-$_master_left}"
+export KAI0_ENABLE_MASTER_RIGHT="${KAI0_ENABLE_MASTER_RIGHT:-$_master_right}"
+for _v in KAI0_ENABLE_MASTER_LEFT KAI0_ENABLE_MASTER_RIGHT; do
+    [[ "${!_v}" == "0" || "${!_v}" == "1" ]] || {
+        echo "[FAIL] $_v 只能是 0 或 1，当前为 '${!_v}'" >&2; exit 1;
+    }
+done
+if [[ "$KAI0_ENABLE_MASTER_LEFT" == "1" && "$KAI0_ENABLE_MASTER_RIGHT" == "1" ]]; then
+    echo "[INFO] DAgger 遥操能力: LEFT + RIGHT（双臂全部进入示教后接管）"
+elif [[ "$KAI0_ENABLE_MASTER_LEFT" == "1" ]]; then
+    echo "[WARN] DAgger 遥操能力: LEFT only；右从臂在接管期间保持最后位置" >&2
+elif [[ "$KAI0_ENABLE_MASTER_RIGHT" == "1" ]]; then
+    echo "[WARN] DAgger 遥操能力: RIGHT only；左从臂在接管期间保持最后位置" >&2
+else
+    echo "[WARN] 未配置可用主臂：仅支持模型 rollout，不提供人工接管" >&2
+fi
+
 # --ckpt is OPTIONAL: the dagger INFRA launches with enable_policy:=false (CAN +
 # cameras + arms + recorder + pedal only). The policy ckpt is NOT loaded here —
 # you select it in the web UI ckpt-picker, which starts the policy session
@@ -145,6 +212,29 @@ else
 fi
 export KAI0_DATE_SUFFIX="-${KAI0_DATASET_VERSION}"   # date leaf suffix (layout.py)
 
+# ── 直接采集 chunk-001 (2026-07-22) ────────────────────────────────────────
+# 一个 rollout = 一个连续 episode, 落 <task>/dagger/<vN>/<date>/data/chunk-001/
+# (+ meta/episodes_stitched.jsonl), 与离线 stitch_dagger_episodes.py 同构:
+#   · INF 段 intervention=0, 人接管段 =1; 空档 (ALIGNING / 未踩踏板 / RETURNING)
+#     一帧不写 —— 这些帧本来就不落盘, 不是新省下来的。
+#   · dagger_frame_class {0 robot, 1 intv_core, 2 preintv} 在 finalize 由
+#     intervention 列回溯导出; 3/4 (起手迟疑 / 静止尾) 在段边界物理裁掉。
+#   · 不写 depth (chunk-001 下游一帧不用, 却占 dagger 采集磁盘的 75%)。
+# 于是不再产 chunk-000 与 inference/ 两份原始数据, 也不需要离线重编码那一遍。
+#
+# ⚠️ 代价 (已知, 采集前须清楚):
+#   · 裁剪/打标口径烧进采集 → 事后不可重调 (COAST_TRIM 就曾设错, 见 git log)。
+#   · 一个 rollout 只有一集: 写失败/崩溃丢的是整次尝试, 不再是其中一段。
+#   · web 的 discard 在此模式下丢的是整个 rollout (连续集无法只删一段人接管)。
+#
+# 主臂关掉时 (start_throttle_collect.sh: KAI0_ENABLE_MASTER=0) 不存在人接管,
+# 拼出来的 chunk-001 会是全 intervention=0 的退化集 → 那条路保持旧 inference/ 行为。
+if [[ "$KAI0_ENABLE_MASTER_LEFT" == "0" && "$KAI0_ENABLE_MASTER_RIGHT" == "0" ]]; then
+    export KAI0_DIRECT_CHUNK001=0
+else
+    export KAI0_DIRECT_CHUNK001="${KAI0_DIRECT_CHUNK001:-1}"
+fi
+
 # ── V1/v0 inference efficiency (2026-06-15) ──────────────────────────────────
 # The dagger infra adds dagger_recorder (PyAV mp4×3 + zarr) + 2× master_servo on
 # top of the V1 20 Hz (50 ms) inference loop; on a shared box that contention
@@ -205,8 +295,13 @@ echo " subset     : $SUBSET"
 echo " leaf suffix: $KAI0_DATE_SUFFIX (<task>/<subset>/<date>$KAI0_DATE_SUFFIX; head_depth=$KAI0_HEAD_DEPTH)"
 echo " trim       : front=$KAI0_FRONT_TRIM tail=$KAI0_TAIL_TRIM (record-time leading + trailing idle cap, keep 15-frame settle)"
 echo " depth fmt  : packed 1 file/episode (.zarr.zip) — EpisodeWriter.finalize auto-packs the zarr dir"
-echo " inference  : $([ "$RECORD_INFERENCE" = "true" ] && echo 'ON (Form C: dagger/ + inference/)' || echo 'OFF (dagger/ only)')"
-echo " master arm : $([ "${KAI0_ENABLE_MASTER:-1}" = "0" ] && echo '油门-only OFF (无 master_servo / 无接管, 只录 inference/+inference_fast/)' || echo 'ON (dagger 接管可用)')"
+if [[ "$KAI0_DIRECT_CHUNK001" == "1" ]]; then
+    echo " 输出格式   : chunk-001 直采 (一 rollout 一集, meta/episodes_stitched.jsonl, 无 depth, 无需离线 stitch)"
+else
+    echo " 输出格式   : chunk-000 分段 (旧 Form C; 需事后跑 stitch_dagger_episodes.py 才有 chunk-001)"
+    echo " inference  : $([ "$RECORD_INFERENCE" = "true" ] && echo 'ON (Form C: dagger/ + inference/)' || echo 'OFF (dagger/ only)')"
+fi
+echo " master arm : left=$KAI0_ENABLE_MASTER_LEFT right=$KAI0_ENABLE_MASTER_RIGHT (所有可用侧均进入示教后接管)"
 echo " prompt     : ${PROMPT:-<infer-from-ckpt>}"
 echo " config     : $CONFIG_NAME"
 echo " asset_id   : ${ASSET_ID:-<none>}"
@@ -221,9 +316,8 @@ DAGGER_ARGS=("record_subset:=$SUBSET" "record_inference:=$RECORD_INFERENCE")
 # 油门-only 采集 (KAI0_ENABLE_MASTER=0, 由 start_throttle_collect.sh 设): 关掉
 # 2× master_servo。策略自主跑从臂 + 脚踏板控速, recorder 停 POLICY_RUN 只录
 # inference/ + inference_fast/。主臂返厂 / 无人接管时用。默认 1 = 正常 dagger。
-if [[ "${KAI0_ENABLE_MASTER:-1}" == "0" ]]; then
-    DAGGER_ARGS+=("enable_master:=false")
-fi
+DAGGER_ARGS+=("enable_master_left:=$([[ "$KAI0_ENABLE_MASTER_LEFT" == 1 ]] && echo true || echo false)")
+DAGGER_ARGS+=("enable_master_right:=$([[ "$KAI0_ENABLE_MASTER_RIGHT" == 1 ]] && echo true || echo false)")
 
 # Delegate to start_autonomy.sh with --dagger flag.
 # start_autonomy.sh handles: CAN activation, USB camera reset, GPU selection,
