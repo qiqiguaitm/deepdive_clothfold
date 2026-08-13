@@ -61,7 +61,7 @@ GPUs, global batch 128, exact final-checkpoint selection, and matched rank data
 orders within seed. The released TG1A checkpoint and the official pi0.5 A0 score
 are excluded from within-architecture causal contrasts.
 
-- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 11:02 UTC canonical
+- [ ] **TG4-T01--T18 [ACTIVE; 8/18 COMPLETE]** At the 11:18 UTC canonical
   snapshot, nine unfinished training cells are Running and one is Queueing on
   North; every cell is completed, running, or submitted, with no undispatched
   training cell. All three `auxiliary_only`
@@ -109,13 +109,13 @@ are excluded from within-architecture causal contrasts.
   failures blocked the first repaired `conditioning_only` retries; those exact
   roots were also quarantined. All three conditioning cells were then submitted
   in parallel on the primary North identity and are now training near steps
-  9.8k/7.8k/7.6k. `full` seeds 1100 and 1101 reached exact step 20,000;
+  11.3k/9.3k/9.1k. `full` seeds 1100 and 1101 reached exact step 20,000;
   their per-cell recovery watchers verified the frozen configuration,
   initialization, rank orders, final model, optimizer state, and exact
   post-training shell error before admitting them, and both artifacts are now
   materialized locally. `future_off` seeds 1100/1101 are healthy near
-  13.8k/13.6k, parameter-matched-null seeds 1101/1102 near 14.7k/14.8k, and
-  `full` seed 1102 near 12.0k. A fresh exact-token health scan of all eight
+  15.3k/15.1k, parameter-matched-null seeds 1101/1102 near 16.1k/16.2k, and
+  `full` seed 1102 near 13.3k. A fresh exact-token health scan of all eight
   active logs found no NaN/Inf, OOM, CUDA, NCCL, dataloader, or traceback
   failure; observed throughput remains stable at 1.93--2.26 seconds per step.
   The temporary gf1 processes for `future_off`
@@ -138,8 +138,14 @@ are excluded from within-architecture causal contrasts.
   old partial roots were already quarantined and the formal output paths were
   empty. A new recovery revision reopened exactly these two exhausted gf1
   candidates. The primary-identity `future_off` seed-1102 North queue copy was
-  stopped before a clean gf1 dispatch; model loading and step zero passed at
-  1.96 seconds/step. The backup-identity `parameter_matched_null` seed-1100
+  stopped before a clean gf1 dispatch. That first recovery passed model loading
+  and step zero but received `SIGTERM` at step 201 when the scheduler tmux was
+  restarted. Its output root contained no model or optimizer checkpoint and was
+  renamed in place to a hidden dated quarantine. A second clean recovery was
+  launched at 11:12 UTC, passed step zero, and is healthy at 1.95 seconds/step;
+  its watcher targets the exact new status directory. The scheduler must not be
+  restarted while this SSH training child is active. The backup-identity
+  `parameter_matched_null` seed-1100
   queue copy could not be stopped by the available identities (`AccessDenied`),
   so no duplicate gf1 run was launched and the North attempt remains tracked.
   Do not inspect partial
