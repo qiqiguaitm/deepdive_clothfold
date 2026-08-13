@@ -6946,6 +6946,7 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
             assert scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[
                 ("Beijing", label)
             ] == task_id
+            assert scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[("gf1", label)] == task_id
             materialize_id = f"{task_id}_materialize_north"
             materialize = tasks[materialize_id]
             assert materialize["materialize_north_result_for"] == task_id
@@ -7684,6 +7685,40 @@ def test_markdown_training_heartbeat_requires_platform_running(
     )
     scheduler.write_markdown_snapshot(snapshot)
     assert f"`{label}`" in scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
+
+    gf1_label = "tg4_conditioning_only_seed1101"
+    gf1_task_id = scheduler.TRAIN_WATCH_MANAGED_TASK_IDS[("gf1", gf1_label)]
+    snapshot["resources"]["beijing"]["watched_tasks"] = {}
+    snapshot["resources"]["gf1"] = {
+        "count": 8,
+        "free_count": 4,
+        "watched_tasks": {
+            gf1_label: {
+                "status": "RUNNING",
+                "step": 211,
+                "seconds_per_step": 2.0,
+            }
+        },
+    }
+    snapshot["scheduler_tasks"][gf1_task_id] = {
+        "status": "running",
+        "attempts": [
+            {
+                "kind": "platform",
+                "last_state": "Running",
+                "resource": "Robot-North-H20",
+            }
+        ],
+    }
+    scheduler.write_markdown_snapshot(snapshot)
+    assert f"`{gf1_label}`" not in scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
+
+    snapshot["scheduler_tasks"][gf1_task_id]["attempts"][-1] = {
+        "kind": "ssh",
+        "resource": "gf1",
+    }
+    scheduler.write_markdown_snapshot(snapshot)
+    assert f"`{gf1_label}`" in scheduler.SNAPSHOT_MARKDOWN_PATH.read_text()
 
 
 @pytest.mark.parametrize(

@@ -521,6 +521,7 @@ for arm in (
     for seed in (1100, 1101, 1102):
         label = f"tg4_{arm}_seed{seed}"
         task_id = f"temporal_grounding_tg4_{arm}_seed{seed}_train"
+        TRAIN_WATCH_MANAGED_TASK_IDS[("gf1", label)] = task_id
         TRAIN_WATCH_MANAGED_TASK_IDS[("Robot-East-H20", label)] = task_id
         TRAIN_WATCH_MANAGED_TASK_IDS[("Beijing", label)] = task_id
 NORTH_WATCH_TASKS = {
@@ -16019,12 +16020,11 @@ def write_markdown_snapshot(snapshot: dict[str, Any]) -> None:
                 expected_resource = (
                     "Robot-North-H20" if resource == "Beijing" else resource
                 )
+                if latest_attempt.get("resource") != expected_resource:
+                    continue
                 if (
                     latest_attempt.get("kind") == "platform"
-                    and (
-                        latest_attempt.get("last_state") != "Running"
-                        or latest_attempt.get("resource") != expected_resource
-                    )
+                    and latest_attempt.get("last_state") != "Running"
                 ):
                     continue
             rate = status.get("seconds_per_step")
