@@ -194,7 +194,7 @@ are excluded from within-architecture causal contrasts.
   matching shuffled panel can start. Analysis now depends on those materialized
   normal panels rather than platform terminal state alone. The symlink healer,
   renderer helpers, North wrapper, staging script, and materializer are explicit
-  frozen hash dependencies; the repaired bundle verifier and all 221 related
+  frozen hash dependencies; the repaired bundle verifier and all 224 related
   scheduler/TG4 tests pass. The independent hourly audit now freezes all 79
   claim-bearing execution gates, including the North staging task and all 18
   normal-result materializers, so it cannot declare completion at a platform
