@@ -370,6 +370,62 @@ def test_heartbeat_prefers_running_location_and_filters_inactive_tasks() -> None
     }
 
 
+def test_ssh_attempt_status_drives_canonical_heartbeat_selection() -> None:
+    active_id = "temporal_grounding_tg4_future_off_seed1102_train"
+    queued_id = "temporal_grounding_tg4_conditioning_only_seed1101_train"
+    tasks = {
+        active_id: monitor.task_record(
+            {
+                "status": "running",
+                "attempts": [
+                    {
+                        "resource": "gf1",
+                        "last_status": "RUNNING start=2026-08-12T23:31:58Z",
+                    }
+                ],
+            }
+        ),
+        queued_id: monitor.task_record(
+            {
+                "status": "running",
+                "attempts": [
+                    {
+                        "resource": "gf1",
+                        "last_status": "RUNNING start=2026-08-12T23:07:45Z",
+                    },
+                    {"resource": "Robot-North-H20", "last_state": "Queueing"},
+                ],
+            }
+        ),
+    }
+    snapshot = {
+        "resources": {
+            "gf1": {
+                "watched_tasks": {
+                    "tg4_future_off_seed1102": {
+                        "status": "RUNNING start=2026-08-12T23:31:58Z",
+                        "step": 10784,
+                    },
+                    "tg4_conditioning_only_seed1101": {
+                        "status": "RUNNING",
+                        "step": 211,
+                    },
+                }
+            }
+        }
+    }
+
+    assert tasks[active_id]["execution_state"] == "Running"
+    assert tasks[queued_id]["execution_state"] == "Queueing"
+    assert monitor.heartbeat_metrics(snapshot, tasks) == {
+        "tg4_future_off_seed1102": {
+            "resource": "gf1",
+            "status": "RUNNING",
+            "step": 10784,
+        }
+    }
+
+
 def test_once_writes_all_monitor_artifacts(tmp_path: Path) -> None:
     todo, snapshot, state = write_inputs(tmp_path, status="pending")
     jsonl = tmp_path / "monitor.jsonl"

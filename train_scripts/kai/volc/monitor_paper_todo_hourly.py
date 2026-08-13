@@ -219,9 +219,17 @@ def task_record(value: dict[str, Any] | None) -> dict[str, Any]:
         }
     attempts = value.get("attempts") or []
     attempt = attempts[-1] if attempts else {}
+    execution_state = attempt.get("last_state")
+    if execution_state is None:
+        ssh_status = str(attempt.get("last_status") or "").partition(" ")[0]
+        execution_state = {
+            "RUNNING": "Running",
+            "STARTING": "Deploying",
+            "FINISHED": "Completed",
+        }.get(ssh_status.upper())
     return {
         "status": value.get("status", "unknown"),
-        "execution_state": attempt.get("last_state"),
+        "execution_state": execution_state,
         "job_id": attempt.get("job_id"),
         "completed_at": value.get("completed_at"),
         "failure": value.get("last_failure") or attempt.get("failure"),
@@ -288,6 +296,7 @@ def heartbeat_metrics(
             if name not in active_names:
                 continue
             candidate = {"resource": resource, **heartbeat}
+            candidate["status"] = str(candidate.get("status") or "").partition(" ")[0]
             current = result.get(name)
             candidate_rank = (
                 status_priority.get(candidate.get("status"), 0),
