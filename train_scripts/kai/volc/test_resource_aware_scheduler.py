@@ -6969,8 +6969,11 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         )
         for seed in (1100, 1101, 1102)
     }
-    assert tg4_integrity["candidates"][0]["resource"] == "Robot-East-H20"
-    assert tg4_integrity["candidates"][0]["gpus"] == 1
+    assert [candidate["resource"] for candidate in tg4_integrity["candidates"]] == [
+        "local",
+        "Robot-East-H20",
+    ]
+    assert [candidate["gpus"] for candidate in tg4_integrity["candidates"]] == [0, 1]
     assert len(temporal_grounding_evals) == 47
     assert all(
         scheduler.TEMPORAL_GROUNDING_EVAL_RE.fullmatch(task_id)

@@ -10194,6 +10194,17 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
         "ready_hashes": tg4_posttraining_hashes[3:],
         "candidates": [
             {
+                "kind": "local",
+                "resource": "local",
+                "gpus": 0,
+                "retry_cooldown_seconds": 300,
+                "max_failures": 1,
+                "status_dir": str(
+                    REPO / "logs/temporal_grounding/tg4/training_integrity_local"
+                ),
+                "command": shlex.join(["bash", str(tg4_integrity_runner)]),
+            },
+            {
                 "kind": "platform",
                 "resource": "Robot-East-H20",
                 "region": "cn-shanghai",

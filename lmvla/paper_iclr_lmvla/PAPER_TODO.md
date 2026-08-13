@@ -1,6 +1,6 @@
 # Temporal-Grounding GPU Evidence TODO
 
-Updated: 2026-08-12 22:44 UTC
+Updated: 2026-08-13 05:24 UTC
 
 This file contains only unfinished training/evaluation evidence and current
 scientific gates. Completed evidence, rejected protocols, and superseded
@@ -93,6 +93,9 @@ are excluded from within-architecture causal contrasts.
   pass. North materialization now uses two bounded seed-sharded transfer slots
   instead of one global serial lock; each run still uses an immutable sync
   script, remote/local SHA256 verification, and an atomic destination move.
+  The joint verifier now prefers a local zero-GPU execution path and retains
+  East 1-GPU only as a fallback, so platform deployment cannot delay the gate
+  after the final materializer completes.
   Rank-order hashes must match across arms within seed and differ across seeds.
 - [ ] **TG4-E1 [IMPLEMENTED; BLOCKED by I1]** Twenty-one scheduler tasks are
   registered under the independently frozen evaluation manifest: normal for
