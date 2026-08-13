@@ -10491,8 +10491,8 @@ def add_temporal_grounding_tasks(queue: dict[str, Any]) -> None:
                     "max_failures": 3,
                     "status_dir": str(
                         REPO
-                        / "logs/temporal_grounding/tg4/eval_north_prefetch"
-                        / f"{prefetch_arm}_seed{prefetch_seed}"
+                        / "logs/resource_scheduler_local"
+                        / f"tg4_eval_prefetch_{prefetch_arm}_seed{prefetch_seed}"
                     ),
                     "command": shlex.join(
                         [

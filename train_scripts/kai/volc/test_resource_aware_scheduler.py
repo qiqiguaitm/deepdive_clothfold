@@ -7033,6 +7033,12 @@ def test_temporal_grounding_first_wave_is_frozen_and_dependency_safe() -> None:
         ]
         assert task["candidates"][0]["resource"] == "local"
         assert task["candidates"][0]["gpus"] == 0
+        assert Path(task["candidates"][0]["status_dir"]).parent == (
+            scheduler.REPO / "logs/resource_scheduler_local"
+        )
+        assert Path(task["candidates"][0]["status_dir"]).name.startswith(
+            "tg4_eval_prefetch_"
+        )
         assert "prefetch_temporal_grounding_tg4_eval_checkpoint_to_north.sh" in (
             task["candidates"][0]["command"]
         )
