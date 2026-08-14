@@ -64,6 +64,9 @@ docs/training/
 
 ## 上游文档 (跨目录)
 
+采集 episode 的结果、干预、恢复与失败模式字段采用版本化
+[`rollout_outcome` 契约](rollout_outcome_contract.md)；训练和数据构建代码应通过统一兼容读取器访问。
+
 未来计划的**战略上游** (跨数据集/跨模型架构的整体规划) 在 `docs/deployment/` 下:
 
 | 文档 | 用途 |

@@ -36,8 +36,20 @@ export const api = {
     ),
   startRec: (template_id: string, operator: string) =>
     req<RecorderSnap>(`/api/recorder/start`, { method: "POST", body: JSON.stringify({ template_id, operator }) }),
-  saveRec: (success: boolean, note: string, scene_tags: string[]) =>
-    req<{ saved_episode_id: number }>(`/api/recorder/save`, { method: "POST", body: JSON.stringify({ success, note, scene_tags }) }),
+  saveRec: (payload: {
+    success: boolean;
+    outcome: "success" | "partial_success" | "failure" | "aborted";
+    rollout_mode: "demonstration" | "autonomous" | "intervention" | "recovery";
+    failure_modes: string[];
+    intervention_count: number;
+    recovery_success: boolean | null;
+    unsafe_event: boolean;
+    time_limit_reached: boolean;
+    note: string;
+    scene_tags: string[];
+  }) => req<{ saved_episode_id: number }>(`/api/recorder/save`, {
+    method: "POST", body: JSON.stringify(payload),
+  }),
   discardRec: () => req<RecorderSnap>(`/api/recorder/discard`, { method: "POST" }),
   estop: () => req<{ ok: boolean }>(`/api/recorder/estop`, { method: "POST" }),
 

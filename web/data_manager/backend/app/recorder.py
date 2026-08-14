@@ -322,7 +322,8 @@ class Recorder:
     def _write_meta(self, writer: _EpisodeWriter, duration: float, req: SaveRecordingReq) -> None:
         write_episode_meta(writer, duration,
                            success=req.success, note=req.note,
-                           scene_tags=req.scene_tags)
+                           scene_tags=req.scene_tags,
+                           extra={"rollout_outcome": req.rollout_outcome()})
 
     def _update_info_json(self, task: Optional[str], subset: Optional[str]) -> None:
         update_info_json(task, subset)
